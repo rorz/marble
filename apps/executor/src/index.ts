@@ -1,12 +1,34 @@
 import { getSandbox } from "@cloudflare/sandbox";
-import { createClient } from "@marble/supabase";
+import { createClient, Schemas } from "@marble/supabase";
 
 export { Sandbox } from "@cloudflare/sandbox";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const supabase = createClient("test", "test");
-    const columnProgramRunId = "xxx";
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = env;
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      return Response.json(
+        { error: true, message: "Missing Supabase credentials." },
+        { status: 500 },
+      );
+    }
+
+    const url = new URL(request.url);
+    const columnProgramRunId = url.searchParams.get("run_id");
+    const requestBody = Schemas.ExecutorRequestBodySchema.parse(
+      await request.json(),
+    );
+
+    if (!columnProgramRunId) {
+      return Response.json(
+        { error: true, message: "Missing required `run_id` search parameter." },
+        { status: 400 },
+      );
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
     const columnProgramRunInitialValueQuery = await supabase
       .from("column_program_run")
       .select(`
@@ -25,9 +47,15 @@ export default {
       });
     }
 
-    const inputSchema = runValue.column_program.input_schema;
-    const outputSchema = runValue.column_program.output_schema;
-    const inputValuesTemplate = runValue.cell.column.input_values_template;
+    const inputSchema = Schemas.ColumnProgramInputSchema.parse(
+      runValue.column_program.input_schema,
+    );
+    const outputSchema = Schemas.ColumnProgramOutputSchema.parse(
+      runValue.column_program.output_schema,
+    );
+    const inputValuesTemplate = Schemas.ColumnProgramInputValuesTemplate.parse(
+      runValue.cell.column.input_values_template,
+    );
     const variables = inputValuesTemplate;
 
     if (runValue.column_program.runtime !== "JavaScript") {

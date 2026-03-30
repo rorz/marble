@@ -37,7 +37,10 @@
 			"tag": "v1"
 		}
 	],
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"vars": {
+		"SUPABASE_URL": ""
+	}
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
