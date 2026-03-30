@@ -2,13 +2,11 @@
   "name": "marble",
   "private": true,
   "scripts": {
-    "dev:web": "pnpm --filter @marble/web dev",
-    "build:web": "pnpm --filter @marble/web build",
-    "dev:all": "pnpm -r --parallel dev",
-    "build:all": "pnpm -r build",
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
     "lint": "biome check",
     "format": "biome format --write",
-    "gen:types": "supabase gen types typescript --local > supabase/src/types.ts"
+    "gen:types": "pnpm dlx supabase gen types typescript --local > supabase/src/types.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:",
