@@ -8,10 +8,13 @@
     "start": "next start"
   },
   "dependencies": {
-    "supabase": "catalog:",
+    "@marble/supabase": "workspace:*",
+    "ag-grid-community": "^35.2.0",
+    "ag-grid-react": "^35.2.0",
     "next": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "supabase": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

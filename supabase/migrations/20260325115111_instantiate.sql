@@ -52,9 +52,10 @@ CREATE TABLE "column" (
   updated_at timestamptz NOT NULL DEFAULT now(),
   author_user_id uuid REFERENCES auth.users(id),
   table_id uuid NOT NULL REFERENCES "table"(id),
-  "index" bigint NOT NULL UNIQUE,
+  "index" bigint NOT NULL,
   program_id uuid NOT NULL REFERENCES column_program(id),
-  input_values_template jsonb NOT NULL
+  input_values_template jsonb NOT NULL,
+  UNIQUE (table_id, "index")
 );
 
 CREATE TABLE column_dependency (
@@ -70,8 +71,9 @@ CREATE TABLE "row" (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   author_user_id uuid REFERENCES auth.users(id),
-  table_id uuid REFERENCES "table"(id),
-  "index" bigint NOT NULL UNIQUE
+  table_id uuid NOT NULL REFERENCES "table"(id),
+  "index" bigint NOT NULL,
+  UNIQUE (table_id, "index")
 );
 
 CREATE TABLE cell (

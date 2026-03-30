@@ -50,3 +50,9 @@ INSERT INTO cell (id, column_id, row_id, value) VALUES
    '00000000-0000-0000-0002-000000000002',
    '00000000-0000-0000-0003-000000000001',
    null);
+
+-- Realtime: publish cell changes so the demo page can subscribe
+ALTER PUBLICATION supabase_realtime ADD TABLE cell;
+
+-- Permissive SELECT policy so the anon key can receive realtime events
+CREATE POLICY "allow_select_cells" ON cell FOR SELECT USING (true);
