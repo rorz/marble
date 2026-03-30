@@ -1,3 +1,31 @@
+packages:
+  - "apps/*"
+  - "supabase"
+
+catalog:
+  # React ecosystem
+  react: "19.2.4"
+  react-dom: "19.2.4"
+  next: "16.2.1"
+  babel-plugin-react-compiler: "1.0.0"
+
+  # Styling
+  tailwindcss: "^4"
+  "@tailwindcss/postcss": "^4"
+
+  # Type definitions
+  "@types/node": "^20"
+  "@types/react": "^19"
+  "@types/react-dom": "^19"
+
+  # Supabase
+  "@supabase/supabase-js": "^2"
+  supabase: "^2.84.0"
+
+  # Tooling
+  typescript: "^5"
+  "@biomejs/biome": "2.2.0"
+
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
