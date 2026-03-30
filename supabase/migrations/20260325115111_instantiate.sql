@@ -51,10 +51,10 @@ CREATE TABLE "column" (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   author_user_id uuid REFERENCES auth.users(id),
-  table_id uuid REFERENCES "table"(id),
+  table_id uuid NOT NULL REFERENCES "table"(id),
   "index" bigint NOT NULL UNIQUE,
   program_id uuid NOT NULL REFERENCES column_program(id),
-  input jsonb NOT NULL
+  input_values_template jsonb NOT NULL
 );
 
 CREATE TABLE column_dependency (
@@ -79,8 +79,8 @@ CREATE TABLE cell (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   author_user_id uuid REFERENCES auth.users(id),
-  column_id uuid REFERENCES "column"(id),
-  row_id uuid REFERENCES "row"(id),
+  column_id uuid NOT NULL REFERENCES "column"(id),
+  row_id uuid NOT NULL REFERENCES "row"(id),
   value jsonb
 );
 
@@ -88,9 +88,9 @@ CREATE TABLE column_program_run (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  column_program_id uuid REFERENCES column_program(id),
-  target_cell_id uuid REFERENCES cell(id),
-  instigating_user_id uuid REFERENCES auth.users(id),
+  column_program_id uuid NOT NULL REFERENCES column_program(id),
+  target_cell_id uuid NOT NULL REFERENCES cell(id),
+  instigating_user_id uuid NOT NULL REFERENCES auth.users(id),
   input jsonb,
   output jsonb
 );
@@ -117,3 +117,13 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON cell
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON column_program_run
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- RLS
+
+ALTER TABLE "table" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE column_program ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "column" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE column_dependency ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "row" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cell ENABLE ROW LEVEL SECURITY;
+ALTER TABLE column_program_run ENABLE ROW LEVEL SECURITY;

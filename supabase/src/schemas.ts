@@ -19,9 +19,11 @@ export const ColumnProgramInputSchema = z.object({
 export const ColumnProgramInputValuesTemplate = z.object({
   variables: z.record(
     z.string(),
-    z.object({
-      value: z.string(),
-    }),
+    z.discriminatedUnion("source", [
+      z.object({ source: z.literal("column"), column_id: z.string() }),
+      z.object({ source: z.literal("cell_value") }),
+      z.object({ source: z.literal("literal"), value: z.string() }),
+    ]),
   ),
 });
 
