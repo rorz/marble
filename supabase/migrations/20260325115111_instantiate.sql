@@ -1,18 +1,18 @@
 -- Enums
 
-CREATE TYPE column_program_runtime AS ENUM (
+CREATE TYPE program_runtime AS ENUM (
   'JavaScript',
   'Python'
 );
 
-CREATE TYPE column_program_external_instance_type AS ENUM (
-  'Lite',
-  'Basic',
-  'Standard1',
-  'Standard2',
-  'Standard3',
-  'Standard4'
-);
+-- CREATE TYPE program_external_instance_type AS ENUM (
+--   'Lite',
+--   'Basic',
+--   'Standard1',
+--   'Standard2',
+--   'Standard3',
+--   'Standard4'
+-- );
 
 -- Utility: auto-update updated_at on row modification
 
@@ -33,17 +33,17 @@ CREATE TABLE "table" (
   author_user_id uuid REFERENCES auth.users(id)
 );
 
-CREATE TABLE column_program (
+CREATE TABLE program (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   author_user_id uuid REFERENCES auth.users(id),
   first_party boolean NOT NULL DEFAULT false,
-  runtime column_program_runtime NOT NULL,
-  external_instance_type column_program_external_instance_type NOT NULL,
+  runtime program_runtime NOT NULL,
+  -- external_instance_type program_external_instance_type NOT NULL,
   code text NOT NULL,
-  input_schema jsonb NOT NULL,
-  output_schema jsonb NOT NULL
+  input_payload_schema jsonb NOT NULL,
+  output_value_schema jsonb NOT NULL
 );
 
 CREATE TABLE "column" (
@@ -53,8 +53,8 @@ CREATE TABLE "column" (
   author_user_id uuid REFERENCES auth.users(id),
   table_id uuid NOT NULL REFERENCES "table"(id),
   "index" bigint NOT NULL,
-  program_id uuid NOT NULL REFERENCES column_program(id),
-  input_values_template jsonb NOT NULL,
+  program_id uuid NOT NULL REFERENCES program(id),
+  input_template text NOT NULL,
   UNIQUE (table_id, "index")
 );
 
@@ -86,11 +86,11 @@ CREATE TABLE cell (
   value jsonb
 );
 
-CREATE TABLE column_program_run (
+CREATE TABLE program_run (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  column_program_id uuid NOT NULL REFERENCES column_program(id),
+  program_id uuid NOT NULL REFERENCES program(id),
   target_cell_id uuid NOT NULL REFERENCES cell(id),
   instigating_user_id uuid NOT NULL REFERENCES auth.users(id),
   input jsonb,
@@ -102,7 +102,7 @@ CREATE TABLE column_program_run (
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON "table"
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON column_program
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON program
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON "column"
@@ -117,15 +117,15 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON "row"
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON cell
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
-CREATE TRIGGER set_updated_at BEFORE UPDATE ON column_program_run
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON program_run
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- RLS
 
 ALTER TABLE "table" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE column_program ENABLE ROW LEVEL SECURITY;
+ALTER TABLE program ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "column" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE column_dependency ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "row" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cell ENABLE ROW LEVEL SECURITY;
-ALTER TABLE column_program_run ENABLE ROW LEVEL SECURITY;
+ALTER TABLE program_run ENABLE ROW LEVEL SECURITY;

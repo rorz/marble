@@ -32,10 +32,9 @@ type Row = LoadedData["rows"][number];
 type Cell = LoadedData["cells"][number];
 type Dependency = LoadedData["dependencies"][number];
 
-type VariableSourceConfig = {
-	source: "cell_value" | "column" | "literal";
+type VariableMapping = {
+	source: "cell_value" | "column";
 	column_id?: string;
-	value?: string;
 };
 
 // ── Theme ───────────────────────────────────────────────
@@ -823,22 +822,24 @@ export default function DemoPage() {
 				<AddColumnModal
 					programs={programs}
 					existingColumns={sortedColumns}
-					onSubmit={(programId, template) =>
-						actions
-							.createColumn({
+					onSubmit={async (programId, template) => {
+						const { column, cells: newCells, dependencies: newDeps } =
+							await actions.createColumn({
 								table_id: selectedTableId,
 								program_id: programId,
 								input_values_template: template as Json,
-							})
-							.then(({ column, cells: newCells }) => {
-								setColumns((prev) => [...prev, column]);
-								setCells((prev) => [
-									...prev,
-									...(newCells as Cell[]),
-								]);
-								setShowAddColumn(false);
-							})
-					}
+							});
+						setColumns((prev) => [...prev, column]);
+						setCells((prev) => [
+							...prev,
+							...(newCells as Cell[]),
+						]);
+						setDependencies((prev) => [
+							...prev,
+							...(newDeps as Dependency[]),
+						]);
+						setShowAddColumn(false);
+					}}
 					onClose={() => setShowAddColumn(false)}
 				/>
 			)}
@@ -1049,9 +1050,9 @@ function AddColumnModal({
 	const [selectedProgramId, setSelectedProgramId] = useState(
 		programs[0]?.id ?? "",
 	);
-	const [variableSources, setVariableSources] = useState<
-		Record<string, VariableSourceConfig>
-	>({});
+	const [mappings, setMappings] = useState<Record<string, VariableMapping>>(
+		{},
+	);
 
 	const selectedProgram = programs.find((p) => p.id === selectedProgramId);
 
@@ -1071,37 +1072,28 @@ function AddColumnModal({
 	}, [selectedProgram]);
 
 	useEffect(() => {
-		const defaults: Record<string, VariableSourceConfig> = {};
+		const defaults: Record<string, VariableMapping> = {};
 		for (const [key, varDef] of Object.entries(variables)) {
 			if (varDef.$marble__use_cell_value) {
 				defaults[key] = { source: "cell_value" };
 			} else {
 				defaults[key] = {
-					source:
-						existingColumns.length > 0 ? "column" : "literal",
+					source: "column",
 					column_id: existingColumns[0]?.id,
-					value: "",
 				};
 			}
 		}
-		setVariableSources(defaults);
+		setMappings(defaults);
 	}, [variables, existingColumns]);
 
-	const handleCreate = () => {
-		const template: Record<string, unknown> = {
-			variables: { ...variableSources },
-		};
-		onSubmit(selectedProgramId, template);
-	};
+	const allMapped = Object.entries(mappings).every(
+		([, m]) =>
+			m.source === "cell_value" ||
+			(m.source === "column" && m.column_id),
+	);
 
-	const updateSource = (
-		key: string,
-		patch: Partial<VariableSourceConfig>,
-	) => {
-		setVariableSources((prev) => ({
-			...prev,
-			[key]: { ...prev[key], ...patch },
-		}));
+	const handleCreate = () => {
+		onSubmit(selectedProgramId, { variables: { ...mappings } });
 	};
 
 	return (
@@ -1145,106 +1137,105 @@ function AddColumnModal({
 							</span>
 							<div className="space-y-3">
 								{Object.entries(variables).map(
-									([key, varDef]) => (
-										<div
-											key={key}
-											className="bg-neutral-800/60 rounded p-3 space-y-2"
-										>
-											<div className="flex items-baseline gap-2">
-												<span className="text-sm font-mono text-orange-400">
-													{key}
-												</span>
-												<span className="text-xs text-neutral-500">
-													{varDef.name} &mdash;{" "}
-													{varDef.description}
-												</span>
-											</div>
+									([key, varDef]) => {
+										const isCellValue =
+											!!varDef.$marble__use_cell_value;
 
-											<div className="flex gap-2">
-												<select
-													value={
-														variableSources[key]
-															?.source ??
-														"literal"
-													}
-													onChange={(e) =>
-														updateSource(key, {
-															source: e.target
-																.value as VariableSourceConfig["source"],
-														})
-													}
-													className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs"
-												>
-													<option value="cell_value">
-														Cell Value (user input)
-													</option>
-													<option value="column">
-														From Column
-													</option>
-													<option value="literal">
-														Literal
-													</option>
-												</select>
+										return (
+											<div
+												key={key}
+												className="bg-neutral-800/60 rounded p-3 space-y-2"
+											>
+												<div className="flex items-baseline gap-2">
+													<span className="text-sm font-mono text-orange-400">
+														{key}
+													</span>
+													<span className="text-xs text-neutral-500">
+														{varDef.name}
+													</span>
+													{isCellValue && (
+														<span className="text-[10px] bg-orange-900/50 text-orange-300 px-1.5 py-0.5 rounded">
+															user input
+														</span>
+													)}
+												</div>
 
-												{variableSources[key]
-													?.source === "column" && (
-													<select
-														value={
-															variableSources[key]
-																?.column_id ??
-															""
-														}
-														onChange={(e) =>
-															updateSource(key, {
-																column_id:
-																	e.target
-																		.value,
-															})
-														}
-														className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs flex-1"
-													>
-														{existingColumns.map(
-															(col) => (
-																<option
-																	key={col.id}
-																	value={
-																		col.id
-																	}
-																>
-																	Col{" "}
-																	{col.index}{" "}
+												{isCellValue ? (
+													<div className="text-xs text-neutral-500">
+														Sourced from
+														the cell's
+														editable value
+													</div>
+												) : (
+													<label className="flex items-center gap-2">
+														<span className="text-xs text-neutral-400 shrink-0">
+															reads from
+														</span>
+														<select
+															value={
+																mappings[
+																	key
+																]
+																	?.column_id ??
+																""
+															}
+															onChange={(
+																e,
+															) =>
+																setMappings(
 																	(
-																	{shortId(
-																		col.id,
-																	)}
-																	)
-																</option>
-															),
-														)}
-													</select>
-												)}
-
-												{variableSources[key]
-													?.source === "literal" && (
-													<input
-														type="text"
-														value={
-															variableSources[key]
-																?.value ?? ""
-														}
-														onChange={(e) =>
-															updateSource(key, {
-																value: e.target
-																	.value,
-															})
-														}
-														placeholder="Literal value"
-														className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs flex-1"
-													/>
+																		prev,
+																	) => ({
+																		...prev,
+																		[key]: {
+																			source: "column",
+																			column_id:
+																				e
+																					.target
+																					.value,
+																		},
+																	}),
+																)
+															}
+															className="bg-neutral-900 border border-neutral-700 rounded px-2 py-1 text-xs flex-1"
+														>
+															<option
+																value=""
+																disabled
+															>
+																Pick a
+																column...
+															</option>
+															{existingColumns.map(
+																(
+																	col,
+																) => (
+																	<option
+																		key={
+																			col.id
+																		}
+																		value={
+																			col.id
+																		}
+																	>
+																		Col{" "}
+																		{
+																			col.index
+																		}
+																		{isUserInputColumn(
+																			col,
+																		)
+																			? " (input)"
+																			: ""}
+																	</option>
+																),
+															)}
+														</select>
+													</label>
 												)}
 											</div>
-										</div>
-									),
+										);
+									},
 								)}
 							</div>
 						</div>
@@ -1262,7 +1253,7 @@ function AddColumnModal({
 					<button
 						type="button"
 						onClick={handleCreate}
-						disabled={!selectedProgramId}
+						disabled={!selectedProgramId || !allMapped}
 						className="bg-orange-700 hover:bg-orange-600 disabled:opacity-40 border border-orange-600 rounded px-3 py-1 text-sm font-medium transition-colors"
 					>
 						Create Column

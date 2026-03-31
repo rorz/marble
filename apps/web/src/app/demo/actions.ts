@@ -174,20 +174,44 @@ export async function createColumn(input: {
 		.single();
 	if (error) throw error;
 
+	// Auto-create column_dependency records from the template
+	const template = input.input_values_template as {
+		variables?: Record<string, { source: string; column_id?: string }>;
+	};
+	const sourceColumnIds = Object.values(template.variables ?? {})
+		.filter((v) => v.source === "column" && v.column_id)
+		.map((v) => v.column_id as string);
+
+	let newDeps: Database["public"]["Tables"]["column_dependency"]["Row"][] =
+		[];
+	if (sourceColumnIds.length > 0) {
+		const { data: deps } = await supabase
+			.from("column_dependency")
+			.insert(
+				sourceColumnIds.map((srcId) => ({
+					source_column_id: srcId,
+					target_column_id: column.id,
+				})),
+			)
+			.select();
+		newDeps = deps ?? [];
+	}
+
 	const { data: rows } = await supabase
 		.from("row")
 		.select("id")
 		.eq("table_id", input.table_id);
 
+	let newCells: Database["public"]["Tables"]["cell"]["Row"][] = [];
 	if (rows && rows.length > 0) {
-		const { data: newCells } = await supabase
+		const { data: cells } = await supabase
 			.from("cell")
 			.insert(rows.map((r) => ({ column_id: column.id, row_id: r.id })))
 			.select();
-		return { column, cells: newCells ?? [] };
+		newCells = cells ?? [];
 	}
 
-	return { column, cells: [] as NonNullable<typeof column>[] };
+	return { column, cells: newCells, dependencies: newDeps };
 }
 
 export async function deleteColumn(columnId: string) {

@@ -85,7 +85,7 @@ export type Database = {
           created_at: string
           id: string
           index: number
-          input_values_template: Json
+          input_template: string
           program_id: string
           table_id: string
           updated_at: string
@@ -95,7 +95,7 @@ export type Database = {
           created_at?: string
           id?: string
           index: number
-          input_values_template: Json
+          input_template: string
           program_id: string
           table_id: string
           updated_at?: string
@@ -105,7 +105,7 @@ export type Database = {
           created_at?: string
           id?: string
           index?: number
-          input_values_template?: Json
+          input_template?: string
           program_id?: string
           table_id?: string
           updated_at?: string
@@ -115,7 +115,7 @@ export type Database = {
             foreignKeyName: "column_program_id_fkey"
             columns: ["program_id"]
             isOneToOne: false
-            referencedRelation: "column_program"
+            referencedRelation: "program"
             referencedColumns: ["id"]
           },
           {
@@ -166,86 +166,83 @@ export type Database = {
           },
         ]
       }
-      column_program: {
+      program: {
         Row: {
           author_user_id: string | null
           code: string
           created_at: string
-          external_instance_type: Database["public"]["Enums"]["column_program_external_instance_type"]
           first_party: boolean
           id: string
-          input_schema: Json
-          output_schema: Json
-          runtime: Database["public"]["Enums"]["column_program_runtime"]
+          input_payload_schema: Json
+          output_value_schema: Json
+          runtime: Database["public"]["Enums"]["program_runtime"]
           updated_at: string
         }
         Insert: {
           author_user_id?: string | null
           code: string
           created_at?: string
-          external_instance_type: Database["public"]["Enums"]["column_program_external_instance_type"]
           first_party?: boolean
           id?: string
-          input_schema: Json
-          output_schema: Json
-          runtime: Database["public"]["Enums"]["column_program_runtime"]
+          input_payload_schema: Json
+          output_value_schema: Json
+          runtime: Database["public"]["Enums"]["program_runtime"]
           updated_at?: string
         }
         Update: {
           author_user_id?: string | null
           code?: string
           created_at?: string
-          external_instance_type?: Database["public"]["Enums"]["column_program_external_instance_type"]
           first_party?: boolean
           id?: string
-          input_schema?: Json
-          output_schema?: Json
-          runtime?: Database["public"]["Enums"]["column_program_runtime"]
+          input_payload_schema?: Json
+          output_value_schema?: Json
+          runtime?: Database["public"]["Enums"]["program_runtime"]
           updated_at?: string
         }
         Relationships: []
       }
-      column_program_run: {
+      program_run: {
         Row: {
-          column_program_id: string
           created_at: string
           id: string
           input: Json | null
           instigating_user_id: string
           output: Json | null
+          program_id: string
           target_cell_id: string
           updated_at: string
         }
         Insert: {
-          column_program_id: string
           created_at?: string
           id?: string
           input?: Json | null
           instigating_user_id: string
           output?: Json | null
+          program_id: string
           target_cell_id: string
           updated_at?: string
         }
         Update: {
-          column_program_id?: string
           created_at?: string
           id?: string
           input?: Json | null
           instigating_user_id?: string
           output?: Json | null
+          program_id?: string
           target_cell_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "column_program_run_column_program_id_fkey"
-            columns: ["column_program_id"]
+            foreignKeyName: "program_run_program_id_fkey"
+            columns: ["program_id"]
             isOneToOne: false
-            referencedRelation: "column_program"
+            referencedRelation: "program"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "column_program_run_target_cell_id_fkey"
+            foreignKeyName: "program_run_target_cell_id_fkey"
             columns: ["target_cell_id"]
             isOneToOne: false
             referencedRelation: "cell"
@@ -317,14 +314,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      column_program_external_instance_type:
-        | "Lite"
-        | "Basic"
-        | "Standard1"
-        | "Standard2"
-        | "Standard3"
-        | "Standard4"
-      column_program_runtime: "JavaScript" | "Python"
+      program_runtime: "JavaScript" | "Python"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -455,15 +445,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      column_program_external_instance_type: [
-        "Lite",
-        "Basic",
-        "Standard1",
-        "Standard2",
-        "Standard3",
-        "Standard4",
-      ],
-      column_program_runtime: ["JavaScript", "Python"],
+      program_runtime: ["JavaScript", "Python"],
     },
   },
 } as const
