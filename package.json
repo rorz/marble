@@ -6,10 +6,9 @@
     "build": "pnpm -r build",
     "lint": "biome check",
     "format": "biome format --write",
-    "gen:types": "pnpm dlx supabase gen types typescript --local > supabase/src/types.ts"
+    "gen:types": "supabase gen types typescript --local > supabase/src/types.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "catalog:",
-    "supabase": "catalog:"
+    "@biomejs/biome": "catalog:"
   }
 }

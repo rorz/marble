@@ -13,8 +13,7 @@
     "ag-grid-react": "^35.2.0",
     "next": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:",
-    "supabase": "catalog:"
+    "react-dom": "catalog:"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:",

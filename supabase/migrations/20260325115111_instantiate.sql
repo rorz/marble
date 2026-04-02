@@ -5,6 +5,12 @@ CREATE TYPE program_runtime AS ENUM (
   'Python'
 );
 
+-- CREATE TYPE cell_status AS ENUM (
+--   'PENDING',
+--   'ERRORED',
+--   'SUCCEEDED'
+-- )
+
 -- CREATE TYPE program_external_instance_type AS ENUM (
 --   'Lite',
 --   'Basic',
@@ -83,7 +89,9 @@ CREATE TABLE cell (
   author_user_id uuid REFERENCES auth.users(id),
   column_id uuid NOT NULL REFERENCES "column"(id),
   row_id uuid NOT NULL REFERENCES "row"(id),
-  value jsonb
+  -- status NOT NULL cell_status,
+  manual_input text,
+  state jsonb
 );
 
 CREATE TABLE program_run (
