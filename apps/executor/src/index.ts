@@ -43,7 +43,6 @@ export default {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Load the program run with its associated program, target cell, and column
     const { data: runs, error: runError } = await supabase
       .from("program_run")
       .select(`
@@ -67,154 +66,238 @@ export default {
       );
     }
 
-    // Determine which upstream columns this column depends on
-    const { data: dependencies } = await supabase
-      .from("column_dependency")
-      .select("source_column_id")
-      .eq("target_column_id", run.cell.column.id);
-
-    const sourceColumnIds = dependencies?.map((d) => d.source_column_id) ?? [];
-
-    // Load the sibling cells in the same row for each dependency column
-    const { data: dependencyCells } = await supabase
-      .from("cell")
-      .select("*")
-      .eq("row_id", run.cell.row_id)
-      .in("column_id", sourceColumnIds);
-
-    // Build the row context used by JSONPath-based template resolution.
-    // Each dependency cell's state is a RunReturnValue; we unwrap to the raw value.
-    const columns: Record<string, JsonValue> = {};
-    for (const cell of dependencyCells ?? []) {
-      const state = cell.state as {
-        ok?: boolean;
-        value?: JsonValue;
-      } | null;
-      columns[cell.column_id] = {
-        value: state?.ok ? (state.value ?? null) : null,
+    // From here on, any failure MUST be persisted to cell.state + program_run.output
+    const persistFailure = async (
+      errorType: string,
+      message: string,
+      detail?: Json,
+    ) => {
+      const failState = {
+        ok: false as const,
+        error: {
+          type: errorType,
+          ...(detail != null
+            ? {
+                detail,
+              }
+            : {}),
+        },
+        message,
       };
-    }
-
-    const rowContext: Record<string, JsonValue> = {
-      cell: {
-        manualInputValue: run.cell.manual_input,
-      },
-      columns,
+      await Promise.all([
+        supabase
+          .from("cell")
+          .update({
+            state: failState,
+          })
+          .eq("id", run.target_cell_id),
+        supabase
+          .from("program_run")
+          .update({
+            output: failState as unknown as Json,
+          })
+          .eq("id", runId),
+      ]);
+      return failState;
     };
 
-    // Resolve the column's input template (JSONPath `.$` keys → concrete values)
-    const inputTemplate: JsonValue = JSON.parse(run.cell.column.input_template);
-    const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
+    try {
+      const { data: dependencies } = await supabase
+        .from("column_dependency")
+        .select("source_column_id")
+        .eq("target_column_id", run.cell.column.id);
 
-    // Validate the resolved input against the program's declared input schema
-    const inputPayloadSchema = Schemas.ProgramInputSchema.parse(
-      run.program.input_payload_schema,
-    );
-    const parsedInput = z
-      .fromJSONSchema(inputPayloadSchema)
-      .parse(resolvedInput);
+      const sourceColumnIds =
+        dependencies?.map((d) => d.source_column_id) ?? [];
 
-    if (run.program.runtime !== "JavaScript") {
-      return Response.json(
-        {
-          error: true,
-          message: "Only JavaScript is supported right now.",
+      const { data: dependencyCells } = await supabase
+        .from("cell")
+        .select("*")
+        .eq("row_id", run.cell.row_id)
+        .in("column_id", sourceColumnIds);
+
+      const columns: Record<string, JsonValue> = {};
+      for (const cell of dependencyCells ?? []) {
+        const state = cell.state as {
+          ok?: boolean;
+          value?: JsonValue;
+        } | null;
+        columns[cell.column_id] = {
+          value: state?.ok ? (state.value ?? null) : null,
+        };
+      }
+
+      const rowContext: Record<string, JsonValue> = {
+        cell: {
+          manualInputValue: run.cell.manual_input,
         },
-        {
-          status: 501,
-        },
+        columns,
+      };
+
+      const inputTemplate: JsonValue = JSON.parse(
+        run.cell.column.input_template,
       );
-    }
+      const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
 
-    // Execute the program in a sandboxed environment
-    const sandbox = getSandbox(env.Sandbox, run.cell.column.id);
+      const inputPayloadSchema = Schemas.ProgramInputSchema.parse(
+        run.program.input_payload_schema,
+      );
+      const parsedInput = z
+        .fromJSONSchema(inputPayloadSchema)
+        .parse(resolvedInput);
 
-    const runInput = {
-      system: {},
-      cell: {
-        manualInputValue: run.cell.manual_input ?? undefined,
-      },
-      input: parsedInput,
-    };
+      if (run.program.runtime !== "JavaScript") {
+        const failState = await persistFailure(
+          "UnsupportedRuntime",
+          `Runtime "${run.program.runtime}" is not supported yet.`,
+        );
+        return Response.json(
+          {
+            success: false,
+            output: failState,
+          },
+          {
+            status: 501,
+          },
+        );
+      }
 
-    const codeAsBase64 = Buffer.from(run.program.code).toString("base64");
-    const inputAsBase64 = Buffer.from(JSON.stringify(runInput)).toString(
-      "base64",
-    );
+      const sandbox = getSandbox(env.Sandbox, run.cell.column.id);
 
-    const statement = `\
+      const runInput = {
+        system: {},
+        cell: {
+          manualInputValue: run.cell.manual_input ?? undefined,
+        },
+        input: parsedInput,
+      };
+
+      const codeAsBase64 = Buffer.from(run.program.code).toString("base64");
+      const inputAsBase64 = Buffer.from(JSON.stringify(runInput)).toString(
+        "base64",
+      );
+
+      const statement = `\
     node --input-type=module -e \
     "const m = await import('data:text/javascript;base64,${codeAsBase64}');\
     const ri = JSON.parse(Buffer.from('${inputAsBase64}', 'base64').toString());\
     console.log(JSON.stringify(m.default(ri)))"
     `;
 
-    console.log(`Running statement:\n\n${statement}`);
+      console.log(`Running statement:\n\n${statement}`);
 
-    const executionResult = await sandbox.exec(statement);
+      const executionResult = await sandbox.exec(statement);
 
-    // Resolve the correct output schema (accounting for overloads)
-    const outputConfig = Schemas.ProgramOutputConfig.parse(
-      run.program.output_value_schema,
-    );
-    const outputSchema = resolveColumnOutputSchema(
-      resolvedInput as Record<string, unknown>,
-      outputConfig,
-    );
+      const outputConfig = Schemas.ProgramOutputConfig.parse(
+        run.program.output_value_schema,
+      );
+      const outputSchema = resolveColumnOutputSchema(
+        resolvedInput as Record<string, unknown>,
+        outputConfig,
+      );
 
-    const rawOutput = (() => {
-      if (!executionResult.success) {
-        return {
-          ok: false,
-          error: {
-            type: "Crashed",
+      const rawOutput = (() => {
+        if (!executionResult.success) {
+          return {
+            ok: false as const,
+            error: {
+              type: "Crashed",
+            },
+            message: executionResult.stderr.trim() || "Program crashed",
+          };
+        }
+
+        try {
+          const value = z
+            .fromJSONSchema(outputSchema)
+            .parse(JSON.parse(executionResult.stdout.trim()));
+
+          return {
+            ok: true as const,
+            value,
+          };
+        } catch (e) {
+          const detail = (e instanceof z.ZodError ? e.issues : undefined) as
+            | Json
+            | undefined;
+          const summary =
+            e instanceof z.ZodError
+              ? e.issues
+                  .map((i) => `${i.path.join(".")}: ${i.message}`)
+                  .join("; ")
+              : String(e);
+          return {
+            ok: false as const,
+            error: {
+              type: "Parser",
+              ...(detail
+                ? {
+                    detail,
+                  }
+                : {}),
+            },
+            message: `Output validation failed: ${summary}`,
+          };
+        }
+      })();
+
+      const validatedOutput = Schemas.RunReturnValue.parse(rawOutput);
+
+      await Promise.all([
+        supabase
+          .from("cell")
+          .update({
+            state: validatedOutput,
+          })
+          .eq("id", run.target_cell_id),
+        supabase
+          .from("program_run")
+          .update({
+            input: parsedInput as Json,
+            output: validatedOutput as Json,
+          })
+          .eq("id", runId),
+      ]);
+
+      return Response.json({
+        success: true,
+        output: validatedOutput,
+      });
+    } catch (e) {
+      console.error(`Run ${runId} failed:`, e);
+
+      if (e instanceof z.ZodError) {
+        const summary = e.issues
+          .map((i) => `${i.path.join(".")}: ${i.message}`)
+          .join("; ");
+        const failState = await persistFailure(
+          "Validation",
+          summary,
+          e.issues as unknown as Json,
+        );
+        return Response.json(
+          {
+            success: false,
+            output: failState,
           },
-          message: executionResult.stderr.trim(),
-        };
+          {
+            status: 500,
+          },
+        );
       }
 
-      try {
-        const value = z
-          .fromJSONSchema(outputSchema)
-          .parse(JSON.parse(executionResult.stdout.trim()));
-
-        return {
-          ok: true,
-          value,
-        };
-      } catch (e) {
-        return {
-          ok: false,
-          error: {
-            type: "Parser",
-          },
-          message: `Unable to parse program output: ${e}`,
-        };
-      }
-    })();
-
-    const validatedOutput = Schemas.RunReturnValue.parse(rawOutput);
-
-    // Persist the results back to the cell state and program run record
-    await Promise.all([
-      supabase
-        .from("cell")
-        .update({
-          state: validatedOutput,
-        })
-        .eq("id", run.target_cell_id),
-      supabase
-        .from("program_run")
-        .update({
-          input: parsedInput as Json,
-          output: validatedOutput as Json,
-        })
-        .eq("id", runId),
-    ]);
-
-    return Response.json({
-      success: true,
-      output: validatedOutput,
-    });
+      const message =
+        e instanceof Error ? e.message : `Unexpected error: ${String(e)}`;
+      const failState = await persistFailure("Unhandled", message);
+      return Response.json(
+        {
+          success: false,
+          output: failState,
+        },
+        {
+          status: 500,
+        },
+      );
+    }
   },
 };

@@ -1,9 +1,10 @@
 "use server";
 
-import type { Database, Json } from "@marble/supabase";
+import type { Database } from "@marble/supabase";
 import { createClient } from "@marble/supabase";
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
+type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 
 function db() {
   const url = process.env.SUPABASE_URL;
@@ -30,6 +31,17 @@ export async function createTable() {
   return data;
 }
 
+// ── Programs ────────────────────────────────────────────
+
+export async function listPrograms(): Promise<ProgramRow[]> {
+  const { data, error } = await db()
+    .from("program")
+    .select("*")
+    .order("created_at");
+  if (error) throw error;
+  return data;
+}
+
 // ── Table data (columns + rows + cells) ─────────────────
 
 export async function loadTableData(tableId: string) {
@@ -38,7 +50,7 @@ export async function loadTableData(tableId: string) {
   const [cols, rowsRes] = await Promise.all([
     supabase
       .from("column")
-      .select("*, column_program(*)")
+      .select("*, program(*)")
       .eq("table_id", tableId)
       .order("index"),
     supabase.from("row").select("*").eq("table_id", tableId).order("index"),
@@ -77,81 +89,17 @@ export async function loadTableData(tableId: string) {
   };
 }
 
-// ── Programs ────────────────────────────────────────────
-
-export async function listPrograms() {
-  const { data, error } = await db()
-    .from("column_program")
-    .select("*")
-    .order("created_at");
-  if (error) throw error;
-  return data;
-}
-
-export async function createProgram(input: {
-  code: string;
-  runtime: "JavaScript" | "Python";
-  external_instance_type:
-    | "Lite"
-    | "Basic"
-    | "Standard1"
-    | "Standard2"
-    | "Standard3"
-    | "Standard4";
-  input_schema: Json;
-  output_schema: Json;
-  first_party?: boolean;
-}) {
-  const { data, error } = await db()
-    .from("column_program")
-    .insert(input)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function updateProgram(
-  id: string,
-  input: {
-    code?: string;
-    runtime?: "JavaScript" | "Python";
-    external_instance_type?:
-      | "Lite"
-      | "Basic"
-      | "Standard1"
-      | "Standard2"
-      | "Standard3"
-      | "Standard4";
-    input_schema?: Json;
-    output_schema?: Json;
-  },
-) {
-  const { data, error } = await db()
-    .from("column_program")
-    .update(input)
-    .eq("id", id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function deleteProgram(id: string) {
-  const { error } = await db().from("column_program").delete().eq("id", id);
-  if (error) throw error;
-}
-
 // ── Columns ─────────────────────────────────────────────
 
 export async function createColumn(input: {
   table_id: string;
+  name: string;
   program_id: string;
-  input_values_template: Json;
+  input_template: string;
 }) {
   const supabase = db();
 
-  const { data: maxRow } = await supabase
+  const { data: maxCol } = await supabase
     .from("column")
     .select("index")
     .eq("table_id", input.table_id)
@@ -160,31 +108,32 @@ export async function createColumn(input: {
     })
     .limit(1)
     .single();
-  const nextIndex = (maxRow?.index ?? -1) + 1;
+
+  const nextIndex = (maxCol?.index ?? -1) + 1;
 
   const { data: column, error } = await supabase
     .from("column")
     .insert({
-      ...input,
+      table_id: input.table_id,
+      name: input.name,
       index: nextIndex,
+      program_id: input.program_id,
+      input_template: input.input_template,
     })
-    .select("*, column_program(*)")
+    .select("*, program(*)")
     .single();
   if (error) throw error;
 
-  // Auto-create column_dependency records from the template
-  const template = input.input_values_template as {
-    variables?: Record<
-      string,
-      {
-        source: string;
-        column_id?: string;
-      }
-    >;
-  };
-  const sourceColumnIds = Object.values(template.variables ?? {})
-    .filter((v) => v.source === "column" && v.column_id)
-    .map((v) => v.column_id as string);
+  // Derive column_dependency from any `.$` keys referencing $.columns.<id>
+  const template: Record<string, unknown> = JSON.parse(input.input_template);
+  const colRefPattern = /^\$\.columns\.([a-f0-9-]+)\./;
+  const sourceColumnIds: string[] = [];
+  for (const [key, value] of Object.entries(template)) {
+    if (key.endsWith(".$") && typeof value === "string") {
+      const match = value.match(colRefPattern);
+      if (match) sourceColumnIds.push(match[1]);
+    }
+  }
 
   let newDeps: Database["public"]["Tables"]["column_dependency"]["Row"][] = [];
   if (sourceColumnIds.length > 0) {
@@ -200,12 +149,13 @@ export async function createColumn(input: {
     newDeps = deps ?? [];
   }
 
+  // Auto-create cells for existing rows
   const { data: rows } = await supabase
     .from("row")
     .select("id")
     .eq("table_id", input.table_id);
 
-  let newCells: Database["public"]["Tables"]["cell"]["Row"][] = [];
+  let newCells: CellRow[] = [];
   if (rows && rows.length > 0) {
     const { data: cells } = await supabase
       .from("cell")
@@ -251,13 +201,12 @@ export async function createRow(tableId: string) {
     })
     .limit(1)
     .single();
-  const nextIndex = (maxRow?.index ?? -1) + 1;
 
   const { data: row, error } = await supabase
     .from("row")
     .insert({
       table_id: tableId,
-      index: nextIndex,
+      index: (maxRow?.index ?? -1) + 1,
     })
     .select()
     .single();
@@ -286,7 +235,7 @@ export async function createRow(tableId: string) {
 
   return {
     row,
-    cells: [] as NonNullable<typeof row>[],
+    cells: [] as CellRow[],
   };
 }
 
@@ -299,11 +248,11 @@ export async function deleteRow(rowId: string) {
 
 // ── Cells ───────────────────────────────────────────────
 
-export async function updateCell(cellId: string, value: Json) {
+export async function updateCellManualInput(cellId: string, value: string) {
   const { data, error } = await db()
     .from("cell")
     .update({
-      value,
+      manual_input: value,
     })
     .eq("id", cellId)
     .select()
@@ -312,27 +261,7 @@ export async function updateCell(cellId: string, value: Json) {
   return data;
 }
 
-export async function refreshTableCells(tableId: string): Promise<CellRow[]> {
-  const supabase = db();
-  const { data: columns } = await supabase
-    .from("column")
-    .select("id")
-    .eq("table_id", tableId);
-
-  if (!columns || columns.length === 0) return [];
-
-  const { data, error } = await supabase
-    .from("cell")
-    .select("*")
-    .in(
-      "column_id",
-      columns.map((c) => c.id),
-    );
-  if (error) throw error;
-  return data;
-}
-
-// ── Execution (column_program_run → executor) ───────────
+// ── Execution ───────────────────────────────────────────
 
 let _demoUserId: string | null = null;
 
@@ -376,24 +305,38 @@ export async function executeRun(input: {
   const supabase = db();
   const userId = await ensureDemoUser();
 
+  // Persist manual_input if provided (cell edit flow)
+  if (input.cellValue !== undefined) {
+    await supabase
+      .from("cell")
+      .update({
+        manual_input: input.cellValue,
+      })
+      .eq("id", input.cellId);
+  }
+
+  // Set loading sentinel — realtime picks this up so the UI can show a spinner
+  await supabase
+    .from("cell")
+    .update({
+      state: {
+        ok: null,
+      },
+    })
+    .eq("id", input.cellId);
+
   const { data: run, error } = await supabase
-    .from("column_program_run")
+    .from("program_run")
     .insert({
-      column_program_id: input.programId,
+      program_id: input.programId,
       target_cell_id: input.cellId,
       instigating_user_id: userId,
     })
-    .select()
+    .select("id")
     .single();
-
   if (error) throw error;
 
   const executorUrl = process.env.EXECUTOR_URL ?? "http://localhost:8787";
-
-  const body: Record<string, unknown> = {};
-  if (input.cellValue !== undefined) {
-    body.$marble__cell_value = input.cellValue;
-  }
 
   let result: {
     success?: boolean;
@@ -407,7 +350,7 @@ export async function executeRun(input: {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: "{}",
     });
     result = (await response.json()) as typeof result;
   } catch (err) {
