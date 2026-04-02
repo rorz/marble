@@ -12,8 +12,13 @@ export default {
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return Response.json(
-        { error: true, message: "Missing Supabase credentials." },
-        { status: 500 },
+        {
+          error: true,
+          message: "Missing Supabase credentials.",
+        },
+        {
+          status: 500,
+        },
       );
     }
 
@@ -25,8 +30,13 @@ export default {
 
     if (!runId) {
       return Response.json(
-        { error: true, message: "Missing required `run_id` search parameter." },
-        { status: 400 },
+        {
+          error: true,
+          message: "Missing required `run_id` search parameter.",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
@@ -145,11 +155,15 @@ export default {
 
     await supabase
       .from("cell")
-      .update({ value: parsedOutput })
+      .update({
+        value: parsedOutput,
+      })
       .eq("id", runValue.target_cell_id);
     await supabase
       .from("program_run")
-      .update({ output: parsedOutput })
+      .update({
+        output: parsedOutput,
+      })
       .eq("id", runId);
 
     return Response.json({

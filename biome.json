@@ -12,12 +12,22 @@
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
-    "indentWidth": 2
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "javascript": {
+    "formatter": {
+      "expand": "always",
+      "attributePosition": "multiline"
+    }
   },
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
+      "complexity": {
+        "useArrowFunction": "error"
+      },
       "suspicious": {
         "noUnknownAtRules": "off"
       }

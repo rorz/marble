@@ -1,21 +1,60 @@
 import { z } from "zod";
 
 // ------------------------------------------------------------------
+// 0. FOUNDATIONAL TYPES
+// ------------------------------------------------------------------
+
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | {
+      [key: string]: JsonValue;
+    };
+
+// ------------------------------------------------------------------
 // 1. MONGO QUERY MATCHER SCHEMA
 // ------------------------------------------------------------------
 
 // The basic literal values allowed in JSON
-const MongoLiteral = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+const MongoLiteral = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
 
 // The field-level operators supported by sift.js
 const MongoFieldOperators = z
   .object({
     $eq: MongoLiteral.optional(),
     $ne: MongoLiteral.optional(),
-    $gt: z.union([z.number(), z.string()]).optional(),
-    $gte: z.union([z.number(), z.string()]).optional(),
-    $lt: z.union([z.number(), z.string()]).optional(),
-    $lte: z.union([z.number(), z.string()]).optional(),
+    $gt: z
+      .union([
+        z.number(),
+        z.string(),
+      ])
+      .optional(),
+    $gte: z
+      .union([
+        z.number(),
+        z.string(),
+      ])
+      .optional(),
+    $lt: z
+      .union([
+        z.number(),
+        z.string(),
+      ])
+      .optional(),
+    $lte: z
+      .union([
+        z.number(),
+        z.string(),
+      ])
+      .optional(),
     $in: z.array(MongoLiteral).optional(),
     $nin: z.array(MongoLiteral).optional(),
     $exists: z.boolean().optional(),
@@ -51,23 +90,37 @@ const matchConfigSchema: z.ZodType<MongoQuery> = z.lazy(() =>
     .superRefine((val, ctx) => {
       // Validate top-level logical operators
       for (const [key, value] of Object.entries(val)) {
-        if (["$and", "$or", "$nor"].includes(key)) {
+        if (
+          [
+            "$and",
+            "$or",
+            "$nor",
+          ].includes(key)
+        ) {
           if (!Array.isArray(value)) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
               message: `Logical operator '${key}' must contain an array of query objects.`,
-              path: [key],
+              path: [
+                key,
+              ],
             });
           }
         } else if (
           key.startsWith("$") &&
-          !["$and", "$or", "$nor"].includes(key)
+          ![
+            "$and",
+            "$or",
+            "$nor",
+          ].includes(key)
         ) {
           // Prevent users from trying to put field-level operators at the top level
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: `Top-level operator '${key}' is invalid. Did you mean to put this inside a field path?`,
-            path: [key],
+            path: [
+              key,
+            ],
           });
         }
       }
@@ -148,15 +201,3 @@ export const RunReturnValue = z.discriminatedUnion("ok", [
   }),
 ]);
 export type RunReturnValue = z.infer<typeof RunReturnValue>;
-
-const createProgram = () => {};
-
-const createColumn = () => {};
-
-const resolveColumnOutputSchema = (
-  inputSchema: ProgramInputSchema,
-  inputValues: ProgramInputSchema, // FIXME: should be "adheres to"
-  outputConfig: ProgramOutputConfig,
-): ColumnOutputSchema => {
-  //
-};

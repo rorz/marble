@@ -10,8 +10,7 @@
     }
   },
   "dependencies": {
-    "@supabase/supabase-js": "catalog:",
-    "zod": "^4.3.6"
+    "@supabase/supabase-js": "catalog:"
   },
   "devDependencies": {
     "typescript": "catalog:"

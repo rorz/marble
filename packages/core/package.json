@@ -1,0 +1,23 @@
+{
+  "name": "@marble/core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "sift": "catalog:",
+    "zod": "catalog:",
+    "jsonpath-plus": "catalog:"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
+  }
+}
