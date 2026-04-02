@@ -6,20 +6,20 @@ inserted_programs AS (
   INSERT INTO program (runtime, code, input_payload_schema, output_value_schema, first_party)
   VALUES
     ('JavaScript',
-     'export default ({ variables }) => variables.value',
-     '{"variables": {"value": {"name": "Value", "description": "Raw user input", "$marble__use_cell_value": true}}}',
-     '{}',
+     'export default ({ input }) => input.value',
+     '{"type": "object", "properties": {"value": {"type": "string", "description": "Raw user input value"}}}',
+     '{"flags": {"allowManualInput": true}, "schema": {"type": "string"}}',
      true),
     ('JavaScript',
-     'export default ({ variables }) => variables.input.toUpperCase()',
-     '{"variables": {"input": {"name": "Input text", "description": "Text to transform"}}}',
-     '{}',
+     'export default ({ input }) => input.text.toUpperCase()',
+     '{"type": "object", "properties": {"text": {"type": "string", "description": "Text to transform"}}}',
+     '{"flags": {}, "schema": {"type": "string"}}',
      true)
   RETURNING id, code
 ),
 
 program_identity AS (
-  SELECT id FROM inserted_programs WHERE code LIKE '%variables.value' LIMIT 1
+  SELECT id FROM inserted_programs WHERE code LIKE '%input.value' LIMIT 1
 ),
 program_uppercase AS (
   SELECT id FROM inserted_programs WHERE code LIKE '%toUpperCase()' LIMIT 1
@@ -48,7 +48,7 @@ inserted_col1 AS (
     t.id,
     0,
     p.id,
-    '{"variables": {"value": {"source": "cell_value"}}}'
+    '{"value.$": "$.cell.manualInputValue"}'
   FROM inserted_table t, program_identity p
   RETURNING id
 ),
@@ -59,7 +59,7 @@ inserted_col2 AS (
     t.id,
     1,
     p.id,
-    '{"variables": {"input": {"source": "column", "column_id": "' || c1.id || '"}}}'
+    '{"text.$": "$.columns.' || c1.id || '.value"}'
   FROM inserted_table t, program_uppercase p, inserted_col1 c1
   RETURNING id
 ),
@@ -75,14 +75,14 @@ _dep AS (
 -- Cells
 
 _cell1 AS (
-  INSERT INTO cell (column_id, row_id, value)
-  SELECT c1.id, r.id, '"hello world"'::jsonb
+  INSERT INTO cell (column_id, row_id, manual_input)
+  SELECT c1.id, r.id, 'hello world'
   FROM inserted_col1 c1, inserted_row r
 ),
 
 _cell2 AS (
-  INSERT INTO cell (column_id, row_id, value)
-  SELECT c2.id, r.id, null
+  INSERT INTO cell (column_id, row_id)
+  SELECT c2.id, r.id
   FROM inserted_col2 c2, inserted_row r
 )
 
