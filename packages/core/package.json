@@ -10,7 +10,8 @@
   },
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "sift": "catalog:",
@@ -18,6 +19,7 @@
     "jsonpath-plus": "catalog:"
   },
   "devDependencies": {
+    "typescript": "catalog:",
     "vitest": "catalog:"
   }
 }

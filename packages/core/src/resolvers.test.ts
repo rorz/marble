@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveColumnConfig, resolveColumnOutputSchema } from "./resolvers";
-import type { ProgramOutputConfig } from "./schemas";
+import type { JsonValue, ProgramOutputConfig } from "./schemas";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -370,7 +370,7 @@ describe("resolveColumnConfig", () => {
   });
 
   it("recursively resolves arrays", () => {
-    const config = [
+    const config: JsonValue = [
       {
         "a.$": "$.columns.col-abc.value",
       },
