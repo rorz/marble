@@ -99,6 +99,7 @@ export type Database = {
           id: string;
           index: number;
           input_template: string;
+          name: string;
           program_id: string;
           table_id: string;
           updated_at: string;
@@ -109,6 +110,7 @@ export type Database = {
           id?: string;
           index: number;
           input_template: string;
+          name: string;
           program_id: string;
           table_id: string;
           updated_at?: string;
@@ -119,6 +121,7 @@ export type Database = {
           id?: string;
           index?: number;
           input_template?: string;
+          name?: string;
           program_id?: string;
           table_id?: string;
           updated_at?: string;
@@ -203,6 +206,7 @@ export type Database = {
           first_party: boolean;
           id: string;
           input_payload_schema: Json;
+          name: string;
           output_value_schema: Json;
           runtime: Database["public"]["Enums"]["program_runtime"];
           updated_at: string;
@@ -214,6 +218,7 @@ export type Database = {
           first_party?: boolean;
           id?: string;
           input_payload_schema: Json;
+          name: string;
           output_value_schema: Json;
           runtime: Database["public"]["Enums"]["program_runtime"];
           updated_at?: string;
@@ -225,6 +230,7 @@ export type Database = {
           first_party?: boolean;
           id?: string;
           input_payload_schema?: Json;
+          name?: string;
           output_value_schema?: Json;
           runtime?: Database["public"]["Enums"]["program_runtime"];
           updated_at?: string;
