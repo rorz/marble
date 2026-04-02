@@ -87,66 +87,9 @@ export default {
     const inputPayloadSchema = JsonSchemaSchema.parse(
       runValue.program.input_payload_schema,
     );
-    // if (inputPayloadSchema === null) {
-    //   return Response.json({
-    //     error: true,
-    //     message: "schema equals null",
-    //   });
-    // }
-
     const parsedInput = z
       .fromJSONSchema(inputPayloadSchema)
       .parse(JSON.parse(renderedInput));
-
-    // const templateInput = {
-    //   columns: {}
-    // }
-
-    // cellsInRow.data?.forEach(cir => {
-    //   templateInput.columns[cir.column_id] = {
-    //     value: cir.value
-    //   }
-    // })
-
-    // const inputSchema = Schemas.ColumnProgramInputSchema.parse(
-    //   runValue.program.input_payload_schema,
-    // );
-    // const outputSchema = Schemas.ColumnProgramOutputSchema.parse(
-    //   runValue.program.output_value_schema,
-    // );
-    // const template = Schemas.ColumnProgramInputValuesTemplate.parse(
-    //   runValue.cell.column.input_template,
-    // );
-
-    // Resolve template → concrete variables
-    // const columnRefs = Object.values(template.variables).flatMap((v) =>
-    //   v.source === "column" ? [v.column_id] : [],
-    // );
-
-    // const depCells =
-    //   columnRefs.length > 0
-    //     ? await supabase
-    //         .from("cell")
-    //         .select("column_id, value")
-    //         .eq("row_id", runValue.cell.row_id)
-    //         .in("column_id", columnRefs)
-    //     : { data: [] };
-
-    // const depValues = Object.fromEntries(
-    //   (depCells.data ?? []).map((c) => [c.column_id, c.value]),
-    // );
-
-    // const variables = Object.fromEntries(
-    //   Object.entries(template.variables).map(([key, tmpl]) => {
-    //     const value =
-    //       tmpl.source === "column"
-    //         ? (depValues[tmpl.column_id] ?? null)
-    //         : tmpl.source === "cell_value"
-    //           ? (requestBody.$marble__cell_value ?? null)
-    //           : tmpl.value;
-    //     return [key, value];
-    //   }),
-    // );
 
     if (runValue.program.runtime !== "JavaScript") {
       return Response.json({
@@ -167,26 +110,51 @@ export default {
     console.log(`Running statement:\n\n${statement}`);
 
     const executionResult = await sandbox.exec(statement);
-    // executionResult.
-
-    const output = (() => {
+    const unsafeOutput = (() => {
+      if (!executionResult.success) {
+        return {
+          ok: false,
+          error: {
+            type: "Crashed",
+          },
+          message: executionResult.stderr.trim(),
+        };
+      }
       try {
-        return JSON.parse(executionResult.stdout.trim());
-      } catch {
-        return executionResult.stdout.trim();
+        const out = executionResult.stdout.trim();
+        const outputValueSchema = JsonSchemaSchema.parse(
+          runValue.program.output_value_schema,
+        );
+        return {
+          ok: true,
+          value: z.fromJSONSchema(outputValueSchema).parse(JSON.parse(out)),
+        };
+      } catch (e) {
+        return {
+          ok: false,
+          error: {
+            type: "Parser",
+          },
+          message: `Unable to parse program output with error:: ${e}`,
+        };
       }
     })();
 
+    const parsedOutput =
+      Schemas.ProgramOutputValueMetaschema.parse(unsafeOutput);
+
     await supabase
       .from("cell")
-      .update({ value: output })
+      .update({ value: parsedOutput })
       .eq("id", runValue.target_cell_id);
-
-    await supabase.from("program_run").update({ output }).eq("id", runId);
+    await supabase
+      .from("program_run")
+      .update({ output: parsedOutput })
+      .eq("id", runId);
 
     return Response.json({
       success: true,
-      output,
+      output: parsedOutput,
     });
   },
 };

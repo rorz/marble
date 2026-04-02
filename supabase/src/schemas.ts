@@ -1,97 +1,162 @@
 import { z } from "zod";
 
-const UserInput = z.object({
-  type: z.literal("UserInput"),
+// ------------------------------------------------------------------
+// 1. MONGO QUERY MATCHER SCHEMA
+// ------------------------------------------------------------------
+
+// The basic literal values allowed in JSON
+const MongoLiteral = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+
+// The field-level operators supported by sift.js
+const MongoFieldOperators = z
+  .object({
+    $eq: MongoLiteral.optional(),
+    $ne: MongoLiteral.optional(),
+    $gt: z.union([z.number(), z.string()]).optional(),
+    $gte: z.union([z.number(), z.string()]).optional(),
+    $lt: z.union([z.number(), z.string()]).optional(),
+    $lte: z.union([z.number(), z.string()]).optional(),
+    $in: z.array(MongoLiteral).optional(),
+    $nin: z.array(MongoLiteral).optional(),
+    $exists: z.boolean().optional(),
+    $size: z.number().int().nonnegative().optional(),
+    $regex: z.string().optional(), // Must be a string in the DB, not a JS RegExp object
+    $options: z.string().optional(), // Modifiers for regex like "i"
+  })
+  .strict(); // .strict() ensures typo'd operators throw an error before saving
+
+// What a single field path is allowed to match against
+const MongoFieldValue = z.union([
+  MongoLiteral,
+  MongoFieldOperators,
+  z.array(MongoLiteral), // for exact array matching
+]);
+type MongoFieldValue = z.infer<typeof MongoFieldValue>;
+
+// We need an explicit TypeScript type so Zod can do recursive lazy typing
+type MongoQuery = {
+  [key: string]: MongoFieldValue | MongoQuery[];
+};
+
+// The fully hardened recursive Sift.js Matcher
+const matchConfigSchema: z.ZodType<MongoQuery> = z.lazy(() =>
+  z
+    .record(
+      z.string(),
+      z.union([
+        MongoFieldValue,
+        z.array(matchConfigSchema), // specifically handles arrays for $or, $and
+      ]),
+    )
+    .superRefine((val, ctx) => {
+      // Validate top-level logical operators
+      for (const [key, value] of Object.entries(val)) {
+        if (["$and", "$or", "$nor"].includes(key)) {
+          if (!Array.isArray(value)) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: `Logical operator '${key}' must contain an array of query objects.`,
+              path: [key],
+            });
+          }
+        } else if (
+          key.startsWith("$") &&
+          !["$and", "$or", "$nor"].includes(key)
+        ) {
+          // Prevent users from trying to put field-level operators at the top level
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `Top-level operator '${key}' is invalid. Did you mean to put this inside a field path?`,
+            path: [key],
+          });
+        }
+      }
+    }),
+);
+
+// ------------------------------------------------------------------
+// 2. MAIN OUTPUT STRATEGY SCHEMA
+// ------------------------------------------------------------------
+
+const JsonSchema = z.record(z.string(), z.unknown()).superRefine((val, ctx) => {
+  if (
+    !val.type &&
+    !val.$ref &&
+    !val.properties &&
+    !val.items &&
+    Object.keys(val).length > 0
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "Missing typical JSON schema fields (type, $ref, properties, etc.)",
+    });
+  }
 });
 
-const MainInputFieldBase = z.object({
-  name: z.string(),
-  description: z.string().optional(),
-  required: z.boolean().default(false),
+const OverloadRule = z.object({
+  match: matchConfigSchema,
+  schema: JsonSchema,
 });
 
-const StringInput = z.object({
-  ...MainInputFieldBase.shape,
-  type: z.literal("String"),
+// --- Program
+
+export const ProgramInputSchema = JsonSchema; // TODO: Make our own subset, probably without the top level metakeys?
+export type ProgramInputSchema = z.infer<typeof ProgramInputSchema>;
+
+export const ProgramOutputConfig = z.object({
+  flags: z
+    .object({
+      allowInference: z.boolean().optional().default(false),
+      allowManualInput: z.boolean().optional().default(false),
+    })
+    .optional()
+    .default({
+      allowInference: false,
+      allowManualInput: false,
+    }),
+  schema: JsonSchema,
+  overloads: z.array(OverloadRule).optional(),
 });
+export type ProgramOutputConfig = z.infer<typeof ProgramOutputConfig>;
 
-const StringInputValue = z.object({
-  ...StringInput.shape,
-  value: z.string(),
+// --- Column
+
+export const ColumnOutputSchema = JsonSchema;
+export type ColumnOutputSchema = z.infer<typeof ColumnOutputSchema>;
+
+// --- Run
+
+export const RunInput = z.object({
+  system: z.record(z.string(), z.string()),
+  cell: z.object({
+    manualInputValue: z.string().optional(),
+  }),
+  input: z.object(),
 });
+export type RunInput = z.infer<typeof RunInput>;
 
-export const JsonSchemaSchema = z.lazy(() => z.object({}).catchall(z.any()));
-
-export const ColumnProgramInputSchema = z.object({
-  variables: z.record(
-    z.string(),
-    z.discriminatedUnion("type", [
-      UserInput,
-      z.object({
-        type: z.literal("String"),
-        name: z.string(),
-        description: z.string().optional(),
-        required: z.boolean(),
-      }),
-      z.object({
-        type: z.literal("Number"),
-        name: z.string(),
-        description: z.string().optional(),
-        required: z.boolean(),
-      }),
-      z.object({
-        type: z.literal("Enum"),
-        name: z.string(),
-        description: z.string().optional(),
-        required: z.boolean(),
-        options: z.array(z.string()),
-      }),
-      z.object({
-        type: z.literal("Json"),
-        name: z.string(),
-        description: z.string().optional(),
-        required: z.boolean(),
-      }),
-    ]),
-  ),
-});
-
-export const ColumnProgramInputValuesTemplate = z.object({
-  variables: z.record(
-    z.string(),
-    z.discriminatedUnion("source", [
-      z.object({ source: z.literal("column"), column_id: z.string() }),
-      z.object({ source: z.literal("cell_value") }),
-      z.object({ source: z.literal("literal"), value: z.string() }),
-    ]),
-  ),
-});
-
-export const ColumnProgramOutputSchema = z.discriminatedUnion("ok", [
+export const RunReturnValue = z.discriminatedUnion("ok", [
   z.object({
     ok: z.literal(false),
-    error: z.json().nullable(),
+    error: z.json(),
     message: z.string(),
   }),
-  z.discriminatedUnion("type", [
-    z.object({
-      ok: z.literal(true),
-      type: z.literal("Text"),
-      value: z.string().nullable(),
-    }),
-    z.object({
-      ok: z.literal(true),
-      type: z.literal("Number"),
-      value: z.number().nullable(),
-    }),
-    z.object({
-      ok: z.literal(true),
-      type: z.literal("Object"),
-      value: z.json(),
-    }),
-  ]),
+  z.object({
+    ok: z.literal(true),
+    value: z.json(), // TODO: Pass the output schema into this
+  }),
 ]);
+export type RunReturnValue = z.infer<typeof RunReturnValue>;
 
-export const ExecutorRequestBodySchema = z.object({
-  $marble__cell_value: z.string().optional(),
-});
+const createProgram = () => {};
+
+const createColumn = () => {};
+
+const resolveColumnOutputSchema = (
+  inputSchema: ProgramInputSchema,
+  inputValues: ProgramInputSchema, // FIXME: should be "adheres to"
+  outputConfig: ProgramOutputConfig,
+): ColumnOutputSchema => {
+  //
+};
