@@ -1,0 +1,26 @@
+{
+  "type": "object",
+  "properties": {
+    "method": {
+      "type": "string",
+      "enum": ["GET", "POST", "PUT", "DELETE"],
+      "default": "GET"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "title": "Endpoint URL"
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "title": "Headers (JSON)"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true,
+      "title": "Body / Payload"
+    }
+  },
+  "required": ["method", "url"]
+}

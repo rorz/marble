@@ -10,6 +10,7 @@
     }
   },
   "scripts": {
+    "seed:generate": "node generate-seed.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

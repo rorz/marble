@@ -1,0 +1,19 @@
+{
+  "flags": {
+    "allowInference": true
+  },
+  "schema": {
+    "type": "array",
+    "items": { "type": "object" },
+    "description": "Query result rows"
+  },
+  "overloads": [
+    {
+      "match": { "connection.return_mode": "Count" },
+      "schema": {
+        "type": "number",
+        "description": "The total number of matching rows"
+      }
+    }
+  ]
+}

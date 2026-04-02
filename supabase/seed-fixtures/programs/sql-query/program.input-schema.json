@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "properties": {
+    "connection": {
+      "type": "object",
+      "properties": {
+        "dialect": {
+          "type": "string",
+          "enum": ["Postgres", "MySQL"]
+        },
+        "return_mode": {
+          "type": "string",
+          "enum": ["Rows", "Count"]
+        }
+      }
+    },
+    "query": {
+      "type": "string",
+      "title": "SQL Query"
+    }
+  },
+  "required": ["connection", "query"]
+}

@@ -1,0 +1,10 @@
+{
+  "flags": {
+    "allowInference": true
+  },
+  "schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "description": "Generic HTTP response payload (unknown shape)"
+  }
+}

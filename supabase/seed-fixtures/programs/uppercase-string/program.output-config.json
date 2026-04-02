@@ -1,0 +1,7 @@
+{
+  "flags": {},
+  "schema": {
+    "type": "string",
+    "description": "The capitalized string"
+  }
+}

@@ -7,10 +7,6 @@ import type {
   ProgramOutputConfig,
 } from "./schemas";
 
-const createProgram = () => {};
-
-const createColumn = () => {};
-
 export const resolveColumnOutputSchema = (
   inputValues: Record<string, unknown>,
   outputConfig: ProgramOutputConfig,
