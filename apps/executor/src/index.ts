@@ -1,8 +1,12 @@
 import { getSandbox } from "@cloudflare/sandbox";
-import { createClient, Schemas } from "@marble/supabase";
-import mustache from "mustache";
-import z from "zod";
-import { JsonSchemaSchema } from "../../../supabase/src/schemas";
+import {
+  resolveColumnConfig,
+  resolveColumnOutputSchema,
+  Schemas,
+  type JsonValue,
+} from "@marble/core";
+import { createClient, type Json } from "@marble/supabase";
+import { z } from "zod";
 
 export { Sandbox } from "@cloudflare/sandbox";
 
@@ -24,9 +28,6 @@ export default {
 
     const url = new URL(request.url);
     const runId = url.searchParams.get("run_id");
-    const requestBody = Schemas.ExecutorRequestBodySchema.parse(
-      await request.json(),
-    );
 
     if (!runId) {
       return Response.json(
@@ -42,85 +43,126 @@ export default {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    const columnProgramRunInitialValueQuery = await supabase
+    // Load the program run with its associated program, target cell, and column
+    const { data: runs, error: runError } = await supabase
       .from("program_run")
       .select(`
         *,
         program(*),
-        cell(*, column(*))
-        `)
+        cell!target_cell_id(*, column!column_id(*))
+      `)
       .eq("id", runId);
 
-    const runValue = columnProgramRunInitialValueQuery.data?.at(0);
+    const run = runs?.at(0);
 
-    if (runValue === undefined) {
-      return Response.json({
-        error: true,
-        message: "No run found.",
-      });
+    if (!run || runError) {
+      return Response.json(
+        {
+          error: true,
+          message: runError?.message ?? "No run found.",
+        },
+        {
+          status: 404,
+        },
+      );
     }
 
-    const columnDependencies = await supabase
+    // Determine which upstream columns this column depends on
+    const { data: dependencies } = await supabase
       .from("column_dependency")
-      .select(`
-        *,
-        column!source_column_id(*)
-        `)
-      .eq("target_column_id", runValue.cell.column.id);
+      .select("source_column_id")
+      .eq("target_column_id", run.cell.column.id);
 
-    const cellsInRow = await supabase
+    const sourceColumnIds = dependencies?.map((d) => d.source_column_id) ?? [];
+
+    // Load the sibling cells in the same row for each dependency column
+    const { data: dependencyCells } = await supabase
       .from("cell")
-      .select(`*`)
-      .eq("row_id", runValue.cell.row_id)
-      .in("column_id", columnDependencies.data?.map(({ id }) => id) ?? []);
+      .select("*")
+      .eq("row_id", run.cell.row_id)
+      .in("column_id", sourceColumnIds);
 
-    const view = cellsInRow.data?.reduce(
-      (acc, cell) => {
-        return {
-          columns: {
-            ...acc.columns,
-            [cell.column_id]: {
-              value: cell.value,
-            },
-          },
-        };
-      },
-      {
-        columns: {},
-      },
-    );
+    // Build the row context used by JSONPath-based template resolution.
+    // Each dependency cell's state is a RunReturnValue; we unwrap to the raw value.
+    const columns: Record<string, JsonValue> = {};
+    for (const cell of dependencyCells ?? []) {
+      const state = cell.state as {
+        ok?: boolean;
+        value?: JsonValue;
+      } | null;
+      columns[cell.column_id] = {
+        value: state?.ok ? (state.value ?? null) : null,
+      };
+    }
 
-    const renderedInput = mustache.render(
-      runValue.cell.column.input_template,
-      view,
-    );
-    const inputPayloadSchema = JsonSchemaSchema.parse(
-      runValue.program.input_payload_schema,
+    const rowContext: Record<string, JsonValue> = {
+      cell: {
+        manualInputValue: run.cell.manual_input,
+      },
+      columns,
+    };
+
+    // Resolve the column's input template (JSONPath `.$` keys → concrete values)
+    const inputTemplate: JsonValue = JSON.parse(run.cell.column.input_template);
+    const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
+
+    // Validate the resolved input against the program's declared input schema
+    const inputPayloadSchema = Schemas.ProgramInputSchema.parse(
+      run.program.input_payload_schema,
     );
     const parsedInput = z
       .fromJSONSchema(inputPayloadSchema)
-      .parse(JSON.parse(renderedInput));
+      .parse(resolvedInput);
 
-    if (runValue.program.runtime !== "JavaScript") {
-      return Response.json({
-        error: true,
-        message: "Only JavaScript is supported right now",
-      });
+    if (run.program.runtime !== "JavaScript") {
+      return Response.json(
+        {
+          error: true,
+          message: "Only JavaScript is supported right now.",
+        },
+        {
+          status: 501,
+        },
+      );
     }
 
-    const sandbox = getSandbox(env.Sandbox, runValue.cell.column.id);
+    // Execute the program in a sandboxed environment
+    const sandbox = getSandbox(env.Sandbox, run.cell.column.id);
 
-    const codeAsBase64 = Buffer.from(runValue.program.code).toString("base64");
+    const runInput = {
+      system: {},
+      cell: {
+        manualInputValue: run.cell.manual_input ?? undefined,
+      },
+      input: parsedInput,
+    };
+
+    const codeAsBase64 = Buffer.from(run.program.code).toString("base64");
+    const inputAsBase64 = Buffer.from(JSON.stringify(runInput)).toString(
+      "base64",
+    );
+
     const statement = `\
     node --input-type=module -e \
     "const m = await import('data:text/javascript;base64,${codeAsBase64}');\
-    console.log(m.default({input: ${parsedInput}}))"
+    const ri = JSON.parse(Buffer.from('${inputAsBase64}', 'base64').toString());\
+    console.log(JSON.stringify(m.default(ri)))"
     `;
 
     console.log(`Running statement:\n\n${statement}`);
 
     const executionResult = await sandbox.exec(statement);
-    const unsafeOutput = (() => {
+
+    // Resolve the correct output schema (accounting for overloads)
+    const outputConfig = Schemas.ProgramOutputConfig.parse(
+      run.program.output_value_schema,
+    );
+    const outputSchema = resolveColumnOutputSchema(
+      resolvedInput as Record<string, unknown>,
+      outputConfig,
+    );
+
+    const rawOutput = (() => {
       if (!executionResult.success) {
         return {
           ok: false,
@@ -130,14 +172,15 @@ export default {
           message: executionResult.stderr.trim(),
         };
       }
+
       try {
-        const out = executionResult.stdout.trim();
-        const outputValueSchema = JsonSchemaSchema.parse(
-          runValue.program.output_value_schema,
-        );
+        const value = z
+          .fromJSONSchema(outputSchema)
+          .parse(JSON.parse(executionResult.stdout.trim()));
+
         return {
           ok: true,
-          value: z.fromJSONSchema(outputValueSchema).parse(JSON.parse(out)),
+          value,
         };
       } catch (e) {
         return {
@@ -145,30 +188,33 @@ export default {
           error: {
             type: "Parser",
           },
-          message: `Unable to parse program output with error:: ${e}`,
+          message: `Unable to parse program output: ${e}`,
         };
       }
     })();
 
-    const parsedOutput =
-      Schemas.ProgramOutputValueMetaschema.parse(unsafeOutput);
+    const validatedOutput = Schemas.RunReturnValue.parse(rawOutput);
 
-    await supabase
-      .from("cell")
-      .update({
-        value: parsedOutput,
-      })
-      .eq("id", runValue.target_cell_id);
-    await supabase
-      .from("program_run")
-      .update({
-        output: parsedOutput,
-      })
-      .eq("id", runId);
+    // Persist the results back to the cell state and program run record
+    await Promise.all([
+      supabase
+        .from("cell")
+        .update({
+          state: validatedOutput,
+        })
+        .eq("id", run.target_cell_id),
+      supabase
+        .from("program_run")
+        .update({
+          input: parsedInput as Json,
+          output: validatedOutput as Json,
+        })
+        .eq("id", runId),
+    ]);
 
     return Response.json({
       success: true,
-      output: parsedOutput,
+      output: validatedOutput,
     });
   },
 };

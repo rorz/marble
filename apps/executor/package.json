@@ -12,13 +12,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@marble/core": "workspace:",
     "@marble/supabase": "workspace:",
-    "mustache": "^4.2.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@cloudflare/sandbox": "*",
-    "@types/mustache": "^4.2.6",
     "@types/node": "^24.10.1",
     "typescript": "^5.9.3",
     "wrangler": "^4.78.0"
