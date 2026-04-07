@@ -181,11 +181,19 @@ export type ColumnOutputSchema = z.infer<typeof ColumnOutputSchema>;
 // --- Run
 
 export const RunInput = z.object({
-  system: z.record(z.string(), z.string()),
+  system: z
+    .object({
+      providers: z.record(z.string(), z.unknown()).optional().default({}),
+    })
+    .catchall(z.unknown())
+    .optional()
+    .default({
+      providers: {},
+    }),
   cell: z.object({
     manualInputValue: z.string().optional(),
   }),
-  input: z.object(),
+  input: z.record(z.string(), z.unknown()),
 });
 export type RunInput = z.infer<typeof RunInput>;
 

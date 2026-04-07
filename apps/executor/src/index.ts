@@ -33,12 +33,27 @@ export default {
 
         const { code, input, outputSchema } = body;
 
+        const inputWithProviders = {
+          ...(typeof input === "object" && input !== null ? input : {}),
+          system: {
+            // @ts-expect-error Types are flexible here
+            ...(input?.system || {}),
+            providers: {
+              // @ts-expect-error Types are flexible here
+              ...(input?.system?.providers || {}),
+              APOLLO_IO: {
+                apiKey: env.APOLLO_IO_API_KEY,
+              },
+            },
+          },
+        };
+
         const sandbox = getSandbox(env.Sandbox, "local-run-sandbox");
 
         const codeAsBase64 = Buffer.from(code).toString("base64");
-        const inputAsBase64 = Buffer.from(JSON.stringify(input)).toString(
-          "base64",
-        );
+        const inputAsBase64 = Buffer.from(
+          JSON.stringify(inputWithProviders),
+        ).toString("base64");
 
         const statement = `\
     node --input-type=module -e \
@@ -311,7 +326,13 @@ export default {
       const sandbox = getSandbox(env.Sandbox, run.cell.column.id);
 
       const runInput = {
-        system: {},
+        system: {
+          providers: {
+            APOLLO_IO: {
+              apiKey: env.APOLLO_IO_API_KEY,
+            },
+          },
+        },
         cell: {
           manualInputValue: run.cell.manual_input ?? undefined,
         },

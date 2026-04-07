@@ -49,12 +49,17 @@ Export a default async function. It receives `{ system, cell, input }`.
 
 - `input` is validated against `config.json.inputSchema`.
 - `cell.manualInputValue` is the raw manual cell input when manual input is enabled.
+- `system.providers.APOLLO_IO.apiKey` contains the Apollo API key available to all runs (if configured).
 - Return a value that matches `config.json.outputConfig.schema`.
 
 Example:
 
 ```js
-export default async function ({ cell }) {
+export default async function ({ system, cell, input }) {
+  if (system?.providers?.APOLLO_IO?.apiKey) {
+    // You can use the Apollo API key here
+  }
+
   const text = cell.manualInputValue ?? "";
   return text.split("").reverse().join("");
 }
