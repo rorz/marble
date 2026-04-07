@@ -10,6 +10,12 @@ dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
 });
 
+const invocationCwd = process.env.INIT_CWD || process.cwd();
+
+function resolveFromInvocation(dir: string) {
+  return path.resolve(invocationCwd, dir);
+}
+
 const program = new Command();
 
 program
@@ -58,7 +64,7 @@ programsCmd
   .description("Upsert a program from a local directory")
   .argument("<dir>", "Directory containing the program code and schema")
   .action(async (dir) => {
-    const fullPath = path.resolve(process.cwd(), dir);
+    const fullPath = resolveFromInvocation(dir);
     try {
       const codePath = path.join(fullPath, "index.js");
       const configPath = path.join(fullPath, "config.json");
@@ -92,7 +98,7 @@ programsCmd
   .argument("<dir>", "Directory containing the program code and schema")
   .argument("<input>", "Mock input payload as a stringified JSON object")
   .action(async (dir, inputStr) => {
-    const fullPath = path.resolve(process.cwd(), dir);
+    const fullPath = resolveFromInvocation(dir);
     try {
       const codePath = path.join(fullPath, "index.js");
       const configPath = path.join(fullPath, "config.json");

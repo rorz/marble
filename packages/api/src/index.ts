@@ -1,4 +1,8 @@
-import { createClient, type SupabaseClient } from "@marble/supabase";
+import {
+  createClient,
+  type Database,
+  type SupabaseClient,
+} from "@marble/supabase";
 import { Hono } from "hono";
 
 export type ApiEnv = {
@@ -13,6 +17,21 @@ export type ApiEnv = {
 };
 
 const app = new Hono<ApiEnv>();
+type CellInsert = Database["public"]["Tables"]["cell"]["Insert"];
+
+async function createCells(
+  supabase: SupabaseClient,
+  cells: CellInsert[],
+): Promise<void> {
+  if (cells.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.from("cell").insert(cells);
+  if (error) {
+    throw error;
+  }
+}
 
 // Middleware: Authenticate and inject Supabase client
 app.use("*", async (c, next) => {
@@ -288,6 +307,40 @@ app.post("/tables/:tableId/columns", async (c) => {
       },
       500,
     );
+
+  const { data: rows, error: rowsError } = await c.var.supabase
+    .from("row")
+    .select("id")
+    .eq("table_id", tableId);
+
+  if (rowsError) {
+    await c.var.supabase.from("column").delete().eq("id", data.id);
+    return c.json(
+      {
+        error: rowsError.message,
+      },
+      500,
+    );
+  }
+
+  try {
+    await createCells(
+      c.var.supabase,
+      (rows ?? []).map((row) => ({
+        column_id: data.id,
+        row_id: row.id,
+      })),
+    );
+  } catch (err) {
+    await c.var.supabase.from("column").delete().eq("id", data.id);
+    return c.json(
+      {
+        error: err instanceof Error ? err.message : String(err),
+      },
+      500,
+    );
+  }
+
   return c.json(data);
 });
 
@@ -342,6 +395,40 @@ app.post("/tables/:tableId/rows", async (c) => {
       },
       500,
     );
+
+  const { data: columns, error: columnsError } = await c.var.supabase
+    .from("column")
+    .select("id")
+    .eq("table_id", tableId);
+
+  if (columnsError) {
+    await c.var.supabase.from("row").delete().eq("id", data.id);
+    return c.json(
+      {
+        error: columnsError.message,
+      },
+      500,
+    );
+  }
+
+  try {
+    await createCells(
+      c.var.supabase,
+      (columns ?? []).map((column) => ({
+        column_id: column.id,
+        row_id: data.id,
+      })),
+    );
+  } catch (err) {
+    await c.var.supabase.from("row").delete().eq("id", data.id);
+    return c.json(
+      {
+        error: err instanceof Error ? err.message : String(err),
+      },
+      500,
+    );
+  }
+
   return c.json(data);
 });
 
