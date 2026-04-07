@@ -355,23 +355,16 @@ function ConfirmModal({
         <h3 className="text-sm font-semibold mb-2">{state.title}</h3>
         <p className="text-sm text-zinc-600 mb-5">{state.message}</p>
         <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 text-sm border border-zinc-300 rounded hover:bg-zinc-100 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
+          <DemoButton onClick={onClose}>Cancel</DemoButton>
+          <DemoButton
+            variant="red"
             onClick={() => {
               state.onConfirm();
               onClose();
             }}
-            className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-500 transition-colors font-medium"
           >
             {state.confirmLabel}
-          </button>
+          </DemoButton>
         </div>
       </div>
     </div>
@@ -595,6 +588,124 @@ function CellWithRunButton(props: CustomCellRendererProps) {
           ▶
         </button>
       )}
+    </div>
+  );
+}
+
+// ── UI Components ───────────────────────────────────────
+
+type DemoButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "light" | "dark" | "orange" | "red";
+};
+
+function DemoButton({
+  variant = "light",
+  children,
+  className,
+  disabled,
+  ...props
+}: DemoButtonProps) {
+  const isOrange = variant === "orange";
+  const isRed = variant === "red";
+  const isDark = variant === "dark";
+  const isLight = variant === "light";
+
+  return (
+    <button
+      type="button"
+      className={`bg-neutral-950 p-0.5 rounded-[7px] transition-opacity ${disabled ? "opacity-40 cursor-not-allowed" : "hover:opacity-90 cursor-pointer"} ${className || ""}`}
+      disabled={disabled}
+      {...props}
+    >
+      <div
+        className={`size-full p-[1px] rounded-md ${isOrange ? "bg-orange-600" : isRed ? "bg-red-600" : isLight ? "bg-neutral-200" : ""}`}
+        style={{
+          background: isOrange
+            ? `linear-gradient(to right, var(--color-orange-300) 0px, #F6490000 4px),
+              linear-gradient(to left, var(--color-orange-800) 0px, #F6490000 4px),
+              linear-gradient(to top, var(--color-orange-950) 0px, #F6490000 4px),
+              linear-gradient(to bottom, var(--color-orange-300) 0px, #F6490000 4px),
+              linear-gradient(to bottom right, var(--color-white) 0px, #F6490000 4px), linear-gradient(to right, var(--color-orange-600) 0%, var(--color-orange-600) 100%)`
+            : isRed
+              ? `linear-gradient(to right, var(--color-red-300) 0px, #DC262600 4px),
+              linear-gradient(to left, var(--color-red-800) 0px, #DC262600 4px),
+              linear-gradient(to top, var(--color-red-950) 0px, #DC262600 4px),
+              linear-gradient(to bottom, var(--color-red-300) 0px, #DC262600 4px),
+              linear-gradient(to bottom right, var(--color-white) 0px, #DC262600 4px), linear-gradient(to right, var(--color-red-600) 0%, var(--color-red-600) 100%)`
+              : isDark
+                ? `linear-gradient(to right, var(--color-neutral-300) 0px, #40404000 4px),
+              linear-gradient(to left, var(--color-neutral-800) 0px, #40404000 4px),
+              linear-gradient(to top, var(--color-neutral-950) 0px, #40404000 4px),
+              linear-gradient(to bottom, var(--color-neutral-100) 0px, #40404000 4px),
+              linear-gradient(to bottom right, var(--color-white) 0px, #40404000 4px)`
+                : `linear-gradient(to right, var(--color-neutral-100) 0px, #e5e5e500 4px),
+              linear-gradient(to left, var(--color-neutral-400) 0px, #e5e5e500 4px),
+              linear-gradient(to top, var(--color-neutral-200) 0px, #e5e5e500 4px),
+              linear-gradient(to bottom, var(--color-neutral-300) 0px, #e5e5e500 4px),
+              linear-gradient(to bottom right, var(--color-white) 0px, #e5e5e500 4px)`,
+        }}
+      >
+        <div
+          className={`size-full flex items-center justify-center font-medium uppercase py-1.5 px-3 rounded-[5px] tracking-wide text-xs ${
+            isOrange
+              ? "bg-orange-600 text-white"
+              : isRed
+                ? "bg-red-600 text-white"
+                : isDark
+                  ? "bg-neutral-800 text-neutral-100 font-light"
+                  : "bg-neutral-50 text-neutral-700 shadow-sm font-medium"
+          }`}
+        >
+          {children}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+type DemoSelectProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
+  wrapperClassName?: string;
+};
+
+function DemoSelect({
+  className,
+  wrapperClassName,
+  children,
+  ...props
+}: DemoSelectProps) {
+  return (
+    <div className={`relative inline-flex ${wrapperClassName || ""}`}>
+      <select
+        className={`w-full bg-white border-b-2 border-x border-t border-neutral-200 border-b-neutral-300 text-neutral-900 text-sm rounded-md pl-3 pr-8 py-1.5 focus:border-b-orange-400 focus:outline-none appearance-none cursor-pointer transition-colors shadow-sm ${className || ""}`}
+        {...props}
+      >
+        {children}
+      </select>
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-400">
+        <svg
+          className="fill-current h-4 w-4"
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 20 20"
+          aria-hidden="true"
+        >
+          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+type DemoInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
+  wrapperClassName?: string;
+};
+
+function DemoInput({ className, wrapperClassName, ...props }: DemoInputProps) {
+  return (
+    <div className={`relative flex ${wrapperClassName || ""}`}>
+      <input
+        className={`w-full bg-white border-b-2 border-x border-t border-neutral-200 border-b-neutral-300 text-neutral-900 text-sm rounded-md px-3 py-1.5 focus:border-b-orange-400 focus:outline-none placeholder-neutral-400 transition-colors shadow-sm ${className || ""}`}
+        {...props}
+      />
     </div>
   );
 }
@@ -1168,8 +1279,7 @@ export default function DemoPage() {
         )}
 
         <div className="ml-auto flex items-center gap-2">
-          <select
-            className="bg-white border border-zinc-300 rounded px-2 py-1 text-sm"
+          <DemoSelect
             value={selectedTableId ?? ""}
             onChange={(e) => setSelectedTableId(e.target.value)}
           >
@@ -1181,30 +1291,21 @@ export default function DemoPage() {
                 Table {shortId(t.id)}
               </option>
             ))}
-          </select>
-          <button
-            type="button"
-            onClick={handleCreateTable}
-            className="bg-zinc-200 hover:bg-zinc-300 border border-zinc-300 rounded px-2.5 py-1 text-sm transition-colors"
-          >
-            + Table
-          </button>
-          <button
-            type="button"
+          </DemoSelect>
+          <DemoButton onClick={handleCreateTable}>+ Table</DemoButton>
+          <DemoButton
             onClick={handleAddRow}
             disabled={!selectedTableId}
-            className="bg-zinc-200 hover:bg-zinc-300 disabled:opacity-40 border border-zinc-300 rounded px-2.5 py-1 text-sm transition-colors"
           >
             + Row
-          </button>
-          <button
-            type="button"
+          </DemoButton>
+          <DemoButton
+            variant="orange"
             onClick={handleRunAll}
             disabled={!selectedTableId || columns.length === 0 || running}
-            className="bg-orange-700 hover:bg-orange-600 disabled:opacity-40 border border-orange-600 rounded px-3 py-1 text-sm font-medium transition-colors text-white"
           >
             Run All
-          </button>
+          </DemoButton>
         </div>
       </header>
 
@@ -1512,27 +1613,27 @@ function ColumnSidebar({
       </div>
 
       <div className="flex-1 overflow-auto p-4 space-y-3">
-        <label className="block">
-          <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+        <div className="block">
+          <span className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1 block">
             Name
           </span>
-          <input
+          <DemoInput
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Uppercased"
-            className="w-full bg-white border border-zinc-300 rounded px-2 py-1 text-sm focus:border-orange-600 focus:outline-none mt-0.5"
+            wrapperClassName="w-full"
           />
-        </label>
+        </div>
 
-        <label className="block">
-          <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
+        <div className="block mt-2">
+          <span className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1 block">
             Program
           </span>
-          <select
+          <DemoSelect
             value={programId}
             onChange={(e) => setProgramId(e.target.value)}
-            className="w-full bg-white border border-zinc-300 rounded px-2 py-1 text-sm focus:border-orange-600 focus:outline-none mt-0.5"
+            wrapperClassName="w-full"
           >
             <option value="">Select program...</option>
             {programs.map((p) => (
@@ -1543,8 +1644,8 @@ function ColumnSidebar({
                 {p.name}
               </option>
             ))}
-          </select>
-        </label>
+          </DemoSelect>
+        </div>
 
         {hasManualInput && (
           <div className="text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded px-2.5 py-1.5">
@@ -1734,8 +1835,8 @@ function ColumnSidebar({
                   rows={8}
                   className="w-full bg-white border border-zinc-300 rounded px-2 py-1.5 text-xs font-mono focus:border-orange-600 focus:outline-none resize-y"
                 />
-                <button
-                  type="button"
+                <DemoButton
+                  className="w-full"
                   disabled={!outputSchemaDirty || savingOutputSchema}
                   onClick={async () => {
                     let parsed: unknown;
@@ -1755,10 +1856,9 @@ function ColumnSidebar({
                       setSavingOutputSchema(false);
                     }
                   }}
-                  className="w-full bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 border border-zinc-600 rounded px-3 py-1 text-xs font-medium transition-colors text-white"
                 >
                   {savingOutputSchema ? "Saving..." : "Save Output Config"}
-                </button>
+                </DemoButton>
               </div>
             )}
           </div>
@@ -1766,11 +1866,11 @@ function ColumnSidebar({
       </div>
 
       <div className="border-t border-zinc-300 bg-zinc-100 p-4">
-        <button
-          type="button"
+        <DemoButton
+          variant="orange"
+          className="w-full"
           onClick={handleSave}
           disabled={!name.trim() || !programId || saving}
-          className="w-full bg-orange-700 hover:bg-orange-600 disabled:opacity-40 border border-orange-600 rounded px-3 py-1.5 text-sm font-medium transition-colors text-white"
         >
           {saving
             ? isCreate
@@ -1779,7 +1879,7 @@ function ColumnSidebar({
             : isCreate
               ? "Create Column"
               : "Save Changes"}
-        </button>
+        </DemoButton>
       </div>
     </aside>
   );
