@@ -872,9 +872,16 @@ export default function DemoPage() {
           editable,
           sortable: false,
           cellRenderer: CellWithRunButton,
-          cellStyle: {
-            background: editable ? "#f4f4f5" : "transparent",
-            fontFamily: "var(--font-geist-mono)",
+          cellStyle: (params) => {
+            const hasValue = params.value && String(params.value).trim() !== "";
+            return {
+              background: editable
+                ? hasValue
+                  ? "#ffffff"
+                  : "#f4f4f5"
+                : "transparent",
+              fontFamily: "var(--font-geist-mono)",
+            };
           },
         } satisfies ColDef;
       }),
