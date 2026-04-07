@@ -9,9 +9,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@marble/api": "workspace:*",
     "@marble/supabase": "workspace:*",
     "ag-grid-community": "^35.2.0",
     "ag-grid-react": "^35.2.0",
+    "hono": "^4.12.12",
     "next": "catalog:",
     "prismjs": "^1.30.0",
     "react": "catalog:",

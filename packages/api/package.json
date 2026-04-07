@@ -1,0 +1,18 @@
+{
+  "name": "@marble/api",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@marble/core": "workspace:*",
+    "@marble/supabase": "workspace:*",
+    "hono": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

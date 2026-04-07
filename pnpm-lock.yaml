@@ -71,6 +71,9 @@ importers:
       '@marble/supabase':
         specifier: 'workspace:'
         version: link:../../supabase
+      hono:
+        specifier: ^4.12.12
+        version: 4.12.12
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -90,6 +93,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@marble/api':
+        specifier: workspace:*
+        version: link:../../packages/api
       '@marble/supabase':
         specifier: workspace:*
         version: link:../../supabase
@@ -99,6 +105,9 @@ importers:
       ag-grid-react:
         specifier: ^35.2.0
         version: 35.2.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      hono:
+        specifier: ^4.12.12
+        version: 4.12.12
       next:
         specifier: 'catalog:'
         version: 16.2.1(babel-plugin-react-compiler@1.0.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -136,6 +145,47 @@ importers:
       tailwindcss:
         specifier: 'catalog:'
         version: 4.2.2
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  packages/api:
+    dependencies:
+      '@marble/core':
+        specifier: workspace:*
+        version: link:../core
+      '@marble/supabase':
+        specifier: workspace:*
+        version: link:../../supabase
+      hono:
+        specifier: ^4.2.0
+        version: 4.12.12
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 20.19.37
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  packages/cli:
+    dependencies:
+      '@marble/core':
+        specifier: workspace:*
+        version: link:../core
+      commander:
+        specifier: ^12.0.0
+        version: 12.1.0
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.3.6
+    devDependencies:
+      '@types/node':
+        specifier: ^24.10.1
+        version: 24.12.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -1061,6 +1111,10 @@ packages:
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
 
+  commander@12.1.0:
+    resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
+    engines: {node: '>=18'}
+
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
 
@@ -1074,6 +1128,10 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  dotenv@16.6.1:
+    resolution: {integrity: sha512-uBq4egWHTcTt33a72vpSG0z3HnPuIl6NqYcTrKEg2azoEyl2hpW0zqlxysq2pK9HlDIHyHyakeYaYnSAwd8bow==}
+    engines: {node: '>=12'}
 
   enhanced-resolve@5.20.1:
     resolution: {integrity: sha512-Qohcme7V1inbAfvjItgw0EaxVX5q2rdVEZHRBrEQdRZTssLDGsL8Lwrznl8oQ/6kuTJONLaDcGjkNP247XEhcA==}
@@ -1113,6 +1171,10 @@ packages:
 
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
+
+  hono@4.12.12:
+    resolution: {integrity: sha512-p1JfQMKaceuCbpJKAPKVqyqviZdS0eUxH9v82oWo1kb9xjQ5wA6iP3FNVAPDFlz5/p7d45lO+BpSk1tuSZMF4Q==}
+    engines: {node: '>=16.9.0'}
 
   iceberg-js@0.8.1:
     resolution: {integrity: sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA==}
@@ -2157,6 +2219,8 @@ snapshots:
 
   client-only@0.0.1: {}
 
+  commander@12.1.0: {}
+
   convert-source-map@2.0.0: {}
 
   cookie@1.1.1: {}
@@ -2164,6 +2228,8 @@ snapshots:
   csstype@3.2.3: {}
 
   detect-libc@2.1.2: {}
+
+  dotenv@16.6.1: {}
 
   enhanced-resolve@5.20.1:
     dependencies:
@@ -2217,6 +2283,8 @@ snapshots:
     optional: true
 
   graceful-fs@4.2.11: {}
+
+  hono@4.12.12: {}
 
   iceberg-js@0.8.1: {}
 
