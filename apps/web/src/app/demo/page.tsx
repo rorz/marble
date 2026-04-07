@@ -11,8 +11,11 @@ import {
   themeQuartz,
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
+import Prism from "prismjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Editor from "react-simple-code-editor";
 import * as actions from "./actions";
+import "prismjs/components/prism-core";
 
 ModuleRegistry.registerModules([
   AllCommunityModule,
@@ -212,6 +215,7 @@ const COL_REF_PATTERN = /^\$\.columns\.([a-f0-9-]+)\./;
 function parseTemplateToFieldValues(
   templateJson: string,
   fields: SchemaField[],
+  columns: Column[],
 ): Record<
   string,
   {
@@ -249,9 +253,21 @@ function parseTemplateToFieldValues(
     }
     if (field.key in template) {
       const val = template[field.key];
+      let strVal = typeof val === "string" ? val : JSON.stringify(val);
+
+      // Reverse interpolation tags: {{$.columns.<id>.value.foo}} -> {{Column Name.foo}}
+      strVal = strVal.replace(
+        /\{\{\$\.columns\.([a-f0-9-]+)\.value([^}]*)\}\}/g,
+        (match, id, restPath) => {
+          const col = columns.find((c) => c.id === id);
+          if (col) return `{{${col.name}${restPath}}}`;
+          return match;
+        },
+      );
+
       result[field.key] = {
         mode: "static",
-        value: typeof val === "string" ? val : JSON.stringify(val),
+        value: strVal,
       };
     } else {
       result[field.key] = {
@@ -816,6 +832,95 @@ function ClickToEditTitle({
     >
       {value || "Untitled Table"}
     </button>
+  );
+}
+
+// ── Components ──────────────────────────────────────────
+
+function InterpolationEditor({
+  value,
+  onChange,
+  placeholder,
+  columns,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  columns: Column[];
+}) {
+  // Custom prism grammar for our interpolation tags
+  const grammar = useMemo(() => {
+    return {
+      interpolation: {
+        pattern: /\{\{[^}]+\}\}/,
+        inside: {
+          "tag-open": {
+            pattern: /^\{\{/,
+            alias: "punctuation",
+          },
+          "tag-close": {
+            pattern: /\}\}$/,
+            alias: "punctuation",
+          },
+          "col-name": {
+            // Match the column name component (which may include spaces)
+            // It stops at the first unescaped dot, square bracket, or the opening/closing braces.
+            pattern: /^([^{}.[\]]+)/,
+            alias: "keyword",
+          },
+          "col-path": {
+            // Match the property path dot-notation or array indexing
+            pattern: /^[.[][^\s}]+/,
+            alias: "property",
+          },
+          "invalid-text": {
+            pattern: /[^}]+/,
+            alias: "invalid",
+          },
+        },
+      },
+    };
+  }, []);
+
+  return (
+    <div className="relative border border-zinc-300 rounded bg-white overflow-hidden focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 transition-all text-xs">
+      <Editor
+        value={value}
+        onValueChange={onChange}
+        highlight={(code) => {
+          let html = Prism.highlight(code, grammar, "interpolation");
+
+          // Post-process the generated HTML to validate column names visually
+          // Prism produces tokens like: <span class="token keyword col-name">enrich_email_with_apollo</span>
+          const colNames = columns.map((c) => c.name);
+          const regex = /<span class="token keyword col-name">([^<]+)<\/span>/g;
+          html = html.replace(regex, (match, name) => {
+            const isValid = colNames.some((c) => name === c);
+            if (!isValid) {
+              return `<span class="token keyword col-name invalid" title="Unrecognized column name">${name}</span>`;
+            }
+            return match;
+          });
+
+          return html;
+        }}
+        padding={8}
+        placeholder={placeholder}
+        className="font-mono min-h-[40px]"
+        textareaClassName="focus:outline-none"
+        style={{
+          fontFamily: "var(--font-geist-mono), monospace",
+        }}
+      />
+      <style>{`
+        /* Custom Prism styles for interpolation */
+        .token.interpolation { color: #ea580c; background: #fff7ed; border-radius: 2px; padding: 0 2px; }
+        .token.tag-open, .token.tag-close { opacity: 0.5; }
+        .token.col-name { font-weight: 600; }
+        .token.col-name.invalid, .token.invalid-text { color: #a1a1aa; font-weight: normal; text-decoration: underline dotted #f87171; }
+        .token.col-path { color: #9a3412 !important; }
+      `}</style>
+    </div>
   );
 }
 
@@ -1644,6 +1749,7 @@ function ColumnSidebar({
     return parseTemplateToFieldValues(
       (editingColumn.input_template as string) ?? "{}",
       fs,
+      columns,
     );
   };
 
@@ -1713,15 +1819,64 @@ function ColumnSidebar({
       } else {
         const field = fields.find((f) => f.key === key);
         if (!field) continue;
-        const coerced = coerceFieldValue(field, fv.value);
+
+        let val = fv.value;
+        if (typeof val === "string") {
+          val = val.replace(/\{\{([^}]+)\}\}/g, (match, inner) => {
+            const sortedCols = [
+              ...columns,
+            ].sort((a, b) => b.name.length - a.name.length);
+            const col = sortedCols.find(
+              (c) =>
+                inner === c.name ||
+                inner.startsWith(`${c.name}.`) ||
+                inner.startsWith(`${c.name}[`),
+            );
+            if (col) {
+              const restPath = inner.slice(col.name.length);
+              return `{{$.columns.${col.id}.value${restPath}}}`;
+            }
+            return match;
+          });
+        }
+
+        const coerced = coerceFieldValue(field, val);
         if (coerced !== undefined) template[key] = coerced;
       }
     }
     return JSON.stringify(template);
   };
 
+  const validateTemplate = (): string | null => {
+    for (const [_key, fv] of Object.entries(fieldValues)) {
+      if (fv.mode === "static" && typeof fv.value === "string") {
+        const matches = [
+          ...fv.value.matchAll(/\{\{([^}]+)\}\}/g),
+        ];
+        for (const match of matches) {
+          const inner = match[1];
+          const sortedCols = [
+            ...columns,
+          ].sort((a, b) => b.name.length - a.name.length);
+          const col = sortedCols.find(
+            (c) =>
+              inner === c.name ||
+              inner.startsWith(`${c.name}.`) ||
+              inner.startsWith(`${c.name}[`),
+          );
+          if (!col) {
+            return `Unrecognized column in formula: "${inner}". Please check your spelling.`;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const validationError = validateTemplate();
+
   const handleSave = async () => {
-    if (!name.trim() || !programId) return;
+    if (!name.trim() || !programId || validationError) return;
     setSaving(true);
     try {
       if (mode.kind === "create") {
@@ -1844,7 +1999,7 @@ function ColumnSidebar({
                         }
                         className="accent-orange-500"
                       />
-                      Static
+                      Formula
                     </label>
                     <label className="flex items-center gap-1 cursor-pointer">
                       <input
@@ -1890,18 +2045,18 @@ function ColumnSidebar({
                         ))}
                       </select>
                     ) : (
-                      <input
-                        type="text"
+                      <InterpolationEditor
                         value={fv.value}
-                        onChange={(e) =>
+                        onChange={(newVal) =>
                           setFieldValues((prev) => ({
                             ...prev,
                             [f.key]: {
                               ...fv,
-                              value: e.target.value,
+                              value: newVal,
                             },
                           }))
                         }
+                        columns={columns}
                         placeholder={
                           f.type === "object"
                             ? f.required
@@ -1911,7 +2066,6 @@ function ColumnSidebar({
                               ? "[]"
                               : undefined
                         }
-                        className="w-full bg-white border border-zinc-300 rounded px-2 py-1 text-xs"
                       />
                     )
                   ) : (
@@ -2017,12 +2171,18 @@ function ColumnSidebar({
         )}
       </div>
 
-      <div className="border-t border-zinc-300 bg-zinc-100 p-4">
+      <div className="border-t border-zinc-300 bg-zinc-100 p-4 space-y-3">
+        {validationError && (
+          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2.5 py-2 flex items-start gap-2">
+            <span className="mt-0.5">⚠️</span>
+            <span>{validationError}</span>
+          </div>
+        )}
         <DemoButton
           variant="orange"
           className="w-full"
           onClick={handleSave}
-          disabled={!name.trim() || !programId || saving}
+          disabled={!name.trim() || !programId || saving || !!validationError}
         >
           {saving
             ? isCreate

@@ -176,9 +176,25 @@ export default {
 
       const statement = `\
     node --input-type=module -e \
-    "const m = await import('data:text/javascript;base64,${codeAsBase64}');\
-    const ri = JSON.parse(Buffer.from('${inputAsBase64}', 'base64').toString());\
-    console.log(JSON.stringify(await m.default(ri)))"
+    "const _log = console.log;\
+    console.log = console.error;\
+    console.info = console.error;\
+    console.warn = console.error;\
+    try {\
+      const m = await import('data:text/javascript;base64,${codeAsBase64}');\
+      const ri = JSON.parse(Buffer.from('${inputAsBase64}', 'base64').toString());\
+      const result = await m.default(ri);\
+      _log(JSON.stringify(result ?? null));\
+    } catch (err) {\
+      const payload = {\
+        message: err?.message || String(err),\
+        name: err?.name,\
+        stack: typeof err?.stack === 'string' ? err.stack.replace(/data:text\\/javascript;base64,[a-zA-Z0-9+/=]+/g, '<program_code>') : err?.stack,\
+        cause: err?.cause ? (err.cause.message || String(err.cause)) : undefined\
+      };\
+      console.error(JSON.stringify(payload));\
+      process.exit(1);\
+    }"
     `;
 
       console.log(`Running statement:\n\n${statement}`);
@@ -192,12 +208,37 @@ export default {
 
       const rawOutput = (() => {
         if (!executionResult.success) {
+          const stderr = executionResult.stderr.trim() || "Program crashed";
+          let detail: Json | undefined;
+          let message = stderr;
+
+          // Attempt to parse stderr as JSON to cleanly separate message and detail if possible
+          try {
+            const parsedError = JSON.parse(stderr);
+            if (parsedError && typeof parsedError === "object") {
+              detail = parsedError as Json;
+              // Use the actual error message from the structured payload if available
+              const parsedRecord = parsedError as Record<string, unknown>;
+              message =
+                typeof parsedRecord.message === "string" && parsedRecord.message
+                  ? parsedRecord.message
+                  : "Program crashed with structured error";
+            }
+          } catch {
+            // Not JSON, just use as plain string message
+          }
+
           return {
             ok: false as const,
             error: {
               type: "Crashed",
+              ...(detail
+                ? {
+                    detail,
+                  }
+                : {}),
             },
-            message: executionResult.stderr.trim() || "Program crashed",
+            message: message,
           };
         }
 

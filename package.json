@@ -8,7 +8,9 @@
     "format": "biome check --write",
     "typecheck": "pnpm -r --filter '!@marble/web' typecheck",
     "check": "biome check --write && pnpm -r --filter '!@marble/web' typecheck",
-    "gen:types": "supabase gen types typescript --local > supabase/src/types.ts"
+    "gen:types": "pnpm --filter @marble/supabase gen:types",
+    "gen:seed": "pnpm --filter @marble/supabase gen:seed",
+    "gen:all": "pnpm gen:types && pnpm gen:seed"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:"

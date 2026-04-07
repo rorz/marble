@@ -8,6 +8,29 @@ WITH
 inserted_programs AS (
   INSERT INTO program (name, runtime, code, input_schema, output_config, first_party)
   VALUES
+    ('Formula',
+     'JavaScript',
+     'export default ({ input }) => {
+  const raw = input.formula;
+
+  if (typeof raw !== "string") {
+    return raw;
+  }
+
+  // Attempt to evaluate it as a JavaScript expression.
+  // If the user types a literal string like `Hello {{name}}`,
+  // it will throw a SyntaxError and we''ll fallback to returning it directly.
+  // If they type `1 + 1` or `["a", "b"].join(",")`, it evaluates to the result.
+  try {
+    const fn = new Function(`return (${raw});`);
+    return fn();
+  } catch {
+    return raw;
+  }
+};',
+     '{"type":"object","properties":{"formula":{"type":"string","title":"Formula"}},"required":["formula"]}',
+     '{"schema":{"type":"string","description":"Computed formula result"}}',
+     true),
     ('API Request',
      'JavaScript',
      'export default async ({ input }) => {
@@ -25,6 +48,24 @@ inserted_programs AS (
   }
 
   const res = await fetch(input.url, options);
+
+  if (!res.ok) {
+    let errorBody;
+    try {
+      errorBody = await res.json();
+    } catch {
+      errorBody = await res.text();
+    }
+
+    throw new Error(
+      JSON.stringify({
+        status: res.status,
+        statusText: res.statusText,
+        body: errorBody,
+      }),
+    );
+  }
+
   return res.json();
 };',
      '{"type":"object","properties":{"method":{"type":"string","enum":["GET","POST","PUT","DELETE"],"default":"GET"},"url":{"type":"string","format":"uri","title":"Endpoint URL"},"headers":{"type":"object","additionalProperties":{"type":"string"},"title":"Headers (JSON)"},"payload":{"type":"object","additionalProperties":true,"title":"Body / Payload"}},"required":["method","url"]}',
@@ -64,6 +105,10 @@ inserted_programs AS (
      '{"flags":{"allowManualInput":true},"schema":{"type":"string","description":"Standard text value"},"overloads":[{"match":{"format":"number"},"schema":{"type":"number"}},{"match":{"format":"boolean"},"schema":{"type":"boolean"}}]}',
      true)
   RETURNING id, name, code
+),
+
+program_formula AS (
+  SELECT id FROM inserted_programs WHERE name = 'Formula' LIMIT 1
 ),
 
 program_http_request AS (

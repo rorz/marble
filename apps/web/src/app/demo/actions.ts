@@ -29,6 +29,43 @@ function resolveBaseOutputSchema(program: ProgramRow): Record<string, unknown> {
   return baseSchema;
 }
 
+function extractDependenciesFromTemplate(templateStr: string): string[] {
+  const sourceColumnIds = new Set<string>();
+  let template: unknown;
+  try {
+    template = JSON.parse(templateStr);
+  } catch {
+    return [];
+  }
+
+  const jsonPathPattern = /^\$\.columns\.([a-f0-9-]+)\./;
+  const tagPattern = /\{\{\$\.columns\.([a-f0-9-]+)\.[^}]+\}\}/g;
+
+  const extractFromValue = (value: unknown) => {
+    if (typeof value === "string") {
+      const matches = [
+        ...value.matchAll(tagPattern),
+      ];
+      for (const match of matches) {
+        sourceColumnIds.add(match[1]);
+      }
+    } else if (Array.isArray(value)) {
+      for (const item of value) extractFromValue(item);
+    } else if (value && typeof value === "object") {
+      for (const [key, val] of Object.entries(value)) {
+        if (key.endsWith(".$") && typeof val === "string") {
+          const match = val.match(jsonPathPattern);
+          if (match) sourceColumnIds.add(match[1]);
+        }
+        extractFromValue(val);
+      }
+    }
+  };
+
+  extractFromValue(template);
+  return Array.from(sourceColumnIds);
+}
+
 // ── Tables ──────────────────────────────────────────────
 
 export async function listTables() {
@@ -180,16 +217,8 @@ export async function createColumn(input: {
     .single();
   if (error) throw error;
 
-  // Derive column_dependency from any `.$` keys referencing $.columns.<id>
-  const template: Record<string, unknown> = JSON.parse(input.input_template);
-  const colRefPattern = /^\$\.columns\.([a-f0-9-]+)\./;
-  const sourceColumnIds: string[] = [];
-  for (const [key, value] of Object.entries(template)) {
-    if (key.endsWith(".$") && typeof value === "string") {
-      const match = value.match(colRefPattern);
-      if (match) sourceColumnIds.push(match[1]);
-    }
-  }
+  // Derive column_dependency from any `.$` keys or interpolation tags referencing $.columns.<id>
+  const sourceColumnIds = extractDependenciesFromTemplate(input.input_template);
 
   let newDeps: Database["public"]["Tables"]["column_dependency"]["Row"][] = [];
   if (sourceColumnIds.length > 0) {
@@ -277,15 +306,9 @@ export async function updateColumn(input: {
       .delete()
       .eq("target_column_id", input.columnId);
 
-    const template: Record<string, unknown> = JSON.parse(input.input_template);
-    const colRefPattern = /^\$\.columns\.([a-f0-9-]+)\./;
-    const sourceColumnIds: string[] = [];
-    for (const [key, value] of Object.entries(template)) {
-      if (key.endsWith(".$") && typeof value === "string") {
-        const match = value.match(colRefPattern);
-        if (match) sourceColumnIds.push(match[1]);
-      }
-    }
+    const sourceColumnIds = extractDependenciesFromTemplate(
+      input.input_template,
+    );
 
     if (sourceColumnIds.length > 0) {
       await supabase
@@ -422,10 +445,7 @@ export async function updateCellManualInput(cellId: string, value: string) {
 
 // ── Execution ───────────────────────────────────────────
 
-let _demoUserId: string | null = null;
-
 async function ensureDemoUser(): Promise<string> {
-  if (_demoUserId) return _demoUserId;
   const supabase = db();
 
   const {
@@ -434,8 +454,7 @@ async function ensureDemoUser(): Promise<string> {
     perPage: 1,
   });
   if (users.length > 0) {
-    _demoUserId = users[0].id;
-    return _demoUserId;
+    return users[0].id;
   }
 
   const {
@@ -448,8 +467,7 @@ async function ensureDemoUser(): Promise<string> {
   });
   if (error) throw error;
   if (!user) throw new Error("Failed to create demo user");
-  _demoUserId = user.id;
-  return _demoUserId;
+  return user.id;
 }
 
 export async function executeRun(input: {

@@ -13,5 +13,23 @@ export default async ({ input }) => {
   }
 
   const res = await fetch(input.url, options);
+
+  if (!res.ok) {
+    let errorBody;
+    try {
+      errorBody = await res.json();
+    } catch {
+      errorBody = await res.text();
+    }
+
+    throw new Error(
+      JSON.stringify({
+        status: res.status,
+        statusText: res.statusText,
+        body: errorBody,
+      }),
+    );
+  }
+
   return res.json();
 };

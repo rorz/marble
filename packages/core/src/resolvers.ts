@@ -20,14 +20,37 @@ export const resolveColumnOutputSchema = (
 };
 
 /**
- * Recursively walks the column config and resolves any key ending in `.$`
- * against the row context (view) using JSONPath.
+ * Recursively walks the column config and resolves:
+ * 1. Any key ending in `.$` against the row context using JSONPath.
+ * 2. Any string containing `{{$.path.to.value}}` tags against the row context using JSONPath.
  */
 export function resolveColumnConfig(
   config: JsonValue,
   rowContext: Record<string, JsonValue>,
 ): JsonValue {
   if (config === null || typeof config !== "object") {
+    if (typeof config === "string") {
+      // Check for inline JSONPath interpolation like "Hello {{$.columns.123.value}}"
+      // If the string is exactly ONE interpolation tag, we return the raw value (so numbers/objects don't get stringified)
+      const exactMatch = config.match(/^\{\{(\$\.[^}]+)\}\}$/);
+      if (exactMatch) {
+        return JSONPath({
+          path: exactMatch[1],
+          json: rowContext,
+          wrap: false,
+        }) as JsonValue;
+      }
+
+      // Otherwise, replace all occurrences, coercing them to strings
+      return config.replace(/\{\{(\$\.[^}]+)\}\}/g, (_, path) => {
+        const val = JSONPath({
+          path,
+          json: rowContext,
+          wrap: false,
+        });
+        return val === null || val === undefined ? "" : String(val);
+      });
+    }
     return config;
   }
 
