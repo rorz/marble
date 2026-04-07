@@ -1,10 +1,5 @@
 import { getSandbox } from "@cloudflare/sandbox";
-import {
-  type JsonValue,
-  resolveColumnConfig,
-  resolveColumnOutputSchema,
-  Schemas,
-} from "@marble/core";
+import { type JsonValue, resolveColumnConfig, Schemas } from "@marble/core";
 import { createClient, type Json } from "@marble/supabase";
 import { z } from "zod";
 
@@ -45,11 +40,13 @@ export default {
 
     const { data: runs, error: runError } = await supabase
       .from("program_run")
-      .select(`
+      .select(
+        `
         *,
         program(*),
         cell!target_cell_id(*, column!column_id(*))
-      `)
+      `,
+      )
       .eq("id", runId);
 
     const run = runs?.at(0);
@@ -140,7 +137,7 @@ export default {
       const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
 
       const inputPayloadSchema = Schemas.ProgramInputSchema.parse(
-        run.program.input_payload_schema,
+        run.program.input_schema,
       );
       const parsedInput = z
         .fromJSONSchema(inputPayloadSchema)
@@ -181,19 +178,16 @@ export default {
     node --input-type=module -e \
     "const m = await import('data:text/javascript;base64,${codeAsBase64}');\
     const ri = JSON.parse(Buffer.from('${inputAsBase64}', 'base64').toString());\
-    console.log(JSON.stringify(m.default(ri)))"
+    console.log(JSON.stringify(await m.default(ri)))"
     `;
 
       console.log(`Running statement:\n\n${statement}`);
 
       const executionResult = await sandbox.exec(statement);
 
-      const outputConfig = Schemas.ProgramOutputConfig.parse(
-        run.program.output_value_schema,
-      );
-      const outputSchema = resolveColumnOutputSchema(
-        resolvedInput as Record<string, unknown>,
-        outputConfig,
+      // Output schema is resolved ahead of execution and stored on the column.
+      const outputSchema = Schemas.ColumnOutputSchema.parse(
+        run.cell.column.output_schema,
       );
 
       const rawOutput = (() => {
@@ -208,33 +202,47 @@ export default {
         }
 
         try {
-          const value = z
-            .fromJSONSchema(outputSchema)
-            .parse(JSON.parse(executionResult.stdout.trim()));
+          const parsed = JSON.parse(executionResult.stdout.trim());
+
+          // Validate shape but preserve the full raw data —
+          // z.fromJSONSchema strips undeclared properties at every
+          // nesting level which destroys rich API responses.
+          const validation = z.fromJSONSchema(outputSchema).safeParse(parsed);
+
+          if (!validation.success) {
+            const detail = validation.error.issues as unknown as
+              | Json
+              | undefined;
+            const summary = validation.error.issues
+              .map((i) => `${i.path.join(".")}: ${i.message}`)
+              .join("; ");
+            return {
+              ok: false as const,
+              error: {
+                type: "Parser",
+                ...(detail
+                  ? {
+                      detail,
+                    }
+                  : {}),
+              },
+              message: `Output validation failed: ${summary}`,
+            };
+          }
 
           return {
             ok: true as const,
-            value,
+            value: parsed,
           };
         } catch (e) {
-          const detail = (e instanceof z.ZodError ? e.issues : undefined) as
-            | Json
-            | undefined;
           const summary =
-            e instanceof z.ZodError
-              ? e.issues
-                  .map((i) => `${i.path.join(".")}: ${i.message}`)
-                  .join("; ")
-              : String(e);
+            e instanceof Error
+              ? e.message
+              : `Unexpected parse error: ${String(e)}`;
           return {
             ok: false as const,
             error: {
               type: "Parser",
-              ...(detail
-                ? {
-                    detail,
-                  }
-                : {}),
             },
             message: `Output validation failed: ${summary}`,
           };

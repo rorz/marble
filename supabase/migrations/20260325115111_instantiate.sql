@@ -49,8 +49,8 @@ CREATE TABLE program (
   runtime program_runtime NOT NULL,
   -- external_instance_type program_external_instance_type NOT NULL,
   code text NOT NULL,
-  input_payload_schema jsonb NOT NULL,
-  output_value_schema jsonb NOT NULL
+  input_schema jsonb NOT NULL,
+  output_config jsonb NOT NULL
 );
 
 CREATE TABLE "column" (
@@ -63,6 +63,7 @@ CREATE TABLE "column" (
   "index" bigint NOT NULL,
   program_id uuid NOT NULL REFERENCES program(id),
   input_template text NOT NULL,
+  output_schema jsonb NOT NULL,
   UNIQUE (table_id, "index")
 );
 

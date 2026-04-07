@@ -5,6 +5,7 @@ import { createClient } from "@marble/supabase";
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
+type Json = Database["public"]["Tables"]["cell"]["Row"]["state"];
 
 function db() {
   const url = process.env.SUPABASE_URL;
@@ -12,6 +13,20 @@ function db() {
   if (!url || !key)
     throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   return createClient(url, key);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function resolveBaseOutputSchema(program: ProgramRow): Record<string, unknown> {
+  const programRecord = program as unknown as Record<string, unknown>;
+  const outputConfig =
+    programRecord.output_config ?? programRecord.output_value_schema;
+  if (!isRecord(outputConfig)) return {};
+
+  const baseSchema = isRecord(outputConfig.schema) ? outputConfig.schema : {};
+  return baseSchema;
 }
 
 // ── Tables ──────────────────────────────────────────────
@@ -40,6 +55,19 @@ export async function listPrograms(): Promise<ProgramRow[]> {
     .order("created_at");
   if (error) throw error;
   return data;
+}
+
+export async function updateProgramOutputSchema(
+  programId: string,
+  outputConfig: unknown,
+) {
+  const { error } = await db()
+    .from("program")
+    .update({
+      output_config: outputConfig as Json,
+    })
+    .eq("id", programId);
+  if (error) throw error;
 }
 
 // ── Table data (columns + rows + cells) ─────────────────
@@ -99,6 +127,13 @@ export async function createColumn(input: {
 }) {
   const supabase = db();
 
+  const { data: program, error: programError } = await supabase
+    .from("program")
+    .select("*")
+    .eq("id", input.program_id)
+    .single();
+  if (programError) throw programError;
+
   const { data: maxCol } = await supabase
     .from("column")
     .select("index")
@@ -110,6 +145,7 @@ export async function createColumn(input: {
     .single();
 
   const nextIndex = (maxCol?.index ?? -1) + 1;
+  const outputSchema = resolveBaseOutputSchema(program);
 
   const { data: column, error } = await supabase
     .from("column")
@@ -119,6 +155,7 @@ export async function createColumn(input: {
       index: nextIndex,
       program_id: input.program_id,
       input_template: input.input_template,
+      output_schema: outputSchema as Json,
     })
     .select("*, program(*)")
     .single();
@@ -176,8 +213,95 @@ export async function createColumn(input: {
   };
 }
 
+export async function updateColumn(input: {
+  columnId: string;
+  name?: string;
+  program_id?: string;
+  input_template?: string;
+}) {
+  const supabase = db();
+
+  const { data: existing, error: existingError } = await supabase
+    .from("column")
+    .select("program_id, input_template")
+    .eq("id", input.columnId)
+    .single();
+  if (existingError) throw existingError;
+
+  const resolvedProgramId = input.program_id ?? existing.program_id;
+
+  const { data: program, error: programError } = await supabase
+    .from("program")
+    .select("*")
+    .eq("id", resolvedProgramId)
+    .single();
+  if (programError) throw programError;
+
+  const updates: Record<string, unknown> = {};
+  if (input.name !== undefined) updates.name = input.name;
+  if (input.program_id !== undefined) updates.program_id = input.program_id;
+  if (input.input_template !== undefined)
+    updates.input_template = input.input_template;
+  updates.output_schema = resolveBaseOutputSchema(program) as Json;
+
+  const { data: column, error } = await supabase
+    .from("column")
+    .update(updates)
+    .eq("id", input.columnId)
+    .select("*, program(*)")
+    .single();
+  if (error) throw error;
+
+  if (input.input_template !== undefined) {
+    await supabase
+      .from("column_dependency")
+      .delete()
+      .eq("target_column_id", input.columnId);
+
+    const template: Record<string, unknown> = JSON.parse(input.input_template);
+    const colRefPattern = /^\$\.columns\.([a-f0-9-]+)\./;
+    const sourceColumnIds: string[] = [];
+    for (const [key, value] of Object.entries(template)) {
+      if (key.endsWith(".$") && typeof value === "string") {
+        const match = value.match(colRefPattern);
+        if (match) sourceColumnIds.push(match[1]);
+      }
+    }
+
+    if (sourceColumnIds.length > 0) {
+      await supabase
+        .from("column_dependency")
+        .insert(
+          sourceColumnIds.map((srcId) => ({
+            source_column_id: srcId,
+            target_column_id: input.columnId,
+          })),
+        )
+        .select();
+    }
+  }
+
+  return column;
+}
+
 export async function deleteColumn(columnId: string) {
   const supabase = db();
+
+  const { data: cellIds } = await supabase
+    .from("cell")
+    .select("id")
+    .eq("column_id", columnId);
+
+  if (cellIds && cellIds.length > 0) {
+    await supabase
+      .from("program_run")
+      .delete()
+      .in(
+        "target_cell_id",
+        cellIds.map((c) => c.id),
+      );
+  }
+
   await supabase.from("cell").delete().eq("column_id", columnId);
   await supabase
     .from("column_dependency")
@@ -241,6 +365,22 @@ export async function createRow(tableId: string) {
 
 export async function deleteRow(rowId: string) {
   const supabase = db();
+
+  const { data: cellIds } = await supabase
+    .from("cell")
+    .select("id")
+    .eq("row_id", rowId);
+
+  if (cellIds && cellIds.length > 0) {
+    await supabase
+      .from("program_run")
+      .delete()
+      .in(
+        "target_cell_id",
+        cellIds.map((c) => c.id),
+      );
+  }
+
   await supabase.from("cell").delete().eq("row_id", rowId);
   const { error } = await supabase.from("row").delete().eq("id", rowId);
   if (error) throw error;

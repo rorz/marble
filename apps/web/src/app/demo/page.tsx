@@ -3,9 +3,11 @@
 import { createClient } from "@marble/supabase";
 import {
   AllCommunityModule,
+  type CellContextMenuEvent,
   type CellValueChangedEvent,
   type ColDef,
   type CustomCellRendererProps,
+  type IHeaderParams,
   ModuleRegistry,
   themeQuartz,
 } from "ag-grid-community";
@@ -26,6 +28,45 @@ type Column = LoadedData["columns"][number];
 type Row = LoadedData["rows"][number];
 type Cell = LoadedData["cells"][number];
 type Dependency = LoadedData["dependencies"][number];
+
+type SidebarMode =
+  | {
+      kind: "closed";
+    }
+  | {
+      kind: "create";
+    }
+  | {
+      kind: "edit";
+      columnId: string;
+    };
+
+type ContextMenuItem = {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+};
+
+type ContextMenuState = {
+  x: number;
+  y: number;
+  items: ContextMenuItem[];
+} | null;
+
+type ConfirmState = {
+  title: string;
+  message: string;
+  confirmLabel: string;
+  onConfirm: () => void;
+} | null;
+
+type GridContext = {
+  runCell: (columnId: string, rowId: string) => void;
+  onHeaderClick: (columnId: string) => void;
+  onHeaderContextMenu: (columnId: string, x: number, y: number) => void;
+  openCreateColumn: () => void;
+  activeColumnId: string | null;
+};
 
 // ── Theme ───────────────────────────────────────────────
 
@@ -79,8 +120,30 @@ function displayCellValue(cell: Cell | undefined): string {
   return cell?.manual_input ?? "";
 }
 
+function getProgramOutputConfig(
+  program: Program | Column["program"] | null | undefined,
+): Record<string, unknown> | null {
+  if (!program || typeof program !== "object") return null;
+  const record = program as Record<string, unknown>;
+  const config = record.output_config ?? record.output_value_schema;
+  if (!config || typeof config !== "object" || Array.isArray(config))
+    return null;
+  return config as Record<string, unknown>;
+}
+
+function getProgramInputSchema(
+  program: Program | Column["program"] | null | undefined,
+): Record<string, unknown> | null {
+  if (!program || typeof program !== "object") return null;
+  const record = program as Record<string, unknown>;
+  const schema = record.input_schema ?? record.input_payload_schema;
+  if (!schema || typeof schema !== "object" || Array.isArray(schema))
+    return null;
+  return schema as Record<string, unknown>;
+}
+
 function isManualInputColumn(column: Column): boolean {
-  const config = column.program?.output_value_schema as {
+  const config = getProgramOutputConfig(column.program) as {
     flags?: {
       allowManualInput?: boolean;
     };
@@ -147,6 +210,172 @@ function coerceFieldValue(
     default:
       return raw;
   }
+}
+
+const COL_REF_PATTERN = /^\$\.columns\.([a-f0-9-]+)\./;
+
+function parseTemplateToFieldValues(
+  templateJson: string,
+  fields: SchemaField[],
+): Record<
+  string,
+  {
+    mode: "static" | "column";
+    value: string;
+  }
+> {
+  let template: Record<string, unknown> = {};
+  try {
+    template = JSON.parse(templateJson);
+  } catch {
+    template = {};
+  }
+
+  const result: Record<
+    string,
+    {
+      mode: "static" | "column";
+      value: string;
+    }
+  > = {};
+
+  for (const field of fields) {
+    const dynamicKey = `${field.key}.$`;
+    if (dynamicKey in template) {
+      const ref = template[dynamicKey] as string;
+      const match = ref.match(COL_REF_PATTERN);
+      if (match) {
+        result[field.key] = {
+          mode: "column",
+          value: match[1],
+        };
+        continue;
+      }
+    }
+    if (field.key in template) {
+      const val = template[field.key];
+      result[field.key] = {
+        mode: "static",
+        value: typeof val === "string" ? val : JSON.stringify(val),
+      };
+    } else {
+      result[field.key] = {
+        mode: "static",
+        value: field.defaultValue ?? field.enumValues?.[0] ?? "",
+      };
+    }
+  }
+
+  return result;
+}
+
+// ── Context Menu ────────────────────────────────────────
+
+function ContextMenu({
+  state,
+  onClose,
+}: {
+  state: NonNullable<ContextMenuState>;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [
+    onClose,
+  ]);
+
+  return (
+    <>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismiss pattern */}
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop dismiss pattern */}
+      <div
+        className="fixed inset-0 z-[60]"
+        onClick={onClose}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          onClose();
+        }}
+      />
+      <div
+        className="fixed z-[61] bg-white border border-zinc-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+        style={{
+          top: state.y,
+          left: state.x,
+        }}
+      >
+        {state.items.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => {
+              item.onClick();
+              onClose();
+            }}
+            className={`w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 transition-colors ${
+              item.danger ? "text-red-600 hover:bg-red-50" : "text-zinc-700"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ── Confirm Modal ───────────────────────────────────────
+
+function ConfirmModal({
+  state,
+  onClose,
+}: {
+  state: NonNullable<ConfirmState>;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+      onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
+      role="dialog"
+      tabIndex={-1}
+    >
+      <div
+        className="bg-white border border-zinc-200 rounded-lg w-full max-w-sm shadow-xl p-5"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={() => {}}
+        role="document"
+      >
+        <h3 className="text-sm font-semibold mb-2">{state.title}</h3>
+        <p className="text-sm text-zinc-600 mb-5">{state.message}</p>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 text-sm border border-zinc-300 rounded hover:bg-zinc-100 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              state.onConfirm();
+              onClose();
+            }}
+            className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-500 transition-colors font-medium"
+          >
+            {state.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── Cell Inspector Modal ────────────────────────────────
@@ -277,14 +506,54 @@ function CellInspectorModal({
   );
 }
 
+// ── Custom Column Header ────────────────────────────────
+
+function ColumnHeader(props: IHeaderParams) {
+  const ctx = props.context as GridContext;
+  const columnId = props.column.getColId();
+  const isActive = ctx.activeColumnId === columnId;
+
+  return (
+    <button
+      type="button"
+      className={`flex items-center w-full h-full cursor-pointer select-none transition-colors bg-transparent border-none p-0 text-left text-inherit ${
+        isActive ? "text-orange-700 font-semibold" : ""
+      }`}
+      onClick={() => ctx.onHeaderClick(columnId)}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        ctx.onHeaderContextMenu(columnId, e.clientX, e.clientY);
+      }}
+    >
+      <span className="truncate">{props.displayName}</span>
+    </button>
+  );
+}
+
+// ── Add Column Button (rendered as a header) ────────────
+
+function AddColumnButton(props: IHeaderParams) {
+  const ctx = props.context as GridContext;
+
+  return (
+    <button
+      type="button"
+      className="flex items-center justify-center w-full h-full cursor-pointer bg-transparent border-none p-0 group/add"
+      onClick={() => ctx.openCreateColumn()}
+    >
+      <span className="text-zinc-400 group-hover/add:text-orange-600 transition-colors text-sm font-medium leading-none">
+        +
+      </span>
+    </button>
+  );
+}
+
 // ── Cell Renderer ───────────────────────────────────────
 
 function CellWithRunButton(props: CustomCellRendererProps) {
   const columnId = props.colDef?.field;
   const rowId = props.data?._rowId as string | undefined;
-  const ctx = props.context as {
-    runCell?: (columnId: string, rowId: string) => void;
-  };
+  const ctx = props.context as GridContext;
 
   const state = columnId
     ? (props.data?.[`_state:${columnId}`] as CellState)
@@ -348,6 +617,12 @@ export default function DemoPage() {
     null,
   );
 
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>({
+    kind: "closed",
+  });
+  const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
+  const [confirmState, setConfirmState] = useState<ConfirmState>(null);
+
   const gridRef = useRef<AgGridReact>(null);
 
   const cellsRef = useRef(cells);
@@ -377,7 +652,7 @@ export default function DemoPage() {
       ]);
       setTables(t);
       setPrograms(p);
-      if (t.length > 0) setSelectedTableId(t[0].id);
+      if (t.length > 0) setSelectedTableId(t[t.length - 1].id);
       setLoading(false);
     })();
   }, []);
@@ -480,9 +755,11 @@ export default function DemoPage() {
         const editable = isManualInputColumn(col);
         return {
           headerName: col.name,
+          headerComponent: ColumnHeader,
           headerTooltip: col.program?.name,
           field: col.id,
           editable,
+          sortable: false,
           cellRenderer: CellWithRunButton,
           cellStyle: {
             background: editable ? "#f4f4f5" : "transparent",
@@ -490,6 +767,15 @@ export default function DemoPage() {
           },
         } satisfies ColDef;
       }),
+      {
+        headerName: "",
+        headerComponent: AddColumnButton,
+        width: 44,
+        sortable: false,
+        suppressMovable: true,
+        resizable: false,
+        cellRenderer: () => null,
+      },
     ];
   }, [
     sortedColumns,
@@ -593,15 +879,6 @@ export default function DemoPage() {
     },
     [
       addLog,
-    ],
-  );
-
-  const gridContext = useMemo(
-    () => ({
-      runCell,
-    }),
-    [
-      runCell,
     ],
   );
 
@@ -730,6 +1007,141 @@ export default function DemoPage() {
     ],
   );
 
+  const handleUpdateColumn = useCallback(
+    async (input: {
+      columnId: string;
+      name?: string;
+      program_id?: string;
+      input_template?: string;
+    }) => {
+      const updated = await actions.updateColumn(input);
+      setColumns((prev) =>
+        prev.map((c) => (c.id === updated.id ? (updated as Column) : c)),
+      );
+    },
+    [],
+  );
+
+  // ── Context menu + confirm handlers ───────────────────
+
+  const requestDeleteColumn = useCallback(
+    (columnId: string) => {
+      const col = columnsRef.current.find((c) => c.id === columnId);
+      setConfirmState({
+        title: "Delete Column",
+        message: `Delete "${col?.name ?? "this column"}"? All cells in this column will be permanently removed.`,
+        confirmLabel: "Delete",
+        onConfirm: () => {
+          handleDeleteColumn(columnId);
+          setSidebarMode((prev) =>
+            prev.kind === "edit" && prev.columnId === columnId
+              ? {
+                  kind: "closed",
+                }
+              : prev,
+          );
+        },
+      });
+    },
+    [
+      handleDeleteColumn,
+    ],
+  );
+
+  const requestDeleteRow = useCallback(
+    (rowId: string, rowIndex: number) => {
+      setConfirmState({
+        title: "Delete Row",
+        message: `Delete Row ${rowIndex + 1}? All cells in this row will be permanently removed.`,
+        confirmLabel: "Delete",
+        onConfirm: () => handleDeleteRow(rowId),
+      });
+    },
+    [
+      handleDeleteRow,
+    ],
+  );
+
+  const handleHeaderClick = useCallback((columnId: string) => {
+    setSidebarMode({
+      kind: "edit",
+      columnId,
+    });
+  }, []);
+
+  const handleHeaderContextMenu = useCallback(
+    (columnId: string, x: number, y: number) => {
+      setContextMenu({
+        x,
+        y,
+        items: [
+          {
+            label: "Edit Column",
+            onClick: () =>
+              setSidebarMode({
+                kind: "edit",
+                columnId,
+              }),
+          },
+          {
+            label: "Delete Column",
+            onClick: () => requestDeleteColumn(columnId),
+            danger: true,
+          },
+        ],
+      });
+    },
+    [
+      requestDeleteColumn,
+    ],
+  );
+
+  const onCellContextMenu = useCallback(
+    (event: CellContextMenuEvent) => {
+      const browserEvent = event.event as MouseEvent | undefined;
+      browserEvent?.preventDefault();
+      if (event.colDef.headerName !== "#") return;
+      const rowId = event.data?._rowId as string | undefined;
+      const rowIndex = event.data?._rowIndex as number | undefined;
+      if (!rowId || rowIndex === undefined || !browserEvent) return;
+      setContextMenu({
+        x: browserEvent.clientX,
+        y: browserEvent.clientY,
+        items: [
+          {
+            label: `Delete Row ${rowIndex + 1}`,
+            onClick: () => requestDeleteRow(rowId, rowIndex),
+            danger: true,
+          },
+        ],
+      });
+    },
+    [
+      requestDeleteRow,
+    ],
+  );
+
+  // ── Grid context ──────────────────────────────────────
+
+  const gridContext = useMemo<GridContext>(
+    () => ({
+      runCell,
+      onHeaderClick: handleHeaderClick,
+      onHeaderContextMenu: handleHeaderContextMenu,
+      openCreateColumn: () =>
+        setSidebarMode({
+          kind: "create",
+        }),
+      activeColumnId: sidebarMode.kind === "edit" ? sidebarMode.columnId : null,
+    }),
+    [
+      runCell,
+      handleHeaderClick,
+      handleHeaderContextMenu,
+      sidebarMode,
+    ],
+  );
+
   // ── Render ────────────────────────────────────────────
 
   if (loading && tables.length === 0) {
@@ -810,6 +1222,8 @@ export default function DemoPage() {
                   rowData={rowData}
                   context={gridContext}
                   onCellValueChanged={onCellValueChanged}
+                  preventDefaultOnContextMenu
+                  onCellContextMenu={onCellContextMenu}
                   onCellDoubleClicked={(event) => {
                     const columnId = event.colDef.field;
                     if (!columnId) return;
@@ -841,31 +1255,6 @@ export default function DemoPage() {
               </div>
             )}
           </div>
-
-          {/* Row management */}
-          {rows.length > 0 && (
-            <div className="border-t border-zinc-200 px-5 py-2">
-              <div className="flex flex-wrap gap-1.5">
-                {rows.map((row) => (
-                  <div
-                    key={row.id}
-                    className="bg-white border border-zinc-200 rounded px-2 py-1 text-xs flex items-center gap-1.5"
-                  >
-                    <span className="text-zinc-500 font-mono">
-                      Row {row.index}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteRow(row.id)}
-                      className="text-zinc-400 hover:text-red-400 transition-colors"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Run log */}
           {runLog.length > 0 && (
@@ -904,15 +1293,41 @@ export default function DemoPage() {
           )}
         </div>
 
-        {/* Column sidebar */}
-        <ColumnSidebar
-          columns={sortedColumns}
-          programs={programs}
-          onCreateColumn={handleCreateColumn}
-          onDeleteColumn={handleDeleteColumn}
-        />
+        {/* Column sidebar — only visible when creating or editing */}
+        {sidebarMode.kind !== "closed" && (
+          <ColumnSidebar
+            key={
+              sidebarMode.kind === "edit"
+                ? `edit-${sidebarMode.columnId}`
+                : "create"
+            }
+            mode={sidebarMode}
+            columns={sortedColumns}
+            programs={programs}
+            onCreateColumn={handleCreateColumn}
+            onUpdateColumn={handleUpdateColumn}
+            onClose={() =>
+              setSidebarMode({
+                kind: "closed",
+              })
+            }
+          />
+        )}
       </div>
 
+      {/* Overlays */}
+      {contextMenu && (
+        <ContextMenu
+          state={contextMenu}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
+      {confirmState && (
+        <ConfirmModal
+          state={confirmState}
+          onClose={() => setConfirmState(null)}
+        />
+      )}
       {inspectedCell && (
         <CellInspectorModal
           cell={inspectedCell}
@@ -926,11 +1341,21 @@ export default function DemoPage() {
 // ── Column Sidebar ──────────────────────────────────────
 
 function ColumnSidebar({
+  mode,
   columns,
   programs,
   onCreateColumn,
-  onDeleteColumn,
+  onUpdateColumn,
+  onClose,
 }: {
+  mode:
+    | {
+        kind: "create";
+      }
+    | {
+        kind: "edit";
+        columnId: string;
+      };
   columns: Column[];
   programs: Program[];
   onCreateColumn: (input: {
@@ -938,29 +1363,57 @@ function ColumnSidebar({
     program_id: string;
     input_template: string;
   }) => Promise<void>;
-  onDeleteColumn: (columnId: string) => Promise<void>;
+  onUpdateColumn: (input: {
+    columnId: string;
+    name?: string;
+    program_id?: string;
+    input_template?: string;
+  }) => Promise<void>;
+  onClose: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [programId, setProgramId] = useState("");
-  const [fieldValues, setFieldValues] = useState<
-    Record<
-      string,
-      {
-        mode: "static" | "column";
-        value: string;
-      }
-    >
-  >({});
+  const editingColumn =
+    mode.kind === "edit"
+      ? (columns.find((c) => c.id === mode.columnId) ?? null)
+      : null;
+
+  const initFieldValues = (): Record<
+    string,
+    {
+      mode: "static" | "column";
+      value: string;
+    }
+  > => {
+    if (!editingColumn) return {};
+    const program = programs.find((p) => p.id === editingColumn.program_id);
+    if (!program) return {};
+    const s = getProgramInputSchema(program);
+    const fs = s ? buildFieldsFromSchema(s) : [];
+    return parseTemplateToFieldValues(
+      (editingColumn.input_template as string) ?? "{}",
+      fs,
+    );
+  };
+
+  const [name, setName] = useState(editingColumn?.name ?? "");
+  const [programId, setProgramId] = useState(editingColumn?.program_id ?? "");
+  const [fieldValues, setFieldValues] = useState(initFieldValues);
   const [saving, setSaving] = useState(false);
+  const [outputSchemaOpen, setOutputSchemaOpen] = useState(false);
+  const [outputSchemaJson, setOutputSchemaJson] = useState(() => {
+    const config = getProgramOutputConfig(editingColumn?.program);
+    if (!config) return "{}";
+    return JSON.stringify(config, null, 2);
+  });
+  const [outputSchemaDirty, setOutputSchemaDirty] = useState(false);
+  const [savingOutputSchema, setSavingOutputSchema] = useState(false);
+
+  const initialProgramId = useRef(programId);
 
   const selectedProgram = programs.find((p) => p.id === programId);
-  const schema = selectedProgram?.input_payload_schema as Record<
-    string,
-    unknown
-  > | null;
-  const fields = schema ? buildFieldsFromSchema(schema) : [];
+  const selectedSchema = getProgramInputSchema(selectedProgram);
+  const fields = selectedSchema ? buildFieldsFromSchema(selectedSchema) : [];
   const hasManualInput = (() => {
-    const config = selectedProgram?.output_value_schema as {
+    const config = getProgramOutputConfig(selectedProgram) as {
       flags?: {
         allowManualInput?: boolean;
       };
@@ -969,11 +1422,16 @@ function ColumnSidebar({
   })();
 
   useEffect(() => {
-    if (!selectedProgram) {
+    if (programId === initialProgramId.current) return;
+    initialProgramId.current = programId;
+
+    const program = programs.find((p) => p.id === programId);
+    if (!program) {
       setFieldValues({});
       return;
     }
-    const s = selectedProgram.input_payload_schema as Record<string, unknown>;
+
+    const s = getProgramInputSchema(program);
     const fs = s ? buildFieldsFromSchema(s) : [];
     const defaults: Record<
       string,
@@ -990,12 +1448,11 @@ function ColumnSidebar({
     }
     setFieldValues(defaults);
   }, [
-    selectedProgram,
+    programId,
+    programs,
   ]);
 
-  const handleSave = async () => {
-    if (!name.trim() || !programId) return;
-
+  const buildTemplate = (): string => {
     const template: Record<string, unknown> = {};
     for (const [key, fv] of Object.entries(fieldValues)) {
       if (fv.mode === "column") {
@@ -1007,66 +1464,54 @@ function ColumnSidebar({
         if (coerced !== undefined) template[key] = coerced;
       }
     }
+    return JSON.stringify(template);
+  };
 
+  const handleSave = async () => {
+    if (!name.trim() || !programId) return;
     setSaving(true);
     try {
-      await onCreateColumn({
-        name: name.trim(),
-        program_id: programId,
-        input_template: JSON.stringify(template),
-      });
-      setName("");
-      setProgramId("");
-      setFieldValues({});
+      if (mode.kind === "create") {
+        await onCreateColumn({
+          name: name.trim(),
+          program_id: programId,
+          input_template: buildTemplate(),
+        });
+        setName("");
+        setProgramId("");
+        setFieldValues({});
+        onClose();
+      } else {
+        await onUpdateColumn({
+          columnId: mode.columnId,
+          name: name.trim(),
+          program_id: programId,
+          input_template: buildTemplate(),
+        });
+      }
     } finally {
       setSaving(false);
     }
   };
 
+  const isCreate = mode.kind === "create";
+
   return (
     <aside className="w-80 border-l border-zinc-200 flex flex-col bg-zinc-50 shrink-0">
-      <div className="px-4 py-2.5 border-b border-zinc-200">
+      <div className="px-4 py-2.5 border-b border-zinc-200 flex items-center justify-between">
         <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
-          Columns
+          {isCreate ? "New Column" : "Edit Column"}
         </h2>
-      </div>
-      <div className="flex-1 overflow-auto">
-        {columns.length === 0 && (
-          <div className="text-zinc-400 text-xs px-4 py-6 text-center">
-            No columns yet.
-          </div>
-        )}
-        {columns.map((col) => (
-          <div
-            key={col.id}
-            className="px-4 py-2.5 border-b border-zinc-100 flex items-center gap-2"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="text-sm text-zinc-800 truncate">{col.name}</div>
-              <div className="text-[10px] text-zinc-400 flex gap-2 mt-0.5">
-                <span>{col.program?.name ?? "—"}</span>
-                {isManualInputColumn(col) && (
-                  <span className="text-orange-600">input</span>
-                )}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => onDeleteColumn(col.id)}
-              className="text-zinc-400 hover:text-red-400 transition-colors text-sm"
-            >
-              ×
-            </button>
-          </div>
-        ))}
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-zinc-400 hover:text-zinc-700 transition-colors text-sm leading-none"
+        >
+          ×
+        </button>
       </div>
 
-      {/* Add column form */}
-      <div className="border-t border-zinc-300 bg-zinc-100 p-4 space-y-3 max-h-[50vh] overflow-auto">
-        <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
-          Add Column
-        </h3>
-
+      <div className="flex-1 overflow-auto p-4 space-y-3">
         <label className="block">
           <span className="text-[10px] text-zinc-500 uppercase tracking-wider">
             Name
@@ -1252,14 +1697,88 @@ function ColumnSidebar({
             })}
           </div>
         )}
+        {/* Output Config escape hatch — edit mode only */}
+        {!isCreate && selectedProgram && (
+          <div className="border-t border-zinc-200 pt-3">
+            <button
+              type="button"
+              onClick={() => setOutputSchemaOpen((o) => !o)}
+              className="flex items-center gap-1.5 text-[10px] text-zinc-500 uppercase tracking-wider w-full"
+            >
+              <span
+                className="text-[8px] transition-transform"
+                style={{
+                  transform: outputSchemaOpen
+                    ? "rotate(90deg)"
+                    : "rotate(0deg)",
+                }}
+              >
+                ▶
+              </span>
+              Output Config
+              {outputSchemaDirty && (
+                <span className="text-orange-500 normal-case tracking-normal">
+                  (unsaved)
+                </span>
+              )}
+            </button>
+            {outputSchemaOpen && (
+              <div className="mt-2 space-y-2">
+                <textarea
+                  value={outputSchemaJson}
+                  onChange={(e) => {
+                    setOutputSchemaJson(e.target.value);
+                    setOutputSchemaDirty(true);
+                  }}
+                  spellCheck={false}
+                  rows={8}
+                  className="w-full bg-white border border-zinc-300 rounded px-2 py-1.5 text-xs font-mono focus:border-orange-600 focus:outline-none resize-y"
+                />
+                <button
+                  type="button"
+                  disabled={!outputSchemaDirty || savingOutputSchema}
+                  onClick={async () => {
+                    let parsed: unknown;
+                    try {
+                      parsed = JSON.parse(outputSchemaJson);
+                    } catch {
+                      return;
+                    }
+                    setSavingOutputSchema(true);
+                    try {
+                      await actions.updateProgramOutputSchema(
+                        selectedProgram.id,
+                        parsed,
+                      );
+                      setOutputSchemaDirty(false);
+                    } finally {
+                      setSavingOutputSchema(false);
+                    }
+                  }}
+                  className="w-full bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 border border-zinc-600 rounded px-3 py-1 text-xs font-medium transition-colors text-white"
+                >
+                  {savingOutputSchema ? "Saving..." : "Save Output Config"}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
+      <div className="border-t border-zinc-300 bg-zinc-100 p-4">
         <button
           type="button"
           onClick={handleSave}
           disabled={!name.trim() || !programId || saving}
           className="w-full bg-orange-700 hover:bg-orange-600 disabled:opacity-40 border border-orange-600 rounded px-3 py-1.5 text-sm font-medium transition-colors text-white"
         >
-          {saving ? "Creating..." : "Create Column"}
+          {saving
+            ? isCreate
+              ? "Creating..."
+              : "Saving..."
+            : isCreate
+              ? "Create Column"
+              : "Save Changes"}
         </button>
       </div>
     </aside>

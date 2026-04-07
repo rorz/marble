@@ -100,6 +100,7 @@ export type Database = {
           index: number;
           input_template: string;
           name: string;
+          output_schema: Json;
           program_id: string;
           table_id: string;
           updated_at: string;
@@ -111,6 +112,7 @@ export type Database = {
           index: number;
           input_template: string;
           name: string;
+          output_schema: Json;
           program_id: string;
           table_id: string;
           updated_at?: string;
@@ -122,6 +124,7 @@ export type Database = {
           index?: number;
           input_template?: string;
           name?: string;
+          output_schema?: Json;
           program_id?: string;
           table_id?: string;
           updated_at?: string;
@@ -205,9 +208,9 @@ export type Database = {
           created_at: string;
           first_party: boolean;
           id: string;
-          input_payload_schema: Json;
+          input_schema: Json;
           name: string;
-          output_value_schema: Json;
+          output_config: Json;
           runtime: Database["public"]["Enums"]["program_runtime"];
           updated_at: string;
         };
@@ -217,9 +220,9 @@ export type Database = {
           created_at?: string;
           first_party?: boolean;
           id?: string;
-          input_payload_schema: Json;
+          input_schema: Json;
           name: string;
-          output_value_schema: Json;
+          output_config: Json;
           runtime: Database["public"]["Enums"]["program_runtime"];
           updated_at?: string;
         };
@@ -229,9 +232,9 @@ export type Database = {
           created_at?: string;
           first_party?: boolean;
           id?: string;
-          input_payload_schema?: Json;
+          input_schema?: Json;
           name?: string;
-          output_value_schema?: Json;
+          output_config?: Json;
           runtime?: Database["public"]["Enums"]["program_runtime"];
           updated_at?: string;
         };

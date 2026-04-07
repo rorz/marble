@@ -6,7 +6,7 @@ WITH
 -- Programs (from fixtures)
 
 inserted_programs AS (
-  INSERT INTO program (name, runtime, code, input_payload_schema, output_value_schema, first_party)
+  INSERT INTO program (name, runtime, code, input_schema, output_config, first_party)
   VALUES
     ('API Request',
      'JavaScript',
@@ -100,25 +100,27 @@ inserted_row AS (
 -- Demo columns: col 0 = user input, col 1 = uppercase transform
 
 inserted_col1 AS (
-  INSERT INTO "column" (table_id, name, "index", program_id, input_template)
+  INSERT INTO "column" (table_id, name, "index", program_id, input_template, output_schema)
   SELECT
     t.id,
     'Input',
     0,
     p.id,
-    '{"format": "string"}'
+    '{"format": "string"}',
+    '{"type":"string","description":"Standard text value"}'
   FROM inserted_table t, program_user_input p
   RETURNING id
 ),
 
 inserted_col2 AS (
-  INSERT INTO "column" (table_id, name, "index", program_id, input_template)
+  INSERT INTO "column" (table_id, name, "index", program_id, input_template, output_schema)
   SELECT
     t.id,
     'Uppercased',
     1,
     p.id,
-    '{"text_to_format.$": "$.columns.' || c1.id || '.value"}'
+    '{"text_to_format.$": "$.columns.' || c1.id || '.value"}',
+    '{"type":"string","description":"The capitalized string"}'
   FROM inserted_table t, program_uppercase_string p, inserted_col1 c1
   RETURNING id
 ),
