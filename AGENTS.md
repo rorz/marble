@@ -17,7 +17,7 @@ If you only touched a single package, you may scope the typecheck: `pnpm --filte
 If you are asked to build, update, or test a **Marble Program** (which acts as a table column) or interact with the database to create tables, programs, columns, or rows:
 **DO NOT** write raw SQL.
 **DO NOT** add records to the `supabase/seed-fixtures` directory.
-**YOU MUST** invoke the `marble-developer` skill using your Skill tool or read `.agents/skills/marble-developer/SKILL.md` to learn how to write programs, schemas, and dry-run them. This skill teaches you how to use the `@marble/cli` to act on a user's behalf.
+**YOU MUST** invoke the `marble-developer` skill using your Skill tool. If the skill tool is unavailable, read `~/.agents/skills/marble-developer/SKILL.md` to learn how to write programs, schemas, and dry-run them. This skill teaches you how to use the `@marble/cli` to act on a user's behalf.
 
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know

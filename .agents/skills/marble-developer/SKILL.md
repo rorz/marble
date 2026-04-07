@@ -1,100 +1,156 @@
-# Marble External Agent Skill
+---
+name: marble-developer
+description: Build, test, and wire Marble programs and tables through the Marble CLI. Use when Codex needs to create or update Marble programs (table columns), dry-run program code, create Marble tables, columns, or rows, inspect cells, or map column inputs in this repository. Do not use raw SQL or seed fixtures for these tasks.
+---
 
-This skill provides instructions for external AI Agents (like Cursor, Claude Desktop, or your CLI agent) on how to interact with a user's remote Marble account to create tables, write and test custom programs (columns), and map data.
+# Marble Developer
 
-## Environment Variables
+Use the Marble CLI. Do not solve Marble account tasks with raw SQL, direct database edits, or ad hoc HTTP requests.
 
-Before running any commands, you MUST have the user configure the following environment variables (or you can pass them inline if the user provides them):
-- `MARBLE_API_URL`: The URL of the user's Marble API (e.g. `http://localhost:3084/api` or the production endpoint).
-- `MARBLE_API_KEY`: The user's API Key (currently passed down to Supabase).
-- `MARBLE_EXECUTOR_URL`: The URL of the Marble executor (e.g. `http://localhost:8787` for local dev or the production URL).
+## Operating Rules
 
-## The Marble Mental Model
+- Prefer the local CLI in this repo: `pnpm --filter @marble/cli start -- <command>`.
+- Use `npx @marble/cli <command>` only when working outside this repo and the published package is the intended interface.
+- Do not add records under `supabase/seed-fixtures` to satisfy a user request.
+- Do not assume auth is configured. The CLI reads `.env` from the current working directory, uses `MARBLE_API_URL`, and optionally uses `MARBLE_API_KEY`. If a CLI call fails because of auth or connectivity, inspect the local `.env` or ask the user for the missing values.
+- `MARBLE_API_URL` defaults to `http://localhost:3084/api` when unset.
+- Use a temporary program directory such as `./temp-marble-programs/<slug>` unless the user wants files kept elsewhere.
 
-- **Table**: Represents a workflow or task against a dataset.
-- **Column (Program)**: Represents a single "step" in the workflow. Every column runs a JavaScript program in a Cloudflare Sandbox.
-- **Row**: Represents a single record. 
-- **Cell**: The intersection of a Row and a Column. A cell's `state` contains the result of the column's program execution for that row context.
+## Marble Model
 
-## Using the Marble CLI
+- `table`: workflow container for rows and columns.
+- `program`: reusable code unit stored remotely.
+- `column`: table step backed by a program plus an `inputTemplate`.
+- `row`: record within a table.
+- `cell`: execution result for one row-column intersection.
 
-You should avoid writing raw SQL or HTTP requests. Instead, use the `@marble/cli` tool using `npx` (or from within the Marble monorepo via `pnpm --filter @marble/cli start --`).
+## CLI Commands
 
-```sh
-# Example usage with npx (if published) or using the local workspace build
-npx @marble/cli <command> [args]
-```
+- `pnpm --filter @marble/cli start -- programs list`
+- `pnpm --filter @marble/cli start -- programs get <programId>`
+- `pnpm --filter @marble/cli start -- programs dry-run <dir> '<json-input>'`
+- `pnpm --filter @marble/cli start -- programs upsert <dir>`
+- `pnpm --filter @marble/cli start -- tables list`
+- `pnpm --filter @marble/cli start -- tables get <tableId>`
+- `pnpm --filter @marble/cli start -- tables create "<name>"`
+- `pnpm --filter @marble/cli start -- columns list <tableId>`
+- `pnpm --filter @marble/cli start -- columns add <tableId> "<name>" <programId> '<inputTemplate>' '<outputSchema>'`
+- `pnpm --filter @marble/cli start -- rows list <tableId>`
+- `pnpm --filter @marble/cli start -- rows add <tableId>`
+- `pnpm --filter @marble/cli start -- cells get <cellId>`
 
-### Available Commands
+## Program Files
 
-- `programs dry-run <dir> <input>`: Dry-runs a program directory against the remote executor using a stringified JSON input payload.
-- `programs upsert <dir>`: Reads `index.js` and `config.json` from `<dir>` and upserts a program to the Marble account.
-- `programs list`: Lists all available programs.
-- `programs get <id>`: Fetches a program by ID to inspect its config and schemas.
-- `tables create <name>`: Creates a new table and returns its ID.
-- `tables list`: Lists all tables.
-- `tables get <id>`: Get a table and its associated columns and rows.
-- `columns add <tableId> <name> <programId> <inputTemplate> <outputSchema>`: Adds a column to a table and maps dependencies based on the JSON `inputTemplate`.
-- `columns list <tableId>`: Lists all columns on a table.
-- `rows add <tableId>`: Appends a blank row to the table.
-- `rows list <tableId>`: Lists all rows on a table.
-- `cells get <id>`: Fetches a cell to inspect its execution state.
+Create exactly these files in the program directory.
 
-## Developing a Program
+### `index.js`
 
-When the user asks you to build a program, create a temporary directory (e.g., `./temp-marble-program/`) and write two files:
+Export a default async function. It receives `{ system, cell, input }`.
 
-1. **`index.js`**: The program logic, exported as an ES Module default function.
-2. **`config.json`**: The program metadata.
+- `input` is validated against `config.json.inputSchema`.
+- `cell.manualInputValue` is the raw manual cell input when manual input is enabled.
+- Return a value that matches `config.json.outputConfig.schema`.
 
-### Program Execution Context (`index.js`)
+Example:
 
-The default function receives a single parameter object with three properties:
-
-```javascript
-export default async function ({ system, cell, input }) {
-  // \`input\` contains the validated data conforming to the program's inputSchema
-  // \`cell.manualInputValue\` contains any raw string value manually entered by a user
-  
-  return {
-    someValue: input.someField
-  }; // Result MUST conform to the outputConfig schema
+```js
+export default async function ({ cell }) {
+  const text = cell.manualInputValue ?? "";
+  return text.split("").reverse().join("");
 }
 ```
 
-### Program Configuration (`config.json`)
+### `config.json`
+
+Define the remote program metadata.
+
+Example:
 
 ```json
 {
-  "name": "My Custom Program",
+  "name": "Reverse String",
   "inputSchema": {
     "type": "object",
-    "properties": {
-      "someField": { "type": "string" }
-    }
+    "properties": {}
   },
   "outputConfig": {
+    "flags": {
+      "allowManualInput": true
+    },
     "schema": {
-      "type": "object",
-      "properties": {
-        "someValue": { "type": "string" }
-      }
+      "type": "string"
     }
   }
 }
 ```
 
-## Agent Workflows
+Use `outputConfig.schema` as the source of truth for the program output schema.
 
-### 1. Building and Testing a Program
-1. Create the `index.js` and `config.json` files in a folder.
-2. Formulate a test input payload as a JSON string. Example: `'{"system":{},"cell":{},"input":{"someField":"hello"}}'`
-3. Run `npx @marble/cli programs dry-run <dir> <input-string>` to verify it works without errors.
-4. Once verified, run `npx @marble/cli programs upsert <dir>`. Note the returned `programId`.
+## Input Templates
 
-### 2. Wiring up a Table
-1. Run `npx @marble/cli tables create "My Table"`. Note the `tableId`.
-2. Add a column using the `programId` from earlier.
-   - You must construct an `inputTemplate` JSON string. This template maps static strings or dynamic dependencies into the program's `inputSchema`.
-   - Run `npx @marble/cli columns add <tableId> "My Column" <programId> '<inputTemplate>' '<outputSchema>'`.
-3. Add rows using `npx @marble/cli rows add <tableId>`.
+`columns add` stores `inputTemplate` as a JSON string. Use it to map row context into program inputs.
+
+Map another column value:
+
+```json
+{
+  "someField": {
+    "$marble_ref": ["columns", "col_123", "value", "someValue"]
+  }
+}
+```
+
+Map manual cell input:
+
+```json
+{
+  "someField": {
+    "$marble_ref": ["cell", "manualInputValue"]
+  }
+}
+```
+
+Keep `inputTemplate` aligned with `inputSchema`. If the program reads only `cell.manualInputValue`, an empty object template such as `{}` is acceptable.
+
+## Workflow
+
+### Build Or Update A Program
+
+1. Create or reuse a temp directory.
+2. Write `index.js` and `config.json`.
+3. Dry-run before upserting:
+
+```sh
+pnpm --filter @marble/cli start -- programs dry-run ./temp-marble-programs/reverse-string '{"system":{},"cell":{"manualInputValue":"hello"},"input":{}}'
+```
+
+4. Fix code or schema mismatches until the dry-run succeeds.
+5. Upsert the program and record the returned program ID:
+
+```sh
+pnpm --filter @marble/cli start -- programs upsert ./temp-marble-programs/reverse-string
+```
+
+### Wire A Program Into A Table
+
+1. Create or identify the target table.
+2. Derive the output schema from `config.json.outputConfig.schema`.
+3. Build the `inputTemplate` JSON string.
+4. Add the column with the program ID, input template, and output schema.
+5. Add or inspect rows as needed.
+6. Inspect cells if execution output or errors need debugging.
+
+Example:
+
+```sh
+pnpm --filter @marble/cli start -- tables create "Reverse Demo"
+pnpm --filter @marble/cli start -- columns add tbl_123 "Reverse" prog_123 '{}' '"string"'
+pnpm --filter @marble/cli start -- rows add tbl_123
+```
+
+## Troubleshooting
+
+- If the CLI cannot reach Marble, check `MARBLE_API_URL` and whether the API is running.
+- If requests are unauthorized, check `MARBLE_API_KEY`.
+- If `columns add` fails, validate that `inputTemplate` is valid JSON text and `outputSchema` is valid JSON.
+- If a program dry-run fails, fix `index.js`, `inputSchema`, or `outputConfig.schema` before upserting.
