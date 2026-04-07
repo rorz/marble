@@ -41,7 +41,26 @@ export async function listTables() {
 }
 
 export async function createTable() {
-  const { data, error } = await db().from("table").insert({}).select().single();
+  const { data, error } = await db()
+    .from("table")
+    .insert({
+      name: "Untitled Table",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateTableName(id: string, name: string) {
+  const { data, error } = await db()
+    .from("table")
+    .update({
+      name,
+    })
+    .eq("id", id)
+    .select()
+    .single();
   if (error) throw error;
   return data;
 }

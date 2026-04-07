@@ -85,6 +85,7 @@ export async function testProgram(
       index: ts,
       program_id: programId,
       input_template: JSON.stringify(inputConfig),
+      output_schema: {},
     })
     .select("id")
     .single();

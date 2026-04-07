@@ -36,7 +36,8 @@ CREATE TABLE "table" (
   id uuid NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  author_user_id uuid REFERENCES auth.users(id)
+  author_user_id uuid REFERENCES auth.users(id),
+  name text NOT NULL DEFAULT 'Untitled Table'
 );
 
 CREATE TABLE program (

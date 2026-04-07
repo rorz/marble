@@ -340,18 +340,21 @@ export type Database = {
           author_user_id: string | null;
           created_at: string;
           id: string;
+          name: string;
           updated_at: string;
         };
         Insert: {
           author_user_id?: string | null;
           created_at?: string;
           id?: string;
+          name?: string;
           updated_at?: string;
         };
         Update: {
           author_user_id?: string | null;
           created_at?: string;
           id?: string;
+          name?: string;
           updated_at?: string;
         };
         Relationships: [];

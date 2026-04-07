@@ -6,12 +6,11 @@ import {
   type CellContextMenuEvent,
   type CellValueChangedEvent,
   type ColDef,
-  type CustomCellRendererProps,
   type IHeaderParams,
   ModuleRegistry,
   themeQuartz,
 } from "ag-grid-community";
-import { AgGridReact } from "ag-grid-react";
+import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as actions from "./actions";
 
@@ -149,10 +148,6 @@ function isManualInputColumn(column: Column): boolean {
     };
   } | null;
   return config?.flags?.allowManualInput === true;
-}
-
-function shortId(id: string): string {
-  return id.substring(0, 8);
 }
 
 type SchemaField = {
@@ -543,6 +538,54 @@ function AddColumnButton(props: IHeaderParams) {
 
 // ── Cell Renderer ───────────────────────────────────────
 
+function CellRunningIndicator() {
+  return (
+    <div
+      className="absolute top-0 bottom-0 overflow-hidden bg-zinc-100/80 shadow-[inset_0_0_8px_rgba(0,0,0,0.05)] z-0 pointer-events-none"
+      style={{
+        left: "calc(var(--ag-cell-horizontal-padding, 16px) * -1)",
+        right: "calc(var(--ag-cell-horizontal-padding, 16px) * -1)",
+      }}
+    >
+      <style>{`
+        @keyframes motlo-swathe {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(500%); }
+        }
+        @keyframes motlo-climb {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(-8px); }
+        }
+      `}</style>
+
+      <div className="absolute inset-0 bg-gradient-to-r from-zinc-200/0 via-zinc-200/80 to-zinc-200/0 animate-pulse" />
+
+      <div className="absolute inset-0 overflow-hidden mix-blend-overlay opacity-20">
+        <div
+          className="w-full h-[200%]"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle, #000 1px, transparent 1px)",
+            backgroundSize: "4px 4px",
+            animation: "motlo-climb 0.8s linear infinite",
+          }}
+        />
+      </div>
+
+      <div
+        className="absolute top-[-50%] bottom-[-50%] w-16 flex"
+        style={{
+          animation: "motlo-swathe 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite",
+          transformOrigin: "center",
+        }}
+      >
+        <div className="w-full h-full bg-gradient-to-r from-transparent via-orange-400/30 to-orange-500/80 blur-[2px] skew-x-[-20deg]" />
+        <div className="w-[2px] h-full bg-orange-500 shadow-[0_0_12px_3px_rgba(249,115,22,0.9)] skew-x-[-20deg] translate-x-[-2px]" />
+      </div>
+    </div>
+  );
+}
+
 function CellWithRunButton(props: CustomCellRendererProps) {
   const columnId = props.colDef?.field;
   const rowId = props.data?._rowId as string | undefined;
@@ -558,9 +601,7 @@ function CellWithRunButton(props: CustomCellRendererProps) {
   return (
     <div className="group/cell flex items-center w-full h-full relative">
       {isLoading ? (
-        <span className="flex-1 text-zinc-400 animate-pulse text-xs">
-          running...
-        </span>
+        <CellRunningIndicator />
       ) : isFailed ? (
         <span
           className="flex-1 overflow-hidden text-ellipsis text-red-500 text-xs"
@@ -707,6 +748,74 @@ function DemoInput({ className, wrapperClassName, ...props }: DemoInputProps) {
         {...props}
       />
     </div>
+  );
+}
+
+function ClickToEditTitle({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (newValue: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [tempValue, setTempValue] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setTempValue(value);
+  }, [
+    value,
+  ]);
+
+  useEffect(() => {
+    if (editing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [
+    editing,
+  ]);
+
+  const handleSave = () => {
+    setEditing(false);
+    if (tempValue.trim() && tempValue !== value) {
+      onChange(tempValue.trim());
+    } else {
+      setTempValue(value);
+    }
+  };
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        type="text"
+        value={tempValue}
+        onChange={(e) => setTempValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSave();
+          if (e.key === "Escape") {
+            setTempValue(value);
+            setEditing(false);
+          }
+        }}
+        className="bg-transparent border-b border-orange-500 outline-none px-1 text-sm font-medium w-48 focus:border-b-2 transition-all text-neutral-900 placeholder-neutral-400"
+        placeholder="Table Name"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200 px-1.5 py-0.5 rounded transition-colors cursor-text text-left max-w-[200px] truncate"
+      title="Click to edit"
+    >
+      {value || "Untitled Table"}
+    </button>
   );
 }
 
@@ -1074,6 +1183,30 @@ export default function DemoPage() {
     setSelectedTableId(table.id);
   }, []);
 
+  const handleRenameTable = useCallback(
+    async (newName: string) => {
+      if (!selectedTableId) return;
+      try {
+        const updated = await actions.updateTableName(selectedTableId, newName);
+        setTables((prev) =>
+          prev.map((t) =>
+            t.id === selectedTableId
+              ? {
+                  ...t,
+                  name: updated.name,
+                }
+              : t,
+          ),
+        );
+      } catch (err) {
+        console.error("Failed to rename table", err);
+      }
+    },
+    [
+      selectedTableId,
+    ],
+  );
+
   const handleDeleteColumn = useCallback(async (columnId: string) => {
     await actions.deleteColumn(columnId);
     setColumns((prev) => prev.filter((c) => c.id !== columnId));
@@ -1279,8 +1412,20 @@ export default function DemoPage() {
           <span className="text-zinc-500 font-normal ml-2 text-sm">demo</span>
         </h1>
 
+        <div className="h-4 w-px bg-zinc-300 mx-2" />
+
+        {selectedTableId && (
+          <ClickToEditTitle
+            value={
+              tables.find((t) => t.id === selectedTableId)?.name ||
+              "Untitled Table"
+            }
+            onChange={handleRenameTable}
+          />
+        )}
+
         {running && (
-          <span className="text-orange-400 text-xs font-mono animate-pulse">
+          <span className="text-orange-400 text-xs font-mono animate-pulse ml-4">
             running...
           </span>
         )}
@@ -1295,7 +1440,7 @@ export default function DemoPage() {
                 key={t.id}
                 value={t.id}
               >
-                Table {shortId(t.id)}
+                {t.name || "Untitled Table"}
               </option>
             ))}
           </DemoSelect>

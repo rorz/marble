@@ -142,10 +142,10 @@ export default function TestPage() {
   const selected = programs.find((p) => p.id === selectedId);
 
   const inputSchema = selected
-    ? (selected.input_payload_schema as Record<string, unknown>)
+    ? (selected.input_schema as Record<string, unknown>)
     : null;
   const outputConfig = selected
-    ? (selected.output_value_schema as Record<string, unknown>)
+    ? (selected.output_config as Record<string, unknown>)
     : null;
   const fields = inputSchema ? buildFieldsFromSchema(inputSchema) : [];
   const hasManualInput =
@@ -158,7 +158,7 @@ export default function TestPage() {
       setInputValues({});
       return;
     }
-    const schema = selected.input_payload_schema as Record<string, unknown>;
+    const schema = selected.input_schema as Record<string, unknown>;
     const fs = schema ? buildFieldsFromSchema(schema) : [];
     const defaults: Record<string, string> = {};
     for (const f of fs) {
