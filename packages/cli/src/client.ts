@@ -7,7 +7,9 @@ export class MarbleClient {
     apiKey?: string;
   }) {
     this.apiUrl =
-      opts?.apiUrl || process.env.MARBLE_API_URL || "http://localhost:3084/api";
+      opts?.apiUrl ||
+      process.env.MARBLE_API_URL ||
+      "https://marble.kenobi.tech/api";
     this.apiKey = opts?.apiKey || process.env.MARBLE_API_KEY;
   }
 

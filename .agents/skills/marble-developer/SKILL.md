@@ -13,8 +13,8 @@ Use the Marble CLI. Do not solve Marble account tasks with raw SQL, direct datab
 - Use `npx @marble/cli <command>` only when working outside this repo and the published package is the intended interface.
 - Do not add records under `supabase/seed-fixtures` to satisfy a user request.
 - Do not assume auth is configured. The CLI reads `.env` from the current working directory, uses `MARBLE_API_URL`, and optionally uses `MARBLE_API_KEY`. If a CLI call fails because of auth or connectivity, inspect the local `.env` or ask the user for the missing values.
-- `MARBLE_API_URL` defaults to `http://localhost:3084/api` when unset.
-- Use a temporary program directory such as `./temp-marble-programs/<slug>` unless the user wants files kept elsewhere.
+- `MARBLE_API_URL` defaults to `https://marble.kenobi.tech/api` when unset.
+- Do not write program files to disk. They belong in the marble program object itself -- as a JavaScript string.
 
 ## Marble Model
 

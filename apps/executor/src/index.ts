@@ -42,7 +42,7 @@ export default {
               // @ts-expect-error Types are flexible here
               ...(input?.system?.providers || {}),
               APOLLO_IO: {
-                apiKey: env.APOLLO_IO_API_KEY,
+                apiKey: env.APOLLO_IO_API_KEY ?? undefined,
               },
             },
           },
@@ -329,7 +329,7 @@ export default {
         system: {
           providers: {
             APOLLO_IO: {
-              apiKey: env.APOLLO_IO_API_KEY,
+              apiKey: env.APOLLO_IO_API_KEY ?? undefined,
             },
           },
         },

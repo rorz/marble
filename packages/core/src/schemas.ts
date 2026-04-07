@@ -183,7 +183,10 @@ export type ColumnOutputSchema = z.infer<typeof ColumnOutputSchema>;
 export const RunInput = z.object({
   system: z
     .object({
-      providers: z.record(z.string(), z.unknown()).optional().default({}),
+      providers: z
+        .record(z.string(), z.record(z.string(), z.unknown().optional()))
+        .optional()
+        .default({}),
     })
     .catchall(z.unknown())
     .optional()
