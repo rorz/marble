@@ -1,28 +1,37 @@
 ---
 name: marble-developer
-description: Build, test, and wire Marble programs and tables through the Marble CLI. Use when Codex needs to create or update Marble programs (table columns), dry-run program code, create Marble tables, columns, or rows, inspect cells, or map column inputs in this repository. Do not use raw SQL or seed fixtures for these tasks.
+description: Create and wire Marble programs, tables, columns, rows, and cells through the Marble CLI. Use for operational Marble work. Do not use raw SQL, seed fixtures, or repo-wide rebuilds unless the user explicitly asked for repo code changes.
 ---
 
 # Marble Developer
 
-Use the Marble CLI. Do not solve Marble account tasks with raw SQL, direct database edits, or ad hoc HTTP requests.
+Use the Marble CLI for Marble operator work. This skill is for provisioning and wiring remote Marble objects, not for editing the product codebase unless the user explicitly asks for that.
 
-## Operating Rules
+## Core Rules
 
 - Prefer the local CLI in this repo: `pnpm --filter @marble/cli start -- <command>`.
-- Use `npx @marble/cli <command>` only when working outside this repo and the published package is the intended interface.
-- Do not add records under `supabase/seed-fixtures` to satisfy a user request.
-- Do not assume auth is configured. The CLI reads `.env` from the current working directory, uses `MARBLE_API_URL`, and optionally uses `MARBLE_API_KEY`. If a CLI call fails because of auth or connectivity, inspect the local `.env` or ask the user for the missing values.
-- `MARBLE_API_URL` defaults to `https://marble.kenobi.tech/api` when unset.
-- Do not write program files to disk. They belong in the marble program object itself -- as a JavaScript string.
+- Do not use raw SQL.
+- Do not add or edit `supabase/seed-fixtures`.
+- Do not edit app or package source just to create a Marble program, table, column, or row.
+- Do not run `pnpm check`, `pnpm build`, or other repo-wide validation commands for Marble CLI provisioning unless the user explicitly asked for repo code changes too.
+- Keep temporary program files out of the repo. Use `/tmp/marble-programs/<program-name>`.
+- After finishing a CLI-only task, leave the repo clean apart from any instruction files the user explicitly asked you to change.
+
+## Auth And Environment
+
+- The CLI reads `.env` from the current working directory.
+- `MARBLE_API_URL` defaults to `https://marble.kenobi.tech/api`.
+- `MARBLE_API_KEY` is optional, but some environments require it.
+- Marble program runs receive provider credentials on `system.providers`.
+- Apollo is available at `system.providers.APOLLO_IO.apiKey` when configured.
 
 ## Marble Model
 
-- `table`: workflow container for rows and columns.
-- `program`: reusable code unit stored remotely.
-- `column`: table step backed by a program plus an `inputTemplate`.
-- `row`: record within a table.
-- `cell`: execution result for one row-column intersection.
+- `table`: container for workflow rows and columns.
+- `program`: reusable remote JavaScript unit.
+- `column`: table step backed by a program and an `inputTemplate`.
+- `row`: record in a table.
+- `cell`: one row-column execution result.
 
 ## CLI Commands
 
@@ -39,41 +48,43 @@ Use the Marble CLI. Do not solve Marble account tasks with raw SQL, direct datab
 - `pnpm --filter @marble/cli start -- rows add <tableId>`
 - `pnpm --filter @marble/cli start -- cells get <cellId>`
 
-## Program Files
+## Program Directory Contract
 
-Create exactly these files in the program directory.
+Create exactly these files in a temp directory such as `/tmp/marble-programs/my-program`.
 
 ### `index.js`
 
-Export a default async function. It receives `{ system, cell, input }`.
-
-- `input` is validated against `config.json.inputSchema`.
-- `cell.manualInputValue` is the raw manual cell input when manual input is enabled.
-- `system.providers.APOLLO_IO.apiKey` contains the Apollo API key available to all runs (if configured).
+- Export a default function or async function.
+- Signature: `({ system, cell, input }) => ...`
+- `input` is validated by `config.json.inputSchema`.
+- `cell.manualInputValue` is the raw manual cell value when manual input is enabled.
 - Return a value that matches `config.json.outputConfig.schema`.
 
 Example:
 
 ```js
 export default async function ({ system, cell, input }) {
-  if (system?.providers?.APOLLO_IO?.apiKey) {
-    // You can use the Apollo API key here
+  const apiKey = system?.providers?.APOLLO_IO?.apiKey;
+  const raw = cell.manualInputValue ?? "";
+
+  if (apiKey && input.mode === "uppercase") {
+    return raw.toUpperCase();
   }
 
-  const text = cell.manualInputValue ?? "";
-  return text.split("").reverse().join("");
+  return raw;
 }
 ```
 
 ### `config.json`
 
-Define the remote program metadata.
+- Define the remote program metadata here.
+- `outputConfig.schema` is the source of truth for the column output schema.
 
 Example:
 
 ```json
 {
-  "name": "Reverse String",
+  "name": "Example Program",
   "inputSchema": {
     "type": "object",
     "properties": {}
@@ -89,73 +100,77 @@ Example:
 }
 ```
 
-Use `outputConfig.schema` as the source of truth for the program output schema.
+## Input Template Syntax
 
-## Input Templates
+Use the current JSONPath-based resolver.
 
-`columns add` stores `inputTemplate` as a JSON string. Use it to map row context into program inputs.
-
-Map another column value:
+Map another column's value:
 
 ```json
 {
-  "someField": {
-    "$marble_ref": ["columns", "col_123", "value", "someValue"]
-  }
+  "personName.$": "$.columns.col_person.value",
+  "companyName.$": "$.columns.col_company.value"
 }
 ```
 
-Map manual cell input:
+Inline interpolation:
 
 ```json
 {
-  "someField": {
-    "$marble_ref": ["cell", "manualInputValue"]
-  }
+  "prompt": "Find an email for {{$.columns.col_person.value}} at {{$.columns.col_company.value}}"
 }
 ```
 
-Keep `inputTemplate` aligned with `inputSchema`. If the program reads only `cell.manualInputValue`, an empty object template such as `{}` is acceptable.
+Manual-input-only columns can use `{}` and read `cell.manualInputValue` directly.
 
-## Workflow
+## Standard Workflow
 
 ### Build Or Update A Program
 
-1. Create or reuse a temp directory.
+1. Create a temp directory under `/tmp/marble-programs`.
 2. Write `index.js` and `config.json`.
-3. Dry-run before upserting:
-
-```sh
-pnpm --filter @marble/cli start -- programs dry-run ./temp-marble-programs/reverse-string '{"system":{},"cell":{"manualInputValue":"hello"},"input":{}}'
-```
-
-4. Fix code or schema mismatches until the dry-run succeeds.
-5. Upsert the program and record the returned program ID:
-
-```sh
-pnpm --filter @marble/cli start -- programs upsert ./temp-marble-programs/reverse-string
-```
-
-### Wire A Program Into A Table
-
-1. Create or identify the target table.
-2. Derive the output schema from `config.json.outputConfig.schema`.
-3. Build the `inputTemplate` JSON string.
-4. Add the column with the program ID, input template, and output schema.
-5. Add or inspect rows as needed.
-6. Inspect cells if execution output or errors need debugging.
+3. Dry-run it before upserting.
+4. Fix any schema or runtime issue until the dry-run succeeds.
+5. Upsert it and record the returned program ID.
 
 Example:
 
 ```sh
-pnpm --filter @marble/cli start -- tables create "Reverse Demo"
-pnpm --filter @marble/cli start -- columns add tbl_123 "Reverse" prog_123 '{}' '"string"'
-pnpm --filter @marble/cli start -- rows add tbl_123
+pnpm --filter @marble/cli start -- programs dry-run /tmp/marble-programs/reverse-string '{"system":{},"cell":{"manualInputValue":"hello"},"input":{}}'
+pnpm --filter @marble/cli start -- programs upsert /tmp/marble-programs/reverse-string
 ```
+
+### Wire A Program Into A Table
+
+1. Create or identify the table.
+2. Add manual-input columns first if downstream columns depend on them.
+3. List columns to capture their IDs.
+4. Build the dependent column `inputTemplate` using those column IDs.
+5. Add the dependent column with the program ID and output schema.
+6. Add a starter row if the user will immediately populate values.
+
+Example:
+
+```sh
+pnpm --filter @marble/cli start -- tables create "Apollo Email Enrichment"
+pnpm --filter @marble/cli start -- columns add <tableId> "Person Name" <userInputProgramId> '{"format":"string"}' '{"type":"string"}'
+pnpm --filter @marble/cli start -- columns list <tableId>
+pnpm --filter @marble/cli start -- columns add <tableId> "Enriched Email" <apolloProgramId> '{"personName.$":"$.columns.<personColumnId>.value","companyName.$":"$.columns.<companyColumnId>.value"}' '{"type":"string"}'
+pnpm --filter @marble/cli start -- rows add <tableId>
+```
+
+## Apollo Notes
+
+- Use `system.providers.APOLLO_IO.apiKey`.
+- Fail clearly if the key is missing.
+- Prefer returning a simple value that matches the target column schema.
+- If the user asked for one enriched field, return that field directly instead of a large object.
+- If the user supplies a company name rather than a domain, the program may translate that into Apollo parameters such as `organization_name`.
 
 ## Troubleshooting
 
-- If the CLI cannot reach Marble, check `MARBLE_API_URL` and whether the API is running.
-- If requests are unauthorized, check `MARBLE_API_KEY`.
+- If CLI requests fail, inspect `.env` for `MARBLE_API_URL` and `MARBLE_API_KEY`.
+- If `programs dry-run` fails, fix the runtime code or output schema before upserting.
 - If `columns add` fails, validate that `inputTemplate` is valid JSON text and `outputSchema` is valid JSON.
-- If a program dry-run fails, fix `index.js`, `inputSchema`, or `outputConfig.schema` before upserting.
+- If a dependent column is blank, confirm the `inputTemplate` references the correct column IDs.
+- If the repo becomes dirty during CLI-only work, move temp artifacts to `/tmp` and clean up anything you created in the workspace.

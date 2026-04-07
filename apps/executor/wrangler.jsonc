@@ -35,7 +35,8 @@
   ],
   "upload_source_maps": true,
   "vars": {
-    "SUPABASE_URL": ""
+    "SUPABASE_URL": "",
+    "APOLLO_IO_API_KEY": ""
   }
   /**
    * Smart Placement

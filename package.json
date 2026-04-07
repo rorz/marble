@@ -3,11 +3,12 @@
   "private": true,
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "build": "pnpm -r build",
+    "build": "pnpm -r build && pnpm link:skill",
     "lint": "biome check",
     "format": "biome check --write",
     "typecheck": "pnpm -r --filter '!@marble/web' typecheck",
     "check": "biome check --write && pnpm -r --filter '!@marble/web' typecheck",
+    "link:skill": "ln -sf $(pwd)/.agents/skills/marble-developer ~/.agents/skills/marble-developer",
     "gen:types": "pnpm --filter @marble/supabase gen:types",
     "gen:seed": "pnpm --filter @marble/supabase gen:seed",
     "gen:all": "pnpm gen:types && pnpm gen:seed"

@@ -308,6 +308,69 @@ app.post("/tables/:tableId/columns", async (c) => {
       500,
     );
 
+  // Automatically extract column dependencies from the inputTemplate
+  let templateObj: unknown;
+  try {
+    templateObj =
+      typeof body.inputTemplate === "string"
+        ? JSON.parse(body.inputTemplate)
+        : body.inputTemplate;
+  } catch (_e) {
+    templateObj = {};
+  }
+
+  const deps = new Set<string>();
+
+  function extractDeps(obj: unknown) {
+    if (!obj || typeof obj !== "object") {
+      if (typeof obj === "string") {
+        const matches = [
+          ...obj.matchAll(/\$\.columns\.([^.]+)/g),
+        ];
+        for (const match of matches) {
+          deps.add(match[1]);
+        }
+      }
+      return;
+    }
+
+    if (Array.isArray(obj)) {
+      for (const item of obj) extractDeps(item);
+      return;
+    }
+
+    for (const [key, value] of Object.entries(obj)) {
+      if (
+        key === "$marble_ref" &&
+        Array.isArray(value) &&
+        value[0] === "columns"
+      ) {
+        deps.add(value[1]);
+      } else if (key.endsWith(".$") && typeof value === "string") {
+        const match = value.match(/\$\.columns\.([^.]+)/);
+        if (match) deps.add(match[1]);
+      } else {
+        extractDeps(value);
+      }
+    }
+  }
+
+  extractDeps(templateObj);
+
+  if (deps.size > 0) {
+    const depInserts = Array.from(deps).map((source_column_id) => ({
+      source_column_id,
+      target_column_id: data.id,
+    }));
+    const { error: depError } = await c.var.supabase
+      .from("column_dependency")
+      .insert(depInserts);
+
+    if (depError) {
+      console.error("Failed to insert column dependencies:", depError.message);
+    }
+  }
+
   const { data: rows, error: rowsError } = await c.var.supabase
     .from("row")
     .select("id")
