@@ -14,12 +14,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "sift": "catalog:",
-    "zod": "catalog:",
-    "jsonpath-plus": "catalog:"
+    "sift": "catalog:base",
+    "zod": "catalog:base",
+    "jsonpath-plus": "catalog:base"
   },
   "devDependencies": {
-    "typescript": "catalog:",
-    "vitest": "catalog:"
+    "typescript": "catalog:base",
+    "vitest": "catalog:base"
   }
 }

@@ -15,9 +15,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/supabase-js": "catalog:"
+    "@supabase/supabase-js": "catalog:base"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:base"
   }
 }

@@ -9,25 +9,26 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.0.11",
     "@marble/api": "workspace:*",
     "@marble/supabase": "workspace:*",
     "ag-grid-community": "^35.2.0",
     "ag-grid-react": "^35.2.0",
     "hono": "^4.12.12",
-    "next": "catalog:",
+    "next": "catalog:base",
     "prismjs": "^1.30.0",
-    "react": "catalog:",
-    "react-dom": "catalog:",
+    "react": "catalog:base",
+    "react-dom": "catalog:base",
     "react-simple-code-editor": "^0.14.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "catalog:",
-    "@types/node": "catalog:",
+    "@tailwindcss/postcss": "catalog:base",
+    "@types/node": "catalog:base",
     "@types/prismjs": "^1.26.6",
-    "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
-    "babel-plugin-react-compiler": "catalog:",
-    "tailwindcss": "catalog:",
-    "typescript": "catalog:"
+    "@types/react": "catalog:base",
+    "@types/react-dom": "catalog:base",
+    "babel-plugin-react-compiler": "catalog:base",
+    "tailwindcss": "catalog:base",
+    "typescript": "catalog:base"
   }
 }

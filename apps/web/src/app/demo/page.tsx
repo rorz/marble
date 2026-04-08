@@ -1,5 +1,6 @@
 "use client";
 
+import { UserButton } from "@clerk/nextjs";
 import { createClient } from "@marble/supabase";
 import {
   AllCommunityModule,
@@ -1563,6 +1564,7 @@ export default function DemoPage() {
           >
             Run All
           </DemoButton>
+          <UserButton />
         </div>
       </header>
 

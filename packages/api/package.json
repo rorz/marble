@@ -12,7 +12,7 @@
     "hono": "^4.2.0"
   },
   "devDependencies": {
-    "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "@types/node": "catalog:base",
+    "typescript": "catalog:base"
   }
 }

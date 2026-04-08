@@ -1,19 +1,47 @@
 {
   "name": "marble",
   "private": true,
+  "workspaces": {
+    "packages": [
+      "packages/*",
+      "apps/*",
+      "supabase"
+    ],
+    "catalogs": {
+      "base": {
+        "react": "19.2.4",
+        "react-dom": "19.2.4",
+        "next": "16.2.1",
+        "babel-plugin-react-compiler": "1.0.0",
+        "tailwindcss": "^4",
+        "@tailwindcss/postcss": "^4",
+        "@types/node": "^20",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "@supabase/supabase-js": "^2",
+        "supabase": "^2.84.0",
+        "typescript": "^5",
+        "@biomejs/biome": "2.2.0",
+        "zod": "4.3.6",
+        "sift": "17.1.3",
+        "jsonpath-plus": "10.4.0",
+        "vitest": "^4"
+      }
+    }
+  },
   "scripts": {
-    "dev": "pnpm -r --parallel dev",
-    "build": "pnpm -r build && pnpm link:skill",
+    "dev": "bun -r --parallel dev",
+    "build": "bun -r build && bun link:skill",
     "lint": "biome check",
     "format": "biome check --write",
-    "typecheck": "pnpm -r --filter '!@marble/web' typecheck",
-    "check": "biome check --write && pnpm -r --filter '!@marble/web' typecheck",
+    "typecheck": "bun -r --filter '!@marble/web' typecheck",
+    "check": "biome check --write && bun -r --filter '!@marble/web' typecheck",
     "link:skill": "ln -sf $(pwd)/.agents/skills/marble-developer ~/.agents/skills/marble-developer",
-    "gen:types": "pnpm --filter @marble/supabase gen:types",
-    "gen:seed": "pnpm --filter @marble/supabase gen:seed",
-    "gen:all": "pnpm gen:types && pnpm gen:seed"
+    "gen:types": "bun --filter @marble/supabase gen:types",
+    "gen:seed": "bun --filter @marble/supabase gen:seed",
+    "gen:all": "bun gen:types && bun gen:seed"
   },
   "devDependencies": {
-    "@biomejs/biome": "catalog:"
+    "@biomejs/biome": "catalog:base"
   }
 }
