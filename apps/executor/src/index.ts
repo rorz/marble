@@ -5,6 +5,48 @@ import { z } from "zod";
 
 export { Sandbox } from "@cloudflare/sandbox";
 
+const PROGRAM_CODE_PLACEHOLDER = "<program_code>";
+
+function buildProgramStatement(code: string, input: unknown): string {
+  const programCodeUrl = `data:text/javascript;base64,${Buffer.from(code).toString("base64")}`;
+  const inputAsBase64 = Buffer.from(JSON.stringify(input)).toString("base64");
+
+  const inlineProgram = `
+const originalLog = console.log;
+console.log = console.error;
+console.info = console.error;
+console.warn = console.error;
+
+try {
+  const programModule = await import(${JSON.stringify(programCodeUrl)});
+  const runInput = JSON.parse(
+    Buffer.from(${JSON.stringify(inputAsBase64)}, "base64").toString(),
+  );
+  const result = await programModule.default(runInput);
+  originalLog(JSON.stringify(result ?? null));
+} catch (err) {
+  const payload = {
+    message: err?.message || String(err),
+    name: err?.name,
+    stack:
+      typeof err?.stack === "string"
+        ? err.stack.replace(
+            /data:text\\/javascript;base64,[a-zA-Z0-9+/=]+/g,
+            ${JSON.stringify(PROGRAM_CODE_PLACEHOLDER)},
+          )
+        : err?.stack,
+    cause: err?.cause ? (err.cause.message || String(err.cause)) : undefined,
+  };
+  console.error(JSON.stringify(payload));
+  process.exit(1);
+}
+`.trim();
+
+  const escapedInlineProgram = inlineProgram.replaceAll("'", "'\\''");
+
+  return `bun -e '${escapedInlineProgram}'`;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = env;
@@ -52,33 +94,7 @@ export default {
 
         const sandbox = getSandbox(env.Sandbox, "local-run-sandbox");
 
-        const codeAsBase64 = Buffer.from(code).toString("base64");
-        const inputAsBase64 = Buffer.from(
-          JSON.stringify(inputWithProviders),
-        ).toString("base64");
-
-        const statement = `\
-    node --input-type=module -e \
-    "const _log = console.log;\
-    console.log = console.error;\
-    console.info = console.error;\
-    console.warn = console.error;\
-    try {\
-      const m = await import('data:text/javascript;base64,${codeAsBase64}');\
-      const ri = JSON.parse(Buffer.from('${inputAsBase64}', 'base64').toString());\
-      const result = await m.default(ri);\
-      _log(JSON.stringify(result ?? null));\
-    } catch (err) {\
-      const payload = {\
-        message: err?.message || String(err),\
-        name: err?.name,\
-        stack: typeof err?.stack === 'string' ? err.stack.replace(/data:text\\\\/javascript;base64,[a-zA-Z0-9+/=]+/g, '<program_code>') : err?.stack,\
-        cause: err?.cause ? (err.cause.message || String(err.cause)) : undefined\
-      };\
-      console.error(JSON.stringify(payload));\
-      process.exit(1);\
-    }"
-    `;
+        const statement = buildProgramStatement(code, inputWithProviders);
 
         console.log(`Running local statement:\n\n${statement}`);
 
@@ -343,33 +359,7 @@ export default {
         input: parsedInput,
       };
 
-      const codeAsBase64 = Buffer.from(run.program.code).toString("base64");
-      const inputAsBase64 = Buffer.from(JSON.stringify(runInput)).toString(
-        "base64",
-      );
-
-      const statement = `\
-    node --input-type=module -e \
-    "const _log = console.log;\
-    console.log = console.error;\
-    console.info = console.error;\
-    console.warn = console.error;\
-    try {\
-      const m = await import('data:text/javascript;base64,${codeAsBase64}');\
-      const ri = JSON.parse(Buffer.from('${inputAsBase64}', 'base64').toString());\
-      const result = await m.default(ri);\
-      _log(JSON.stringify(result ?? null));\
-    } catch (err) {\
-      const payload = {\
-        message: err?.message || String(err),\
-        name: err?.name,\
-        stack: typeof err?.stack === 'string' ? err.stack.replace(/data:text\\/javascript;base64,[a-zA-Z0-9+/=]+/g, '<program_code>') : err?.stack,\
-        cause: err?.cause ? (err.cause.message || String(err.cause)) : undefined\
-      };\
-      console.error(JSON.stringify(payload));\
-      process.exit(1);\
-    }"
-    `;
+      const statement = buildProgramStatement(run.program.code, runInput);
 
       console.log(`Running statement:\n\n${statement}`);
 
