@@ -1,6 +1,5 @@
 "use client";
 
-import { UserButton } from "@clerk/nextjs";
 import { createClient } from "@marble/supabase";
 import {
   AllCommunityModule,
@@ -15,6 +14,7 @@ import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import Prism from "prismjs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Editor from "react-simple-code-editor";
+import SignOutButton from "../sign-out-button";
 import * as actions from "./actions";
 import "prismjs/components/prism-core";
 
@@ -1564,7 +1564,7 @@ export default function DemoPage() {
           >
             Run All
           </DemoButton>
-          <UserButton />
+          <SignOutButton />
         </div>
       </header>
 

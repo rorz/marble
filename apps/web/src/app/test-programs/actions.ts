@@ -2,6 +2,7 @@
 
 import type { Database } from "@marble/supabase";
 import { createClient } from "@marble/supabase";
+import { requireUser } from "../../lib/auth";
 
 type Program = Database["public"]["Tables"]["program"]["Row"];
 
@@ -14,6 +15,7 @@ function db() {
 }
 
 export async function listPrograms(): Promise<Program[]> {
+  await requireUser();
   const { data, error } = await db()
     .from("program")
     .select("*")
@@ -53,6 +55,7 @@ export async function testProgram(
   output: unknown;
   error?: string;
 }> {
+  await requireUser();
   const supabase = db();
   const userId = await ensureDemoUser();
 

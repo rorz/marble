@@ -2,8 +2,10 @@
 
 import type { Database } from "@marble/supabase";
 import { createClient } from "@marble/supabase";
+import { requireUser } from "../../lib/auth";
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
+type ColumnUpdate = Database["public"]["Tables"]["column"]["Update"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type Json = Database["public"]["Tables"]["cell"]["Row"]["state"];
 
@@ -69,6 +71,7 @@ function extractDependenciesFromTemplate(templateStr: string): string[] {
 // ── Tables ──────────────────────────────────────────────
 
 export async function listTables() {
+  await requireUser();
   const { data, error } = await db()
     .from("table")
     .select("*")
@@ -78,6 +81,7 @@ export async function listTables() {
 }
 
 export async function createTable() {
+  await requireUser();
   const { data, error } = await db()
     .from("table")
     .insert({
@@ -90,6 +94,7 @@ export async function createTable() {
 }
 
 export async function updateTableName(id: string, name: string) {
+  await requireUser();
   const { data, error } = await db()
     .from("table")
     .update({
@@ -105,6 +110,7 @@ export async function updateTableName(id: string, name: string) {
 // ── Programs ────────────────────────────────────────────
 
 export async function listPrograms(): Promise<ProgramRow[]> {
+  await requireUser();
   const { data, error } = await db()
     .from("program")
     .select("*")
@@ -117,6 +123,7 @@ export async function updateProgramOutputSchema(
   programId: string,
   outputConfig: unknown,
 ) {
+  await requireUser();
   const { error } = await db()
     .from("program")
     .update({
@@ -129,6 +136,7 @@ export async function updateProgramOutputSchema(
 // ── Table data (columns + rows + cells) ─────────────────
 
 export async function loadTableData(tableId: string) {
+  await requireUser();
   const supabase = db();
 
   const [cols, rowsRes] = await Promise.all([
@@ -181,6 +189,7 @@ export async function createColumn(input: {
   program_id: string;
   input_template: string;
 }) {
+  await requireUser();
   const supabase = db();
 
   const { data: program, error: programError } = await supabase
@@ -267,6 +276,7 @@ export async function updateColumn(input: {
   program_id?: string;
   input_template?: string;
 }) {
+  await requireUser();
   const supabase = db();
 
   const { data: existing, error: existingError } = await supabase
@@ -285,7 +295,7 @@ export async function updateColumn(input: {
     .single();
   if (programError) throw programError;
 
-  const updates: Record<string, unknown> = {};
+  const updates: ColumnUpdate = {};
   if (input.name !== undefined) updates.name = input.name;
   if (input.program_id !== undefined) updates.program_id = input.program_id;
   if (input.input_template !== undefined)
@@ -327,6 +337,7 @@ export async function updateColumn(input: {
 }
 
 export async function deleteColumn(columnId: string) {
+  await requireUser();
   const supabase = db();
 
   const { data: cellIds } = await supabase
@@ -356,6 +367,7 @@ export async function deleteColumn(columnId: string) {
 // ── Rows ────────────────────────────────────────────────
 
 export async function createRow(tableId: string) {
+  await requireUser();
   const supabase = db();
 
   const { data: maxRow } = await supabase
@@ -406,6 +418,7 @@ export async function createRow(tableId: string) {
 }
 
 export async function deleteRow(rowId: string) {
+  await requireUser();
   const supabase = db();
 
   const { data: cellIds } = await supabase
@@ -431,6 +444,7 @@ export async function deleteRow(rowId: string) {
 // ── Cells ───────────────────────────────────────────────
 
 export async function updateCellManualInput(cellId: string, value: string) {
+  await requireUser();
   const { data, error } = await db()
     .from("cell")
     .update({
@@ -479,6 +493,7 @@ export async function executeRun(input: {
   output: unknown;
   runId: string;
 }> {
+  await requireUser();
   const supabase = db();
   const userId = await ensureDemoUser();
 

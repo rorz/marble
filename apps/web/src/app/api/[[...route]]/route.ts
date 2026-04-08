@@ -1,6 +1,21 @@
 import app from "@marble/api";
+import { NextResponse } from "next/server";
+import { getCurrentUser } from "../../../lib/auth";
 
-function forward(req: Request) {
+async function forward(req: Request) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+      },
+      {
+        status: 401,
+      },
+    );
+  }
+
   const url = new URL(req.url);
   url.pathname = url.pathname.replace(/^\/api(?=\/|$)/, "") || "/";
 
