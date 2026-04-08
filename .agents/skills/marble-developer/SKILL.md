@@ -1,11 +1,19 @@
 ---
 name: marble-developer
-description: Create and wire Marble programs, tables, columns, rows, and cells through the Marble CLI. Use for operational Marble work. Do not use raw SQL, seed fixtures, or repo-wide rebuilds unless the user explicitly asked for repo code changes.
+description: Create and manage Marble resources for your human. Make programs, tables, columns, rows, and cells through the Marble CLI. Use this skill for any and all operational Marble work.
 ---
 
 # Marble Developer
 
-Use the Marble CLI for Marble operator work. This skill is for provisioning and wiring remote Marble objects, not for editing the product codebase unless the user explicitly asks for that.
+Use the Marble CLI for Marble operator work. This skill is for provisioning and wiring remote Marble objects.
+
+### Special notice for developers of the Marble codebase
+
+> [!WARNING]
+> Ordinarily, this skill is called from arbitrary directories. If you are running this **_within_ the Marble codebase,** i.e. for development of Marble itself, pay special and extra attention to:
+>
+> 1. **NOT** modifiying the Marble codebase via this skill _unless_ this is clearly specified as part of the prompt.
+> 2. **ONLY** running Marble CLI commands and programs within the context of the development Marble workspace (i.e. in the local Supabase database). For example, create programs using the CLI -- don't create programs within the codebase. Some confusion may arise from the fact that there are program definitions in the Marble codebase -- these are mostly use to seed the development database, and are -- again -- unrelated to the usage of this skill.
 
 ## Core Rules
 

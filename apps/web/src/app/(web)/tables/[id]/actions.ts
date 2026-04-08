@@ -366,7 +366,7 @@ export async function deleteColumn(columnId: string) {
 
 // ── Rows ────────────────────────────────────────────────
 
-export async function createRow(tableId: string) {
+export async function createRows(tableId: string, count = 1) {
   await requireUser();
   const supabase = db();
 
@@ -380,14 +380,21 @@ export async function createRow(tableId: string) {
     .limit(1)
     .single();
 
-  const { data: row, error } = await supabase
-    .from("row")
-    .insert({
+  const startIndex = (maxRow?.index ?? -1) + 1;
+  const rowsToInsert = Array.from(
+    {
+      length: count,
+    },
+    (_, i) => ({
       table_id: tableId,
-      index: (maxRow?.index ?? -1) + 1,
-    })
-    .select()
-    .single();
+      index: startIndex + i,
+    }),
+  );
+
+  const { data: newRows, error } = await supabase
+    .from("row")
+    .insert(rowsToInsert)
+    .select();
   if (error) throw error;
 
   const { data: columns } = await supabase
@@ -395,24 +402,25 @@ export async function createRow(tableId: string) {
     .select("id")
     .eq("table_id", tableId);
 
-  if (columns && columns.length > 0) {
+  if (columns && columns.length > 0 && newRows && newRows.length > 0) {
+    const cellsToInsert = newRows.flatMap((row) =>
+      columns.map((c) => ({
+        column_id: c.id,
+        row_id: row.id,
+      })),
+    );
     const { data: newCells } = await supabase
       .from("cell")
-      .insert(
-        columns.map((c) => ({
-          column_id: c.id,
-          row_id: row.id,
-        })),
-      )
+      .insert(cellsToInsert)
       .select();
     return {
-      row,
+      rows: newRows ?? [],
       cells: newCells ?? [],
     };
   }
 
   return {
-    row,
+    rows: newRows ?? [],
     cells: [] as CellRow[],
   };
 }

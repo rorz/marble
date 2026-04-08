@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowLeftIcon } from "@heroicons/react/20/solid";
 import { createClient } from "@marble/supabase";
 import {
   AllCommunityModule,
@@ -1274,12 +1275,17 @@ export default function TablePage(props: {
 
   // ── CRUD handlers ─────────────────────────────────────
 
-  const handleAddRow = useCallback(async () => {
+  const [rowCount, setRowCount] = useState(1);
+
+  const handleAddRows = useCallback(async () => {
     if (!selectedTableId) return;
-    const { row, cells: newCells } = await actions.createRow(selectedTableId);
+    const { rows: newRows, cells: newCells } = await actions.createRows(
+      selectedTableId,
+      rowCount,
+    );
     setRows((prev) => [
       ...prev,
-      row,
+      ...newRows,
     ]);
     setCells((prev) => [
       ...prev,
@@ -1287,6 +1293,7 @@ export default function TablePage(props: {
     ]);
   }, [
     selectedTableId,
+    rowCount,
   ]);
 
   const handleRenameTable = useCallback(
@@ -1514,19 +1521,33 @@ export default function TablePage(props: {
       {/* Header */}
       <header className="border-b border-zinc-200 px-5 py-3 flex items-center gap-4">
         <h1 className="text-lg font-semibold tracking-tight">
-          <Link href="/tables">marble</Link>
+          <Link
+            href="/tables"
+            className="hover:text-orange-600 transition-colors"
+          >
+            marble
+          </Link>
         </h1>
 
         <div className="h-4 w-px bg-zinc-300 mx-2" />
 
         {selectedTableId && (
-          <ClickToEditTitle
-            value={
-              tables.find((t) => t.id === selectedTableId)?.name ||
-              "Untitled Table"
-            }
-            onChange={handleRenameTable}
-          />
+          <div className="flex items-center gap-2">
+            <Link
+              href="/tables"
+              className="text-zinc-400 hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 rounded p-1"
+              title="Back to tables"
+            >
+              <ArrowLeftIcon className="w-3.5 h-3.5" />
+            </Link>
+            <ClickToEditTitle
+              value={
+                tables.find((t) => t.id === selectedTableId)?.name ||
+                "Untitled Table"
+              }
+              onChange={handleRenameTable}
+            />
+          </div>
         )}
 
         {running && (
@@ -1540,7 +1561,7 @@ export default function TablePage(props: {
         </div>
       </header>
 
-      <div className="flex justify-between items-center px-5 py-3 border-b border-zinc-200 bg-white">
+      <div className="flex justify-between items-center px-5 py-1.5 border-b border-zinc-200 bg-white">
         <div></div>
         <DemoButton
           variant="orange"
@@ -1598,13 +1619,28 @@ export default function TablePage(props: {
               </div>
             )}
 
-            <div className="flex justify-center shrink-0">
-              <DemoButton
-                onClick={handleAddRow}
-                disabled={!selectedTableId}
-              >
-                + Row
-              </DemoButton>
+            <div className="flex justify-start shrink-0 mt-2">
+              <div className="flex items-center gap-2">
+                <DemoButton
+                  onClick={handleAddRows}
+                  disabled={!selectedTableId}
+                >
+                  Add
+                </DemoButton>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={rowCount}
+                  onChange={(e) =>
+                    setRowCount(Math.max(1, parseInt(e.target.value, 10) || 1))
+                  }
+                  className="w-16 bg-white border border-zinc-200 text-zinc-900 text-sm rounded-md px-2 py-1 focus:border-orange-400 focus:outline-none transition-colors shadow-sm"
+                />
+                <span className="text-sm text-zinc-600">
+                  {rowCount === 1 ? "Row" : "Rows"}
+                </span>
+              </div>
             </div>
           </div>
 

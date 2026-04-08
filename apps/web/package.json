@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@marble/api": "workspace:*",
     "@marble/supabase": "workspace:*",
     "@supabase/ssr": "^0.10.0",
