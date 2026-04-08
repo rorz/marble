@@ -11,12 +11,18 @@ import {
   themeQuartz,
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
+import Link from "next/link";
 import Prism from "prismjs";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Editor from "react-simple-code-editor";
-import SignOutButton from "../sign-out-button";
+import SignOutButton from "../../../sign-out-button";
 import * as actions from "./actions";
-import "prismjs/components/prism-core";
 
 ModuleRegistry.registerModules([
   AllCommunityModule,
@@ -927,9 +933,13 @@ function InterpolationEditor({
 
 // ── Component ───────────────────────────────────────────
 
-export default function DemoPage() {
+export default function TablePage(props: {
+  params: Promise<{
+    id: string;
+  }>;
+}) {
+  const selectedTableId = React.use(props.params).id;
   const [tables, setTables] = useState<TableInfo[]>([]);
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [columns, setColumns] = useState<Column[]>([]);
   const [rows, setRows] = useState<Row[]>([]);
   const [cells, setCells] = useState<Cell[]>([]);
@@ -978,7 +988,6 @@ export default function DemoPage() {
       ]);
       setTables(t);
       setPrograms(p);
-      if (t.length > 0) setSelectedTableId(t[t.length - 1].id);
       setLoading(false);
     })();
   }, []);
@@ -1280,15 +1289,6 @@ export default function DemoPage() {
     selectedTableId,
   ]);
 
-  const handleCreateTable = useCallback(async () => {
-    const table = await actions.createTable();
-    setTables((prev) => [
-      ...prev,
-      table,
-    ]);
-    setSelectedTableId(table.id);
-  }, []);
-
   const handleRenameTable = useCallback(
     async (newName: string) => {
       if (!selectedTableId) return;
@@ -1514,8 +1514,7 @@ export default function DemoPage() {
       {/* Header */}
       <header className="border-b border-zinc-200 px-5 py-3 flex items-center gap-4">
         <h1 className="text-lg font-semibold tracking-tight">
-          marble
-          <span className="text-zinc-500 font-normal ml-2 text-sm">demo</span>
+          <Link href="/tables">marble</Link>
         </h1>
 
         <div className="h-4 w-px bg-zinc-300 mx-2" />
@@ -1537,44 +1536,28 @@ export default function DemoPage() {
         )}
 
         <div className="ml-auto flex items-center gap-2">
-          <DemoSelect
-            value={selectedTableId ?? ""}
-            onChange={(e) => setSelectedTableId(e.target.value)}
-          >
-            {tables.map((t) => (
-              <option
-                key={t.id}
-                value={t.id}
-              >
-                {t.name || "Untitled Table"}
-              </option>
-            ))}
-          </DemoSelect>
-          <DemoButton onClick={handleCreateTable}>+ Table</DemoButton>
-          <DemoButton
-            onClick={handleAddRow}
-            disabled={!selectedTableId}
-          >
-            + Row
-          </DemoButton>
-          <DemoButton
-            variant="orange"
-            onClick={handleRunAll}
-            disabled={!selectedTableId || columns.length === 0 || running}
-          >
-            Run All
-          </DemoButton>
           <SignOutButton />
         </div>
       </header>
+
+      <div className="flex justify-between items-center px-5 py-3 border-b border-zinc-200 bg-white">
+        <div></div>
+        <DemoButton
+          variant="orange"
+          onClick={handleRunAll}
+          disabled={!selectedTableId || columns.length === 0 || running}
+        >
+          Run All
+        </DemoButton>
+      </div>
 
       {/* Main */}
       <div className="flex-1 flex min-h-0">
         {/* Grid + log panel */}
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 p-4">
+          <div className="flex-1 p-4 flex flex-col h-full">
             {selectedTableId ? (
-              <div className="h-full">
+              <div className="flex-1 min-h-0 mb-4">
                 <AgGridReact
                   ref={gridRef}
                   theme={gridTheme}
@@ -1603,17 +1586,26 @@ export default function DemoPage() {
                       manualInput: cell?.manual_input ?? null,
                     });
                   }}
-                  domLayout={rowData.length < 20 ? "autoHeight" : "normal"}
+                  domLayout="normal"
                   headerHeight={34}
                   rowHeight={32}
                   getRowId={(params) => params.data._rowId as string}
                 />
               </div>
             ) : (
-              <div className="text-zinc-500 text-sm flex items-center justify-center h-32">
+              <div className="text-zinc-500 text-sm flex items-center justify-center flex-1">
                 Select or create a table to get started.
               </div>
             )}
+
+            <div className="flex justify-center shrink-0">
+              <DemoButton
+                onClick={handleAddRow}
+                disabled={!selectedTableId}
+              >
+                + Row
+              </DemoButton>
+            </div>
           </div>
 
           {/* Run log */}

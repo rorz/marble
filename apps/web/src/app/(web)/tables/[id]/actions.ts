@@ -2,7 +2,7 @@
 
 import type { Database } from "@marble/supabase";
 import { createClient } from "@marble/supabase";
-import { requireUser } from "../../lib/auth";
+import { requireUser } from "../../../../lib/auth";
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type ColumnUpdate = Database["public"]["Tables"]["column"]["Update"];
