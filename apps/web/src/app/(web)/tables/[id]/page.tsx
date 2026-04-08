@@ -970,6 +970,80 @@ export default function TablePage(props: {
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
 
+  const patchLocalCell = useCallback((cellId: string, patch: Partial<Cell>) => {
+    setCells((prev) => {
+      let changed = false;
+      const next = prev.map((cell) => {
+        if (cell.id !== cellId) return cell;
+        changed = true;
+        return {
+          ...cell,
+          ...patch,
+        };
+      });
+
+      if (!changed) return prev;
+      cellsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const markCellAsRunning = useCallback(
+    (cellId: string, manualInput?: string) => {
+      patchLocalCell(cellId, {
+        ...(manualInput === undefined
+          ? {}
+          : {
+              manual_input: manualInput,
+            }),
+        state: {
+          ok: null,
+        } as Cell["state"],
+      });
+    },
+    [
+      patchLocalCell,
+    ],
+  );
+
+  const applyRunOutputToCell = useCallback(
+    (cellId: string, output: unknown, manualInput?: string) => {
+      patchLocalCell(cellId, {
+        ...(manualInput === undefined
+          ? {}
+          : {
+              manual_input: manualInput,
+            }),
+        state: output as Cell["state"],
+      });
+    },
+    [
+      patchLocalCell,
+    ],
+  );
+
+  const applyClientErrorToCell = useCallback(
+    (cellId: string, message: string, manualInput?: string) => {
+      patchLocalCell(cellId, {
+        ...(manualInput === undefined
+          ? {}
+          : {
+              manual_input: manualInput,
+            }),
+        state: {
+          ok: false,
+          error: {
+            type: "Client",
+          },
+          message,
+        } as Cell["state"],
+      });
+    },
+    [
+      patchLocalCell,
+    ],
+  );
+
   const cellMap = useMemo(() => {
     const map = new Map<string, Cell>();
     for (const cell of cells) {
@@ -1232,17 +1306,26 @@ export default function TablePage(props: {
       );
       if (!cell) return;
 
+      const manualInput = String(event.newValue ?? "");
+
       setRunning(true);
+      markCellAsRunning(cell.id, manualInput);
       addLog(`▶ Cell edit → running "${col.name}" ...`);
 
       try {
         const result = await actions.executeRun({
           programId: col.program_id,
           cellId: cell.id,
-          cellValue: String(event.newValue ?? ""),
+          cellValue: manualInput,
         });
+        applyRunOutputToCell(cell.id, result.output, manualInput);
         addLog(`✓ "${col.name}" → ${JSON.stringify(result.output)}`);
       } catch (err) {
+        applyClientErrorToCell(
+          cell.id,
+          err instanceof Error ? err.message : String(err),
+          manualInput,
+        );
         addLog(
           `✗ "${col.name}" → ${err instanceof Error ? err.message : String(err)}`,
         );
@@ -1252,6 +1335,9 @@ export default function TablePage(props: {
     },
     [
       addLog,
+      applyClientErrorToCell,
+      applyRunOutputToCell,
+      markCellAsRunning,
     ],
   );
 
@@ -1266,6 +1352,7 @@ export default function TablePage(props: {
       if (!cell) return;
 
       setRunning(true);
+      markCellAsRunning(cell.id);
       addLog(`▶ Re-running "${col.name}" ...`);
 
       try {
@@ -1273,8 +1360,13 @@ export default function TablePage(props: {
           programId: col.program_id,
           cellId: cell.id,
         });
+        applyRunOutputToCell(cell.id, result.output);
         addLog(`✓ "${col.name}" → ${JSON.stringify(result.output)}`);
       } catch (err) {
+        applyClientErrorToCell(
+          cell.id,
+          err instanceof Error ? err.message : String(err),
+        );
         addLog(
           `✗ "${col.name}" → ${err instanceof Error ? err.message : String(err)}`,
         );
@@ -1284,6 +1376,9 @@ export default function TablePage(props: {
     },
     [
       addLog,
+      applyClientErrorToCell,
+      applyRunOutputToCell,
+      markCellAsRunning,
     ],
   );
 
@@ -1315,14 +1410,20 @@ export default function TablePage(props: {
         if (!cell) continue;
 
         try {
+          markCellAsRunning(cell.id);
           const result = await actions.executeRun({
             programId: col.program_id,
             cellId: cell.id,
           });
+          applyRunOutputToCell(cell.id, result.output);
           addLog(
             `✓ "${col.name}" × Row ${row.index} → ${JSON.stringify(result.output)}`,
           );
         } catch (err) {
+          applyClientErrorToCell(
+            cell.id,
+            err instanceof Error ? err.message : String(err),
+          );
           addLog(
             `✗ "${col.name}" × Row ${row.index} → ${err instanceof Error ? err.message : String(err)}`,
           );
@@ -1333,6 +1434,9 @@ export default function TablePage(props: {
     setRunning(false);
   }, [
     addLog,
+    applyClientErrorToCell,
+    applyRunOutputToCell,
+    markCellAsRunning,
   ]);
 
   // ── CRUD handlers ─────────────────────────────────────

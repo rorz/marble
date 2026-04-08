@@ -39,6 +39,5 @@
     "//#format-and-lint:fix": {
       "cache": false
     }
-  },
-  "ui": "tui"
+  }
 }
