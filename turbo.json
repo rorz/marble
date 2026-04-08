@@ -18,6 +18,10 @@
     "build": {
       "dependsOn": ["^build"]
     },
+    "symlink": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
     "typegen": {
       "dependsOn": ["^typegen"]
     },

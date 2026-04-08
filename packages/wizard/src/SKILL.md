@@ -15,16 +15,6 @@ Use the Marble CLI for Marble operator work. This skill is for provisioning and 
 > 1. **NOT** modifiying the Marble codebase via this skill _unless_ this is clearly specified as part of the prompt.
 > 2. **ONLY** running Marble CLI commands and programs within the context of the development Marble workspace (i.e. in the local Supabase database). For example, create programs using the CLI -- don't create programs within the codebase. Some confusion may arise from the fact that there are program definitions in the Marble codebase -- these are mostly use to seed the development database, and are -- again -- unrelated to the usage of this skill.
 
-## Core Rules
-
-- Prefer the local CLI in this repo: `pnpm --filter @marble/cli start -- <command>`.
-- Do not use raw SQL.
-- Do not add or edit `supabase/seed-fixtures`.
-- Do not edit app or package source just to create a Marble program, table, column, or row.
-- Do not run `pnpm check`, `pnpm build`, or other repo-wide validation commands for Marble CLI provisioning unless the user explicitly asked for repo code changes too.
-- Keep temporary program files out of the repo. Use `/tmp/marble-programs/<program-name>`.
-- After finishing a CLI-only task, leave the repo clean apart from any instruction files the user explicitly asked you to change.
-
 ## Auth And Environment
 
 - The CLI reads `.env` from the current working directory.
@@ -43,18 +33,18 @@ Use the Marble CLI for Marble operator work. This skill is for provisioning and 
 
 ## CLI Commands
 
-- `marble-cli start -- programs list`
-- `marble-cli start -- programs get <programId>`
-- `marble-cli start -- programs dry-run <dir> '<json-input>'`
-- `marble-cli start -- programs upsert <dir>`
-- `marble-cli start -- tables list`
-- `marble-cli start -- tables get <tableId>`
-- `marble-cli start -- tables create "<name>"`
-- `marble-cli start -- columns list <tableId>`
-- `marble-cli start -- columns add <tableId> "<name>" <programId> '<inputTemplate>' '<outputSchema>'`
-- `marble-cli start -- rows list <tableId>`
-- `marble-cli start -- rows add <tableId>`
-- `marble-cli start -- cells get <cellId>`
+- `marble programs list`
+- `marble programs get <programId>`
+- `marble programs dry-run <dir> '<json-input>'`
+- `marble programs upsert <dir>`
+- `marble tables list`
+- `marble tables get <tableId>`
+- `marble tables create "<name>"`
+- `marble columns list <tableId>`
+- `marble columns add <tableId> "<name>" <programId> '<inputTemplate>' '<outputSchema>'`
+- `marble rows list <tableId>`
+- `marble rows add <tableId>`
+- `marble cells get <cellId>`
 
 ## Program Directory Contract
 
@@ -144,8 +134,8 @@ Manual-input-only columns can use `{}` and read `cell.manualInputValue` directly
 Example:
 
 ```sh
-pnpm --filter @marble/cli start -- programs dry-run /tmp/marble-programs/reverse-string '{"system":{},"cell":{"manualInputValue":"hello"},"input":{}}'
-pnpm --filter @marble/cli start -- programs upsert /tmp/marble-programs/reverse-string
+marble programs dry-run /tmp/marble-programs/reverse-string '{"system":{},"cell":{"manualInputValue":"hello"},"input":{}}'
+marble programs upsert /tmp/marble-programs/reverse-string
 ```
 
 ### Wire A Program Into A Table
@@ -160,11 +150,11 @@ pnpm --filter @marble/cli start -- programs upsert /tmp/marble-programs/reverse-
 Example:
 
 ```sh
-pnpm --filter @marble/cli start -- tables create "Apollo Email Enrichment"
-pnpm --filter @marble/cli start -- columns add <tableId> "Person Name" <userInputProgramId> '{"format":"string"}' '{"type":"string"}'
-pnpm --filter @marble/cli start -- columns list <tableId>
-pnpm --filter @marble/cli start -- columns add <tableId> "Enriched Email" <apolloProgramId> '{"personName.$":"$.columns.<personColumnId>.value","companyName.$":"$.columns.<companyColumnId>.value"}' '{"type":"string"}'
-pnpm --filter @marble/cli start -- rows add <tableId>
+marble tables create "Apollo Email Enrichment"
+marble columns add <tableId> "Person Name" <userInputProgramId> '{"format":"string"}' '{"type":"string"}'
+marble columns list <tableId>
+marble columns add <tableId> "Enriched Email" <apolloProgramId> '{"personName.$":"$.columns.<personColumnId>.value","companyName.$":"$.columns.<companyColumnId>.value"}' '{"type":"string"}'
+marble rows add <tableId>
 ```
 
 ## Apollo Notes

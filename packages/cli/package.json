@@ -9,7 +9,8 @@
     "build": "tsc",
     "dev": "tsc -w",
     "typecheck": "tsc --noEmit",
-    "start": "node ./dist/cli.js"
+    "start": "node ./dist/cli.js",
+    "install:local": "bun link"
   },
   "dependencies": {
     "@marble/core": "workspace:*",

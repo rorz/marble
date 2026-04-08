@@ -6,7 +6,8 @@
     "packages": [
       "packages/*",
       "apps/*",
-      "supabase"
+      "supabase",
+      ".agents/skills/*"
     ],
     "catalogs": {
       "base": {
@@ -39,6 +40,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "symlink": "turbo run symlink",
     "format-and-lint": "biome check .",
     "format-and-lint:fix": "biome check . --write",
     "typecheck": "turbo run typecheck",

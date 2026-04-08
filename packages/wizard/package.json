@@ -1,0 +1,10 @@
+{
+  "name": "@marble/wizard",
+  "private": true,
+  "dependencies": {
+    "marble-cli": "link:marble-cli"
+  },
+  "scripts": {
+    "install:local": "mkdir -p ~/.agents/skills/marble-wizard && cp src/* ~/.agents/skills/marble-wizard"
+  }
+}

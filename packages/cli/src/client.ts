@@ -28,12 +28,13 @@ export class MarbleClient {
       headers,
     });
     if (!res.ok) {
-      let errorDetail = "";
+      const text = await res.text();
+      let errorDetail = text;
       try {
-        const errJson = await res.json();
-        errorDetail = errJson.error || JSON.stringify(errJson);
+        const errJson = JSON.parse(text);
+        errorDetail = errJson.error || text;
       } catch {
-        errorDetail = await res.text();
+        // Ignored, we just use the raw text
       }
       throw new Error(`API Error (${res.status}): ${errorDetail}`);
     }
