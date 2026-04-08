@@ -10,8 +10,8 @@
     }
   },
   "scripts": {
-    "gen:seed": "node generate-seed.mjs",
-    "gen:types": "supabase gen types typescript --local > src/types.ts",
+    "gen:program-seed": "node generate-seed.mjs",
+    "typegen": "supabase gen types typescript --local > src/types.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

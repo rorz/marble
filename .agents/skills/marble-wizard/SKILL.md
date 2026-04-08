@@ -1,9 +1,9 @@
 ---
-name: marble-developer
+name: marble-wizard
 description: Create and manage Marble resources for your human. Make programs, tables, columns, rows, and cells through the Marble CLI. Use this skill for any and all operational Marble work.
 ---
 
-# Marble Developer
+# Marble Wizard
 
 Use the Marble CLI for Marble operator work. This skill is for provisioning and wiring remote Marble objects.
 
@@ -43,18 +43,18 @@ Use the Marble CLI for Marble operator work. This skill is for provisioning and 
 
 ## CLI Commands
 
-- `pnpm --filter @marble/cli start -- programs list`
-- `pnpm --filter @marble/cli start -- programs get <programId>`
-- `pnpm --filter @marble/cli start -- programs dry-run <dir> '<json-input>'`
-- `pnpm --filter @marble/cli start -- programs upsert <dir>`
-- `pnpm --filter @marble/cli start -- tables list`
-- `pnpm --filter @marble/cli start -- tables get <tableId>`
-- `pnpm --filter @marble/cli start -- tables create "<name>"`
-- `pnpm --filter @marble/cli start -- columns list <tableId>`
-- `pnpm --filter @marble/cli start -- columns add <tableId> "<name>" <programId> '<inputTemplate>' '<outputSchema>'`
-- `pnpm --filter @marble/cli start -- rows list <tableId>`
-- `pnpm --filter @marble/cli start -- rows add <tableId>`
-- `pnpm --filter @marble/cli start -- cells get <cellId>`
+- `marble-cli start -- programs list`
+- `marble-cli start -- programs get <programId>`
+- `marble-cli start -- programs dry-run <dir> '<json-input>'`
+- `marble-cli start -- programs upsert <dir>`
+- `marble-cli start -- tables list`
+- `marble-cli start -- tables get <tableId>`
+- `marble-cli start -- tables create "<name>"`
+- `marble-cli start -- columns list <tableId>`
+- `marble-cli start -- columns add <tableId> "<name>" <programId> '<inputTemplate>' '<outputSchema>'`
+- `marble-cli start -- rows list <tableId>`
+- `marble-cli start -- rows add <tableId>`
+- `marble-cli start -- cells get <cellId>`
 
 ## Program Directory Contract
 

@@ -9,7 +9,7 @@
   "dependencies": {
     "@marble/core": "workspace:*",
     "@marble/supabase": "workspace:*",
-    "hono": "^4.2.0"
+    "hono": "catalog:base"
   },
   "devDependencies": {
     "@types/node": "catalog:base",

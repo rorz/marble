@@ -1017,6 +1017,67 @@ export default function TablePage(props: {
     const supabase = createClient(url, key);
     const columnIds = new Set(columns.map((c) => c.id));
 
+    const pendingUpdates = new Map<string, Cell>();
+    const pendingInserts = new Map<string, Cell>();
+    const pendingDeletes = new Set<string>();
+
+    let flushTimeout: NodeJS.Timeout | null = null;
+
+    const flush = () => {
+      if (
+        pendingInserts.size === 0 &&
+        pendingUpdates.size === 0 &&
+        pendingDeletes.size === 0
+      )
+        return;
+
+      setCells((prev) => {
+        const next = [
+          ...prev,
+        ];
+        let changed = false;
+
+        if (pendingDeletes.size > 0) {
+          const originalLength = next.length;
+          const filtered = next.filter((c) => !pendingDeletes.has(c.id));
+          if (filtered.length !== originalLength) {
+            next.length = 0;
+            next.push(...filtered);
+            changed = true;
+          }
+        }
+
+        if (pendingUpdates.size > 0) {
+          for (let i = 0; i < next.length; i++) {
+            const u = pendingUpdates.get(next[i].id);
+            if (u) {
+              next[i] = u;
+              changed = true;
+            }
+          }
+        }
+
+        if (pendingInserts.size > 0) {
+          const existingIds = new Set(next.map((c) => c.id));
+          for (const ins of pendingInserts.values()) {
+            if (!existingIds.has(ins.id)) {
+              next.push(ins);
+              changed = true;
+            }
+          }
+        }
+
+        pendingUpdates.clear();
+        pendingInserts.clear();
+        pendingDeletes.clear();
+
+        if (changed) {
+          cellsRef.current = next;
+        }
+        return changed ? next : prev;
+      });
+    };
+
     const channel = supabase
       .channel(`cells:${selectedTableId}`)
       .on(
@@ -1030,30 +1091,30 @@ export default function TablePage(props: {
           if (payload.eventType === "UPDATE") {
             const updated = payload.new as Cell;
             if (!columnIds.has(updated.column_id)) return;
-            setCells((prev) =>
-              prev.map((c) => (c.id === updated.id ? updated : c)),
-            );
+            pendingUpdates.set(updated.id, updated);
           } else if (payload.eventType === "INSERT") {
             const inserted = payload.new as Cell;
             if (!columnIds.has(inserted.column_id)) return;
-            setCells((prev) => {
-              if (prev.some((c) => c.id === inserted.id)) return prev;
-              return [
-                ...prev,
-                inserted,
-              ];
-            });
+            pendingInserts.set(inserted.id, inserted);
           } else if (payload.eventType === "DELETE") {
             const deleted = payload.old as {
               id: string;
             };
-            setCells((prev) => prev.filter((c) => c.id !== deleted.id));
+            pendingDeletes.add(deleted.id);
+          }
+
+          if (!flushTimeout) {
+            flushTimeout = setTimeout(() => {
+              flushTimeout = null;
+              flush();
+            }, 100);
           }
         },
       )
       .subscribe();
 
     return () => {
+      if (flushTimeout) clearTimeout(flushTimeout);
       supabase.removeChannel(channel);
     };
   }, [

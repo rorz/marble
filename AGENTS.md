@@ -1,3 +1,13 @@
+# Stack
+
+Our development stack:
+- Is a Bun monorepo, using workspaces.
+- Uses cataloging (via the `catalog:base` definition in `/package.json`) to define all workspace dependencies.
+- Uses Biome for formatting and linting.
+- Uses TypeScript for type-checking.
+
+Use the 
+
 # Code Quality — Non-Negotiable
 
 After **every** edit to source files, you **must** run from the workspace root:
@@ -16,13 +26,6 @@ Exception for Marble CLI operator tasks:
 - If the task is only creating or updating remote Marble tables, programs, columns, rows, or cells through the Marble CLI, do not treat that as a repo source edit.
 - For those operator tasks, do not run `bun check` or `bun build` unless you also changed actual repo source under `apps/`, `packages/`, or `supabase/`.
 - Use temp program directories outside the repo, preferably under `/tmp/marble-programs`, so CLI setup work does not dirty the workspace.
-
-# Marble Architecture & Development
-
-If you are asked to build, update, or test a **Marble Program** (which acts as a table column) or interact with the database to create tables, programs, columns, or rows:
-**DO NOT** write raw SQL.
-**DO NOT** add records to the `supabase/seed-fixtures` directory.
-**YOU MUST** invoke the `marble-developer` skill using your Skill tool. If the skill tool is unavailable, read `~/.agents/skills/marble-developer/SKILL.md` to learn how to write programs, schemas, and dry-run them. This skill teaches you how to use the `@marble/cli` to act on a user's behalf.
 
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know

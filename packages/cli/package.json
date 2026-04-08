@@ -1,5 +1,5 @@
 {
-  "name": "@marble/cli",
+  "name": "marble-cli",
   "version": "1.0.0",
   "type": "module",
   "bin": {
@@ -13,12 +13,12 @@
   },
   "dependencies": {
     "@marble/core": "workspace:*",
-    "commander": "^12.0.0",
-    "dotenv": "^16.4.5",
+    "commander": "catalog:base",
+    "dotenv": "catalog:base",
     "zod": "catalog:base"
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
+    "@types/node": "catalog:base",
     "typescript": "catalog:base"
   }
 }
