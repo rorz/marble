@@ -1,0 +1,16 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "env": [
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "MARBLE_EXECUTOR_URL",
+        "EXECUTOR_URL"
+      ],
+      "inputs": ["$TURBO_DEFAULT$", ".env.local", "$TURBO_ROOT$/.env"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    }
+  }
+}

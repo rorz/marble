@@ -10,6 +10,7 @@
     }
   },
   "scripts": {
+    "dangerously-splat": "supabase db reset",
     "gen:program-seed": "node generate-seed.mjs",
     "typegen": "supabase gen types typescript --local > src/types.ts",
     "typecheck": "tsc --noEmit"

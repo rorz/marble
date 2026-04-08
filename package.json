@@ -35,13 +35,13 @@
     }
   },
   "scripts": {
-    "dev": "turbo dev",
-    "build": "turbo build",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
     "format-and-lint": "biome check .",
     "format-and-lint:fix": "biome check . --write",
-    "typecheck": "turbo typecheck",
-    "typegen": "turbo typegen",
-    "check": "bun typegen && bun format-and-lint:fix && bun typecheck && turbo format-and-lint:fix && bun run build"
+    "typecheck": "turbo run typecheck",
+    "typegen": "turbo run typegen",
+    "check": "bun typegen && turbo run format-and-lint:fix && bun typecheck && bun run build"
   },
   "devDependencies": {
     "@biomejs/biome": "catalog:base",
