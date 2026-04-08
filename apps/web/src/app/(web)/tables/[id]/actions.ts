@@ -8,7 +8,11 @@ import { requireUser } from "../../../../lib/auth";
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type ColumnUpdate = Database["public"]["Tables"]["column"]["Update"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
+type RowRow = Database["public"]["Tables"]["row"]["Row"];
+type DependencyRow = Database["public"]["Tables"]["column_dependency"]["Row"];
 type Json = Database["public"]["Tables"]["cell"]["Row"]["state"];
+
+const SUPABASE_SELECT_PAGE_SIZE = 1000;
 
 function db() {
   const url = env.SUPABASE_URL;
@@ -67,6 +71,31 @@ function extractDependenciesFromTemplate(templateStr: string): string[] {
 
   extractFromValue(template);
   return Array.from(sourceColumnIds);
+}
+
+async function selectAllPages<T>(
+  fetchPage: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{
+    data: T[] | null;
+    error: unknown;
+  }>,
+): Promise<T[]> {
+  const records: T[] = [];
+
+  for (let from = 0; ; from += SUPABASE_SELECT_PAGE_SIZE) {
+    const to = from + SUPABASE_SELECT_PAGE_SIZE - 1;
+    const { data, error } = await fetchPage(from, to);
+    if (error) throw error;
+
+    const page = data ?? [];
+    records.push(...page);
+
+    if (page.length < SUPABASE_SELECT_PAGE_SIZE) {
+      return records;
+    }
+  }
 }
 
 // ── Tables ──────────────────────────────────────────────
@@ -140,45 +169,62 @@ export async function loadTableData(tableId: string) {
   await requireUser();
   const supabase = db();
 
-  const [cols, rowsRes] = await Promise.all([
+  const [cols, rows] = await Promise.all([
     supabase
       .from("column")
       .select("*, program(*)")
       .eq("table_id", tableId)
       .order("index"),
-    supabase.from("row").select("*").eq("table_id", tableId).order("index"),
+    selectAllPages<RowRow>((from, to) =>
+      supabase
+        .from("row")
+        .select("*")
+        .eq("table_id", tableId)
+        .order("index")
+        .range(from, to),
+    ),
   ]);
 
   if (cols.error) throw cols.error;
-  if (rowsRes.error) throw rowsRes.error;
 
-  const columnIds = cols.data.map((c) => c.id);
+  const columns = cols.data;
+  const columnIds = columns.map((c) => c.id);
 
   if (columnIds.length === 0) {
     return {
-      columns: cols.data,
-      rows: rowsRes.data,
+      columns,
+      rows,
       cells: [] as CellRow[],
-      dependencies:
-        [] as Database["public"]["Tables"]["column_dependency"]["Row"][],
+      dependencies: [] as DependencyRow[],
     };
   }
 
-  const [cellsRes, depsRes] = await Promise.all([
-    supabase.from("cell").select("*").in("column_id", columnIds),
-    supabase
-      .from("column_dependency")
-      .select("*")
-      .in("source_column_id", columnIds),
+  const [cells, dependencies] = await Promise.all([
+    selectAllPages<CellRow>((from, to) =>
+      supabase
+        .from("cell")
+        .select("*")
+        .in("column_id", columnIds)
+        .order("row_id")
+        .order("column_id")
+        .range(from, to),
+    ),
+    selectAllPages<DependencyRow>((from, to) =>
+      supabase
+        .from("column_dependency")
+        .select("*")
+        .in("source_column_id", columnIds)
+        .order("source_column_id")
+        .order("target_column_id")
+        .range(from, to),
+    ),
   ]);
-  if (cellsRes.error) throw cellsRes.error;
-  if (depsRes.error) throw depsRes.error;
 
   return {
-    columns: cols.data,
-    rows: rowsRes.data,
-    cells: cellsRes.data,
-    dependencies: depsRes.data,
+    columns,
+    rows,
+    cells,
+    dependencies,
   };
 }
 
