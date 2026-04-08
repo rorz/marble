@@ -9,7 +9,9 @@
   "dependencies": {
     "@marble/core": "workspace:*",
     "@marble/supabase": "workspace:*",
-    "hono": "catalog:base"
+    "@t3-oss/env-core": "catalog:base",
+    "hono": "catalog:base",
+    "zod": "catalog:base"
   },
   "devDependencies": {
     "@types/node": "catalog:base",

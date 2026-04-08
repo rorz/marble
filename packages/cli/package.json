@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@marble/core": "workspace:*",
+    "@t3-oss/env-core": "catalog:base",
     "commander": "catalog:base",
     "dotenv": "catalog:base",
     "zod": "catalog:base"

@@ -2,6 +2,7 @@
 
 import type { Database } from "@marble/supabase";
 import { createClient } from "@marble/supabase";
+import { env } from "@/env";
 import { requireUser } from "../../../../lib/auth";
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
@@ -10,8 +11,8 @@ type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type Json = Database["public"]["Tables"]["cell"]["Row"]["state"];
 
 function db() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = env.SUPABASE_URL;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key)
     throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   return createClient(url, key);
@@ -536,7 +537,7 @@ export async function executeRun(input: {
     .single();
   if (error) throw error;
 
-  const executorUrl = process.env.EXECUTOR_URL ?? "http://localhost:8787";
+  const executorUrl = env.EXECUTOR_URL;
 
   let result: {
     success?: boolean;

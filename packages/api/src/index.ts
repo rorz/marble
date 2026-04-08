@@ -4,6 +4,7 @@ import {
   type SupabaseClient,
 } from "@marble/supabase";
 import { Hono } from "hono";
+import { getEnv } from "./env";
 
 export type ApiEnv = {
   Bindings: {
@@ -35,8 +36,9 @@ async function createCells(
 
 // Middleware: Authenticate and inject Supabase client
 app.use("*", async (c, next) => {
-  const supabaseUrl = c.env.SUPABASE_URL;
-  const supabaseKey = c.env.SUPABASE_SERVICE_ROLE_KEY;
+  const env = getEnv(c.env);
+  const supabaseUrl = env.SUPABASE_URL;
+  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     return c.json(
@@ -215,7 +217,8 @@ app.post("/programs", async (c) => {
 });
 
 app.post("/programs/dry-run", async (c) => {
-  const executorUrl = c.env.MARBLE_EXECUTOR_URL || "http://localhost:8787";
+  const env = getEnv(c.env);
+  const executorUrl = env.MARBLE_EXECUTOR_URL || "http://localhost:8787";
   const body = await c.req.json();
 
   try {

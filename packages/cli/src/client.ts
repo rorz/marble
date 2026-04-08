@@ -1,3 +1,4 @@
+import { env } from "./env.js";
 export class MarbleClient {
   private apiUrl: string;
   private apiKey?: string;
@@ -7,10 +8,8 @@ export class MarbleClient {
     apiKey?: string;
   }) {
     this.apiUrl =
-      opts?.apiUrl ||
-      process.env.MARBLE_API_URL ||
-      "https://marble.kenobi.tech/api";
-    this.apiKey = opts?.apiKey || process.env.MARBLE_API_KEY;
+      opts?.apiUrl || env.MARBLE_API_URL || "https://marble.kenobi.tech/api";
+    this.apiKey = opts?.apiKey || env.MARBLE_API_KEY;
   }
 
   private async fetchAPI(endpoint: string, options: RequestInit = {}) {

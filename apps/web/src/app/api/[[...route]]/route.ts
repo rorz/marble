@@ -1,5 +1,6 @@
 import app from "@marble/api";
 import { NextResponse } from "next/server";
+import { env } from "@/env";
 import { getCurrentUser } from "../../../lib/auth";
 
 async function forward(req: Request) {
@@ -21,10 +22,9 @@ async function forward(req: Request) {
 
   const forwardedReq = new Request(url, req);
   return app.fetch(forwardedReq, {
-    SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-    MARBLE_EXECUTOR_URL:
-      process.env.MARBLE_EXECUTOR_URL || "http://localhost:8787",
+    SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL || "",
+    SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY || "",
+    MARBLE_EXECUTOR_URL: env.MARBLE_EXECUTOR_URL || env.EXECUTOR_URL,
   });
 }
 

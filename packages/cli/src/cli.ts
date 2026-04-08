@@ -5,12 +5,13 @@ import path from "node:path";
 import { Command } from "commander";
 import dotenv from "dotenv";
 import { MarbleClient } from "./client.js";
+import { env } from "./env.js";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
 });
 
-const invocationCwd = process.env.INIT_CWD || process.cwd();
+const invocationCwd = env.INIT_CWD || process.cwd();
 
 function resolveFromInvocation(dir: string) {
   return path.resolve(invocationCwd, dir);

@@ -15,6 +15,7 @@
       "dependencies": {
         "@marble/core": "workspace:",
         "@marble/supabase": "workspace:",
+        "@t3-oss/env-core": "catalog:base",
         "zod": "catalog:base",
       },
       "devDependencies": {
@@ -32,6 +33,7 @@
         "@marble/api": "workspace:*",
         "@marble/supabase": "workspace:*",
         "@supabase/ssr": "^0.10.0",
+        "@t3-oss/env-nextjs": "catalog:base",
         "ag-grid-community": "^35.2.0",
         "ag-grid-react": "^35.2.0",
         "hono": "^4.12.12",
@@ -40,6 +42,7 @@
         "react": "catalog:base",
         "react-dom": "catalog:base",
         "react-simple-code-editor": "^0.14.1",
+        "zod": "catalog:base",
       },
       "devDependencies": {
         "@tailwindcss/postcss": "catalog:base",
@@ -58,7 +61,9 @@
       "dependencies": {
         "@marble/core": "workspace:*",
         "@marble/supabase": "workspace:*",
+        "@t3-oss/env-core": "catalog:base",
         "hono": "catalog:base",
+        "zod": "catalog:base",
       },
       "devDependencies": {
         "@types/node": "catalog:base",
@@ -73,6 +78,7 @@
       },
       "dependencies": {
         "@marble/core": "workspace:*",
+        "@t3-oss/env-core": "catalog:base",
         "commander": "catalog:base",
         "dotenv": "catalog:base",
         "zod": "catalog:base",
@@ -110,6 +116,8 @@
     "base": {
       "@biomejs/biome": "2.2.0",
       "@supabase/supabase-js": "^2",
+      "@t3-oss/env-core": "^0.12.0",
+      "@t3-oss/env-nextjs": "^0.12.0",
       "@tailwindcss/postcss": "^4",
       "@types/node": "^22",
       "@types/react": "^19",
@@ -395,6 +403,10 @@
     "@supabase/supabase-js": ["@supabase/supabase-js@2.102.1", "", { "dependencies": { "@supabase/auth-js": "2.102.1", "@supabase/functions-js": "2.102.1", "@supabase/postgrest-js": "2.102.1", "@supabase/realtime-js": "2.102.1", "@supabase/storage-js": "2.102.1" } }, "sha512-bChxPVeLDnYN9M2d/u4fXsvylwSQG5grAl+HN8f+ZD9a9PuVU+Ru+xGmEsk+b9Iz3rJC9ZQnQUJYQ28fApdWYA=="],
 
     "@swc/helpers": ["@swc/helpers@0.5.15", "", { "dependencies": { "tslib": "^2.8.0" } }, "sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g=="],
+
+    "@t3-oss/env-core": ["@t3-oss/env-core@0.12.0", "", { "peerDependencies": { "typescript": ">=5.0.0", "valibot": "^1.0.0-beta.7 || ^1.0.0", "zod": "^3.24.0" }, "optionalPeers": ["typescript", "valibot", "zod"] }, "sha512-lOPj8d9nJJTt81mMuN9GMk8x5veOt7q9m11OSnCBJhwp1QrL/qR+M8Y467ULBSm9SunosryWNbmQQbgoiMgcdw=="],
+
+    "@t3-oss/env-nextjs": ["@t3-oss/env-nextjs@0.12.0", "", { "dependencies": { "@t3-oss/env-core": "0.12.0" }, "peerDependencies": { "typescript": ">=5.0.0", "valibot": "^1.0.0-beta.7 || ^1.0.0", "zod": "^3.24.0" }, "optionalPeers": ["typescript", "valibot", "zod"] }, "sha512-rFnvYk1049RnNVUPvY8iQ55AuQh1Rr+qZzQBh3t++RttCGK4COpXGNxS4+45afuQq02lu+QAOy/5955aU8hRKw=="],
 
     "@tailwindcss/node": ["@tailwindcss/node@4.2.2", "", { "dependencies": { "@jridgewell/remapping": "^2.3.5", "enhanced-resolve": "^5.19.0", "jiti": "^2.6.1", "lightningcss": "1.32.0", "magic-string": "^0.30.21", "source-map-js": "^1.2.1", "tailwindcss": "4.2.2" } }, "sha512-pXS+wJ2gZpVXqFaUEjojq7jzMpTGf8rU6ipJz5ovJV6PUGmlJ+jvIwGrzdHdQ80Sg+wmQxUFuoW1UAAwHNEdFA=="],
 

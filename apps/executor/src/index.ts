@@ -2,6 +2,7 @@ import { getSandbox } from "@cloudflare/sandbox";
 import { type JsonValue, resolveColumnConfig, Schemas } from "@marble/core";
 import { createClient, type Json } from "@marble/supabase";
 import { z } from "zod";
+import { getEnv } from "./env.js";
 
 export { Sandbox } from "@cloudflare/sandbox";
 
@@ -49,7 +50,8 @@ try {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = env;
+    const parsedEnv = getEnv(env as unknown as Record<string, unknown>);
+    const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = parsedEnv;
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return Response.json(
@@ -84,8 +86,8 @@ export default {
               // @ts-expect-error Types are flexible here
               ...(input?.system?.providers || {}),
               APOLLO_IO: {
-                apiKey: env.APOLLO_IO_API_KEY
-                  ? String(env.APOLLO_IO_API_KEY)
+                apiKey: parsedEnv.APOLLO_IO_API_KEY
+                  ? String(parsedEnv.APOLLO_IO_API_KEY)
                   : undefined,
               },
             },

@@ -2,13 +2,14 @@
 
 import type { Database } from "@marble/supabase";
 import { createClient } from "@marble/supabase";
+import { env } from "@/env";
 import { requireUser } from "../../lib/auth";
 
 type Program = Database["public"]["Tables"]["program"]["Row"];
 
 function db() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = env.SUPABASE_URL;
+  const key = env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key)
     throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   return createClient(url, key);
@@ -129,7 +130,7 @@ export async function testProgram(
   if (runErr) throw runErr;
 
   // Hit executor
-  const executorUrl = process.env.EXECUTOR_URL ?? "http://localhost:8787";
+  const executorUrl = env.EXECUTOR_URL;
   try {
     const res = await fetch(`${executorUrl}?run_id=${run.id}`, {
       method: "POST",

@@ -1,6 +1,6 @@
+import { env } from "@/env";
 export function getSupabaseUrl(): string {
-  const value =
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const value = env.NEXT_PUBLIC_SUPABASE_URL ?? env.SUPABASE_URL;
 
   if (!value) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL");
@@ -11,8 +11,8 @@ export function getSupabaseUrl(): string {
 
 export function getSupabaseBrowserKey(): string {
   const key =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!key) {
     throw new Error(

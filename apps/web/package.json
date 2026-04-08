@@ -13,6 +13,7 @@
     "@marble/api": "workspace:*",
     "@marble/supabase": "workspace:*",
     "@supabase/ssr": "^0.10.0",
+    "@t3-oss/env-nextjs": "catalog:base",
     "ag-grid-community": "^35.2.0",
     "ag-grid-react": "^35.2.0",
     "hono": "^4.12.12",
@@ -20,7 +21,8 @@
     "prismjs": "^1.30.0",
     "react": "catalog:base",
     "react-dom": "catalog:base",
-    "react-simple-code-editor": "^0.14.1"
+    "react-simple-code-editor": "^0.14.1",
+    "zod": "catalog:base"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "catalog:base",

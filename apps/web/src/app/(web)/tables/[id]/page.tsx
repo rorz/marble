@@ -22,6 +22,7 @@ import React, {
   useState,
 } from "react";
 import Editor from "react-simple-code-editor";
+import { env } from "@/env";
 import SignOutButton from "../../../sign-out-button";
 import * as actions from "./actions";
 
@@ -1010,8 +1011,8 @@ export default function TablePage(props: {
   // ── Realtime ──────────────────────────────────────────
 
   useEffect(() => {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const url = env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     if (!url || !key || !selectedTableId || columns.length === 0) return;
 
     const supabase = createClient(url, key);
