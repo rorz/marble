@@ -26,10 +26,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function resolveBaseOutputSchema(program: ProgramRow): Record<string, unknown> {
-  const programRecord = program as unknown as Record<string, unknown>;
-  const outputConfig =
-    programRecord.output_config ?? programRecord.output_value_schema;
+function resolveBaseOutputSchema(
+  programVersion: Record<string, unknown>,
+): Record<string, unknown> {
+  const outputConfig = programVersion.output_config;
   if (!isRecord(outputConfig)) return {};
 
   const baseSchema = isRecord(outputConfig.schema) ? outputConfig.schema : {};
@@ -110,12 +110,24 @@ export async function listTables() {
   return data;
 }
 
+async function requireProfileId() {
+  const user = await requireUser();
+  const { data, error } = await db()
+    .from("profile")
+    .select("id")
+    .eq("owner_user_id", user.id)
+    .single();
+  if (error || !data) throw new Error("Could not find profile for user");
+  return data.id;
+}
+
 export async function createTable() {
-  await requireUser();
+  const profileId = await requireProfileId();
   const { data, error } = await db()
     .from("table")
     .insert({
       name: "Untitled Table",
+      owner_profile_id: profileId,
     })
     .select()
     .single();
@@ -139,27 +151,27 @@ export async function updateTableName(id: string, name: string) {
 
 // ── Programs ────────────────────────────────────────────
 
-export async function listPrograms(): Promise<ProgramRow[]> {
+export async function listPrograms() {
   await requireUser();
   const { data, error } = await db()
     .from("program")
-    .select("*")
+    .select("*, program_version!program_version_program_id_fkey(*)")
     .order("created_at");
   if (error) throw error;
   return data;
 }
 
 export async function updateProgramOutputSchema(
-  programId: string,
+  programVersionId: string,
   outputConfig: unknown,
 ) {
   await requireUser();
   const { error } = await db()
-    .from("program")
+    .from("program_version")
     .update({
       output_config: outputConfig as Json,
     })
-    .eq("id", programId);
+    .eq("id", programVersionId);
   if (error) throw error;
 }
 
@@ -172,15 +184,17 @@ export async function loadTableData(tableId: string) {
   const [cols, rows] = await Promise.all([
     supabase
       .from("column")
-      .select("*, program(*)")
+      .select(
+        "*, program_version(*, program!program_version_program_id_fkey(*))",
+      )
       .eq("table_id", tableId)
-      .order("index"),
+      .order("idx"),
     selectAllPages<RowRow>((from, to) =>
       supabase
         .from("row")
         .select("*")
         .eq("table_id", tableId)
-        .order("index")
+        .order("idx")
         .range(from, to),
     ),
   ]);
@@ -240,23 +254,23 @@ export async function createColumn(input: {
   const supabase = db();
 
   const { data: program, error: programError } = await supabase
-    .from("program")
-    .select("*")
+    .from("program_version")
+    .select("*, program(*)")
     .eq("id", input.program_id)
     .single();
   if (programError) throw programError;
 
-  const { data: maxCol } = await supabase
+  const { data: maxCol } = await db()
     .from("column")
-    .select("index")
+    .select("idx")
     .eq("table_id", input.table_id)
-    .order("index", {
+    .order("idx", {
       ascending: false,
     })
     .limit(1)
     .single();
 
-  const nextIndex = (maxCol?.index ?? -1) + 1;
+  const nextIndex = (maxCol?.idx ?? -1) + 1;
   const outputSchema = resolveBaseOutputSchema(program);
 
   const { data: column, error } = await supabase
@@ -264,8 +278,8 @@ export async function createColumn(input: {
     .insert({
       table_id: input.table_id,
       name: input.name,
-      index: nextIndex,
-      program_id: input.program_id,
+      idx: nextIndex,
+      program_version_id: input.program_id, // we might need to assume the passed string is a version id
       input_template: input.input_template,
       output_schema: outputSchema as Json,
     })
@@ -328,23 +342,24 @@ export async function updateColumn(input: {
 
   const { data: existing, error: existingError } = await supabase
     .from("column")
-    .select("program_id, input_template")
+    .select("program_version_id, input_template")
     .eq("id", input.columnId)
     .single();
   if (existingError) throw existingError;
 
-  const resolvedProgramId = input.program_id ?? existing.program_id;
+  const resolvedProgramId = input.program_id ?? existing.program_version_id;
 
   const { data: program, error: programError } = await supabase
-    .from("program")
-    .select("*")
+    .from("program_version")
+    .select("*, program(*)")
     .eq("id", resolvedProgramId)
     .single();
   if (programError) throw programError;
 
   const updates: ColumnUpdate = {};
   if (input.name !== undefined) updates.name = input.name;
-  if (input.program_id !== undefined) updates.program_id = input.program_id;
+  if (input.program_id !== undefined)
+    updates.program_version_id = input.program_id;
   if (input.input_template !== undefined)
     updates.input_template = input.input_template;
   updates.output_schema = resolveBaseOutputSchema(program) as Json;
@@ -353,7 +368,7 @@ export async function updateColumn(input: {
     .from("column")
     .update(updates)
     .eq("id", input.columnId)
-    .select("*, program(*)")
+    .select("*, program_version(*, program(*))")
     .single();
   if (error) throw error;
 
@@ -419,22 +434,22 @@ export async function createRows(tableId: string, count = 1) {
 
   const { data: maxRow } = await supabase
     .from("row")
-    .select("index")
+    .select("idx")
     .eq("table_id", tableId)
-    .order("index", {
+    .order("idx", {
       ascending: false,
     })
     .limit(1)
     .single();
 
-  const startIndex = (maxRow?.index ?? -1) + 1;
+  const startIndex = (maxRow?.idx ?? -1) + 1;
   const rowsToInsert = Array.from(
     {
       length: count,
     },
     (_, i) => ({
       table_id: tableId,
-      index: startIndex + i,
+      idx: startIndex + i,
     }),
   );
 
@@ -550,8 +565,6 @@ export async function executeRun(input: {
 }> {
   await requireUser();
   const supabase = db();
-  const userId = await ensureDemoUser();
-
   // Persist manual_input if provided (cell edit flow)
   if (input.cellValue !== undefined) {
     await supabase
@@ -575,9 +588,8 @@ export async function executeRun(input: {
   const { data: run, error } = await supabase
     .from("program_run")
     .insert({
-      program_id: input.programId,
+      program_version_id: input.programId,
       target_cell_id: input.cellId,
-      instigating_user_id: userId,
     })
     .select("id")
     .single();

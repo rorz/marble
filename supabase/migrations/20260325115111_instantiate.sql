@@ -64,7 +64,7 @@ CREATE TABLE
     owner_profile_id UUID REFERENCES profile (id) NOT NULL,
     "name" TEXT NOT NULL,
     first_party BOOLEAN NOT NULL DEFAULT FALSE,
-    forked_from_version_id UUID REFERENCES program_version (id) -- only set when forked
+    forked_from_version_id UUID
   );
 
 CREATE TRIGGER set_updated_at BEFORE
@@ -82,7 +82,8 @@ CREATE TABLE
     program_id UUID REFERENCES PROGRAM (id) NOT NULL,
     "version" INT NOT NULL,
     input_schema JSONB NOT NULL,
-    output_config JSONB NOT NULL
+    output_config JSONB NOT NULL,
+    UNIQUE (program_id, VERSION)
   );
 
 CREATE TRIGGER set_updated_at BEFORE
@@ -90,6 +91,9 @@ UPDATE ON "program_version" FOR EACH ROW
 EXECUTE FUNCTION set_updated_at ();
 
 ALTER TABLE "program_version" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE "program"
+ADD CONSTRAINT fk_program_forked_from FOREIGN KEY (forked_from_version_id) REFERENCES "program_version" (id);
 
 -- Program File table
 CREATE TABLE
@@ -122,7 +126,7 @@ CREATE TABLE
     program_version_id UUID NOT NULL REFERENCES program_version (id),
     input_template TEXT NOT NULL,
     output_schema JSONB NOT NULL,
-    UNIQUE (table_id, INDEX)
+    UNIQUE (table_id, idx)
   );
 
 CREATE TRIGGER set_updated_at BEFORE
@@ -155,7 +159,7 @@ CREATE TABLE
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     table_id UUID NOT NULL REFERENCES "table" (id),
     idx BIGINT NOT NULL,
-    UNIQUE (table_id, INDEX)
+    UNIQUE (table_id, idx)
   );
 
 CREATE TRIGGER set_updated_at BEFORE
@@ -226,3 +230,19 @@ CREATE TABLE
   );
 
 ALTER TABLE "event" ENABLE ROW LEVEL SECURITY;
+
+--
+-- TRIGGER ON USER CREATION
+--
+CREATE OR REPLACE FUNCTION public.handle_new_user() 
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profile (owner_user_id, name, type)
+  VALUES (new.id, 'Me', 'Human');
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();

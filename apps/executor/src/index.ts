@@ -227,7 +227,7 @@ export default {
       .select(
         `
         *,
-        program(*),
+        program_version(*, program!program_version_program_id_fkey(*), program_file(*)),
         cell!target_cell_id(*, column!column_id(*))
       `,
       )
@@ -321,16 +321,20 @@ export default {
       const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
 
       const inputPayloadSchema = Schemas.ProgramInputSchema.parse(
-        run.program.input_schema,
+        run.program_version.input_schema,
       );
       const parsedInput = z
         .fromJSONSchema(inputPayloadSchema)
         .parse(resolvedInput);
 
-      if (run.program.runtime !== "JavaScript") {
+      const tsFile = run.program_version.program_file.find(
+        (f: { filetype: string }) => f.filetype === "TypeScript",
+      );
+
+      if (!tsFile) {
         const failState = await persistFailure(
           "UnsupportedRuntime",
-          `Runtime "${run.program.runtime}" is not supported yet.`,
+          `No TypeScript file found in program version.`,
         );
         return Response.json(
           {
@@ -361,7 +365,7 @@ export default {
         input: parsedInput,
       };
 
-      const statement = buildProgramStatement(run.program.code, runInput);
+      const statement = buildProgramStatement(tsFile.content, runInput);
 
       console.log(`Running statement:\n\n${statement}`);
 

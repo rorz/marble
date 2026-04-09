@@ -88,6 +88,7 @@ app.post("/tables", async (c) => {
     .from("table")
     .insert({
       name: body.name || "Untitled Table",
+      owner_profile_id: body.ownerProfileId, // we need to send this from clients now
     })
     .select()
     .single();
@@ -168,6 +169,7 @@ app.get("/programs/:id", async (c) => {
   return c.json(data);
 });
 
+/*
 app.post("/programs", async (c) => {
   const body = await c.req.json();
 
@@ -215,6 +217,7 @@ app.post("/programs", async (c) => {
     );
   return c.json(result.data);
 });
+*/
 
 app.post("/programs/dry-run", async (c) => {
   const env = getEnv(c.env);
@@ -261,7 +264,7 @@ app.get("/tables/:tableId/columns", async (c) => {
     .from("column")
     .select("*")
     .eq("table_id", c.req.param("tableId"))
-    .order("index", {
+    .order("idx", {
       ascending: true,
     });
 
@@ -281,22 +284,22 @@ app.post("/tables/:tableId/columns", async (c) => {
 
   const { data: columns } = await c.var.supabase
     .from("column")
-    .select("index")
+    .select("idx")
     .eq("table_id", tableId)
-    .order("index", {
+    .order("idx", {
       ascending: false,
     })
     .limit(1);
 
-  const nextIndex = columns && columns.length > 0 ? columns[0].index + 1 : 0;
+  const nextIndex = columns && columns.length > 0 ? columns[0].idx + 1 : 0;
 
   const { data, error } = await c.var.supabase
     .from("column")
     .insert({
       table_id: tableId,
       name: body.name,
-      index: nextIndex,
-      program_id: body.programId,
+      idx: nextIndex,
+      program_version_id: body.programVersionId || body.programId, // Fallback if still passing programId
       input_template: body.inputTemplate,
       output_schema: body.outputSchema,
     })
@@ -417,7 +420,7 @@ app.get("/tables/:tableId/rows", async (c) => {
     .from("row")
     .select("*")
     .eq("table_id", c.req.param("tableId"))
-    .order("index", {
+    .order("idx", {
       ascending: true,
     });
 
@@ -436,20 +439,20 @@ app.post("/tables/:tableId/rows", async (c) => {
 
   const { data: rows } = await c.var.supabase
     .from("row")
-    .select("index")
+    .select("idx")
     .eq("table_id", tableId)
-    .order("index", {
+    .order("idx", {
       ascending: false,
     })
     .limit(1);
 
-  const nextIndex = rows && rows.length > 0 ? rows[0].index + 1 : 0;
+  const nextIndex = rows && rows.length > 0 ? rows[0].idx + 1 : 0;
 
   const { data, error } = await c.var.supabase
     .from("row")
     .insert({
       table_id: tableId,
-      index: nextIndex,
+      idx: nextIndex,
     })
     .select()
     .single();

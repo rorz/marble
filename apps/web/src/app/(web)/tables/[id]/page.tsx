@@ -132,29 +132,29 @@ function displayCellValue(cell: Cell | undefined): string {
 }
 
 function getProgramOutputConfig(
-  program: Program | Column["program"] | null | undefined,
+  programVersion: any,
 ): Record<string, unknown> | null {
-  if (!program || typeof program !== "object") return null;
-  const record = program as Record<string, unknown>;
-  const config = record.output_config ?? record.output_value_schema;
+  if (!programVersion || typeof programVersion !== "object") return null;
+  const record = programVersion as Record<string, unknown>;
+  const config = record.output_config;
   if (!config || typeof config !== "object" || Array.isArray(config))
     return null;
   return config as Record<string, unknown>;
 }
 
 function getProgramInputSchema(
-  program: Program | Column["program"] | null | undefined,
+  programVersion: any,
 ): Record<string, unknown> | null {
-  if (!program || typeof program !== "object") return null;
-  const record = program as Record<string, unknown>;
-  const schema = record.input_schema ?? record.input_payload_schema;
+  if (!programVersion || typeof programVersion !== "object") return null;
+  const record = programVersion as Record<string, unknown>;
+  const schema = record.input_schema;
   if (!schema || typeof schema !== "object" || Array.isArray(schema))
     return null;
   return schema as Record<string, unknown>;
 }
 
 function isManualInputColumn(column: Column): boolean {
-  const config = getProgramOutputConfig(column.program) as {
+  const config = getProgramOutputConfig(column.program_version) as {
     flags?: {
       allowManualInput?: boolean;
     };
@@ -1203,7 +1203,7 @@ export default function TablePage(props: {
     () =>
       [
         ...columns,
-      ].sort((a, b) => a.index - b.index),
+      ].sort((a, b) => a.idx - b.idx),
     [
       columns,
     ],
@@ -1228,7 +1228,7 @@ export default function TablePage(props: {
         return {
           headerName: col.name,
           headerComponent: ColumnHeader,
-          headerTooltip: col.program?.name,
+          headerTooltip: col.program_version?.program?.name,
           field: col.id,
           editable,
           sortable: false,
@@ -1264,7 +1264,7 @@ export default function TablePage(props: {
     return rows.map((row) => {
       const data: Record<string, unknown> = {
         _rowId: row.id,
-        _rowIndex: row.index,
+        _rowIndex: row.idx,
       };
       for (const col of columns) {
         const cell = cellMap.get(`${row.id}:${col.id}`);
@@ -1314,7 +1314,7 @@ export default function TablePage(props: {
 
       try {
         const result = await actions.executeRun({
-          programId: col.program_id,
+          programId: col.program_version_id,
           cellId: cell.id,
           cellValue: manualInput,
         });
@@ -1357,7 +1357,7 @@ export default function TablePage(props: {
 
       try {
         const result = await actions.executeRun({
-          programId: col.program_id,
+          programId: col.program_version_id,
           cellId: cell.id,
         });
         applyRunOutputToCell(cell.id, result.output);
@@ -1392,7 +1392,7 @@ export default function TablePage(props: {
 
     const sorted = [
       ...currentColumns,
-    ].sort((a, b) => a.index - b.index);
+    ].sort((a, b) => a.idx - b.idx);
 
     const cellLookup = new Map<string, Cell>();
     for (const cell of currentCells) {
@@ -1412,12 +1412,12 @@ export default function TablePage(props: {
         try {
           markCellAsRunning(cell.id);
           const result = await actions.executeRun({
-            programId: col.program_id,
+            programId: col.program_version_id,
             cellId: cell.id,
           });
           applyRunOutputToCell(cell.id, result.output);
           addLog(
-            `✓ "${col.name}" × Row ${row.index} → ${JSON.stringify(result.output)}`,
+            `✓ "${col.name}" × Row ${row.idx} → ${JSON.stringify(result.output)}`,
           );
         } catch (err) {
           applyClientErrorToCell(
@@ -1425,7 +1425,7 @@ export default function TablePage(props: {
             err instanceof Error ? err.message : String(err),
           );
           addLog(
-            `✗ "${col.name}" × Row ${row.index} → ${err instanceof Error ? err.message : String(err)}`,
+            `✗ "${col.name}" × Row ${row.idx} → ${err instanceof Error ? err.message : String(err)}`,
           );
         }
       }
@@ -1521,7 +1521,7 @@ export default function TablePage(props: {
       });
       setColumns((prev) => [
         ...prev,
-        column,
+        column as unknown as Column,
       ]);
       setCells((prev) => [
         ...prev,
@@ -1938,24 +1938,28 @@ function ColumnSidebar({
     }
   > => {
     if (!editingColumn) return {};
-    const program = programs.find((p) => p.id === editingColumn.program_id);
-    if (!program) return {};
-    const s = getProgramInputSchema(program);
+    const programVersion = programs.find(
+      (p) => p.id === editingColumn.program_version?.program_id,
+    )?.program_version?.[0];
+    if (!programVersion) return {};
+    const s = getProgramInputSchema(programVersion);
     const fs = s ? buildFieldsFromSchema(s) : [];
     return parseTemplateToFieldValues(
       (editingColumn.input_template as string) ?? "{}",
       fs,
-      columns,
+      columns as unknown as Column[],
     );
   };
 
   const [name, setName] = useState(editingColumn?.name ?? "");
-  const [programId, setProgramId] = useState(editingColumn?.program_id ?? "");
+  const [programId, setProgramId] = useState(
+    editingColumn?.program_version?.program_id ?? "",
+  );
   const [fieldValues, setFieldValues] = useState(initFieldValues);
   const [saving, setSaving] = useState(false);
   const [outputSchemaOpen, setOutputSchemaOpen] = useState(false);
   const [outputSchemaJson, setOutputSchemaJson] = useState(() => {
-    const config = getProgramOutputConfig(editingColumn?.program);
+    const config = getProgramOutputConfig(editingColumn?.program_version);
     if (!config) return "{}";
     return JSON.stringify(config, null, 2);
   });
@@ -1965,10 +1969,14 @@ function ColumnSidebar({
   const initialProgramId = useRef(programId);
 
   const selectedProgram = programs.find((p) => p.id === programId);
-  const selectedSchema = getProgramInputSchema(selectedProgram);
+  const latestVersion = selectedProgram?.program_version?.length
+    ? selectedProgram.program_version.sort((a, b) => b.version - a.version)[0]
+    : null;
+
+  const selectedSchema = getProgramInputSchema(latestVersion);
   const fields = selectedSchema ? buildFieldsFromSchema(selectedSchema) : [];
   const hasManualInput = (() => {
-    const config = getProgramOutputConfig(selectedProgram) as {
+    const config = getProgramOutputConfig(latestVersion) as {
       flags?: {
         allowManualInput?: boolean;
       };
@@ -1986,7 +1994,11 @@ function ColumnSidebar({
       return;
     }
 
-    const s = getProgramInputSchema(program);
+    const version = program.program_version?.length
+      ? program.program_version.sort((a, b) => b.version - a.version)[0]
+      : null;
+
+    const s = getProgramInputSchema(version);
     const fs = s ? buildFieldsFromSchema(s) : [];
     const defaults: Record<
       string,
@@ -2078,7 +2090,7 @@ function ColumnSidebar({
       if (mode.kind === "create") {
         await onCreateColumn({
           name: name.trim(),
-          program_id: programId,
+          program_id: latestVersion!.id,
           input_template: buildTemplate(),
         });
         setName("");
@@ -2089,7 +2101,7 @@ function ColumnSidebar({
         await onUpdateColumn({
           columnId: mode.columnId,
           name: name.trim(),
-          program_id: programId,
+          program_id: latestVersion!.id,
           input_template: buildTemplate(),
         });
       }

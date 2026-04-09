@@ -38,7 +38,7 @@ export default function AuthForm() {
       return;
     }
 
-    router.replace("/demo");
+    router.replace("/tables");
     router.refresh();
   }
 
@@ -60,7 +60,7 @@ export default function AuthForm() {
     }
 
     if (data.session) {
-      router.replace("/demo");
+      router.replace("/tables");
       router.refresh();
       return;
     }

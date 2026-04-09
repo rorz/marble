@@ -36,7 +36,6 @@ export type Database = {
     Tables: {
       cell: {
         Row: {
-          author_user_id: string | null
           column_id: string
           created_at: string
           id: string
@@ -46,7 +45,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          author_user_id?: string | null
           column_id: string
           created_at?: string
           id?: string
@@ -56,7 +54,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          author_user_id?: string | null
           column_id?: string
           created_at?: string
           id?: string
@@ -84,47 +81,44 @@ export type Database = {
       }
       column: {
         Row: {
-          author_user_id: string | null
           created_at: string
           id: string
-          index: number
+          idx: number
           input_template: string
           name: string
           output_schema: Json
-          program_id: string
+          program_version_id: string
           table_id: string
           updated_at: string
         }
         Insert: {
-          author_user_id?: string | null
           created_at?: string
           id?: string
-          index: number
+          idx: number
           input_template: string
           name: string
           output_schema: Json
-          program_id: string
+          program_version_id: string
           table_id: string
           updated_at?: string
         }
         Update: {
-          author_user_id?: string | null
           created_at?: string
           id?: string
-          index?: number
+          idx?: number
           input_template?: string
           name?: string
           output_schema?: Json
-          program_id?: string
+          program_version_id?: string
           table_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "column_program_id_fkey"
-            columns: ["program_id"]
+            foreignKeyName: "column_program_version_id_fkey"
+            columns: ["program_version_id"]
             isOneToOne: false
-            referencedRelation: "program"
+            referencedRelation: "program_version"
             referencedColumns: ["id"]
           },
           {
@@ -175,53 +169,206 @@ export type Database = {
           },
         ]
       }
-      program: {
+      event: {
         Row: {
-          author_user_id: string | null
-          code: string
           created_at: string
-          first_party: boolean
+          entity_id: string
           id: string
-          input_schema: Json
+          operation: Database["public"]["Enums"]["data_operation"]
+          owner_profile_id: string
+          resource: string
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          id?: string
+          operation: Database["public"]["Enums"]["data_operation"]
+          owner_profile_id: string
+          resource: string
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          id?: string
+          operation?: Database["public"]["Enums"]["data_operation"]
+          owner_profile_id?: string
+          resource?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      key: {
+        Row: {
+          created_at: string
+          deleted_at: string | null
+          hash: string
+          id: string
+          owner_profile_id: string
+          prefix: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          hash: string
+          id?: string
+          owner_profile_id: string
+          prefix: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          hash?: string
+          id?: string
+          owner_profile_id?: string
+          prefix?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "key_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile: {
+        Row: {
+          created_at: string
+          external_name: string | null
+          id: string
           name: string
-          output_config: Json
-          runtime: Database["public"]["Enums"]["program_runtime"]
+          owner_user_id: string
+          type: Database["public"]["Enums"]["profile_type"]
           updated_at: string
         }
         Insert: {
-          author_user_id?: string | null
-          code: string
           created_at?: string
-          first_party?: boolean
+          external_name?: string | null
           id?: string
-          input_schema: Json
           name: string
-          output_config: Json
-          runtime: Database["public"]["Enums"]["program_runtime"]
+          owner_user_id: string
+          type: Database["public"]["Enums"]["profile_type"]
           updated_at?: string
         }
         Update: {
-          author_user_id?: string | null
-          code?: string
           created_at?: string
-          first_party?: boolean
+          external_name?: string | null
           id?: string
-          input_schema?: Json
           name?: string
-          output_config?: Json
-          runtime?: Database["public"]["Enums"]["program_runtime"]
+          owner_user_id?: string
+          type?: Database["public"]["Enums"]["profile_type"]
           updated_at?: string
         }
         Relationships: []
+      }
+      program: {
+        Row: {
+          created_at: string
+          first_party: boolean
+          forked_from_version_id: string | null
+          id: string
+          name: string
+          owner_profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          first_party?: boolean
+          forked_from_version_id?: string | null
+          id?: string
+          name: string
+          owner_profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          first_party?: boolean
+          forked_from_version_id?: string | null
+          id?: string
+          name?: string
+          owner_profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_program_forked_from"
+            columns: ["forked_from_version_id"]
+            isOneToOne: false
+            referencedRelation: "program_version"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_file: {
+        Row: {
+          content: string
+          created_at: string
+          filename: string
+          filetype: Database["public"]["Enums"]["program_file_type"]
+          id: string
+          owner_profile_id: string
+          updated_at: string
+          version_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          filename: string
+          filetype: Database["public"]["Enums"]["program_file_type"]
+          id?: string
+          owner_profile_id: string
+          updated_at?: string
+          version_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          filename?: string
+          filetype?: Database["public"]["Enums"]["program_file_type"]
+          id?: string
+          owner_profile_id?: string
+          updated_at?: string
+          version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_file_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_file_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "program_version"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       program_run: {
         Row: {
           created_at: string
           id: string
           input: Json | null
-          instigating_user_id: string
           output: Json | null
-          program_id: string
+          program_version_id: string
           target_cell_id: string
           updated_at: string
         }
@@ -229,9 +376,8 @@ export type Database = {
           created_at?: string
           id?: string
           input?: Json | null
-          instigating_user_id: string
           output?: Json | null
-          program_id: string
+          program_version_id: string
           target_cell_id: string
           updated_at?: string
         }
@@ -239,18 +385,17 @@ export type Database = {
           created_at?: string
           id?: string
           input?: Json | null
-          instigating_user_id?: string
           output?: Json | null
-          program_id?: string
+          program_version_id?: string
           target_cell_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "program_run_program_id_fkey"
-            columns: ["program_id"]
+            foreignKeyName: "program_run_program_version_id_fkey"
+            columns: ["program_version_id"]
             isOneToOne: false
-            referencedRelation: "program"
+            referencedRelation: "program_version"
             referencedColumns: ["id"]
           },
           {
@@ -262,28 +407,63 @@ export type Database = {
           },
         ]
       }
-      row: {
+      program_version: {
         Row: {
-          author_user_id: string | null
           created_at: string
           id: string
-          index: number
+          input_schema: Json
+          output_config: Json
+          program_id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          input_schema: Json
+          output_config: Json
+          program_id: string
+          updated_at?: string
+          version: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          input_schema?: Json
+          output_config?: Json
+          program_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_version_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "program"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      row: {
+        Row: {
+          created_at: string
+          id: string
+          idx: number
           table_id: string
           updated_at: string
         }
         Insert: {
-          author_user_id?: string | null
           created_at?: string
           id?: string
-          index: number
+          idx: number
           table_id: string
           updated_at?: string
         }
         Update: {
-          author_user_id?: string | null
           created_at?: string
           id?: string
-          index?: number
+          idx?: number
           table_id?: string
           updated_at?: string
         }
@@ -299,27 +479,35 @@ export type Database = {
       }
       table: {
         Row: {
-          author_user_id: string | null
           created_at: string
           id: string
           name: string
+          owner_profile_id: string
           updated_at: string
         }
         Insert: {
-          author_user_id?: string | null
           created_at?: string
           id?: string
           name?: string
+          owner_profile_id: string
           updated_at?: string
         }
         Update: {
-          author_user_id?: string | null
           created_at?: string
           id?: string
           name?: string
+          owner_profile_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "table_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -329,7 +517,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      program_runtime: "JavaScript" | "Python"
+      data_operation: "Create" | "Read" | "Update" | "Delete"
+      profile_type: "Human" | "Agent"
+      program_file_type: "TypeScript" | "Json" | "Markdown"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -460,7 +650,9 @@ export const Constants = {
   },
   public: {
     Enums: {
-      program_runtime: ["JavaScript", "Python"],
+      data_operation: ["Create", "Read", "Update", "Delete"],
+      profile_type: ["Human", "Agent"],
+      program_file_type: ["TypeScript", "Json", "Markdown"],
     },
   },
 } as const
