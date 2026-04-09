@@ -55,7 +55,7 @@ EXECUTE FUNCTION set_updated_at ();
 
 ALTER TABLE "table" ENABLE ROW LEVEL SECURITY;
 
--- Program
+-- Program table
 CREATE TABLE
   "program" (
     id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
@@ -67,6 +67,13 @@ CREATE TABLE
     forked_from_version_id UUID REFERENCES program_version (id) -- only set when forked
   );
 
+CREATE TRIGGER set_updated_at BEFORE
+UPDATE ON "program" FOR EACH ROW
+EXECUTE FUNCTION set_updated_at ();
+
+ALTER TABLE "program" ENABLE ROW LEVEL SECURITY;
+
+-- Program Version table
 CREATE TABLE
   "program_version" (
     id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
@@ -78,6 +85,13 @@ CREATE TABLE
     output_config JSONB NOT NULL
   );
 
+CREATE TRIGGER set_updated_at BEFORE
+UPDATE ON "program_version" FOR EACH ROW
+EXECUTE FUNCTION set_updated_at ();
+
+ALTER TABLE "program_version" ENABLE ROW LEVEL SECURITY;
+
+-- Program File table
 CREATE TABLE
   "program_file" (
     id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
@@ -87,9 +101,16 @@ CREATE TABLE
     filename TEXT NOT NULL, -- with extension, e.g. "main.ts"
     filetype program_file_type NOT NULL,
     CONTENT CHARACTER VARYING(1000000) NOT NULL, -- 1M characters
-    version_id UUID REFERENCES PROGRAM (id) NOT NULL
+    version_id UUID REFERENCES program_version (id) NOT NULL
   );
 
+CREATE TRIGGER set_updated_at BEFORE
+UPDATE ON "program_file" FOR EACH ROW
+EXECUTE FUNCTION set_updated_at ();
+
+ALTER TABLE "program_file" ENABLE ROW LEVEL SECURITY;
+
+-- Column table
 CREATE TABLE
   "column" (
     id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
@@ -97,13 +118,20 @@ CREATE TABLE
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     table_id UUID NOT NULL REFERENCES "table" (id),
     NAME TEXT NOT NULL,
-    INDEX BIGINT NOT NULL,
+    idx BIGINT NOT NULL,
     program_version_id UUID NOT NULL REFERENCES program_version (id),
     input_template TEXT NOT NULL,
     output_schema JSONB NOT NULL,
     UNIQUE (table_id, INDEX)
   );
 
+CREATE TRIGGER set_updated_at BEFORE
+UPDATE ON "column" FOR EACH ROW
+EXECUTE FUNCTION set_updated_at ();
+
+ALTER TABLE "column" ENABLE ROW LEVEL SECURITY;
+
+-- Column Dependency table
 CREATE TABLE
   "column_dependency" (
     id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
@@ -113,16 +141,30 @@ CREATE TABLE
     target_column_id UUID NOT NULL REFERENCES "column" (id)
   );
 
+CREATE TRIGGER set_updated_at BEFORE
+UPDATE ON "column_dependency" FOR EACH ROW
+EXECUTE FUNCTION set_updated_at ();
+
+ALTER TABLE "column_dependency" ENABLE ROW LEVEL SECURITY;
+
+-- Row table
 CREATE TABLE
   "row" (
     id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     table_id UUID NOT NULL REFERENCES "table" (id),
-    INDEX BIGINT NOT NULL,
+    idx BIGINT NOT NULL,
     UNIQUE (table_id, INDEX)
   );
 
+CREATE TRIGGER set_updated_at BEFORE
+UPDATE ON "row" FOR EACH ROW
+EXECUTE FUNCTION set_updated_at ();
+
+ALTER TABLE "row" ENABLE ROW LEVEL SECURITY;
+
+-- Cell table
 CREATE TABLE
   "cell" (
     id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
@@ -131,9 +173,17 @@ CREATE TABLE
     column_id UUID NOT NULL REFERENCES "column" (id),
     row_id UUID NOT NULL REFERENCES ROW (id),
     manual_input TEXT,
-    state JSONB
+    state JSONB,
+    UNIQUE (row_id, column_id)
   );
 
+CREATE TRIGGER set_updated_at BEFORE
+UPDATE ON "cell" FOR EACH ROW
+EXECUTE FUNCTION set_updated_at ();
+
+ALTER TABLE "cell" ENABLE ROW LEVEL SECURITY;
+
+-- Program Run table
 CREATE TABLE
   "program_run" (
     id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
@@ -145,16 +195,26 @@ CREATE TABLE
     output JSONB
   );
 
+CREATE TRIGGER set_updated_at BEFORE
+UPDATE ON "program_run" FOR EACH ROW
+EXECUTE FUNCTION set_updated_at ();
+
+ALTER TABLE "program_run" ENABLE ROW LEVEL SECURITY;
+
+-- Key table
 CREATE TABLE
   "key" (
     id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE,
     "hash" CHARACTER(22) NOT NULL,
     prefix CHARACTER(6) NOT NULL,
     owner_profile_id UUID NOT NULL REFERENCES "profile" (id)
   );
 
+ALTER TABLE "key" ENABLE ROW LEVEL SECURITY;
+
+-- Event table
 CREATE TABLE
   "event" (
     id UUID NOT NULL DEFAULT gen_random_uuid () PRIMARY KEY,
@@ -164,3 +224,5 @@ CREATE TABLE
     operation data_operation NOT NULL,
     owner_profile_id UUID NOT NULL REFERENCES "profile" (id)
   );
+
+ALTER TABLE "event" ENABLE ROW LEVEL SECURITY;
