@@ -34,7 +34,8 @@
         "vitest": "^4",
         "wrangler": "^4",
         "commander": "^12",
-        "dotenv": "^16"
+        "dotenv": "^16",
+        "nanoid": "^5.1.7"
       }
     }
   },
@@ -42,6 +43,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "symlink": "turbo run symlink",
+    "install:local": "turbo run install:local",
     "format-and-lint": "biome check .",
     "format-and-lint:fix": "biome check . --write",
     "typecheck": "turbo run typecheck",
@@ -51,6 +53,7 @@
   "devDependencies": {
     "@biomejs/biome": "catalog:base",
     "@postgres-language-server/cli": "catalog:base",
-    "turbo": "^2.9.5"
+    "turbo": "^2.9.5",
+    "typescript": "catalog:base"
   }
 }

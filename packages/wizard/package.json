@@ -5,6 +5,6 @@
     "marble-cli": "link:marble-cli"
   },
   "scripts": {
-    "install:local": "mkdir -p ~/.agents/skills/marble-wizard && cp src/* ~/.agents/skills/marble-wizard"
+    "install:local": "mkdir -p ~/.agents/skills/marble-wizard && cp src/* ~/.agents/skills/marble-wizard && mkdir -p ~/.claude/skills/marble-wizard && cp src/* ~/.claude/skills/marble-wizard"
   }
 }

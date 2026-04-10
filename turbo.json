@@ -31,6 +31,9 @@
     "test": {
       "dependsOn": ["^test"]
     },
+    "install:local": {
+      "dependsOn": ["^install:local"]
+    },
     "dev": {
       "persistent": true,
       "cache": false

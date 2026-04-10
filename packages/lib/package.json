@@ -1,0 +1,8 @@
+{
+  "name": "@marble/lib",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    "./assert": "./assert/index.ts"
+  }
+}

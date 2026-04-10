@@ -15,7 +15,9 @@
     "@marble/core": "workspace:",
     "@marble/supabase": "workspace:",
     "@t3-oss/env-core": "catalog:base",
-    "zod": "catalog:base"
+    "zod": "catalog:base",
+    "nanoid": "catalog:base",
+    "@marble/lib": "workspace:"
   },
   "devDependencies": {
     "@cloudflare/sandbox": "*",
