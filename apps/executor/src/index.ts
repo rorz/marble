@@ -170,7 +170,11 @@ const executeAndValidate = async (
 };
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    _ctx: ExecutionContext,
+  ): Promise<Response> {
     const parsedEnv = getEnv(env as unknown as Record<string, unknown>);
     const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = parsedEnv;
 

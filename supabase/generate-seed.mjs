@@ -4,10 +4,10 @@
  * Reads program fixtures from seed-fixtures/programs/ and generates seed.sql.
  *
  * Each program directory contains:
- *   program.meta.json         → name, first_party
- *   program.input-schema.json → input_schema          (JSON Schema)
- *   program.output-config.json→ output_config         (ProgramOutputConfig)
- *   program.code.js/ts        → code
+ *   package.json        → name
+ *   input-schema.json   → input_schema          (JSON Schema)
+ *   output-config.json  → output_config         (ProgramOutputConfig)
+ *   index.ts            → code
  *
  * Run:  node supabase/generate-seed.mjs
  */
@@ -19,43 +19,61 @@ const FIXTURES_DIR = resolve(import.meta.dirname, "seed-fixtures/programs");
 const OUTPUT_FILE = resolve(import.meta.dirname, "seed.sql");
 
 function readJson(path) {
-  return JSON.parse(readFileSync(path, "utf-8"));
+  try {
+    return JSON.parse(readFileSync(path, "utf-8"));
+  } catch (err) {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  }
 }
 
 function readText(path) {
-  return readFileSync(path, "utf-8").trim();
+  try {
+    return readFileSync(path, "utf-8").trim();
+  } catch (err) {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  }
 }
 
 function sqlEscape(str) {
   return str.replaceAll("'", "''");
 }
 
+function getFileType(filename) {
+  if (filename.endsWith(".ts")) return "TypeScript";
+  if (filename.endsWith(".json")) return "Json";
+  if (filename.endsWith(".md")) return "Markdown";
+  return "TypeScript"; // fallback
+}
+
 function buildProgramValues(dirName) {
   const dir = join(FIXTURES_DIR, dirName);
 
-  const meta = readJson(join(dir, "program.meta.json"));
-  const inputSchema = readJson(join(dir, "program.input-schema.json"));
-  const outputConfig = readJson(join(dir, "program.output-config.json"));
+  const pkg = readJson(join(dir, "package.json")) || {
+    name: dirName,
+  };
+  const inputSchema = readJson(join(dir, "input-schema.json")) || {};
+  const outputConfig = readJson(join(dir, "output-config.json")) || {};
 
-  // Look for .ts first, fallback to .js
-  let code = "";
-  let filename = "main.ts";
-  const filetype = "TypeScript";
-
-  try {
-    code = readText(join(dir, "program.code.ts"));
-  } catch (_e) {
-    code = readText(join(dir, "program.code.js"));
-    filename = "main.ts"; // Keeping as .ts convention or treating JS as TS
-  }
+  const files = readdirSync(dir, {
+    withFileTypes: true,
+  })
+    .filter((d) => d.isFile())
+    .map((d) => {
+      const content = readText(join(dir, d.name));
+      return {
+        filename: d.name,
+        filetype: getFileType(d.name),
+        content,
+      };
+    });
 
   return {
     slug: dirName,
-    name: meta.name,
-    firstParty: meta.first_party,
-    filename,
-    filetype,
-    code,
+    name: pkg.name,
+    firstParty: true, // all seeded are first party
+    files,
     inputSchema: JSON.stringify(inputSchema),
     outputConfig: JSON.stringify(outputConfig),
   };
@@ -73,6 +91,19 @@ const programs = programDirs.map(buildProgramValues);
 const programInserts = programs
   .map((p) => {
     const slug = p.slug.replaceAll("-", "_");
+
+    const fileInserts = p.files
+      .map(
+        (file, i) => `
+inserted_file_${slug}_${i} AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, '${file.filename}', '${file.filetype}', '${sqlEscape(file.content)}'
+  FROM system_profile p, inserted_version_${slug} v
+  RETURNING id
+)`,
+      )
+      .join(",");
+
     return `
 -- ${p.name}
 inserted_program_${slug} AS (
@@ -84,13 +115,7 @@ inserted_version_${slug} AS (
   INSERT INTO "program_version" (program_id, "version", input_schema, output_config)
   SELECT id, 1, '${sqlEscape(p.inputSchema)}', '${sqlEscape(p.outputConfig)}' FROM inserted_program_${slug}
   RETURNING id
-),
-inserted_file_${slug} AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
-  SELECT p.id, v.id, '${p.filename}', '${p.filetype}', '${sqlEscape(p.code)}'
-  FROM system_profile p, inserted_version_${slug} v
-  RETURNING id
-)`;
+),${fileInserts}`;
   })
   .join(",\n");
 

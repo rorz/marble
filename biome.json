@@ -14,7 +14,8 @@
       "!dist",
       "!build",
       "!**/worker-configuration.d.ts",
-      "!**/globals.css"
+      "!**/globals.css",
+      "!supabase/seed-fixtures"
     ]
   },
   "formatter": {

@@ -28,7 +28,22 @@ inserted_version_formula AS (
   SELECT id, 1, '{"type":"object","properties":{"formula":{"type":"string","title":"Formula"}},"required":["formula"]}', '{"schema":{"type":"string","description":"Computed formula result"}}' FROM inserted_program_formula
   RETURNING id
 ),
-inserted_file_formula AS (
+inserted_file_formula_0 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'input-schema.json', 'Json', '{
+  "type": "object",
+  "properties": {
+    "formula": {
+      "type": "string",
+      "title": "Formula"
+    }
+  },
+  "required": ["formula"]
+}'
+  FROM system_profile p, inserted_version_formula v
+  RETURNING id
+),
+inserted_file_formula_1 AS (
   INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'main.ts', 'TypeScript', 'export default ({ input }) => {
   const raw = input.formula;
@@ -51,6 +66,25 @@ inserted_file_formula AS (
   FROM system_profile p, inserted_version_formula v
   RETURNING id
 ),
+inserted_file_formula_2 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'output-config.json', 'Json', '{
+  "schema": {
+    "type": "string",
+    "description": "Computed formula result"
+  }
+}'
+  FROM system_profile p, inserted_version_formula v
+  RETURNING id
+),
+inserted_file_formula_3 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'package.json', 'Json', '{
+  "name": "Formula"
+}'
+  FROM system_profile p, inserted_version_formula v
+  RETURNING id
+),
 
 -- API Request
 inserted_program_http_request AS (
@@ -63,7 +97,38 @@ inserted_version_http_request AS (
   SELECT id, 1, '{"type":"object","properties":{"method":{"type":"string","enum":["GET","POST","PUT","DELETE"],"default":"GET"},"url":{"type":"string","format":"uri","title":"Endpoint URL"},"headers":{"type":"object","additionalProperties":{"type":"string"},"title":"Headers (JSON)"},"payload":{"type":"object","additionalProperties":true,"title":"Body / Payload"}},"required":["method","url"]}', '{"flags":{"allowInference":true},"schema":{"type":"object","additionalProperties":true,"description":"Generic HTTP response payload (unknown shape)"}}' FROM inserted_program_http_request
   RETURNING id
 ),
-inserted_file_http_request AS (
+inserted_file_http_request_0 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'input-schema.json', 'Json', '{
+  "type": "object",
+  "properties": {
+    "method": {
+      "type": "string",
+      "enum": ["GET", "POST", "PUT", "DELETE"],
+      "default": "GET"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "title": "Endpoint URL"
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "title": "Headers (JSON)"
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": true,
+      "title": "Body / Payload"
+    }
+  },
+  "required": ["method", "url"]
+}'
+  FROM system_profile p, inserted_version_http_request v
+  RETURNING id
+),
+inserted_file_http_request_1 AS (
   INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'main.ts', 'TypeScript', 'export default async ({ input }) => {
   const options = {
@@ -103,6 +168,29 @@ inserted_file_http_request AS (
   FROM system_profile p, inserted_version_http_request v
   RETURNING id
 ),
+inserted_file_http_request_2 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'output-config.json', 'Json', '{
+  "flags": {
+    "allowInference": true
+  },
+  "schema": {
+    "type": "object",
+    "additionalProperties": true,
+    "description": "Generic HTTP response payload (unknown shape)"
+  }
+}'
+  FROM system_profile p, inserted_version_http_request v
+  RETURNING id
+),
+inserted_file_http_request_3 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'package.json', 'Json', '{
+  "name": "API Request"
+}'
+  FROM system_profile p, inserted_version_http_request v
+  RETURNING id
+),
 
 -- Execute SQL
 inserted_program_sql_query AS (
@@ -115,13 +203,73 @@ inserted_version_sql_query AS (
   SELECT id, 1, '{"type":"object","properties":{"connection":{"type":"object","properties":{"dialect":{"type":"string","enum":["Postgres","MySQL"]},"return_mode":{"type":"string","enum":["Rows","Count"]}}},"query":{"type":"string","title":"SQL Query"}},"required":["connection","query"]}', '{"flags":{"allowInference":true},"schema":{"type":"array","items":{"type":"object"},"description":"Query result rows"},"overloads":[{"match":{"connection.return_mode":"Count"},"schema":{"type":"number","description":"The total number of matching rows"}}]}' FROM inserted_program_sql_query
   RETURNING id
 ),
-inserted_file_sql_query AS (
+inserted_file_sql_query_0 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'input-schema.json', 'Json', '{
+  "type": "object",
+  "properties": {
+    "connection": {
+      "type": "object",
+      "properties": {
+        "dialect": {
+          "type": "string",
+          "enum": ["Postgres", "MySQL"]
+        },
+        "return_mode": {
+          "type": "string",
+          "enum": ["Rows", "Count"]
+        }
+      }
+    },
+    "query": {
+      "type": "string",
+      "title": "SQL Query"
+    }
+  },
+  "required": ["connection", "query"]
+}'
+  FROM system_profile p, inserted_version_sql_query v
+  RETURNING id
+),
+inserted_file_sql_query_1 AS (
   INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'main.ts', 'TypeScript', 'export default async ({ input }) => {
   throw new Error(
     `SQL execution for ${input.connection.dialect} is not yet implemented`,
   );
 };'
+  FROM system_profile p, inserted_version_sql_query v
+  RETURNING id
+),
+inserted_file_sql_query_2 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'output-config.json', 'Json', '{
+  "flags": {
+    "allowInference": true
+  },
+  "schema": {
+    "type": "array",
+    "items": { "type": "object" },
+    "description": "Query result rows"
+  },
+  "overloads": [
+    {
+      "match": { "connection.return_mode": "Count" },
+      "schema": {
+        "type": "number",
+        "description": "The total number of matching rows"
+      }
+    }
+  ]
+}'
+  FROM system_profile p, inserted_version_sql_query v
+  RETURNING id
+),
+inserted_file_sql_query_3 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'package.json', 'Json', '{
+  "name": "Execute SQL"
+}'
   FROM system_profile p, inserted_version_sql_query v
   RETURNING id
 ),
@@ -137,9 +285,45 @@ inserted_version_uppercase_string AS (
   SELECT id, 1, '{"type":"object","properties":{"text_to_format":{"type":"string","title":"Text","description":"The string you want to capitalize"}},"required":["text_to_format"]}', '{"flags":{},"schema":{"type":"string","description":"The capitalized string"}}' FROM inserted_program_uppercase_string
   RETURNING id
 ),
-inserted_file_uppercase_string AS (
+inserted_file_uppercase_string_0 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'input-schema.json', 'Json', '{
+  "type": "object",
+  "properties": {
+    "text_to_format": {
+      "type": "string",
+      "title": "Text",
+      "description": "The string you want to capitalize"
+    }
+  },
+  "required": ["text_to_format"]
+}'
+  FROM system_profile p, inserted_version_uppercase_string v
+  RETURNING id
+),
+inserted_file_uppercase_string_1 AS (
   INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'main.ts', 'TypeScript', 'export default ({ input }) => input.text_to_format.toUpperCase();'
+  FROM system_profile p, inserted_version_uppercase_string v
+  RETURNING id
+),
+inserted_file_uppercase_string_2 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'output-config.json', 'Json', '{
+  "flags": {},
+  "schema": {
+    "type": "string",
+    "description": "The capitalized string"
+  }
+}'
+  FROM system_profile p, inserted_version_uppercase_string v
+  RETURNING id
+),
+inserted_file_uppercase_string_3 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'package.json', 'Json', '{
+  "name": "Uppercase String"
+}'
   FROM system_profile p, inserted_version_uppercase_string v
   RETURNING id
 ),
@@ -155,7 +339,24 @@ inserted_version_user_input AS (
   SELECT id, 1, '{"type":"object","properties":{"format":{"type":"string","enum":["string","number","boolean"],"title":"Column Type","default":"string"}},"required":["format"]}', '{"flags":{"allowManualInput":true},"schema":{"type":"string","description":"Standard text value"},"overloads":[{"match":{"format":"number"},"schema":{"type":"number"}},{"match":{"format":"boolean"},"schema":{"type":"boolean"}}]}' FROM inserted_program_user_input
   RETURNING id
 ),
-inserted_file_user_input AS (
+inserted_file_user_input_0 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'input-schema.json', 'Json', '{
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "enum": ["string", "number", "boolean"],
+      "title": "Column Type",
+      "default": "string"
+    }
+  },
+  "required": ["format"]
+}'
+  FROM system_profile p, inserted_version_user_input v
+  RETURNING id
+),
+inserted_file_user_input_1 AS (
   INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'main.ts', 'TypeScript', 'export default ({ input, cell }) => {
   const raw = cell.manualInputValue;
@@ -169,6 +370,38 @@ inserted_file_user_input AS (
       return raw;
   }
 };'
+  FROM system_profile p, inserted_version_user_input v
+  RETURNING id
+),
+inserted_file_user_input_2 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'output-config.json', 'Json', '{
+  "flags": {
+    "allowManualInput": true
+  },
+  "schema": {
+    "type": "string",
+    "description": "Standard text value"
+  },
+  "overloads": [
+    {
+      "match": { "format": "number" },
+      "schema": { "type": "number" }
+    },
+    {
+      "match": { "format": "boolean" },
+      "schema": { "type": "boolean" }
+    }
+  ]
+}'
+  FROM system_profile p, inserted_version_user_input v
+  RETURNING id
+),
+inserted_file_user_input_3 AS (
+  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  SELECT p.id, v.id, 'package.json', 'Json', '{
+  "name": "User Input"
+}'
   FROM system_profile p, inserted_version_user_input v
   RETURNING id
 ),
