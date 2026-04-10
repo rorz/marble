@@ -7,7 +7,6 @@ import { requireUser } from "../../../../lib/auth";
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type ColumnUpdate = Database["public"]["Tables"]["column"]["Update"];
-type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type RowRow = Database["public"]["Tables"]["row"]["Row"];
 type DependencyRow = Database["public"]["Tables"]["column_dependency"]["Row"];
 type Json = Database["public"]["Tables"]["cell"]["Row"]["state"];
@@ -529,7 +528,7 @@ export async function updateCellManualInput(cellId: string, value: string) {
 
 // ── Execution ───────────────────────────────────────────
 
-async function ensureDemoUser(): Promise<string> {
+async function _ensureDemoUser(): Promise<string> {
   const supabase = db();
 
   const {

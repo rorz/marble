@@ -24,7 +24,7 @@
         "supabase": "^2.84.0",
         "typescript": "^5",
         "hono": "^4",
-        "@biomejs/biome": "2.2.0",
+        "@biomejs/biome": "^2",
         "@postgres-language-server/cli": "^0.23.0",
         "@t3-oss/env-core": "^0.12.0",
         "@t3-oss/env-nextjs": "^0.12.0",
@@ -51,9 +51,9 @@
     "check": "bun typegen && turbo run format-and-lint:fix && bun typecheck && bun run build"
   },
   "devDependencies": {
-    "@biomejs/biome": "catalog:base",
-    "@postgres-language-server/cli": "catalog:base",
+    "@biomejs/biome": "^2.4.11",
+    "@postgres-language-server/cli": "^0.23.0",
     "turbo": "^2.9.5",
-    "typescript": "catalog:base"
+    "typescript": "^5.9.3"
   }
 }

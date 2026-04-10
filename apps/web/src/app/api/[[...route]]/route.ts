@@ -9,7 +9,7 @@ async function forward(req: Request) {
   let isAuthenticated = false;
   let isApiKeyAuth = false;
 
-  if (authHeader && authHeader.startsWith("Bearer ")) {
+  if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
     if (env.MARBLE_API_KEY && token === env.MARBLE_API_KEY) {
       isAuthenticated = true;

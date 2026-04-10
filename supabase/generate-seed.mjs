@@ -44,7 +44,7 @@ function buildProgramValues(dirName) {
 
   try {
     code = readText(join(dir, "program.code.ts"));
-  } catch (e) {
+  } catch (_e) {
     code = readText(join(dir, "program.code.js"));
     filename = "main.ts"; // Keeping as .ts convention or treating JS as TS
   }

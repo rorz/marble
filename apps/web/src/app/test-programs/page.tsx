@@ -222,12 +222,12 @@ export default function TestProgramsPage() {
       let parsedInput: unknown, parsedOutput: unknown;
       try {
         parsedInput = JSON.parse(inputSchemaStr);
-      } catch (e) {
+      } catch (_e) {
         throw new Error("Invalid Input Schema JSON");
       }
       try {
         parsedOutput = JSON.parse(outputConfigStr);
-      } catch (e) {
+      } catch (_e) {
         throw new Error("Invalid Output Config JSON");
       }
 
@@ -290,8 +290,11 @@ export default function TestProgramsPage() {
     : [];
   const hasManualInput =
     latestVersion &&
-    (latestVersion.output_config as Record<string, any>)?.flags
-      ?.allowManualInput === true;
+    (
+      (latestVersion.output_config as Record<string, unknown>)?.flags as
+        | Record<string, unknown>
+        | undefined
+    )?.allowManualInput === true;
 
   const highlightCode = (code: string, filename: string) => {
     let grammar = Prism.languages.typescript;
@@ -455,6 +458,7 @@ export default function TestProgramsPage() {
             ) : (
               log.map((l, i) => (
                 <div
+                  // biome-ignore lint/suspicious/noArrayIndexKey: log
                   key={`${i}-${l.slice(0, 16)}`}
                   className={
                     l.includes("✗")

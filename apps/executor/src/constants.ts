@@ -18,7 +18,7 @@ const { values: { inputAsBase64 } } = parseArgs({
 const input = JSON.parse(atob(inputAsBase64));
 
 try {
-  const result = await main({ input });
+  const result = await main(input);
   console.log(JSON.stringify(result))
 } catch (err) {
   const payload = {

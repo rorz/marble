@@ -14,5 +14,6 @@
     "jsx": "react-jsx",
     "incremental": true
   },
+  "include": [],
   "exclude": ["node_modules"]
 }

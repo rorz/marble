@@ -1,6 +1,6 @@
 "use server";
 
-import type { Database } from "@marble/supabase";
+import type { Database, Json } from "@marble/supabase";
 import { createClient } from "@marble/supabase";
 import { env } from "@/env";
 import { requireUser } from "../../lib/auth";
@@ -90,9 +90,9 @@ export async function saveProgramVersion(
     .insert({
       program_id: pId,
       version: nextVersion,
-      input_schema: inputSchema as Record<string, unknown>,
-      output_config: outputConfig as Record<string, unknown>,
-    } as any)
+      input_schema: inputSchema as Json,
+      output_config: outputConfig as Json,
+    })
     .select()
     .single();
 

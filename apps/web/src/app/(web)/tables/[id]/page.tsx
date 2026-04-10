@@ -132,7 +132,7 @@ function displayCellValue(cell: Cell | undefined): string {
 }
 
 function getProgramOutputConfig(
-  programVersion: any,
+  programVersion: unknown,
 ): Record<string, unknown> | null {
   if (!programVersion || typeof programVersion !== "object") return null;
   const record = programVersion as Record<string, unknown>;
@@ -143,7 +143,7 @@ function getProgramOutputConfig(
 }
 
 function getProgramInputSchema(
-  programVersion: any,
+  programVersion: unknown,
 ): Record<string, unknown> | null {
   if (!programVersion || typeof programVersion !== "object") return null;
   const record = programVersion as Record<string, unknown>;
@@ -419,6 +419,7 @@ function tokenizeJson(json: string): React.ReactNode[] {
     }
     return (
       <span
+        // biome-ignore lint/suspicious/noArrayIndexKey: log
         key={`${i}:${part.slice(0, 12)}`}
         className={cls}
       >
@@ -1828,6 +1829,7 @@ export default function TablePage(props: {
               <pre className="text-xs font-mono space-y-0.5">
                 {runLog.map((line, i) => (
                   <div
+                    // biome-ignore lint/suspicious/noArrayIndexKey: log
                     key={`${i}-${line.slice(0, 20)}`}
                     className={
                       line.includes("✗")
@@ -2084,13 +2086,13 @@ function ColumnSidebar({
   const validationError = validateTemplate();
 
   const handleSave = async () => {
-    if (!name.trim() || !programId || validationError) return;
+    if (!name.trim() || !programId || validationError || !latestVersion) return;
     setSaving(true);
     try {
       if (mode.kind === "create") {
         await onCreateColumn({
           name: name.trim(),
-          program_id: latestVersion!.id,
+          program_id: latestVersion.id,
           input_template: buildTemplate(),
         });
         setName("");
@@ -2101,7 +2103,7 @@ function ColumnSidebar({
         await onUpdateColumn({
           columnId: mode.columnId,
           name: name.trim(),
-          program_id: latestVersion!.id,
+          program_id: latestVersion.id,
           input_template: buildTemplate(),
         });
       }
