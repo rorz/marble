@@ -16,7 +16,7 @@ const nanoid = customAlphabet(
 const prepareExecutionEnvironment = async (
   sandbox: Sandbox,
   files: Tables<"program_file">[],
-) => {
+): Promise<void> => {
   const installMarker = await sandbox.exists(
     "/workspace/.marble/install_succeeded",
   );

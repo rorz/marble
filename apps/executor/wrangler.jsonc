@@ -22,8 +22,8 @@
     {
       "class_name": "Sandbox",
       "image": "./Dockerfile",
-      "instance_type": "lite",
-      "max_instances": 1
+      "instance_type": "basic",
+      "max_instances": 20
     }
   ],
   "durable_objects": {
@@ -41,7 +41,9 @@
     }
   ],
   "upload_source_maps": true,
-  "vars": {}
+  "vars": {
+    "SANDBOX_TRANSPORT": "websocket"
+  }
   /**
    * Smart Placement
    * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
