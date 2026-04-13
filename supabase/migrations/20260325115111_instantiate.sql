@@ -41,6 +41,10 @@ EXECUTE FUNCTION set_updated_at ();
 
 ALTER TABLE "profile" ENABLE ROW LEVEL SECURITY;
 
+CREATE POLICY "Users can view their own profiles" ON public.profile FOR SELECT USING (
+  profile.owner_user_id = auth.uid()
+);
+
 -- Table table
 CREATE TABLE
   "table" (
@@ -246,7 +250,51 @@ CREATE INDEX event_entity_created_at_idx ON "event" (resource, entity_id, create
 CREATE INDEX event_request_id_idx ON "event" (request_id);
 
 CREATE INDEX event_source_created_at_idx ON "event" (source, created_at DESC);
+ALTER PUBLICATION supabase_realtime ADD TABLE public.table;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.row;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.column;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.cell;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.event;
+
+CREATE POLICY "Users can view tables they own" ON public."table" FOR SELECT USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profile
+    WHERE profile.id = "table".owner_profile_id
+      AND profile.owner_user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can view rows in their own tables" ON public."row" FOR SELECT USING (
+  EXISTS (
+    SELECT 1
+    FROM public."table"
+    JOIN public.profile ON profile.id = "table".owner_profile_id
+    WHERE "table".id = "row".table_id
+      AND profile.owner_user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can view columns in their own tables" ON public."column" FOR SELECT USING (
+  EXISTS (
+    SELECT 1
+    FROM public."table"
+    JOIN public.profile ON profile.id = "table".owner_profile_id
+    WHERE "table".id = "column".table_id
+      AND profile.owner_user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can view cells in their own tables" ON public.cell FOR SELECT USING (
+  EXISTS (
+    SELECT 1
+    FROM public."row"
+    JOIN public."table" ON "table".id = "row".table_id
+    JOIN public.profile ON profile.id = "table".owner_profile_id
+    WHERE "row".id = cell.row_id
+      AND profile.owner_user_id = auth.uid()
+  )
+);
 
 CREATE POLICY "Users can view their own events" ON public.event FOR SELECT USING (
   EXISTS (

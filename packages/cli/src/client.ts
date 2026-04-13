@@ -32,6 +32,46 @@ type ProgramUpsertResult = {
 };
 
 type QueryValue = boolean | number | string | null | undefined;
+type ApiErrorPayload = {
+  detail?: unknown;
+  details?: unknown;
+  error?: boolean | string;
+  message?: string;
+  requestId?: string;
+};
+
+function formatStructuredErrorDetails(details: unknown) {
+  if (details === undefined) {
+    return "";
+  }
+
+  if (typeof details === "string") {
+    return `\nDetails: ${details}`;
+  }
+
+  return `\nDetails: ${JSON.stringify(details, null, 2)}`;
+}
+
+function formatApiError(text: string) {
+  try {
+    const payload = JSON.parse(text) as ApiErrorPayload;
+    const message =
+      typeof payload.error === "string"
+        ? payload.error
+        : typeof payload.message === "string"
+          ? payload.message
+          : text;
+    const details = payload.details ?? payload.detail;
+    const requestId =
+      typeof payload.requestId === "string"
+        ? `\nRequest ID: ${payload.requestId}`
+        : "";
+
+    return `${message}${formatStructuredErrorDetails(details)}${requestId}`;
+  } catch {
+    return text;
+  }
+}
 
 export class MarbleClient {
   private apiUrl: string;
@@ -101,17 +141,7 @@ export class MarbleClient {
     const text = await res.text();
 
     if (!res.ok) {
-      let errorDetail = text;
-      try {
-        const errJson = JSON.parse(text) as {
-          error?: string;
-        };
-        errorDetail = errJson.error || text;
-      } catch {
-        // Fall back to the raw response body.
-      }
-
-      throw new Error(`API Error (${res.status}): ${errorDetail}`);
+      throw new Error(`API Error (${res.status}): ${formatApiError(text)}`);
     }
 
     if (!text) {

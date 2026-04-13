@@ -14,6 +14,14 @@ export type OrderSpec = {
   column: string;
 };
 
+type IndexedTableName = "column" | "row";
+type PostgresError = {
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+  message: string;
+};
+
 const RECORD_METADATA = {
   cell: {
     idKey: "cellId",
@@ -66,6 +74,75 @@ const RECORD_METADATA = {
 } as const;
 type RecordTableName = keyof typeof RECORD_METADATA & DbTableName;
 
+function getPostgresError(error: unknown): PostgresError | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+
+  const candidate = error as Partial<PostgresError>;
+  if (typeof candidate.message !== "string") {
+    return undefined;
+  }
+
+  return {
+    code: candidate.code,
+    details: candidate.details,
+    hint: candidate.hint,
+    message: candidate.message,
+  };
+}
+
+function toApiError(error: unknown): ApiError {
+  if (error instanceof ApiError) {
+    return error;
+  }
+
+  const postgresError = getPostgresError(error);
+  if (postgresError) {
+    return new ApiError(
+      postgresError.code === "23505" ? 409 : 500,
+      postgresError.message,
+      {
+        code: postgresError.code,
+        details: postgresError.details,
+        hint: postgresError.hint,
+      },
+    );
+  }
+
+  return new ApiError(
+    500,
+    error instanceof Error ? error.message : String(error),
+  );
+}
+
+function isTableIndexConflict(error: unknown) {
+  const postgresError = getPostgresError(error);
+  if (!postgresError || postgresError.code !== "23505") {
+    return false;
+  }
+
+  return (
+    postgresError.details?.includes("(table_id, idx)") ||
+    postgresError.message.includes("(table_id, idx)")
+  );
+}
+
+async function writeCreateEvents<Name extends DbTableName>(
+  supabase: SupabaseClient,
+  table: Name,
+  rows: DbRow<Name>[],
+) {
+  for (const row of rows) {
+    await writeEventRecord(supabase, {
+      after: row as Record<string, unknown>,
+      before: null,
+      operation: "Create",
+      resource: table,
+    });
+  }
+}
+
 export async function listRecords<Name extends DbTableName>(
   supabase: SupabaseClient,
   table: Name,
@@ -89,7 +166,7 @@ export async function listRecords<Name extends DbTableName>(
   const { data, error } = await request;
 
   if (error) {
-    throw new ApiError(500, error.message);
+    throw toApiError(error);
   }
 
   return (data ?? []) as DbRow<Name>[];
@@ -140,7 +217,7 @@ export async function listRecordsInColumn<Name extends DbTableName>(
   const { data, error } = await request;
 
   if (error) {
-    throw new ApiError(500, error.message);
+    throw toApiError(error);
   }
 
   return (data ?? []) as DbRow<Name>[];
@@ -158,15 +235,12 @@ export async function createRecord<Name extends DbTableName>(
     .single();
 
   if (error) {
-    throw new ApiError(500, error.message);
+    throw toApiError(error);
   }
 
-  await writeEventRecord(supabase, {
-    after: data as Record<string, unknown>,
-    before: null,
-    operation: "Create",
-    resource: table,
-  });
+  await writeCreateEvents(supabase, table, [
+    data as DbRow<Name>,
+  ]);
 
   return data as DbRow<Name>;
 }
@@ -186,19 +260,49 @@ export async function createRecords<Name extends DbTableName>(
     .select("*");
 
   if (error) {
-    throw new ApiError(500, error.message);
+    throw toApiError(error);
   }
 
-  for (const row of data ?? []) {
-    await writeEventRecord(supabase, {
-      after: row as Record<string, unknown>,
-      before: null,
-      operation: "Create",
-      resource: table,
-    });
-  }
+  await writeCreateEvents(supabase, table, (data ?? []) as DbRow<Name>[]);
 
   return (data ?? []) as DbRow<Name>[];
+}
+
+export async function createRecordsWithGeneratedIndex<
+  Name extends IndexedTableName,
+>(
+  supabase: SupabaseClient,
+  table: Name,
+  tableId: string,
+  buildValues: (startIndex: number) => DbInsert<Name>[],
+  options?: {
+    maxAttempts?: number;
+  },
+): Promise<DbRow<Name>[]> {
+  const maxAttempts = options?.maxAttempts ?? 8;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const startIndex = await nextIndex(supabase, table, tableId);
+    const values = buildValues(startIndex);
+    const { data, error } = await supabase
+      .from(table as never)
+      .insert(values as never)
+      .select("*");
+
+    if (!error) {
+      await writeCreateEvents(supabase, table, (data ?? []) as DbRow<Name>[]);
+      return (data ?? []) as DbRow<Name>[];
+    }
+
+    if (!isTableIndexConflict(error)) {
+      throw toApiError(error);
+    }
+  }
+
+  throw new ApiError(
+    409,
+    `Could not allocate a unique idx for ${table} records on table '${tableId}' after repeated concurrent conflicts`,
+  );
 }
 
 export async function updateRecord<Name extends DbTableName>(
@@ -225,7 +329,7 @@ export async function updateRecord<Name extends DbTableName>(
     .single();
 
   if (error) {
-    throw new ApiError(500, error.message);
+    throw toApiError(error);
   }
 
   await writeEventRecord(supabase, {
@@ -259,7 +363,7 @@ export async function deleteRecord<Name extends DbTableName>(
     .eq("id" as never, id as never);
 
   if (error) {
-    throw new ApiError(500, error.message);
+    throw toApiError(error);
   }
 
   await writeEventRecord(supabase, {
@@ -286,7 +390,7 @@ export async function deleteRecordsByColumn<Name extends DbTableName>(
     .eq(column as never, value as never);
 
   if (error) {
-    throw new ApiError(500, error.message);
+    throw toApiError(error);
   }
 
   for (const row of before) {
@@ -317,7 +421,7 @@ export async function deleteRecordsInColumn<Name extends DbTableName>(
     .in(column as never, values as never);
 
   if (error) {
-    throw new ApiError(500, error.message);
+    throw toApiError(error);
   }
 
   for (const row of before) {
@@ -379,7 +483,7 @@ export async function nextIndex(
     .maybeSingle();
 
   if (error) {
-    throw new ApiError(500, error.message);
+    throw toApiError(error);
   }
 
   return (data?.idx ?? -1) + 1;

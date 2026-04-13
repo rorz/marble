@@ -21,7 +21,7 @@ dotenv.config({
 
 const invocationCwd = env.INIT_CWD || process.cwd();
 const client = new MarbleClient();
-const program = new Command();
+const rootCommand = new Command();
 
 type JsonObject = Record<string, unknown>;
 type ProgramDirectoryFile = {
@@ -48,9 +48,41 @@ type CrudCommandDefinition = {
   operation: CrudOperation;
   progress: (label: string) => string;
 };
+type QueryValue = boolean | number | string | null | undefined;
+type ColumnCommandOptions = {
+  idx?: number;
+  inputTemplate?: string;
+  inputTemplateFile?: string;
+  outputSchema?: string;
+  outputSchemaFile?: string;
+  program?: string;
+  programVersion?: string;
+  table?: string;
+};
+type RowCommandOptions = {
+  count?: number;
+  idx?: number;
+  table?: string;
+};
+type CellCommandOptions = {
+  clearManualInput?: boolean;
+  column?: string;
+  manualInput?: string;
+  row?: string;
+  state?: string;
+  stateFile?: string;
+  table?: string;
+};
+type ProgramTestOptions = {
+  fullInput?: string;
+  fullInputFile?: string;
+  input?: string;
+  inputFile?: string;
+  manualInput?: string;
+};
 
-function resolveFromInvocation(dir: string) {
-  return path.resolve(invocationCwd, dir);
+function resolveFromInvocation(targetPath: string) {
+  return path.resolve(invocationCwd, targetPath);
 }
 
 function inferProgramFileType(
@@ -102,6 +134,151 @@ function requiredStringValue(value: unknown, label: string): string {
   }
 
   return value.trim();
+}
+
+function parseNonNegativeInteger(label: string, input: string) {
+  const value = Number(input);
+
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`${label} must be a non-negative integer`);
+  }
+
+  return value;
+}
+
+function parsePositiveInteger(label: string, input: string) {
+  const value = Number(input);
+
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${label} must be a positive integer`);
+  }
+
+  return value;
+}
+
+function compactObject(value: Record<string, unknown>) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  );
+}
+
+function assertHasDefinedValues(
+  label: string,
+  value: Record<string, unknown>,
+  hints: string[],
+) {
+  if (Object.keys(compactObject(value)).length > 0) {
+    return;
+  }
+
+  throw new Error(
+    `${label} requires at least one change. Set one of: ${hints.join(", ")}`,
+  );
+}
+
+function assertExactlyOneDefined(
+  label: string,
+  choices: Array<{
+    flag: string;
+    value: unknown;
+  }>,
+) {
+  const definedChoices = choices.filter((choice) => choice.value !== undefined);
+
+  if (definedChoices.length === 1) {
+    return;
+  }
+
+  if (definedChoices.length === 0) {
+    throw new Error(
+      `${label} requires exactly one of ${choices
+        .map((choice) => choice.flag)
+        .join(" or ")}`,
+    );
+  }
+
+  throw new Error(
+    `${label} accepts only one of ${choices
+      .map((choice) => choice.flag)
+      .join(" or ")}`,
+  );
+}
+
+function assertAtMostOneDefined(
+  label: string,
+  choices: Array<{
+    flag: string;
+    value: unknown;
+  }>,
+) {
+  const definedChoices = choices.filter((choice) => choice.value !== undefined);
+
+  if (definedChoices.length <= 1) {
+    return;
+  }
+
+  throw new Error(
+    `${label} accepts only one of ${choices
+      .map((choice) => choice.flag)
+      .join(" or ")}`,
+  );
+}
+
+async function readTextFile(label: string, filePath: string) {
+  const fullPath = resolveFromInvocation(filePath);
+
+  try {
+    return await fs.readFile(fullPath, "utf-8");
+  } catch (error) {
+    throw new Error(
+      `Could not read ${label} file "${fullPath}": ${formatError(error)}`,
+    );
+  }
+}
+
+async function loadJsonValue(
+  label: string,
+  options: {
+    file?: string;
+    value?: string;
+  },
+) {
+  assertAtMostOneDefined(label, [
+    {
+      flag: "--value",
+      value: options.value,
+    },
+    {
+      flag: "--file",
+      value: options.file,
+    },
+  ]);
+
+  if (options.value !== undefined) {
+    return parseJson(label, options.value);
+  }
+
+  if (options.file !== undefined) {
+    return parseJson(label, await readTextFile(label, options.file));
+  }
+
+  return undefined;
+}
+
+async function loadStringifiedJsonValue(
+  label: string,
+  options: {
+    file?: string;
+    value?: string;
+  },
+) {
+  const value = await loadJsonValue(label, options);
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return JSON.stringify(value);
 }
 
 async function loadProgramDirectory(
@@ -188,6 +365,100 @@ async function runAction(label: string, action: () => Promise<void>) {
   }
 }
 
+async function upsertProgramFromDirectory(dir: string) {
+  const fullPath = resolveFromInvocation(dir);
+  const loadedProgram = await loadProgramDirectory(fullPath);
+  const data = await client.upsertProgram({
+    files: loadedProgram.files,
+    inputSchema: loadedProgram.inputSchema,
+    name: loadedProgram.name,
+    outputConfig: loadedProgram.outputConfig,
+  });
+
+  return {
+    loadedProgram,
+    ...data,
+  };
+}
+
+async function buildColumnPayload(
+  name: string | undefined,
+  options: ColumnCommandOptions,
+) {
+  assertExactlyOneDefined("column program selection", [
+    {
+      flag: "--program",
+      value: options.program,
+    },
+    {
+      flag: "--program-version",
+      value: options.programVersion,
+    },
+  ]);
+
+  const payload = compactObject({
+    idx: options.idx,
+    inputTemplate: await loadStringifiedJsonValue("input template", {
+      file: options.inputTemplateFile,
+      value: options.inputTemplate,
+    }),
+    name,
+    outputSchema: await loadJsonValue("output schema", {
+      file: options.outputSchemaFile,
+      value: options.outputSchema,
+    }),
+    programId: options.program,
+    programVersionId: options.programVersion,
+    tableId: options.table,
+  });
+
+  return payload;
+}
+
+async function buildProgramTestInput(options: ProgramTestOptions) {
+  const fullInput = await loadJsonValue("full input", {
+    file: options.fullInputFile,
+    value: options.fullInput,
+  });
+
+  if (fullInput !== undefined) {
+    assertAtMostOneDefined("program test input source", [
+      {
+        flag: "--input",
+        value: options.input,
+      },
+      {
+        flag: "--input-file",
+        value: options.inputFile,
+      },
+      {
+        flag: "--manual-input",
+        value: options.manualInput,
+      },
+    ]);
+
+    return fullInput;
+  }
+
+  const input = await loadJsonValue("input", {
+    file: options.inputFile,
+    value: options.input,
+  });
+
+  return {
+    cell:
+      options.manualInput === undefined
+        ? {}
+        : {
+            manualInputValue: options.manualInput,
+          },
+    input: input ?? {},
+    system: {
+      providers: {},
+    },
+  };
+}
+
 const CRUD_COMMANDS: CrudCommandDefinition[] = [
   {
     arguments: [
@@ -200,10 +471,7 @@ const CRUD_COMMANDS: CrudCommandDefinition[] = [
     execute: (resourceName, [filtersText]) =>
       client.list(
         resourceName,
-        parseJsonObject("filters", filtersText) as Record<
-          string,
-          boolean | number | string | null | undefined
-        >,
+        parseJsonObject("filters", filtersText) as Record<string, QueryValue>,
       ),
     name: "list",
     operation: "list",
@@ -297,17 +565,534 @@ function registerCrudCommands(resourceName: ApiResourceName, command: Command) {
   }
 }
 
-program
+function registerTableCommands() {
+  const tableCommand = rootCommand
+    .command("table")
+    .description("Human-friendly table commands");
+
+  tableCommand
+    .command("create")
+    .description("Create a table")
+    .argument("<name>", "Table name")
+    .option("--owner-profile-id <profileId>", "Owner profile ID")
+    .action(
+      (
+        name,
+        options: {
+          ownerProfileId?: string;
+        },
+      ) =>
+        runAction("creating table", async () => {
+          printJson(
+            await client.create(
+              "tables",
+              compactObject({
+                name,
+                ownerProfileId: options.ownerProfileId,
+              }),
+            ),
+          );
+        }),
+    );
+
+  tableCommand
+    .command("list")
+    .description("List tables")
+    .option("--owner-profile-id <profileId>", "Filter by owner profile ID")
+    .action((options: { ownerProfileId?: string }) =>
+      runAction("listing tables", async () => {
+        printJson(
+          await client.list(
+            "tables",
+            compactObject({
+              ownerProfileId: options.ownerProfileId,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  tableCommand
+    .command("get")
+    .description("Get a table by ID")
+    .argument("<tableId>", "Table ID")
+    .action((tableId) =>
+      runAction("getting table", async () => {
+        printJson(await client.get("tables", tableId));
+      }),
+    );
+
+  tableCommand
+    .command("update")
+    .description("Update a table")
+    .argument("<tableId>", "Table ID")
+    .option("--name <name>", "New table name")
+    .option("--owner-profile-id <profileId>", "New owner profile ID")
+    .action(
+      (
+        tableId,
+        options: {
+          name?: string;
+          ownerProfileId?: string;
+        },
+      ) =>
+        runAction("updating table", async () => {
+          const payload = compactObject({
+            name: options.name,
+            ownerProfileId: options.ownerProfileId,
+          });
+
+          assertHasDefinedValues("table update", payload, [
+            "--name",
+            "--owner-profile-id",
+          ]);
+          printJson(await client.update("tables", tableId, payload));
+        }),
+    );
+
+  tableCommand
+    .command("delete")
+    .description("Delete a table")
+    .argument("<tableId>", "Table ID")
+    .action((tableId) =>
+      runAction("deleting table", async () => {
+        printJson(await client.delete("tables", tableId));
+      }),
+    );
+}
+
+function registerColumnCommands() {
+  const columnCommand = rootCommand
+    .command("column")
+    .description("Human-friendly column commands");
+
+  columnCommand
+    .command("create")
+    .description("Create a column")
+    .argument("<name>", "Column name")
+    .requiredOption("--table <tableId>", "Owning table ID")
+    .option(
+      "--program <programId>",
+      "Program ID. Marble resolves this to the latest program version",
+    )
+    .option("--program-version <programVersionId>", "Pinned program version ID")
+    .option("--input-template <json>", "Input template JSON")
+    .option("--input-template-file <path>", "Path to input template JSON file")
+    .option("--output-schema <json>", "Output schema JSON")
+    .option("--output-schema-file <path>", "Path to output schema JSON file")
+    .option("--idx <number>", "Column index", (value) =>
+      parseNonNegativeInteger("idx", value),
+    )
+    .addHelpText(
+      "after",
+      "\nExactly one of --program or --program-version is required.",
+    )
+    .action((name, options: ColumnCommandOptions) =>
+      runAction("creating column", async () => {
+        printJson(
+          await client.create(
+            "columns",
+            await buildColumnPayload(name, options),
+          ),
+        );
+      }),
+    );
+
+  columnCommand
+    .command("list")
+    .description("List columns")
+    .option("--table <tableId>", "Filter by table ID")
+    .option(
+      "--program <programId>",
+      "Filter by program ID. Marble resolves this to the latest program version",
+    )
+    .option(
+      "--program-version <programVersionId>",
+      "Filter by program version ID",
+    )
+    .action((options: ColumnCommandOptions) =>
+      runAction("listing columns", async () => {
+        printJson(
+          await client.list(
+            "columns",
+            compactObject({
+              programId: options.program,
+              programVersionId: options.programVersion,
+              tableId: options.table,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  columnCommand
+    .command("get")
+    .description("Get a column by ID")
+    .argument("<columnId>", "Column ID")
+    .action((columnId) =>
+      runAction("getting column", async () => {
+        printJson(await client.get("columns", columnId));
+      }),
+    );
+
+  columnCommand
+    .command("update")
+    .description("Update a column")
+    .argument("<columnId>", "Column ID")
+    .option("--name <name>", "New column name")
+    .option(
+      "--program <programId>",
+      "Program ID. Marble resolves this to the latest program version",
+    )
+    .option("--program-version <programVersionId>", "Pinned program version ID")
+    .option("--input-template <json>", "Input template JSON")
+    .option("--input-template-file <path>", "Path to input template JSON file")
+    .option("--output-schema <json>", "Output schema JSON")
+    .option("--output-schema-file <path>", "Path to output schema JSON file")
+    .option("--idx <number>", "Column index", (value) =>
+      parseNonNegativeInteger("idx", value),
+    )
+    .addHelpText(
+      "after",
+      "\nProvide one or more flags to change. At most one of --program or --program-version may be set.",
+    )
+    .action(
+      (
+        columnId,
+        options: ColumnCommandOptions & {
+          name?: string;
+        },
+      ) =>
+        runAction("updating column", async () => {
+          assertAtMostOneDefined("column program selection", [
+            {
+              flag: "--program",
+              value: options.program,
+            },
+            {
+              flag: "--program-version",
+              value: options.programVersion,
+            },
+          ]);
+
+          const payload = compactObject({
+            idx: options.idx,
+            inputTemplate: await loadStringifiedJsonValue("input template", {
+              file: options.inputTemplateFile,
+              value: options.inputTemplate,
+            }),
+            name: options.name,
+            outputSchema: await loadJsonValue("output schema", {
+              file: options.outputSchemaFile,
+              value: options.outputSchema,
+            }),
+            programId: options.program,
+            programVersionId: options.programVersion,
+          });
+
+          assertHasDefinedValues("column update", payload, [
+            "--name",
+            "--program",
+            "--program-version",
+            "--input-template",
+            "--input-template-file",
+            "--output-schema",
+            "--output-schema-file",
+            "--idx",
+          ]);
+          printJson(await client.update("columns", columnId, payload));
+        }),
+    );
+
+  columnCommand
+    .command("delete")
+    .description("Delete a column")
+    .argument("<columnId>", "Column ID")
+    .action((columnId) =>
+      runAction("deleting column", async () => {
+        printJson(await client.delete("columns", columnId));
+      }),
+    );
+}
+
+function registerRowCommands() {
+  const rowCommand = rootCommand
+    .command("row")
+    .description("Human-friendly row commands");
+
+  rowCommand
+    .command("create")
+    .description("Create one or more rows")
+    .requiredOption("--table <tableId>", "Owning table ID")
+    .option("--count <number>", "Number of rows to create", (value) =>
+      parsePositiveInteger("count", value),
+    )
+    .option(
+      "--idx <number>",
+      "Explicit row index. Only valid when count is 1",
+      (value) => parseNonNegativeInteger("idx", value),
+    )
+    .action((options: RowCommandOptions) =>
+      runAction("creating row", async () => {
+        const payload = compactObject({
+          count: options.count,
+          idx: options.idx,
+          tableId: options.table,
+        });
+
+        printJson(await client.create("rows", payload));
+      }),
+    );
+
+  rowCommand
+    .command("list")
+    .description("List rows")
+    .option("--table <tableId>", "Filter by table ID")
+    .action((options: { table?: string }) =>
+      runAction("listing rows", async () => {
+        printJson(
+          await client.list(
+            "rows",
+            compactObject({
+              tableId: options.table,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  rowCommand
+    .command("get")
+    .description("Get a row by ID")
+    .argument("<rowId>", "Row ID")
+    .action((rowId) =>
+      runAction("getting row", async () => {
+        printJson(await client.get("rows", rowId));
+      }),
+    );
+
+  rowCommand
+    .command("update")
+    .description("Update a row")
+    .argument("<rowId>", "Row ID")
+    .requiredOption("--idx <number>", "New row index", (value) =>
+      parseNonNegativeInteger("idx", value),
+    )
+    .action(
+      (
+        rowId,
+        options: {
+          idx: number;
+        },
+      ) =>
+        runAction("updating row", async () => {
+          printJson(
+            await client.update("rows", rowId, {
+              idx: options.idx,
+            }),
+          );
+        }),
+    );
+
+  rowCommand
+    .command("delete")
+    .description("Delete a row")
+    .argument("<rowId>", "Row ID")
+    .action((rowId) =>
+      runAction("deleting row", async () => {
+        printJson(await client.delete("rows", rowId));
+      }),
+    );
+}
+
+function registerCellCommands() {
+  const cellCommand = rootCommand
+    .command("cell")
+    .description("Human-friendly cell commands");
+
+  cellCommand
+    .command("list")
+    .description("List cells")
+    .option("--table <tableId>", "Filter by table ID")
+    .option("--row <rowId>", "Filter by row ID")
+    .option("--column <columnId>", "Filter by column ID")
+    .action((options: CellCommandOptions) =>
+      runAction("listing cells", async () => {
+        printJson(
+          await client.list(
+            "cells",
+            compactObject({
+              columnId: options.column,
+              rowId: options.row,
+              tableId: options.table,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  cellCommand
+    .command("get")
+    .description("Get a cell by ID")
+    .argument("<cellId>", "Cell ID")
+    .action((cellId) =>
+      runAction("getting cell", async () => {
+        printJson(await client.get("cells", cellId));
+      }),
+    );
+
+  cellCommand
+    .command("set")
+    .description("Set manual input on a cell")
+    .argument("<cellId>", "Cell ID")
+    .argument("<manualInput>", "Manual input string")
+    .action((cellId, manualInput) =>
+      runAction("setting cell manual input", async () => {
+        printJson(
+          await client.update("cells", cellId, {
+            manualInput,
+          }),
+        );
+      }),
+    );
+
+  cellCommand
+    .command("update")
+    .description("Update a cell")
+    .argument("<cellId>", "Cell ID")
+    .option("--manual-input <value>", "Set manual input")
+    .option("--clear-manual-input", "Set manual input to null")
+    .option("--state <json>", "Cell state JSON")
+    .option("--state-file <path>", "Path to cell state JSON file")
+    .action((cellId, options: CellCommandOptions) =>
+      runAction("updating cell", async () => {
+        if (options.manualInput !== undefined && options.clearManualInput) {
+          throw new Error(
+            "cell update accepts only one of --manual-input or --clear-manual-input",
+          );
+        }
+
+        const payload = compactObject({
+          manualInput: options.clearManualInput ? null : options.manualInput,
+          state: await loadJsonValue("state", {
+            file: options.stateFile,
+            value: options.state,
+          }),
+        });
+
+        assertHasDefinedValues("cell update", payload, [
+          "--manual-input",
+          "--clear-manual-input",
+          "--state",
+          "--state-file",
+        ]);
+        printJson(await client.update("cells", cellId, payload));
+      }),
+    );
+}
+
+function registerProgramCommands() {
+  const programCommand = rootCommand
+    .command("program")
+    .description("Human-friendly program commands");
+
+  programCommand
+    .command("list")
+    .description("List programs")
+    .option("--owner-profile-id <profileId>", "Filter by owner profile ID")
+    .action((options: { ownerProfileId?: string }) =>
+      runAction("listing programs", async () => {
+        printJson(
+          await client.list(
+            "programs",
+            compactObject({
+              ownerProfileId: options.ownerProfileId,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  programCommand
+    .command("get")
+    .description("Get a program by ID")
+    .argument("<programId>", "Program ID")
+    .action((programId) =>
+      runAction("getting program", async () => {
+        printJson(await client.get("programs", programId));
+      }),
+    );
+
+  programCommand
+    .command("delete")
+    .description("Delete a program")
+    .argument("<programId>", "Program ID")
+    .action((programId) =>
+      runAction("deleting program", async () => {
+        printJson(await client.delete("programs", programId));
+      }),
+    );
+
+  programCommand
+    .command("upsert")
+    .description("Upsert a program from a local directory")
+    .argument("<dir>", "Directory containing the program files and schema")
+    .action((dir) =>
+      runAction("upserting program", async () => {
+        const result = await upsertProgramFromDirectory(dir);
+
+        console.log(
+          `Program "${result.loadedProgram.name}" upserted successfully. (Program ID: ${result.programId}, Version ID: ${result.versionId})`,
+        );
+      }),
+    );
+
+  programCommand
+    .command("test")
+    .description("Upsert a program and run /test against its latest version")
+    .argument("<dir>", "Directory containing the program files and schema")
+    .option("--input <json>", "Program input JSON. Defaults to {}")
+    .option("--input-file <path>", "Path to program input JSON file")
+    .option("--manual-input <value>", "Manual cell input value")
+    .option("--full-input <json>", "Full Marble run input JSON")
+    .option(
+      "--full-input-file <path>",
+      "Path to full Marble run input JSON file",
+    )
+    .action((dir, options: ProgramTestOptions) =>
+      runAction("testing program", async () => {
+        const result = await upsertProgramFromDirectory(dir);
+
+        printJson(
+          await client.testProgramVersion(result.versionId, {
+            input: await buildProgramTestInput(options),
+          }),
+        );
+      }),
+    );
+}
+
+rootCommand
   .name("marble")
-  .description("CLI to manage Marble resources")
-  .version("1.0.0");
+  .description(
+    "CLI to manage Marble resources. Prefer singular commands; plural resource names expose raw JSON mode.",
+  )
+  .version("1.0.0")
+  .showHelpAfterError()
+  .showSuggestionAfterError();
+
+registerTableCommands();
+registerColumnCommands();
+registerRowCommands();
+registerCellCommands();
+registerProgramCommands();
 
 const resourceCommands = new Map<ApiResourceName, Command>();
 
 for (const resourceName of ApiResourceNames) {
-  const command = program
+  const command = rootCommand
     .command(apiResourceSegment(resourceName))
-    .description(`Manage ${apiResourceLabel(resourceName)}`);
+    .description(`Manage ${apiResourceLabel(resourceName)} (raw JSON mode)`);
   const camelCaseAlias = toCamelCaseResourceCommand(resourceName);
 
   if (camelCaseAlias !== resourceName) {
@@ -330,18 +1115,10 @@ programsCommand
   .argument("<dir>", "Directory containing the program files and schema")
   .action((dir) =>
     runAction("upserting program", async () => {
-      const fullPath = resolveFromInvocation(dir);
-      const loadedProgram = await loadProgramDirectory(fullPath);
-
-      const data = await client.upsertProgram({
-        files: loadedProgram.files,
-        inputSchema: loadedProgram.inputSchema,
-        name: loadedProgram.name,
-        outputConfig: loadedProgram.outputConfig,
-      });
+      const result = await upsertProgramFromDirectory(dir);
 
       console.log(
-        `Program "${loadedProgram.name}" upserted successfully. (Program ID: ${data.programId}, Version ID: ${data.versionId})`,
+        `Program "${result.loadedProgram.name}" upserted successfully. (Program ID: ${result.programId}, Version ID: ${result.versionId})`,
       );
     }),
   );
@@ -353,21 +1130,14 @@ programsCommand
   .argument("<input>", "Mock input payload as a stringified JSON object")
   .action((dir, inputText) =>
     runAction("testing program", async () => {
-      const fullPath = resolveFromInvocation(dir);
-      const loadedProgram = await loadProgramDirectory(fullPath);
-      const upserted = await client.upsertProgram({
-        files: loadedProgram.files,
-        inputSchema: loadedProgram.inputSchema,
-        name: loadedProgram.name,
-        outputConfig: loadedProgram.outputConfig,
-      });
+      const result = await upsertProgramFromDirectory(dir);
 
       printJson(
-        await client.testProgramVersion(upserted.versionId, {
+        await client.testProgramVersion(result.versionId, {
           input: parseJson("input", inputText),
         }),
       );
     }),
   );
 
-program.parse();
+rootCommand.parse();

@@ -14,13 +14,13 @@ import {
 import {
   createRecord,
   createRecords,
+  createRecordsWithGeneratedIndex,
   type DbRow,
   deleteRecord,
   deleteRecordsByColumn,
   deleteRecordsInColumn,
   getRecord,
   listRecordsFromQuery,
-  nextIndex,
   successResponse,
   updateRecord,
 } from "../data";
@@ -200,15 +200,33 @@ async function createColumn(
     throw new ApiError(400, "Invalid request", parsedOutputSchema.error.issues);
   }
 
-  const idx = body.idx ?? (await nextIndex(c.var.supabase, "column", tableId));
-  const column = await createRecord(c.var.supabase, "column", {
-    idx,
-    input_template: inputTemplate,
-    name: body.name,
-    output_schema: parsedOutputSchema.data as Json,
-    program_version_id: programVersionId,
-    table_id: tableId,
-  });
+  const column =
+    body.idx === undefined
+      ? (
+          await createRecordsWithGeneratedIndex(
+            c.var.supabase,
+            "column",
+            tableId,
+            (startIndex) => [
+              {
+                idx: startIndex,
+                input_template: inputTemplate,
+                name: body.name,
+                output_schema: parsedOutputSchema.data as Json,
+                program_version_id: programVersionId,
+                table_id: tableId,
+              },
+            ],
+          )
+        )[0]
+      : await createRecord(c.var.supabase, "column", {
+          idx: body.idx,
+          input_template: inputTemplate,
+          name: body.name,
+          output_schema: parsedOutputSchema.data as Json,
+          program_version_id: programVersionId,
+          table_id: tableId,
+        });
 
   try {
     const dependencies = await replaceColumnDependencies(

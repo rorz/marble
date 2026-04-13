@@ -10,11 +10,12 @@ import {
 } from "../core";
 import {
   createRecords,
+  createRecordsWithGeneratedIndex,
   deleteRecord,
   deleteRecordsByColumn,
+  deleteRecordsInColumn,
   getRecord,
   listRecordsFromQuery,
-  nextIndex,
   successResponse,
   updateRecord,
 } from "../data";
@@ -53,55 +54,83 @@ async function createRows(
     throw new ApiError(400, "idx cannot be used when count is greater than 1");
   }
 
-  const startIndex =
-    body.idx ?? (await nextIndex(c.var.supabase, "row", tableId));
-  const rowsToInsert = Array.from(
-    {
-      length: count,
-    },
-    (_, index) => ({
-      idx: startIndex + index,
-      table_id: tableId,
-    }),
-  );
+  const rows =
+    body.idx === undefined
+      ? await createRecordsWithGeneratedIndex(
+          c.var.supabase,
+          "row",
+          tableId,
+          (startIndex) =>
+            Array.from(
+              {
+                length: count,
+              },
+              (_, index) => ({
+                idx: startIndex + index,
+                table_id: tableId,
+              }),
+            ),
+        )
+      : await (() => {
+          const explicitStartIndex = body.idx;
 
-  const rows = await createRecords(c.var.supabase, "row", rowsToInsert);
+          return createRecords(
+            c.var.supabase,
+            "row",
+            Array.from(
+              {
+                length: count,
+              },
+              (_, index) => ({
+                idx: explicitStartIndex + index,
+                table_id: tableId,
+              }),
+            ),
+          );
+        })();
 
-  const columns = await listRecordsFromQuery(
-    c.var.supabase,
-    "column",
-    {
-      tableId,
-    },
-    {
-      tableId: "table_id",
-    },
-  );
-  const cells = await createRecords(
-    c.var.supabase,
-    "cell",
-    rows.flatMap((row) =>
-      columns.map((column) => ({
-        column_id: column.id,
-        row_id: row.id,
-      })),
-    ),
-  );
+  try {
+    const columns = await listRecordsFromQuery(
+      c.var.supabase,
+      "column",
+      {
+        tableId,
+      },
+      {
+        tableId: "table_id",
+      },
+    );
+    const cells = await createRecords(
+      c.var.supabase,
+      "cell",
+      rows.flatMap((row) =>
+        columns.map((column) => ({
+          column_id: column.id,
+          row_id: row.id,
+        })),
+      ),
+    );
 
-  if (count === 1) {
+    if (count === 1) {
+      return {
+        data: rows[0],
+        location: `/rows/${rows[0].id}`,
+      };
+    }
+
     return {
-      data: rows[0],
-      location: `/rows/${rows[0].id}`,
+      data: {
+        cells,
+        rows,
+      },
+      location: `/tables/${tableId}/rows`,
     };
+  } catch (handlerError) {
+    const rowIds = rows.map((row) => row.id);
+    await deleteRecordsInColumn(c.var.supabase, "cell", "row_id", rowIds);
+    await deleteRecordsInColumn(c.var.supabase, "row", "id", rowIds);
+    throw handlerError;
   }
-
-  return {
-    data: {
-      cells,
-      rows,
-    },
-    location: `/tables/${tableId}/rows`,
-  };
 }
 
 export function mountRowResource(app: Hono<ApiEnv>) {

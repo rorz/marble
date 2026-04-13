@@ -3,6 +3,7 @@ import { requireUser } from "../../../lib/auth";
 import SignOutButton from "../../sign-out-button";
 import * as actions from "./[id]/actions";
 import { CreateTableButton } from "./create-table-button";
+import { LiveTableEvents } from "./live-table-events";
 
 export default async function TablesPage() {
   await requireUser();
@@ -10,6 +11,7 @@ export default async function TablesPage() {
 
   return (
     <div className="bg-zinc-50 text-zinc-900 min-h-screen flex flex-col font-sans">
+      <LiveTableEvents />
       <header className="border-b border-zinc-200 px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <h1 className="text-lg font-semibold tracking-tight">marble</h1>

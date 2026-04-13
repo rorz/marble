@@ -494,11 +494,87 @@ _cell2 AS (
 
 SELECT 1;
 
--- Realtime: publish cell changes so the demo page can subscribe
-ALTER PUBLICATION supabase_realtime ADD TABLE cell;
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.table;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
 
--- Permissive SELECT policy so the anon key can receive realtime events
--- NOTE: In a real environment, RLS should handle this, but for the seed/demo, we ensure it's open.
--- We drop it first to avoid errors if the seed runs multiple times.
-DROP POLICY IF EXISTS "allow_select_cells" ON cell;
-CREATE POLICY "allow_select_cells" ON cell FOR SELECT USING (true);
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.row;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.column;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.cell;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END
+$$;
+
+DROP POLICY IF EXISTS "Users can view tables they own" ON public.table;
+DROP POLICY IF EXISTS "Users can view rows in their own tables" ON public.row;
+DROP POLICY IF EXISTS "Users can view columns in their own tables" ON public.column;
+DROP POLICY IF EXISTS "allow_select_cells" ON public.cell;
+DROP POLICY IF EXISTS "Users can view cells in their own tables" ON public.cell;
+CREATE POLICY "Users can view tables they own" ON public."table"
+FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public.profile
+    WHERE profile.id = "table".owner_profile_id
+      AND profile.owner_user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can view rows in their own tables" ON public."row"
+FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public."table"
+    JOIN public.profile ON profile.id = "table".owner_profile_id
+    WHERE "table".id = "row".table_id
+      AND profile.owner_user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can view columns in their own tables" ON public."column"
+FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public."table"
+    JOIN public.profile ON profile.id = "table".owner_profile_id
+    WHERE "table".id = "column".table_id
+      AND profile.owner_user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Users can view cells in their own tables" ON public.cell
+FOR SELECT
+USING (
+  EXISTS (
+    SELECT 1
+    FROM public."row"
+    JOIN public."table" ON "table".id = "row".table_id
+    JOIN public.profile ON profile.id = "table".owner_profile_id
+    WHERE "row".id = cell.row_id
+      AND profile.owner_user_id = auth.uid()
+  )
+);

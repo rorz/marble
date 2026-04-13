@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowLeftIcon } from "@heroicons/react/20/solid";
-import { createClient } from "@marble/supabase";
 import {
   AllCommunityModule,
   type CellContextMenuEvent,
@@ -15,6 +14,7 @@ import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import Link from "next/link";
 import Prism from "prismjs";
 import React, {
+  startTransition,
   useCallback,
   useEffect,
   useMemo,
@@ -22,7 +22,7 @@ import React, {
   useState,
 } from "react";
 import Editor from "react-simple-code-editor";
-import { env } from "@/env";
+import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 import SignOutButton from "../../../sign-out-button";
 import * as actions from "./actions";
 
@@ -217,6 +217,28 @@ function coerceFieldValue(
     default:
       return raw;
   }
+}
+
+function getTableIdFromChange(
+  payload: {
+    new: Record<string, unknown>;
+    old: Record<string, unknown>;
+  },
+  key = "table_id",
+) {
+  const nextValue = payload.new[key];
+
+  if (typeof nextValue === "string") {
+    return nextValue;
+  }
+
+  const previousValue = payload.old[key];
+
+  if (typeof previousValue === "string") {
+    return previousValue;
+  }
+
+  return null;
 }
 
 const COL_REF_PATTERN = /^\$\.columns\.([a-f0-9-]+)\./;
@@ -963,6 +985,7 @@ export default function TablePage(props: {
   const [confirmState, setConfirmState] = useState<ConfirmState>(null);
 
   const gridRef = useRef<AgGridReact>(null);
+  const realtimeClient = useMemo(() => createBrowserClient(), []);
 
   const cellsRef = useRef(cells);
   cellsRef.current = cells;
@@ -970,6 +993,16 @@ export default function TablePage(props: {
   columnsRef.current = columns;
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+
+  const applyLoadedData = useCallback((data: LoadedData) => {
+    columnsRef.current = data.columns;
+    rowsRef.current = data.rows;
+    cellsRef.current = data.cells;
+    setColumns(data.columns);
+    setRows(data.rows);
+    setCells(data.cells);
+    setDependencies(data.dependencies);
+  }, []);
 
   const patchLocalCell = useCallback((cellId: string, patch: Partial<Cell>) => {
     setCells((prev) => {
@@ -1058,54 +1091,69 @@ export default function TablePage(props: {
   // ── Load data ─────────────────────────────────────────
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
       const [t, p] = await Promise.all([
         actions.listTables(),
         actions.listPrograms(),
       ]);
+      if (cancelled) return;
       setTables(t);
       setPrograms(p);
       setLoading(false);
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (!selectedTableId) return;
+    let cancelled = false;
+
     setLoading(true);
-    actions.loadTableData(selectedTableId).then((data) => {
-      setColumns(data.columns);
-      setRows(data.rows);
-      setCells(data.cells);
-      setDependencies(data.dependencies);
-      setLoading(false);
-    });
+    actions
+      .loadTableData(selectedTableId)
+      .then((data) => {
+        if (cancelled) return;
+        applyLoadedData(data);
+        setLoading(false);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.error("Failed to load table data", error);
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [
+    applyLoadedData,
     selectedTableId,
   ]);
 
   // ── Realtime ──────────────────────────────────────────
 
   useEffect(() => {
-    const url = env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !key || !selectedTableId || columns.length === 0) return;
+    if (!selectedTableId || columns.length === 0) return;
 
-    const supabase = createClient(url, key);
-    const columnIds = new Set(columns.map((c) => c.id));
-
+    const columnIds = new Set(columns.map((column) => column.id));
     const pendingUpdates = new Map<string, Cell>();
     const pendingInserts = new Map<string, Cell>();
     const pendingDeletes = new Set<string>();
-
-    let flushTimeout: NodeJS.Timeout | null = null;
+    let flushTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const flush = () => {
       if (
         pendingInserts.size === 0 &&
         pendingUpdates.size === 0 &&
         pendingDeletes.size === 0
-      )
+      ) {
         return;
+      }
 
       setCells((prev) => {
         const next = [
@@ -1114,9 +1162,9 @@ export default function TablePage(props: {
         let changed = false;
 
         if (pendingDeletes.size > 0) {
-          const originalLength = next.length;
-          const filtered = next.filter((c) => !pendingDeletes.has(c.id));
-          if (filtered.length !== originalLength) {
+          const filtered = next.filter((cell) => !pendingDeletes.has(cell.id));
+
+          if (filtered.length !== next.length) {
             next.length = 0;
             next.push(...filtered);
             changed = true;
@@ -1124,20 +1172,22 @@ export default function TablePage(props: {
         }
 
         if (pendingUpdates.size > 0) {
-          for (let i = 0; i < next.length; i++) {
-            const u = pendingUpdates.get(next[i].id);
-            if (u) {
-              next[i] = u;
+          for (let index = 0; index < next.length; index += 1) {
+            const updated = pendingUpdates.get(next[index].id);
+
+            if (updated) {
+              next[index] = updated;
               changed = true;
             }
           }
         }
 
         if (pendingInserts.size > 0) {
-          const existingIds = new Set(next.map((c) => c.id));
-          for (const ins of pendingInserts.values()) {
-            if (!existingIds.has(ins.id)) {
-              next.push(ins);
+          const existingIds = new Set(next.map((cell) => cell.id));
+
+          for (const inserted of pendingInserts.values()) {
+            if (!existingIds.has(inserted.id)) {
+              next.push(inserted);
               changed = true;
             }
           }
@@ -1150,11 +1200,12 @@ export default function TablePage(props: {
         if (changed) {
           cellsRef.current = next;
         }
+
         return changed ? next : prev;
       });
     };
 
-    const channel = supabase
+    const channel = realtimeClient
       .channel(`cells:${selectedTableId}`)
       .on(
         "postgres_changes",
@@ -1166,36 +1217,178 @@ export default function TablePage(props: {
         (payload) => {
           if (payload.eventType === "UPDATE") {
             const updated = payload.new as Cell;
-            if (!columnIds.has(updated.column_id)) return;
+
+            if (!columnIds.has(updated.column_id)) {
+              return;
+            }
+
             pendingUpdates.set(updated.id, updated);
           } else if (payload.eventType === "INSERT") {
             const inserted = payload.new as Cell;
-            if (!columnIds.has(inserted.column_id)) return;
+
+            if (!columnIds.has(inserted.column_id)) {
+              return;
+            }
+
             pendingInserts.set(inserted.id, inserted);
           } else if (payload.eventType === "DELETE") {
             const deleted = payload.old as {
               id: string;
             };
+
             pendingDeletes.add(deleted.id);
           }
 
-          if (!flushTimeout) {
-            flushTimeout = setTimeout(() => {
-              flushTimeout = null;
-              flush();
-            }, 100);
+          if (flushTimeout) {
+            return;
           }
+
+          flushTimeout = setTimeout(() => {
+            flushTimeout = null;
+            flush();
+          }, 100);
         },
       )
       .subscribe();
 
     return () => {
       if (flushTimeout) clearTimeout(flushTimeout);
-      supabase.removeChannel(channel);
+      realtimeClient.removeChannel(channel);
     };
   }, [
-    selectedTableId,
     columns,
+    realtimeClient,
+    selectedTableId,
+  ]);
+
+  useEffect(() => {
+    if (!selectedTableId) return;
+
+    let cancelled = false;
+    let refreshTables = false;
+    let refreshTableData = false;
+    let flushTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const scheduleRefresh = (input: {
+      tableData?: boolean;
+      tables?: boolean;
+    }) => {
+      refreshTables ||= input.tables === true;
+      refreshTableData ||= input.tableData === true;
+
+      if (flushTimeout) {
+        return;
+      }
+
+      flushTimeout = setTimeout(() => {
+        flushTimeout = null;
+
+        const shouldRefreshTables = refreshTables;
+        const shouldRefreshTableData = refreshTableData;
+        refreshTables = false;
+        refreshTableData = false;
+
+        void (async () => {
+          try {
+            const [nextTables, nextTableData] = await Promise.all([
+              shouldRefreshTables
+                ? actions.listTables()
+                : Promise.resolve(null),
+              shouldRefreshTableData
+                ? actions.loadTableData(selectedTableId)
+                : Promise.resolve(null),
+            ]);
+
+            if (cancelled) {
+              return;
+            }
+
+            startTransition(() => {
+              if (nextTables) {
+                setTables(nextTables);
+              }
+
+              if (nextTableData) {
+                applyLoadedData(nextTableData);
+              }
+            });
+          } catch (error) {
+            if (!cancelled) {
+              console.error(
+                "Failed to refresh table state from realtime event",
+                error,
+              );
+            }
+          }
+        })();
+      }, 100);
+    };
+
+    const channel = realtimeClient
+      .channel(`table-structure:${selectedTableId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "table",
+        },
+        (payload) => {
+          if (getTableIdFromChange(payload, "id") !== selectedTableId) {
+            return;
+          }
+
+          scheduleRefresh({
+            tableData: true,
+            tables: true,
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "row",
+        },
+        (payload) => {
+          if (getTableIdFromChange(payload) !== selectedTableId) {
+            return;
+          }
+
+          scheduleRefresh({
+            tableData: true,
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "column",
+        },
+        (payload) => {
+          if (getTableIdFromChange(payload) !== selectedTableId) {
+            return;
+          }
+
+          scheduleRefresh({
+            tableData: true,
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      if (flushTimeout) clearTimeout(flushTimeout);
+      realtimeClient.removeChannel(channel);
+    };
+  }, [
+    applyLoadedData,
+    realtimeClient,
+    selectedTableId,
   ]);
 
   // ── AG Grid config ────────────────────────────────────
