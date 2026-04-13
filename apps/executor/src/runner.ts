@@ -10,16 +10,6 @@ type ProgramFile = Pick<
   "content" | "filename" | "filetype"
 >;
 
-const INLINE_PROGRAM_MANIFEST = JSON.stringify(
-  {
-    name: "marble-inline-program",
-    private: true,
-    type: "module",
-  },
-  null,
-  2,
-);
-
 export const formatZodIssues = (issues: z.ZodIssue[]): string =>
   issues
     .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
@@ -68,19 +58,6 @@ const createRuntimeSystem = (apolloApiKey?: string): JsonValue => ({
     },
   },
 });
-
-const createInlineProgramFiles = (code: string): ProgramFile[] => [
-  {
-    filename: "package.json",
-    filetype: "Json",
-    content: INLINE_PROGRAM_MANIFEST,
-  },
-  {
-    filename: "main.ts",
-    filetype: "TypeScript",
-    content: code,
-  },
-];
 
 const prepareExecutionEnvironment = async (
   sandbox: Sandbox,
@@ -342,23 +319,16 @@ export const resolveStoredRunInput = async (
 
 export const loadDryRunProgramFiles = async (
   supabase: SupabaseClient,
-  options: {
-    code?: string;
-    programVersionId?: string;
-  },
+  programVersionId: string,
 ): Promise<ProgramFile[]> => {
-  if (options.programVersionId) {
-    const { data, error } = await supabase
-      .from("program_file")
-      .select("*")
-      .eq("version_id", options.programVersionId);
+  const { data, error } = await supabase
+    .from("program_file")
+    .select("*")
+    .eq("version_id", programVersionId);
 
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return data ?? [];
+  if (error) {
+    throw new Error(error.message);
   }
 
-  return createInlineProgramFiles(options.code ?? "");
+  return data ?? [];
 };

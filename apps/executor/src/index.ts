@@ -1,5 +1,6 @@
 import { getSandbox } from "@cloudflare/sandbox";
 import { type JsonValue, Schemas } from "@marble/core";
+import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
 import { createClient, type SupabaseClient } from "@marble/supabase";
 import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -9,10 +10,6 @@ import { type RequestIdVariables, requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
 import { validator } from "hono/validator";
 import { z } from "zod";
-import {
-  getApiKeyTokenFromHeaders,
-  resolveApiKeyAuth,
-} from "../../../packages/keys/src/index";
 import { getEnv } from "./env.js";
 import {
   executeAndValidate,
@@ -66,7 +63,7 @@ const RunQuerySchema = z.object({
 });
 
 const DryRunQuerySchema = z.object({
-  programVersionId: z.string().uuid().optional(),
+  programVersionId: z.string().uuid(),
   testKey: z.string().min(1).optional(),
 });
 
@@ -80,7 +77,6 @@ const JsonContentTypeSchema = z.object({
 });
 
 const DryRunBodySchema = z.object({
-  code: z.string().min(1).optional(),
   input: z.json(),
   outputSchema: Schemas.ColumnOutputSchema,
 });
@@ -351,25 +347,13 @@ const dryRunHandler = async (c: Context<ExecutorEnv>) => {
   const query = (c.req as DryRunValidatedRequest).valid("query");
   const body = (c.req as DryRunValidatedRequest).valid("json");
 
-  if (!query.programVersionId && !body.code) {
-    throw httpError(
-      400,
-      "Provide either `programVersionId` in the query string or `code` in the body.",
-    );
-  }
-
   try {
     const output = await executeAndValidate(
       getSandbox(
         c.env.Sandbox,
-        query.programVersionId
-          ? `${query.programVersionId}--test--${query.testKey ?? crypto.randomUUID()}`
-          : `inline--${query.testKey ?? crypto.randomUUID()}`,
+        `${query.programVersionId}--test--${query.testKey ?? crypto.randomUUID().slice(0, 6)}`,
       ),
-      await loadDryRunProgramFiles(c.var.supabase, {
-        code: body.code,
-        programVersionId: query.programVersionId,
-      }),
+      await loadDryRunProgramFiles(c.var.supabase, query.programVersionId),
       runtimeInputFromValue(body.input, c.var.parsedEnv.APOLLO_IO_API_KEY),
       body.outputSchema as JsonValue,
     );

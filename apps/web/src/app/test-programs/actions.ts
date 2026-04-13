@@ -211,7 +211,7 @@ export async function testProgram(
 
   const executorUrl = env.EXECUTOR_URL;
   try {
-    const res = await fetch(`${executorUrl}?run_id=${run.id}`, {
+    const res = await fetch(`${executorUrl}/run?run_id=${run.id}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

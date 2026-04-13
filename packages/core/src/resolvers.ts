@@ -5,7 +5,7 @@ import type {
   ColumnOutputSchema,
   JsonValue,
   ProgramOutputConfig,
-} from "./schemas";
+} from "./schemas.js";
 
 export const resolveColumnOutputSchema = (
   inputValues: Record<string, unknown>,

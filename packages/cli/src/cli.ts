@@ -2,6 +2,14 @@
 
 import fs from "node:fs/promises";
 import path from "node:path";
+import {
+  type ApiResourceName,
+  ApiResourceNames,
+  apiResourceLabel,
+  apiResourceSegment,
+  type CrudOperation,
+  supportsResourceOperation,
+} from "@marble/core";
 import { Command } from "commander";
 import dotenv from "dotenv";
 import { MarbleClient } from "./client.js";
@@ -12,310 +20,262 @@ dotenv.config({
 });
 
 const invocationCwd = env.INIT_CWD || process.cwd();
+const client = new MarbleClient();
+const program = new Command();
+
+type JsonObject = Record<string, unknown>;
+type CrudCommandDefinition = {
+  arguments: Array<
+    [
+      name: string,
+      description: string,
+    ]
+  >;
+  description: (label: string) => string;
+  execute: (resourceName: ApiResourceName, args: string[]) => Promise<unknown>;
+  name: string;
+  operation: CrudOperation;
+  progress: (label: string) => string;
+};
 
 function resolveFromInvocation(dir: string) {
   return path.resolve(invocationCwd, dir);
 }
 
-const program = new Command();
+function formatError(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function printJson(value: unknown) {
+  console.log(JSON.stringify(value, null, 2));
+}
+
+function parseJson(label: string, input: string) {
+  try {
+    return JSON.parse(input) as unknown;
+  } catch (error) {
+    throw new Error(`${label} must be valid JSON: ${formatError(error)}`);
+  }
+}
+
+function parseJsonObject(label: string, input?: string) {
+  if (input === undefined) {
+    return {} as JsonObject;
+  }
+
+  const value = parseJson(label, input);
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`${label} must be a JSON object`);
+  }
+
+  return value as JsonObject;
+}
+
+function toCamelCaseResourceCommand(name: ApiResourceName) {
+  return name.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+}
+
+async function runAction(label: string, action: () => Promise<void>) {
+  try {
+    await action();
+  } catch (error) {
+    console.error(`Error ${label}: ${formatError(error)}`);
+    process.exit(1);
+  }
+}
+
+const CRUD_COMMANDS: CrudCommandDefinition[] = [
+  {
+    arguments: [
+      [
+        "[filters]",
+        "Optional JSON query filters",
+      ],
+    ],
+    description: (label) => `List ${label}`,
+    execute: (resourceName, [filtersText]) =>
+      client.list(
+        resourceName,
+        parseJsonObject("filters", filtersText) as Record<
+          string,
+          boolean | number | string | null | undefined
+        >,
+      ),
+    name: "list",
+    operation: "list",
+    progress: (label) => `listing ${label}`,
+  },
+  {
+    arguments: [
+      [
+        "<id>",
+        "Resource ID",
+      ],
+    ],
+    description: (label) => `Get ${label} by ID`,
+    execute: (resourceName, [id]) => client.get(resourceName, id),
+    name: "get",
+    operation: "get",
+    progress: (label) => `getting ${label}`,
+  },
+  {
+    arguments: [
+      [
+        "<payload>",
+        "JSON payload",
+      ],
+    ],
+    description: (label) => `Create ${label} from a JSON payload`,
+    execute: (resourceName, [payloadText]) =>
+      client.create(resourceName, parseJsonObject("payload", payloadText)),
+    name: "create",
+    operation: "create",
+    progress: (label) => `creating ${label}`,
+  },
+  {
+    arguments: [
+      [
+        "<id>",
+        "Resource ID",
+      ],
+      [
+        "<payload>",
+        "JSON payload",
+      ],
+    ],
+    description: (label) => `Update ${label} with a JSON payload`,
+    execute: (resourceName, [id, payloadText]) =>
+      client.update(resourceName, id, parseJsonObject("payload", payloadText)),
+    name: "update",
+    operation: "update",
+    progress: (label) => `updating ${label}`,
+  },
+  {
+    arguments: [
+      [
+        "<id>",
+        "Resource ID",
+      ],
+    ],
+    description: (label) => `Delete ${label}`,
+    execute: (resourceName, [id]) => client.delete(resourceName, id),
+    name: "delete",
+    operation: "delete",
+    progress: (label) => `deleting ${label}`,
+  },
+];
+
+function registerCrudCommands(resourceName: ApiResourceName, command: Command) {
+  const label = apiResourceLabel(resourceName);
+
+  for (const crudCommand of CRUD_COMMANDS) {
+    if (!supportsResourceOperation(resourceName, crudCommand.operation)) {
+      continue;
+    }
+
+    const subcommand = command
+      .command(crudCommand.name)
+      .description(crudCommand.description(label));
+
+    for (const [argumentName, argumentDescription] of crudCommand.arguments) {
+      subcommand.argument(argumentName, argumentDescription);
+    }
+
+    subcommand.action((...actionArgs) =>
+      runAction(crudCommand.progress(label), async () => {
+        const commandArgs = actionArgs.slice(
+          0,
+          crudCommand.arguments.length,
+        ) as string[];
+        printJson(await crudCommand.execute(resourceName, commandArgs));
+      }),
+    );
+  }
+}
 
 program
   .name("marble")
-  .description("CLI to manage Marble programs and tables")
+  .description("CLI to manage Marble resources")
   .version("1.0.0");
 
-const client = new MarbleClient();
+const resourceCommands = new Map<ApiResourceName, Command>();
 
-// --- PROGRAMS ---
-const programsCmd = program.command("programs").description("Manage programs");
+for (const resourceName of ApiResourceNames) {
+  const command = program
+    .command(apiResourceSegment(resourceName))
+    .description(`Manage ${apiResourceLabel(resourceName)}`);
+  const camelCaseAlias = toCamelCaseResourceCommand(resourceName);
 
-programsCmd
-  .command("list")
-  .description("List all programs")
-  .action(async () => {
-    try {
-      const data = await client.programs.list();
-      console.log(JSON.stringify(data, null, 2));
-    } catch (err) {
-      console.error(
-        `Error listing programs: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
+  if (camelCaseAlias !== resourceName) {
+    command.alias(camelCaseAlias);
+  }
 
-programsCmd
-  .command("get")
-  .description("Get a program by ID")
-  .argument("<id>", "Program ID")
-  .action(async (id) => {
-    try {
-      const data = await client.programs.get(id);
-      console.log(JSON.stringify(data, null, 2));
-    } catch (err) {
-      console.error(
-        `Error getting program: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
+  registerCrudCommands(resourceName, command);
+  resourceCommands.set(resourceName, command);
+}
 
-programsCmd
+const programsCommand = resourceCommands.get("programs");
+
+if (!programsCommand) {
+  throw new Error("Programs command registry is missing.");
+}
+
+programsCommand
   .command("upsert")
   .description("Upsert a program from a local directory")
   .argument("<dir>", "Directory containing the program code and schema")
-  .action(async (dir) => {
-    const fullPath = resolveFromInvocation(dir);
-    try {
-      const codePath = path.join(fullPath, "index.js");
-      const configPath = path.join(fullPath, "config.json");
-
-      const code = await fs.readFile(codePath, "utf-8");
-      const configStr = await fs.readFile(configPath, "utf-8");
-      const config = JSON.parse(configStr);
-
-      const payload = {
-        name: config.name,
-        code,
-        inputSchema: config.inputSchema,
-        outputConfig: config.outputConfig,
+  .action((dir) =>
+    runAction("upserting program", async () => {
+      const fullPath = resolveFromInvocation(dir);
+      const code = await fs.readFile(path.join(fullPath, "index.js"), "utf-8");
+      const config = JSON.parse(
+        await fs.readFile(path.join(fullPath, "config.json"), "utf-8"),
+      ) as {
+        inputSchema: unknown;
+        name: string;
+        outputConfig: unknown;
       };
 
-      const data = await client.programs.upsert(payload);
+      const data = await client.upsertProgram({
+        code,
+        inputSchema: config.inputSchema,
+        name: config.name,
+        outputConfig: config.outputConfig,
+      });
+
       console.log(
         `Program "${config.name}" upserted successfully. (ID: ${data.id})`,
       );
-    } catch (err) {
-      console.error(
-        `Error upserting program: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
+    }),
+  );
 
-programsCmd
+programsCommand
   .command("dry-run")
   .description("Dry-run a program against the API")
   .argument("<dir>", "Directory containing the program code and schema")
   .argument("<input>", "Mock input payload as a stringified JSON object")
-  .action(async (dir, inputStr) => {
-    const fullPath = resolveFromInvocation(dir);
-    try {
-      const codePath = path.join(fullPath, "index.js");
-      const configPath = path.join(fullPath, "config.json");
+  .action((dir, inputText) =>
+    runAction("dry-running program", async () => {
+      const fullPath = resolveFromInvocation(dir);
+      const code = await fs.readFile(path.join(fullPath, "index.js"), "utf-8");
+      const config = JSON.parse(
+        await fs.readFile(path.join(fullPath, "config.json"), "utf-8"),
+      ) as {
+        outputConfig?: {
+          schema?: unknown;
+        };
+        outputSchema?: unknown;
+      };
 
-      const code = await fs.readFile(codePath, "utf-8");
-      const configStr = await fs.readFile(configPath, "utf-8");
-      const config = JSON.parse(configStr);
-
-      let inputPayload: unknown;
-      try {
-        inputPayload = JSON.parse(inputStr);
-      } catch {
-        console.error("Invalid input JSON.");
-        process.exit(1);
-      }
-
-      const outputSchema =
-        config.outputConfig?.schema || config.outputSchema || {};
-
-      const json = await client.programs.dryRun({
-        code,
-        input: inputPayload,
-        outputSchema,
-      });
-
-      console.log(JSON.stringify(json, null, 2));
-    } catch (err) {
-      console.error(
-        `Error dry-running program: ${err instanceof Error ? err.message : String(err)}`,
+      printJson(
+        await client.dryRunProgram({
+          code,
+          input: parseJson("input", inputText),
+          outputSchema:
+            config.outputConfig?.schema || config.outputSchema || {},
+        }),
       );
-      process.exit(1);
-    }
-  });
-
-// --- TABLES ---
-const tablesCmd = program.command("tables").description("Manage tables");
-
-tablesCmd
-  .command("list")
-  .description("List all tables")
-  .action(async () => {
-    try {
-      const data = await client.tables.list();
-      console.log(JSON.stringify(data, null, 2));
-    } catch (err) {
-      console.error(
-        `Error listing tables: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
-
-tablesCmd
-  .command("get")
-  .description("Get a table by ID")
-  .argument("<id>", "Table ID")
-  .action(async (id) => {
-    try {
-      const data = await client.tables.get(id);
-      console.log(JSON.stringify(data, null, 2));
-    } catch (err) {
-      console.error(
-        `Error getting table: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
-
-tablesCmd
-  .command("create")
-  .description("Create a new table")
-  .argument("<name>", "Name of the table")
-  .action(async (name) => {
-    try {
-      const data = await client.tables.create(name);
-      console.log(`Table "${name}" created successfully. (ID: ${data.id})`);
-    } catch (err) {
-      console.error(
-        `Error creating table: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
-
-tablesCmd
-  .command("delete")
-  .description("Delete a table")
-  .argument("<id>", "Table ID")
-  .action(async (id) => {
-    try {
-      await client.tables.delete(id);
-      console.log(`Table ${id} deleted successfully.`);
-    } catch (err) {
-      console.error(
-        `Error deleting table: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
-
-// --- COLUMNS ---
-const columnsCmd = program.command("columns").description("Manage columns");
-
-columnsCmd
-  .command("add")
-  .description("Add a column to a table")
-  .argument("<tableId>", "ID of the table")
-  .argument("<name>", "Name of the column")
-  .argument("<programId>", "ID of the program")
-  .argument("<inputTemplate>", "Input template stringified JSON (e.g. '{}')")
-  .argument("<outputSchema>", "Output schema stringified JSON")
-  .action(
-    async (tableId, name, programId, inputTemplateStr, outputSchemaStr) => {
-      let inputTemplate: string;
-      let outputSchema: unknown;
-      try {
-        inputTemplate = inputTemplateStr; // stored as string
-        outputSchema = JSON.parse(outputSchemaStr);
-      } catch (err) {
-        console.error(
-          `Error parsing JSON arguments: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        process.exit(1);
-      }
-
-      try {
-        const data = await client.columns.add(tableId, {
-          name,
-          programId,
-          inputTemplate,
-          outputSchema,
-        });
-        console.log(`Column "${name}" added successfully. (ID: ${data.id})`);
-      } catch (err) {
-        console.error(
-          `Error adding column: ${err instanceof Error ? err.message : String(err)}`,
-        );
-        process.exit(1);
-      }
-    },
+    }),
   );
-
-columnsCmd
-  .command("list")
-  .description("List columns in a table")
-  .argument("<tableId>", "Table ID")
-  .action(async (tableId) => {
-    try {
-      const data = await client.columns.list(tableId);
-      console.log(JSON.stringify(data, null, 2));
-    } catch (err) {
-      console.error(
-        `Error listing columns: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
-
-// --- ROWS ---
-const rowsCmd = program.command("rows").description("Manage rows");
-
-rowsCmd
-  .command("add")
-  .description("Add a row to a table")
-  .argument("<tableId>", "ID of the table")
-  .action(async (tableId) => {
-    try {
-      const data = await client.rows.add(tableId);
-      const rowId = "id" in data ? data.id : data.rows[0]?.id;
-
-      if (!rowId) {
-        throw new Error("API did not return a created row ID.");
-      }
-
-      console.log(`Row added successfully to table ${tableId}. (ID: ${rowId})`);
-    } catch (err) {
-      console.error(
-        `Error adding row: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
-
-rowsCmd
-  .command("list")
-  .description("List rows in a table")
-  .argument("<tableId>", "Table ID")
-  .action(async (tableId) => {
-    try {
-      const data = await client.rows.list(tableId);
-      console.log(JSON.stringify(data, null, 2));
-    } catch (err) {
-      console.error(
-        `Error listing rows: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
-
-// --- CELLS ---
-const cellsCmd = program.command("cells").description("Manage cells");
-
-cellsCmd
-  .command("get")
-  .description("Get a cell by ID")
-  .argument("<id>", "Cell ID")
-  .action(async (id) => {
-    try {
-      const data = await client.cells.get(id);
-      console.log(JSON.stringify(data, null, 2));
-    } catch (err) {
-      console.error(
-        `Error getting cell: ${err instanceof Error ? err.message : String(err)}`,
-      );
-      process.exit(1);
-    }
-  });
 
 program.parse();

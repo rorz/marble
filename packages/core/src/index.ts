@@ -1,3 +1,18 @@
-export { resolveColumnConfig, resolveColumnOutputSchema } from "./resolvers";
-export type { JsonValue } from "./schemas";
-export * as Schemas from "./schemas";
+export type {
+  ApiResourceName,
+  ApiResourceOperationsByName,
+  CrudOperation,
+} from "./api-resources.js";
+export {
+  ApiResourceNames,
+  ApiResources,
+  apiResourceItemPath,
+  apiResourceLabel,
+  apiResourcePath,
+  apiResourceSegment,
+  CRUD_OPERATIONS,
+  supportsResourceOperation,
+} from "./api-resources.js";
+export { resolveColumnConfig, resolveColumnOutputSchema } from "./resolvers.js";
+export type { JsonValue } from "./schemas.js";
+export * as Schemas from "./schemas.js";

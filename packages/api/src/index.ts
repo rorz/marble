@@ -1,3 +1,8 @@
+import {
+  type ApiResourceName,
+  ApiResourceNames,
+  apiResourcePath,
+} from "@marble/core";
 import { createClient } from "@marble/supabase";
 import { Hono } from "hono";
 import { type ApiEnv, readJsonBody, route } from "./core";
@@ -15,6 +20,19 @@ import { mountRowResource } from "./resources/row";
 import { mountTableResource } from "./resources/table";
 
 const app = new Hono<ApiEnv>();
+const resourceMounts = {
+  profiles: mountProfileResource,
+  events: mountEventResource,
+  tables: mountTableResource,
+  columns: mountColumnResource,
+  column_dependencies: mountColumnDependencyResource,
+  rows: mountRowResource,
+  cells: mountCellResource,
+  programs: mountProgramResource,
+  program_versions: mountProgramVersionResource,
+  program_files: mountProgramFileResource,
+  program_runs: mountProgramRunResource,
+} satisfies Record<ApiResourceName, (app: Hono<ApiEnv>) => void>;
 
 app.use("*", async (c, next) => {
   const env = getEnv(c.env);
@@ -41,33 +59,19 @@ app.get(
   "/",
   route(async (c) =>
     c.json({
-      resources: {
-        column_dependencies: "/column-dependencies",
-        columns: "/columns",
-        events: "/events",
-        profiles: "/profiles",
-        program_files: "/program-files",
-        program_runs: "/program-runs",
-        program_versions: "/program-versions",
-        programs: "/programs",
-        rows: "/rows",
-        tables: "/tables",
-      },
+      resources: Object.fromEntries(
+        ApiResourceNames.map((resourceName) => [
+          resourceName,
+          apiResourcePath(resourceName),
+        ]),
+      ),
     }),
   ),
 );
 
-mountProfileResource(app);
-mountEventResource(app);
-mountTableResource(app);
-mountColumnResource(app);
-mountColumnDependencyResource(app);
-mountRowResource(app);
-mountCellResource(app);
-mountProgramResource(app);
-mountProgramVersionResource(app);
-mountProgramFileResource(app);
-mountProgramRunResource(app);
+for (const resourceName of ApiResourceNames) {
+  resourceMounts[resourceName](app);
+}
 
 app.post(
   "/programs/dry-run",

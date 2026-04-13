@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@marble/supabase": ["../../supabase/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*"]
+}

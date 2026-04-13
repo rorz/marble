@@ -11,7 +11,6 @@ export const env = createEnv({
       .url()
       .default("http://localhost:8787")
       .optional(),
-    MARBLE_API_KEY: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_SUPABASE_URL: z.string().url(),

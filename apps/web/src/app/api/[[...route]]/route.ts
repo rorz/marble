@@ -1,53 +1,51 @@
 import app from "@marble/api";
+import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
 import { createClient } from "@marble/supabase";
 import { NextResponse } from "next/server";
 import { env } from "@/env";
-import {
-  getApiKeyTokenFromHeaders,
-  resolveApiKeyAuth,
-} from "../../../../../../packages/keys/src/index";
 import { getCurrentUser } from "../../../lib/auth";
 
 async function forward(req: Request) {
   const apiKeyToken = getApiKeyTokenFromHeaders(req.headers);
-  let isAuthenticated = false;
-  let keyAuth: Awaited<ReturnType<typeof resolveApiKeyAuth>> | null = null;
-  let isApiKeyAuth = false;
+  let authContext: {
+    keyId: string;
+    profileId?: string;
+  } | null = null;
 
   if (apiKeyToken) {
-    if (env.MARBLE_API_KEY && apiKeyToken === env.MARBLE_API_KEY) {
-      isAuthenticated = true;
-      isApiKeyAuth = true;
-    } else {
-      const supabase = createClient(
-        env.NEXT_PUBLIC_SUPABASE_URL,
-        env.SUPABASE_SERVICE_ROLE_KEY,
-      );
-      keyAuth = await resolveApiKeyAuth(supabase, apiKeyToken);
-
-      if (keyAuth) {
-        isAuthenticated = true;
-        isApiKeyAuth = true;
-      }
-    }
-  }
-
-  if (!isAuthenticated) {
-    const user = await getCurrentUser();
-    if (user) {
-      isAuthenticated = true;
-    }
-  }
-
-  if (!isAuthenticated) {
-    return NextResponse.json(
-      {
-        error: "Unauthorized",
-      },
-      {
-        status: 401,
-      },
+    const supabase = createClient(
+      env.SUPABASE_URL,
+      env.SUPABASE_SERVICE_ROLE_KEY,
     );
+    const keyAuth = await resolveApiKeyAuth(supabase, apiKeyToken);
+
+    if (!keyAuth) {
+      return NextResponse.json(
+        {
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
+    authContext = {
+      keyId: keyAuth.id,
+      profileId: keyAuth.owner_profile_id,
+    };
+  } else {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json(
+        {
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
   }
 
   const url = new URL(req.url);
@@ -55,22 +53,22 @@ async function forward(req: Request) {
 
   const forwardedReq = new Request(url, req);
 
-  if (isApiKeyAuth) {
+  if (authContext) {
     forwardedReq.headers.delete("Authorization");
     forwardedReq.headers.delete("authorization");
     forwardedReq.headers.delete("x-api-key");
+    forwardedReq.headers.set("x-marble-auth-key-id", authContext.keyId);
 
-    if (keyAuth) {
-      forwardedReq.headers.set("x-marble-auth-key-id", keyAuth.id);
+    if (authContext.profileId) {
       forwardedReq.headers.set(
         "x-marble-auth-profile-id",
-        keyAuth.owner_profile_id,
+        authContext.profileId,
       );
     }
   }
 
   return app.fetch(forwardedReq, {
-    SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL || "",
+    SUPABASE_URL: env.SUPABASE_URL || "",
     SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY || "",
     MARBLE_EXECUTOR_URL: env.MARBLE_EXECUTOR_URL || env.EXECUTOR_URL,
   });

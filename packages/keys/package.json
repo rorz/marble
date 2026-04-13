@@ -1,0 +1,22 @@
+{
+  "name": "@marble/keys",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@marble/supabase": "workspace:*",
+    "nanoid": "catalog:base"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:base",
+    "typescript": "catalog:base"
+  }
+}

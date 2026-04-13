@@ -603,7 +603,7 @@ export async function executeRun(input: {
     message?: string;
   };
   try {
-    const response = await fetch(`${executorUrl}?run_id=${run.id}`, {
+    const response = await fetch(`${executorUrl}/run?run_id=${run.id}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
