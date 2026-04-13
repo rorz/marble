@@ -10,6 +10,7 @@ import {
 } from "../core";
 import {
   createRecords,
+  createRecordsIgnoringDuplicates,
   createRecordsWithGeneratedIndex,
   deleteRecord,
   deleteRecordsByColumn,
@@ -100,7 +101,7 @@ async function createRows(
         tableId: "table_id",
       },
     );
-    const cells = await createRecords(
+    const cells = await createRecordsIgnoringDuplicates(
       c.var.supabase,
       "cell",
       rows.flatMap((row) =>
@@ -109,6 +110,7 @@ async function createRows(
           row_id: row.id,
         })),
       ),
+      "row_id,column_id",
     );
 
     if (count === 1) {

@@ -268,6 +268,35 @@ export async function createRecords<Name extends DbTableName>(
   return (data ?? []) as DbRow<Name>[];
 }
 
+export async function createRecordsIgnoringDuplicates<Name extends DbTableName>(
+  supabase: SupabaseClient,
+  table: Name,
+  values: DbInsert<Name>[],
+  onConflict: string,
+): Promise<DbRow<Name>[]> {
+  if (values.length === 0) {
+    return [];
+  }
+
+  // Some create flows intentionally race on unique natural keys, e.g. cells
+  // materialized by concurrent row and column creation.
+  const { data, error } = await supabase
+    .from(table as never)
+    .upsert(values as never, {
+      ignoreDuplicates: true,
+      onConflict,
+    })
+    .select("*");
+
+  if (error) {
+    throw toApiError(error);
+  }
+
+  await writeCreateEvents(supabase, table, (data ?? []) as DbRow<Name>[]);
+
+  return (data ?? []) as DbRow<Name>[];
+}
+
 export async function createRecordsWithGeneratedIndex<
   Name extends IndexedTableName,
 >(

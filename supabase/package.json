@@ -12,7 +12,7 @@
   "scripts": {
     "dangerously-splat": "supabase db reset",
     "gen:program-seed": "node generate-seed.mjs",
-    "typegen": "supabase gen types typescript --local > src/types.ts",
+    "typegen": "tmp=$(mktemp src/types.ts.XXXXXX) && supabase gen types typescript --local > \"$tmp\" && mv \"$tmp\" src/types.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

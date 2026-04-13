@@ -14,6 +14,7 @@ import {
 import {
   createRecord,
   createRecords,
+  createRecordsIgnoringDuplicates,
   createRecordsWithGeneratedIndex,
   type DbRow,
   deleteRecord,
@@ -244,13 +245,14 @@ async function createColumn(
         tableId: "table_id",
       },
     );
-    const cells = await createRecords(
+    const cells = await createRecordsIgnoringDuplicates(
       c.var.supabase,
       "cell",
       rows.map((row) => ({
         column_id: column.id,
         row_id: row.id,
       })),
+      "row_id,column_id",
     );
 
     return {
@@ -262,6 +264,7 @@ async function createColumn(
       location: `/columns/${column.id}`,
     };
   } catch (handlerError) {
+    await deleteRecordsByColumn(c.var.supabase, "cell", "column_id", column.id);
     await deleteColumnDependenciesForColumnIds(c.var.supabase, [
       column.id,
     ]);
