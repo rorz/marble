@@ -14,11 +14,23 @@ export default function SignOutButton() {
     setPending(true);
     setError(null);
 
-    const { error: authError } = await supabase.auth.signOut();
+    const [authResult, clearCookiesResult] = await Promise.allSettled([
+      supabase.auth.signOut(),
+      fetch("/api/auth/sign-out", {
+        method: "POST",
+      }),
+    ]);
 
     setPending(false);
 
-    if (authError) {
+    const authError =
+      authResult.status === "fulfilled"
+        ? authResult.value.error
+        : new Error("Failed to contact Supabase.");
+    const cookiesCleared =
+      clearCookiesResult.status === "fulfilled" && clearCookiesResult.value.ok;
+
+    if (authError && !cookiesCleared) {
       setError(authError.message);
       return;
     }

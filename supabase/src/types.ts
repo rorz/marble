@@ -172,7 +172,7 @@ export type Database = {
       event: {
         Row: {
           actor_key_id: string | null
-          actor_profile_id: string | null
+          actor_profile_id: string
           after_state: Json | null
           before_state: Json | null
           created_at: string
@@ -180,14 +180,13 @@ export type Database = {
           entity_id: string
           id: string
           operation: Database["public"]["Enums"]["data_operation"]
-          record_owner_profile_id: string | null
           request_id: string | null
           resource: string
-          source: string
+          source: Database["public"]["Enums"]["event_source"]
         }
         Insert: {
           actor_key_id?: string | null
-          actor_profile_id?: string | null
+          actor_profile_id: string
           after_state?: Json | null
           before_state?: Json | null
           created_at?: string
@@ -195,14 +194,13 @@ export type Database = {
           entity_id: string
           id?: string
           operation: Database["public"]["Enums"]["data_operation"]
-          record_owner_profile_id?: string | null
           request_id?: string | null
           resource: string
-          source?: string
+          source?: Database["public"]["Enums"]["event_source"]
         }
         Update: {
           actor_key_id?: string | null
-          actor_profile_id?: string | null
+          actor_profile_id?: string
           after_state?: Json | null
           before_state?: Json | null
           created_at?: string
@@ -210,10 +208,9 @@ export type Database = {
           entity_id?: string
           id?: string
           operation?: Database["public"]["Enums"]["data_operation"]
-          record_owner_profile_id?: string | null
           request_id?: string | null
           resource?: string
-          source?: string
+          source?: Database["public"]["Enums"]["event_source"]
         }
         Relationships: [
           {
@@ -226,13 +223,6 @@ export type Database = {
           {
             foreignKeyName: "event_actor_profile_id_fkey"
             columns: ["actor_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "event_record_owner_profile_id_fkey"
-            columns: ["record_owner_profile_id"]
             isOneToOne: false
             referencedRelation: "profile"
             referencedColumns: ["id"]
@@ -549,28 +539,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      audit_request_header: { Args: { header_name: string }; Returns: string }
-      audit_request_headers: { Args: never; Returns: Json }
-      current_event_actor_key_id: { Args: never; Returns: string }
-      current_event_actor_profile_id: { Args: never; Returns: string }
-      current_event_request_id: { Args: never; Returns: string }
-      current_event_source: { Args: never; Returns: string }
-      jsonb_diff: {
-        Args: { after_state: Json; before_state: Json; path?: string[] }
-        Returns: Json
-      }
-      normalize_event_row: {
-        Args: { resource_name: string; row_state: Json }
-        Returns: Json
-      }
-      resolve_event_record_owner_profile_id: {
-        Args: { after_state: Json; before_state: Json; resource_name: string }
-        Returns: string
-      }
-      try_parse_uuid: { Args: { raw_value: string }; Returns: string }
+      [_ in never]: never
     }
     Enums: {
       data_operation: "Create" | "Read" | "Update" | "Delete"
+      event_source: "WEB_APP" | "RAW_API" | "CLI"
       profile_type: "Human" | "Agent"
       program_file_type: "TypeScript" | "Json" | "Markdown"
     }
@@ -704,6 +677,7 @@ export const Constants = {
   public: {
     Enums: {
       data_operation: ["Create", "Read", "Update", "Delete"],
+      event_source: ["WEB_APP", "RAW_API", "CLI"],
       profile_type: ["Human", "Agent"],
       program_file_type: ["TypeScript", "Json", "Markdown"],
     },

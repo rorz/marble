@@ -28,6 +28,8 @@ export const programFileTypeSchema = databaseEnumSchema("program_file_type");
 
 export const dataOperationSchema = databaseEnumSchema("data_operation");
 
+export const eventSourceSchema = databaseEnumSchema("event_source");
+
 export const programFilePayloadSchema = requestObject({
   content: z.string(),
   filename: nonEmptyStringSchema,

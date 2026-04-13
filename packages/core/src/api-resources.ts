@@ -12,6 +12,12 @@ const READ_OPERATIONS = [
   "list",
   "get",
 ] as const satisfies readonly CrudOperation[];
+const READ_CREATE_UPDATE_OPERATIONS = [
+  "list",
+  "get",
+  "create",
+  "update",
+] as const satisfies readonly CrudOperation[];
 const READ_UPDATE_OPERATIONS = [
   "list",
   "get",
@@ -19,7 +25,7 @@ const READ_UPDATE_OPERATIONS = [
 ] as const satisfies readonly CrudOperation[];
 
 export const ApiResources = {
-  profiles: READ_UPDATE_OPERATIONS,
+  profiles: READ_CREATE_UPDATE_OPERATIONS,
   events: READ_OPERATIONS,
   tables: CRUD_OPERATIONS,
   columns: CRUD_OPERATIONS,

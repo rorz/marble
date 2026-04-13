@@ -8,10 +8,12 @@ import { createClient } from "@marble/supabase";
 import { Hono } from "hono";
 import { type ApiEnv, readJsonBody, route } from "./core";
 import { getEnv } from "./env";
+import { attachEventContext, type EventSource } from "./event-driver";
 import { mountCellResource } from "./resources/cell";
 import { mountColumnResource } from "./resources/column";
 import { mountColumnDependencyResource } from "./resources/column_dependency";
 import { mountEventResource } from "./resources/event";
+import { mountKeyResource } from "./resources/key";
 import { mountProfileResource } from "./resources/profile";
 import { mountProgramResource } from "./resources/program";
 import { mountProgramFileResource } from "./resources/program_file";
@@ -42,6 +44,37 @@ function executorEndpointUrl(baseUrl: string, path: string, search: string) {
   return endpoint;
 }
 
+function normalizeEventSource(
+  value: string | undefined,
+): EventSource | undefined {
+  switch (value?.trim().toLowerCase()) {
+    case "cli":
+      return "CLI";
+    case "raw_api":
+    case "raw-api":
+    case "api":
+      return "RAW_API";
+    case "web_app":
+    case "web-app":
+    case "webapp":
+      return "WEB_APP";
+    default:
+      return undefined;
+  }
+}
+
+function resolveEventSource(options: {
+  actorKeyId?: string;
+  forwardedUserId?: string;
+  requestedActorSource?: string;
+}): EventSource {
+  return (
+    normalizeEventSource(options.requestedActorSource) ??
+    (options.forwardedUserId ? "WEB_APP" : undefined) ??
+    (options.actorKeyId ? "RAW_API" : "RAW_API")
+  );
+}
+
 app.use("*", async (c, next) => {
   const env = getEnv(c.env);
   const authHeader = c.req.header("Authorization");
@@ -49,6 +82,8 @@ app.use("*", async (c, next) => {
     c.req.header("x-marble-auth-profile-id")?.trim() || undefined;
   const forwardedKeyId =
     c.req.header("x-marble-auth-key-id")?.trim() || undefined;
+  const forwardedUserId =
+    c.req.header("x-marble-auth-user-id")?.trim() || undefined;
   const requestedActorSource =
     c.req.header("x-marble-actor-source")?.trim() || undefined;
   const requestId =
@@ -75,43 +110,50 @@ app.use("*", async (c, next) => {
         });
       }
     }
-  } else {
+  } else if (forwardedProfileId || forwardedKeyId || forwardedUserId) {
     c.set("auth", {
       ...(forwardedKeyId
         ? {
             keyId: forwardedKeyId,
           }
         : {}),
-      profileId: forwardedProfileId,
-      type: "forwarded-key",
+      ...(forwardedProfileId
+        ? {
+            profileId: forwardedProfileId,
+          }
+        : {}),
+      ...(forwardedUserId
+        ? {
+            userId: forwardedUserId,
+          }
+        : {}),
+      type: "forwarded",
     });
   }
 
-  const headers: Record<string, string> = {
-    "x-marble-actor-source":
-      requestedActorSource ??
-      (actorKeyId ? "api" : forwardedProfileId ? "webapp" : "system"),
-    "x-marble-request-id": requestId,
-  };
-
-  if (authHeader) {
-    headers.Authorization = authHeader;
-  }
-
-  if (actorProfileId) {
-    headers["x-marble-auth-profile-id"] = actorProfileId;
-  }
-
-  if (actorKeyId) {
-    headers["x-marble-auth-key-id"] = actorKeyId;
-  }
+  const source = resolveEventSource({
+    actorKeyId,
+    forwardedUserId,
+    requestedActorSource,
+  });
+  const supabase = authHeader
+    ? createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      })
+    : createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
   c.set(
     "supabase",
-    createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-      global: {
-        headers,
-      },
+    attachEventContext(supabase, {
+      actorKeyId,
+      actorProfileId,
+      requestId,
+      source,
+      userId: forwardedUserId,
     }),
   );
 
@@ -135,6 +177,8 @@ app.get(
 for (const resourceName of ApiResourceNames) {
   resourceMounts[resourceName](app);
 }
+
+mountKeyResource(app);
 
 app.post(
   "/test",

@@ -14,7 +14,8 @@ export type ApiEnv = {
       | {
           keyId?: string;
           profileId?: string;
-          type: "api-key" | "forwarded-key";
+          userId?: string;
+          type: "api-key" | "forwarded";
         }
       | undefined;
     supabase: SupabaseClient;

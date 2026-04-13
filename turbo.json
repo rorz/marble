@@ -17,23 +17,28 @@
   ],
   "tasks": {
     "build": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "cache": false
     },
     "symlink": {
       "dependsOn": ["build"],
       "cache": false
     },
     "typegen": {
-      "dependsOn": ["^typegen"]
+      "dependsOn": ["^typegen"],
+      "cache": false
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"]
+      "dependsOn": ["^typecheck"],
+      "cache": false
     },
     "test": {
-      "dependsOn": ["^test"]
+      "dependsOn": ["^test"],
+      "cache": false
     },
     "install:local": {
-      "dependsOn": ["^install:local"]
+      "dependsOn": ["^install:local"],
+      "cache": false
     },
     "dev": {
       "persistent": true,

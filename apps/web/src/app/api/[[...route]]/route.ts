@@ -5,14 +5,15 @@ import { env } from "@/env";
 import { getCurrentUser } from "../../../lib/auth";
 import {
   createServiceRoleClient,
-  resolveOwnedProfileId,
+  maybeResolveOwnedProfileId,
 } from "../../../lib/supabase/service-role";
 
 async function forward(req: Request) {
   const apiKeyToken = getApiKeyTokenFromHeaders(req.headers);
   let authContext: {
     keyId?: string;
-    profileId: string;
+    profileId?: string;
+    userId?: string;
   } | null = null;
 
   if (apiKeyToken) {
@@ -50,7 +51,8 @@ async function forward(req: Request) {
     }
 
     authContext = {
-      profileId: await resolveOwnedProfileId(user.id),
+      profileId: await maybeResolveOwnedProfileId(user.id),
+      userId: user.id,
     };
   }
 
@@ -63,13 +65,22 @@ async function forward(req: Request) {
     forwardedReq.headers.delete("Authorization");
     forwardedReq.headers.delete("authorization");
     forwardedReq.headers.delete("x-api-key");
-    forwardedReq.headers.set("x-marble-actor-source", "webapp");
 
     if (authContext.keyId) {
       forwardedReq.headers.set("x-marble-auth-key-id", authContext.keyId);
     }
 
-    forwardedReq.headers.set("x-marble-auth-profile-id", authContext.profileId);
+    if (authContext.profileId) {
+      forwardedReq.headers.set(
+        "x-marble-auth-profile-id",
+        authContext.profileId,
+      );
+    }
+
+    if (authContext.userId) {
+      forwardedReq.headers.set("x-marble-actor-source", "WEB_APP");
+      forwardedReq.headers.set("x-marble-auth-user-id", authContext.userId);
+    }
   }
 
   return app.fetch(forwardedReq, {

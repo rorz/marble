@@ -1,5 +1,6 @@
 import type { Database, SupabaseClient } from "@marble/supabase";
 import { ApiError, requireById, requiredValue } from "./core";
+import { writeEventRecord } from "./event-driver";
 
 export type DbTableName = keyof Database["public"]["Tables"];
 type DbTable<Name extends DbTableName> = Database["public"]["Tables"][Name];
@@ -29,6 +30,10 @@ const RECORD_METADATA = {
   event: {
     idKey: "eventId",
     label: "Event",
+  },
+  key: {
+    idKey: "keyId",
+    label: "Key",
   },
   profile: {
     idKey: "profileId",
@@ -156,6 +161,13 @@ export async function createRecord<Name extends DbTableName>(
     throw new ApiError(500, error.message);
   }
 
+  await writeEventRecord(supabase, {
+    after: data as Record<string, unknown>,
+    before: null,
+    operation: "Create",
+    resource: table,
+  });
+
   return data as DbRow<Name>;
 }
 
@@ -177,6 +189,15 @@ export async function createRecords<Name extends DbTableName>(
     throw new ApiError(500, error.message);
   }
 
+  for (const row of data ?? []) {
+    await writeEventRecord(supabase, {
+      after: row as Record<string, unknown>,
+      before: null,
+      operation: "Create",
+      resource: table,
+    });
+  }
+
   return (data ?? []) as DbRow<Name>[];
 }
 
@@ -186,6 +207,16 @@ export async function updateRecord<Name extends DbTableName>(
   id: string,
   values: DbUpdate<Name>,
 ): Promise<DbRow<Name>> {
+  const before = await requireById<DbRow<Name>>(
+    supabase
+      .from(table as never)
+      .select("*")
+      .eq("id" as never, id as never)
+      .maybeSingle() as never,
+    table,
+    id,
+  );
+
   const { data, error } = await supabase
     .from(table as never)
     .update(values as never)
@@ -197,6 +228,13 @@ export async function updateRecord<Name extends DbTableName>(
     throw new ApiError(500, error.message);
   }
 
+  await writeEventRecord(supabase, {
+    after: data as Record<string, unknown>,
+    before: before as Record<string, unknown>,
+    operation: "Update",
+    resource: table,
+  });
+
   return data as DbRow<Name>;
 }
 
@@ -205,6 +243,16 @@ export async function deleteRecord<Name extends DbTableName>(
   table: Name,
   id: string,
 ) {
+  const before = await requireById<DbRow<Name>>(
+    supabase
+      .from(table as never)
+      .select("*")
+      .eq("id" as never, id as never)
+      .maybeSingle() as never,
+    table,
+    id,
+  );
+
   const { error } = await supabase
     .from(table as never)
     .delete()
@@ -213,6 +261,13 @@ export async function deleteRecord<Name extends DbTableName>(
   if (error) {
     throw new ApiError(500, error.message);
   }
+
+  await writeEventRecord(supabase, {
+    after: null,
+    before: before as Record<string, unknown>,
+    operation: "Delete",
+    resource: table,
+  });
 }
 
 export async function deleteRecordsByColumn<Name extends DbTableName>(
@@ -221,6 +276,10 @@ export async function deleteRecordsByColumn<Name extends DbTableName>(
   column: string,
   value: QueryValue,
 ) {
+  const before = await listRecords(supabase, table, {
+    [column]: value,
+  });
+
   const { error } = await supabase
     .from(table as never)
     .delete()
@@ -228,6 +287,15 @@ export async function deleteRecordsByColumn<Name extends DbTableName>(
 
   if (error) {
     throw new ApiError(500, error.message);
+  }
+
+  for (const row of before) {
+    await writeEventRecord(supabase, {
+      after: null,
+      before: row as Record<string, unknown>,
+      operation: "Delete",
+      resource: table,
+    });
   }
 }
 
@@ -241,6 +309,8 @@ export async function deleteRecordsInColumn<Name extends DbTableName>(
     return;
   }
 
+  const before = await listRecordsInColumn(supabase, table, column, values);
+
   const { error } = await supabase
     .from(table as never)
     .delete()
@@ -248,6 +318,15 @@ export async function deleteRecordsInColumn<Name extends DbTableName>(
 
   if (error) {
     throw new ApiError(500, error.message);
+  }
+
+  for (const row of before) {
+    await writeEventRecord(supabase, {
+      after: null,
+      before: row as Record<string, unknown>,
+      operation: "Delete",
+      resource: table,
+    });
   }
 }
 

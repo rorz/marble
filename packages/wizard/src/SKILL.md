@@ -21,7 +21,6 @@ Use the Marble CLI for Marble operator work. This skill is for provisioning and 
 - `MARBLE_API_URL` defaults to `https://marble.kenobi.tech/api`.
 - `MARBLE_API_KEY` is optional, but some environments require it.
 - Marble program runs receive provider credentials on `system.providers`.
-- Apollo is available at `system.providers.APOLLO_IO.apiKey` when configured.
 
 ## Marble Model
 
@@ -33,18 +32,9 @@ Use the Marble CLI for Marble operator work. This skill is for provisioning and 
 
 ## CLI Commands
 
-- `marble programs list`
-- `marble programs get <programId>`
-- `marble programs test <dir> '<json-input>'`
-- `marble programs upsert <dir>`
-- `marble tables list`
-- `marble tables get <tableId>`
-- `marble tables create "<name>"`
-- `marble columns list <tableId>`
-- `marble columns add <tableId> "<name>" <programId> '<inputTemplate>' '<outputSchema>'`
-- `marble rows list <tableId>`
-- `marble rows add <tableId>`
-- `marble cells get <cellId>`
+The Marble CLI (available via `bunx marble-cli <... commands ...>`) is restful and self-explanatory. Commands work via the standard `[resource] [action] [...options]` paradigm, and help text is available at every level.
+
+For example, running `bunx marble-cli programs` will display the help page for the Programs resource -- `bunx marble-cli programs list` will list all programs for the authenticated user.
 
 ## Program Directory Contract
 
@@ -174,13 +164,20 @@ marble columns add <tableId> "Enriched Email" <apolloProgramId> '{"personName.$"
 marble rows add <tableId>
 ```
 
-## Apollo Notes
+## General approach and architectural considerations
 
-- Use `system.providers.APOLLO_IO.apiKey`.
-- Fail clearly if the key is missing.
-- Prefer returning a simple value that matches the target column schema.
-- If the user asked for one enriched field, return that field directly instead of a large object.
-- If the user supplies a company name rather than a domain, the program may translate that into Apollo parameters such as `organization_name`.
+When being asked to create a table or workflow, it's important to approach the task at hand as any experienced engineer would: by breaking the problem into its constituent parts in order to favour modularity and composition.
+
+### Do
+- Use a column for each _step_ in the workflow
+- Combine columnar results into a "master" or "sum" column
+- Use input fields for inputs fewer than 5, but...
+- Favour passing objects as inputs, with formulae path accessors, when the number of inputs to a function grows beyond ~5
+
+### Don't
+- Try to build a "monolithic" program that does everything in one column
+- Make assumptions about services or api keys required without first checking they are explicitly provided by Marble, or the user is able to provide them
+- Try to build all the functionality yourself. Use `npm` packages for complex or domain-specific behavior.
 
 ## Troubleshooting
 

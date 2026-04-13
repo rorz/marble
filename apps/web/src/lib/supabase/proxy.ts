@@ -1,9 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { getSupabaseAuthCookieNames } from "./auth-cookies";
 import { getSupabaseBrowserKey, getSupabaseUrl } from "./config";
 
 const PROTECTED_PATHS = [
-  "/demo",
+  "/profiles",
+  "/tables",
   "/test-programs",
 ];
 
@@ -11,6 +13,19 @@ function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PATHS.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
+}
+
+function clearSupabaseAuthCookies(
+  request: NextRequest,
+  response: NextResponse,
+  cookieNames: ReadonlyArray<string>,
+) {
+  for (const cookieName of cookieNames) {
+    request.cookies.delete(cookieName);
+    response.cookies.delete(cookieName);
+  }
+
+  return response;
 }
 
 export async function updateSession(request: NextRequest) {
@@ -47,16 +62,39 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const signedIn = Boolean(claimsData?.claims?.sub);
+  const { data: claimsData, error: claimsError } =
+    await supabase.auth.getClaims();
+  let signedIn = Boolean(claimsData?.claims?.sub);
+  let shouldClearAuthCookies = Boolean(claimsError);
+
+  if (signedIn) {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      signedIn = false;
+      shouldClearAuthCookies = true;
+    }
+  }
+
+  const authCookieNames = shouldClearAuthCookies
+    ? getSupabaseAuthCookieNames(request.cookies.getAll())
+    : [];
   const pathname = request.nextUrl.pathname;
 
   if (!signedIn && isProtectedPath(pathname)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    const redirectResponse = NextResponse.redirect(new URL("/", request.url));
+    return clearSupabaseAuthCookies(request, redirectResponse, authCookieNames);
   }
 
   if (signedIn && pathname === "/") {
-    return NextResponse.redirect(new URL("/demo", request.url));
+    return NextResponse.redirect(new URL("/tables", request.url));
+  }
+
+  if (authCookieNames.length > 0) {
+    return clearSupabaseAuthCookies(request, response, authCookieNames);
   }
 
   return response;

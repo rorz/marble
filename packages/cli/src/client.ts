@@ -85,7 +85,7 @@ export class MarbleClient {
     const url = `${this.apiUrl}${this.buildEndpoint(endpoint, query)}`;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "x-marble-actor-source": "cli",
+      "x-marble-actor-source": "CLI",
       ...((options.headers as Record<string, string>) || {}),
     };
 

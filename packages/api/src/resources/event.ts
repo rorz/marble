@@ -4,6 +4,7 @@ import { getRecord, listRecordsFromQuery } from "../data";
 import { resolveOwnerProfileFilter } from "./profile";
 import {
   dataOperationSchema,
+  eventSourceSchema,
   nonEmptyStringSchema,
   requestObject,
   uuidSchema,
@@ -15,10 +16,9 @@ const eventListSchema = requestObject({
   entityId: uuidSchema.optional(),
   operation: dataOperationSchema.optional(),
   ownerProfileId: uuidSchema.optional(),
-  recordOwnerProfileId: uuidSchema.optional(),
   requestId: nonEmptyStringSchema.optional(),
   resource: nonEmptyStringSchema.optional(),
-  source: nonEmptyStringSchema.optional(),
+  source: eventSourceSchema.optional(),
 });
 
 export function mountEventResource(app: Hono<ApiEnv>) {
@@ -43,7 +43,6 @@ export function mountEventResource(app: Hono<ApiEnv>) {
               entityId: "entity_id",
               operation: "operation",
               ownerProfileId: "actor_profile_id",
-              recordOwnerProfileId: "record_owner_profile_id",
               requestId: "request_id",
               resource: "resource",
               source: "source",

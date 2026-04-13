@@ -1,13 +1,6 @@
 import "server-only";
-import { createClient, type SupabaseClient } from "@marble/supabase";
+import { createClient } from "@marble/supabase";
 import { env } from "@/env";
-import { requireUser } from "../auth";
-
-export type ServiceRoleActorContext = {
-  profileId: string;
-  requestId: string;
-  supabase: SupabaseClient;
-};
 
 function requireServiceRoleCredentials() {
   const url = env.SUPABASE_URL;
@@ -55,25 +48,20 @@ export async function resolveOwnedProfileId(userId: string) {
   return data.id;
 }
 
-export async function createActingServiceRoleClientForUser(
-  userId: string,
-  source = "webapp",
-): Promise<ServiceRoleActorContext> {
-  const profileId = await resolveOwnedProfileId(userId);
-  const requestId = crypto.randomUUID();
+export async function maybeResolveOwnedProfileId(userId: string) {
+  const { data, error } = await createServiceRoleClient()
+    .from("profile")
+    .select("id")
+    .eq("owner_user_id", userId)
+    .order("created_at", {
+      ascending: true,
+    })
+    .limit(1)
+    .maybeSingle();
 
-  return {
-    profileId,
-    requestId,
-    supabase: createServiceRoleClient({
-      "x-marble-actor-source": source,
-      "x-marble-auth-profile-id": profileId,
-      "x-marble-request-id": requestId,
-    }),
-  };
-}
+  if (error) {
+    throw error;
+  }
 
-export async function createActingServiceRoleClient(source = "webapp") {
-  const user = await requireUser();
-  return createActingServiceRoleClientForUser(user.id, source);
+  return data?.id;
 }

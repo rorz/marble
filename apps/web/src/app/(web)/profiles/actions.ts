@@ -1,18 +1,10 @@
 "use server";
 
-import {
-  apiKeyPreview,
-  createApiKeyRecord,
-  listApiKeysForProfiles,
-  revokeApiKeyRecord,
-} from "@marble/keys";
+import { apiKeyPreview, listApiKeysForProfiles } from "@marble/keys";
 import type { Database } from "@marble/supabase";
 import { requireUser } from "../../../lib/auth";
-import {
-  createActingServiceRoleClient,
-  createActingServiceRoleClientForUser,
-  createServiceRoleClient,
-} from "../../../lib/supabase/service-role";
+import { callMarbleApi } from "../../../lib/marble-api";
+import { createServiceRoleClient } from "../../../lib/supabase/service-role";
 
 type KeyRow = Database["public"]["Tables"]["key"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profile"]["Row"];
@@ -129,56 +121,45 @@ export async function createProfile(input: {
   name: string;
   type?: ProfileType;
 }) {
-  const user = await requireUser();
   const name = assertNonEmpty(input.name, "Profile name");
-  const externalName = input.externalName?.trim() || null;
-  const { supabase } = await createActingServiceRoleClientForUser(user.id);
-  const { data, error } = await supabase
-    .from("profile")
-    .insert({
-      external_name: externalName,
+
+  return callMarbleApi<ProfileRow>("/profiles", {
+    body: {
+      externalName: input.externalName?.trim() || null,
       name,
-      owner_user_id: user.id,
       type: input.type ?? "Agent",
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
+    },
+    method: "POST",
+    profileId: false,
+    requireActorProfile: false,
+  });
 }
 
 export async function createProfileKey(profileId: string) {
   const profile = await requireOwnedProfile(profileId);
-  const { supabase } = await createActingServiceRoleClient();
-  const { key, token } = await createApiKeyRecord(supabase, profile.id);
+  const created = await callMarbleApi<{
+    key: ManagedKey;
+    token: string;
+  }>("/keys", {
+    body: {
+      ownerProfileId: profile.id,
+    },
+    method: "POST",
+  });
 
   return {
-    key: {
-      created_at: key.created_at,
-      deleted_at: key.deleted_at,
-      id: key.id,
-      owner_profile_id: key.owner_profile_id,
-      prefix: key.prefix,
-      preview: apiKeyPreview(key.prefix),
-    },
+    key: created.key,
     profileId: profile.id,
     profileName: profile.name,
-    token,
+    token: created.token,
   };
 }
 
 export async function revokeProfileKey(keyId: string) {
-  await requireOwnedKey(keyId);
-  const { supabase } = await createActingServiceRoleClient();
-  const key = await revokeApiKeyRecord(supabase, keyId);
-
-  if (!key) {
-    throw new Error("API key already revoked");
-  }
+  const key = await requireOwnedKey(keyId);
+  await callMarbleApi(`/keys/${keyId}`, {
+    method: "DELETE",
+  });
 
   return {
     id: key.id,

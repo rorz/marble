@@ -1,17 +1,22 @@
 "use server";
 
-import type { Database, Json } from "@marble/supabase";
+import type { Database } from "@marble/supabase";
 import { env } from "@/env";
 import { requireUser } from "../../lib/auth";
+import { callMarbleApi } from "../../lib/marble-api";
 import {
-  createActingServiceRoleClient,
-  createActingServiceRoleClientForUser,
   createServiceRoleClient,
+  resolveOwnedProfileId,
 } from "../../lib/supabase/service-role";
 
+type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type Program = Database["public"]["Tables"]["program"]["Row"];
+type ProgramRunRow = Database["public"]["Tables"]["program_run"]["Row"];
 type ProgramVersion = Database["public"]["Tables"]["program_version"]["Row"];
 type ProgramFile = Database["public"]["Tables"]["program_file"]["Row"];
+type RowRow = Database["public"]["Tables"]["row"]["Row"];
+type TableRow = Database["public"]["Tables"]["table"]["Row"];
+type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
 
 export type FullProgram = Program & {
   program_version: (ProgramVersion & {
@@ -46,70 +51,52 @@ export async function saveProgramVersion(
     filetype: "TypeScript" | "Json" | "Markdown";
   }[],
 ) {
-  const user = await requireUser();
-  const { profileId, supabase } = await createActingServiceRoleClientForUser(
-    user.id,
-  );
+  const requestId = crypto.randomUUID();
 
-  let pId = programId;
+  if (programId) {
+    const version = await callMarbleApi<
+      ProgramVersion & {
+        files: ProgramFile[];
+      }
+    >("/program-versions", {
+      body: {
+        files,
+        inputSchema,
+        outputConfig,
+        programId,
+      },
+      method: "POST",
+      requestId,
+    });
 
-  if (!pId) {
-    const { data: newProgram, error: progErr } = await supabase
-      .from("program")
-      .insert({
-        name,
-        owner_profile_id: profileId,
-      })
-      .select()
-      .single();
-    if (progErr) throw progErr;
-    pId = newProgram.id;
+    return {
+      programId,
+      versionId: version.id,
+    };
   }
 
-  const { data: existingVersions } = await supabase
-    .from("program_version")
-    .select("version")
-    .eq("program_id", pId)
-    .order("version", {
-      ascending: false,
-    })
-    .limit(1);
-
-  const nextVersion = existingVersions?.length
-    ? existingVersions[0].version + 1
-    : 1;
-
-  const { data: version, error: versionErr } = await supabase
-    .from("program_version")
-    .insert({
-      program_id: pId,
-      version: nextVersion,
-      input_schema: inputSchema as Json,
-      output_config: outputConfig as Json,
-    })
-    .select()
-    .single();
-
-  if (versionErr) throw versionErr;
-
-  const filesToInsert = files.map((f) => ({
-    owner_profile_id: profileId,
-    version_id: version.id,
-    filename: f.filename,
-    content: f.content,
-    filetype: f.filetype,
-  }));
-
-  if (filesToInsert.length > 0) {
-    const { error: filesErr } = await supabase
-      .from("program_file")
-      .insert(filesToInsert);
-    if (filesErr) throw filesErr;
-  }
+  const program = await callMarbleApi<
+    Program & {
+      initialVersion: ProgramVersion & {
+        files: ProgramFile[];
+      };
+    }
+  >("/programs", {
+    body: {
+      initialVersion: {
+        files,
+        inputSchema,
+        outputConfig,
+      },
+      name,
+    },
+    method: "POST",
+    requestId,
+  });
 
   return {
-    programId: pId,
-    versionId: version.id,
+    programId: program.id,
+    versionId: program.initialVersion.id,
   };
 }
 
@@ -122,116 +109,114 @@ export async function testProgram(
   output: unknown;
   error?: string;
 }> {
-  const { supabase } = await createActingServiceRoleClient();
-
-  const { data: tables } = await supabase
+  const user = await requireUser();
+  const actorProfileId = await resolveOwnedProfileId(user.id);
+  const requestId = crypto.randomUUID();
+  const { data: existingTable, error: tableError } = await db()
     .from("table")
     .select("id")
+    .eq("owner_profile_id", actorProfileId)
+    .order("created_at", {
+      ascending: true,
+    })
     .limit(1)
-    .single();
+    .maybeSingle();
 
-  let tableId = tables?.id;
-  if (!tableId) {
-    // we need an owner for the table
-    const { data: user } = await supabase.auth.admin.listUsers({
-      perPage: 1,
-    });
-    const { data: profile } = await supabase
-      .from("profile")
-      .select("id")
-      .eq("owner_user_id", user.users[0].id)
-      .single();
-
-    if (!profile) throw new Error("Could not find demo profile");
-
-    const { data, error } = await supabase
-      .from("table")
-      .insert({
-        owner_profile_id: profile.id,
-      })
-      .select("id")
-      .single();
-    if (error || !data) throw new Error("Failed to create test table");
-    tableId = data.id;
+  if (tableError) {
+    throw tableError;
   }
 
+  const table =
+    existingTable ??
+    (await callMarbleApi<TableRow>("/tables", {
+      method: "POST",
+      requestId,
+    }));
   const ts = Date.now();
-
-  const { data: col, error: colErr } = await supabase
-    .from("column")
-    .insert({
-      table_id: tableId,
+  const column = await callMarbleApi<
+    ColumnRow & {
+      cells: CellRow[];
+    }
+  >("/columns", {
+    body: {
+      idx: ts,
+      inputTemplate: JSON.stringify(inputConfig),
       name: `__test_${ts}`,
+      outputSchema: {},
+      programVersionId,
+      tableId: table.id,
+    },
+    method: "POST",
+    requestId,
+  });
+  const row = await callMarbleApi<RowRow>(`/tables/${table.id}/rows`, {
+    body: {
       idx: ts,
-      program_version_id: programVersionId,
-      input_template: JSON.stringify(inputConfig),
-      output_schema: {},
-    })
-    .select("id")
-    .single();
-  if (colErr) throw colErr;
+    },
+    method: "POST",
+    requestId,
+  });
+  const cells = await callMarbleApi<CellRow[]>(`/rows/${row.id}/cells`, {
+    requestId,
+  });
+  const cell = cells.find((candidate) => candidate.column_id === column.id);
 
-  const { data: row, error: rowErr } = await supabase
-    .from("row")
-    .insert({
-      table_id: tableId,
-      idx: ts,
-    })
-    .select("id")
-    .single();
-  if (rowErr) throw rowErr;
+  if (!cell) {
+    throw new Error("Failed to resolve test cell");
+  }
 
-  const { data: cell, error: cellErr } = await supabase
-    .from("cell")
-    .insert({
-      column_id: col.id,
-      row_id: row.id,
-      manual_input: manualInput ?? null,
-    })
-    .select("id")
-    .single();
-  if (cellErr) throw cellErr;
+  if (manualInput !== undefined) {
+    await callMarbleApi<CellRow>(`/cells/${cell.id}`, {
+      body: {
+        manualInput,
+      },
+      method: "PATCH",
+      requestId,
+    });
+  }
 
-  const { data: run, error: runErr } = await supabase
-    .from("program_run")
-    .insert({
-      program_version_id: programVersionId,
-      target_cell_id: cell.id,
-    })
-    .select("id")
-    .single();
-  if (runErr) throw runErr;
-
+  const run = await callMarbleApi<ProgramRunRow>("/program-runs", {
+    body: {
+      programVersionId,
+      targetCellId: cell.id,
+    },
+    method: "POST",
+    requestId,
+  });
   const executorUrl = env.EXECUTOR_URL;
+
   try {
     const res = await fetch(`${executorUrl}/run?run_id=${run.id}`, {
-      method: "POST",
+      body: "{}",
       headers: {
         "Content-Type": "application/json",
       },
-      body: "{}",
+      method: "POST",
     });
     const result = (await res.json()) as {
-      success?: boolean;
-      output?: unknown;
       error?: boolean;
       message?: string;
+      output?: unknown;
+      success?: boolean;
     };
-    if (result.error)
+
+    if (result.error) {
       return {
+        error: result.message,
         ok: false,
         output: null,
-        error: result.message,
       };
+    }
+
     return {
       ok: true,
       output: result.output,
     };
   } catch (err) {
     return {
+      error: `Executor unreachable at ${executorUrl}: ${err instanceof Error ? err.message : String(err)}`,
       ok: false,
       output: null,
-      error: `Executor unreachable at ${executorUrl}: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
