@@ -268,9 +268,13 @@ rowsCmd
   .action(async (tableId) => {
     try {
       const data = await client.rows.add(tableId);
-      console.log(
-        `Row added successfully to table ${tableId}. (ID: ${data.id})`,
-      );
+      const rowId = "id" in data ? data.id : data.rows[0]?.id;
+
+      if (!rowId) {
+        throw new Error("API did not return a created row ID.");
+      }
+
+      console.log(`Row added successfully to table ${tableId}. (ID: ${rowId})`);
     } catch (err) {
       console.error(
         `Error adding row: ${err instanceof Error ? err.message : String(err)}`,
