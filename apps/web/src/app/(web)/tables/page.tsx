@@ -11,8 +11,22 @@ export default async function TablesPage() {
   return (
     <div className="bg-zinc-50 text-zinc-900 min-h-screen flex flex-col font-sans">
       <header className="border-b border-zinc-200 px-5 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
           <h1 className="text-lg font-semibold tracking-tight">marble</h1>
+          <nav className="flex items-center gap-2 text-sm">
+            <Link
+              href="/tables"
+              className="rounded-lg bg-orange-50 px-3 py-1.5 font-medium text-orange-700"
+            >
+              Tables
+            </Link>
+            <Link
+              href="/profiles"
+              className="rounded-lg px-3 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+            >
+              Profiles + Keys
+            </Link>
+          </nav>
         </div>
         <SignOutButton />
       </header>

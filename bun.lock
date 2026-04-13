@@ -5,10 +5,10 @@
     "": {
       "name": "marble",
       "devDependencies": {
-        "@biomejs/biome": "catalog:base",
-        "@postgres-language-server/cli": "catalog:base",
+        "@biomejs/biome": "^2.4.11",
+        "@postgres-language-server/cli": "^0.23.0",
         "turbo": "^2.9.5",
-        "typescript": "catalog:base",
+        "typescript": "^5.9.3",
       },
     },
     "apps/executor": {
@@ -16,9 +16,11 @@
       "version": "1.0.0",
       "dependencies": {
         "@marble/core": "workspace:",
+        "@marble/keys": "workspace:*",
         "@marble/lib": "workspace:",
         "@marble/supabase": "workspace:",
         "@t3-oss/env-core": "catalog:base",
+        "hono": "catalog:base",
         "nanoid": "catalog:base",
         "zod": "catalog:base",
       },
@@ -35,6 +37,7 @@
       "dependencies": {
         "@heroicons/react": "^2.2.0",
         "@marble/api": "workspace:*",
+        "@marble/keys": "workspace:*",
         "@marble/supabase": "workspace:*",
         "@supabase/ssr": "^0.10.0",
         "@t3-oss/env-nextjs": "catalog:base",
@@ -103,6 +106,18 @@
       "devDependencies": {
         "typescript": "catalog:base",
         "vitest": "catalog:base",
+      },
+    },
+    "packages/keys": {
+      "name": "@marble/keys",
+      "version": "1.0.0",
+      "dependencies": {
+        "@marble/supabase": "workspace:*",
+        "nanoid": "catalog:base",
+      },
+      "devDependencies": {
+        "@types/node": "catalog:base",
+        "typescript": "catalog:base",
       },
     },
     "packages/lib": {
@@ -331,6 +346,8 @@
     "@marble/core": ["@marble/core@workspace:packages/core"],
 
     "@marble/executor": ["@marble/executor@workspace:apps/executor"],
+
+    "@marble/keys": ["@marble/keys@workspace:packages/keys"],
 
     "@marble/lib": ["@marble/lib@workspace:packages/lib"],
 
