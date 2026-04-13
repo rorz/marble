@@ -6,6 +6,7 @@ import { requireUser } from "../../lib/auth";
 import { callMarbleApi } from "../../lib/marble-api";
 import {
   createServiceRoleClient,
+  listOwnedProfileIds,
   resolveOwnedProfileId,
 } from "../../lib/supabase/service-role";
 
@@ -23,21 +24,51 @@ export type FullProgram = Program & {
     program_file: ProgramFile[];
   })[];
 };
+const PROGRAM_SELECT =
+  "*, program_version!program_version_program_id_fkey(*, program_file(*))";
 
 function db() {
   return createServiceRoleClient();
 }
 
 export async function listPrograms(): Promise<FullProgram[]> {
-  await requireUser();
-  const { data, error } = await db()
-    .from("program")
-    .select(
-      "*, program_version!program_version_program_id_fkey(*, program_file(*))",
-    )
-    .order("created_at");
-  if (error) throw error;
-  return data as unknown as FullProgram[];
+  const user = await requireUser();
+  const ownedProfileIds = await listOwnedProfileIds(user.id);
+  const supabase = db();
+
+  const [firstPartyResult, ownedResult] = await Promise.all([
+    supabase.from("program").select(PROGRAM_SELECT).eq("first_party", true),
+    ownedProfileIds.length === 0
+      ? Promise.resolve({
+          data: [],
+          error: null,
+        })
+      : supabase
+          .from("program")
+          .select(PROGRAM_SELECT)
+          .in("owner_profile_id", ownedProfileIds),
+  ]);
+
+  if (firstPartyResult.error) {
+    throw firstPartyResult.error;
+  }
+
+  if (ownedResult.error) {
+    throw ownedResult.error;
+  }
+
+  const merged = new Map<string, FullProgram>();
+
+  for (const program of [
+    ...(firstPartyResult.data ?? []),
+    ...(ownedResult.data ?? []),
+  ]) {
+    merged.set(program.id, program as FullProgram);
+  }
+
+  return [
+    ...merged.values(),
+  ].sort((a, b) => a.created_at.localeCompare(b.created_at));
 }
 
 export async function saveProgramVersion(

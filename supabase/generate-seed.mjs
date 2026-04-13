@@ -302,6 +302,7 @@ USING (
       AND profile.owner_user_id = auth.uid()
   )
 );
+
 `;
 
 writeFileSync(OUTPUT_FILE, seed, "utf-8");

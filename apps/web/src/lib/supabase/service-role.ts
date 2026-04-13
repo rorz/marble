@@ -65,3 +65,19 @@ export async function maybeResolveOwnedProfileId(userId: string) {
 
   return data?.id;
 }
+
+export async function listOwnedProfileIds(userId: string) {
+  const { data, error } = await createServiceRoleClient()
+    .from("profile")
+    .select("id")
+    .eq("owner_user_id", userId)
+    .order("created_at", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []).map((profile) => profile.id);
+}

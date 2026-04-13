@@ -4,18 +4,36 @@ import type { Database } from "@marble/supabase";
 import { env } from "@/env";
 import { requireUser } from "../../../../lib/auth";
 import { callMarbleApi } from "../../../../lib/marble-api";
-import { createServiceRoleClient } from "../../../../lib/supabase/service-role";
+import {
+  createServiceRoleClient,
+  listOwnedProfileIds,
+} from "../../../../lib/supabase/service-role";
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
 type DependencyRow = Database["public"]["Tables"]["column_dependency"]["Row"];
+type ProgramFileRow = Database["public"]["Tables"]["program_file"]["Row"];
 type ProgramRunRow = Database["public"]["Tables"]["program_run"]["Row"];
+type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
+type ProgramVersionRow = Database["public"]["Tables"]["program_version"]["Row"];
 type RowRow = Database["public"]["Tables"]["row"]["Row"];
+type FullProgram = ProgramRow & {
+  program_version: (ProgramVersionRow & {
+    program_file: ProgramFileRow[];
+  })[];
+};
 
 const SUPABASE_SELECT_PAGE_SIZE = 1000;
+const PROGRAM_SELECT =
+  "*, program_version!program_version_program_id_fkey(*, program_file(*))";
 
 function db() {
   return createServiceRoleClient();
+}
+
+async function listCurrentUserOwnedProfileIds() {
+  const user = await requireUser();
+  return listOwnedProfileIds(user.id);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -73,10 +91,16 @@ async function loadColumn(columnId: string) {
 // ── Tables ──────────────────────────────────────────────
 
 export async function listTables() {
-  await requireUser();
+  const ownedProfileIds = await listCurrentUserOwnedProfileIds();
+
+  if (ownedProfileIds.length === 0) {
+    return [];
+  }
+
   const { data, error } = await db()
     .from("table")
     .select("*")
+    .in("owner_profile_id", ownedProfileIds)
     .order("created_at");
   if (error) throw error;
   return data;
@@ -105,14 +129,43 @@ export async function updateTableName(id: string, name: string) {
 
 // ── Programs ────────────────────────────────────────────
 
-export async function listPrograms() {
-  await requireUser();
-  const { data, error } = await db()
-    .from("program")
-    .select("*, program_version!program_version_program_id_fkey(*)")
-    .order("created_at");
-  if (error) throw error;
-  return data;
+export async function listPrograms(): Promise<FullProgram[]> {
+  const ownedProfileIds = await listCurrentUserOwnedProfileIds();
+  const supabase = db();
+
+  const [firstPartyResult, ownedResult] = await Promise.all([
+    supabase.from("program").select(PROGRAM_SELECT).eq("first_party", true),
+    ownedProfileIds.length === 0
+      ? Promise.resolve({
+          data: [],
+          error: null,
+        })
+      : supabase
+          .from("program")
+          .select(PROGRAM_SELECT)
+          .in("owner_profile_id", ownedProfileIds),
+  ]);
+
+  if (firstPartyResult.error) {
+    throw firstPartyResult.error;
+  }
+
+  if (ownedResult.error) {
+    throw ownedResult.error;
+  }
+
+  const merged = new Map<string, FullProgram>();
+
+  for (const program of [
+    ...(firstPartyResult.data ?? []),
+    ...(ownedResult.data ?? []),
+  ]) {
+    merged.set(program.id, program as FullProgram);
+  }
+
+  return [
+    ...merged.values(),
+  ].sort((a, b) => a.created_at.localeCompare(b.created_at));
 }
 
 export async function updateProgramOutputSchema(
@@ -130,8 +183,27 @@ export async function updateProgramOutputSchema(
 // ── Table data (columns + rows + cells) ─────────────────
 
 export async function loadTableData(tableId: string) {
-  await requireUser();
+  const ownedProfileIds = await listCurrentUserOwnedProfileIds();
   const supabase = db();
+
+  if (ownedProfileIds.length === 0) {
+    throw new Error("Table not found");
+  }
+
+  const { data: tableRecord, error: tableError } = await supabase
+    .from("table")
+    .select("id")
+    .eq("id", tableId)
+    .in("owner_profile_id", ownedProfileIds)
+    .maybeSingle();
+
+  if (tableError) {
+    throw tableError;
+  }
+
+  if (!tableRecord) {
+    throw new Error("Table not found");
+  }
 
   const [cols, rows] = await Promise.all([
     supabase
