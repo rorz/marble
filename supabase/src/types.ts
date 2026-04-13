@@ -171,33 +171,68 @@ export type Database = {
       }
       event: {
         Row: {
+          actor_key_id: string | null
+          actor_profile_id: string | null
+          after_state: Json | null
+          before_state: Json | null
           created_at: string
+          diff: Json
           entity_id: string
           id: string
           operation: Database["public"]["Enums"]["data_operation"]
-          owner_profile_id: string
+          record_owner_profile_id: string | null
+          request_id: string | null
           resource: string
+          source: string
         }
         Insert: {
+          actor_key_id?: string | null
+          actor_profile_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
           created_at?: string
+          diff?: Json
           entity_id: string
           id?: string
           operation: Database["public"]["Enums"]["data_operation"]
-          owner_profile_id: string
+          record_owner_profile_id?: string | null
+          request_id?: string | null
           resource: string
+          source?: string
         }
         Update: {
+          actor_key_id?: string | null
+          actor_profile_id?: string | null
+          after_state?: Json | null
+          before_state?: Json | null
           created_at?: string
+          diff?: Json
           entity_id?: string
           id?: string
           operation?: Database["public"]["Enums"]["data_operation"]
-          owner_profile_id?: string
+          record_owner_profile_id?: string | null
+          request_id?: string | null
           resource?: string
+          source?: string
         }
         Relationships: [
           {
-            foreignKeyName: "event_owner_profile_id_fkey"
-            columns: ["owner_profile_id"]
+            foreignKeyName: "event_actor_key_id_fkey"
+            columns: ["actor_key_id"]
+            isOneToOne: false
+            referencedRelation: "key"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_record_owner_profile_id_fkey"
+            columns: ["record_owner_profile_id"]
             isOneToOne: false
             referencedRelation: "profile"
             referencedColumns: ["id"]
@@ -514,7 +549,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      audit_request_header: { Args: { header_name: string }; Returns: string }
+      audit_request_headers: { Args: never; Returns: Json }
+      current_event_actor_key_id: { Args: never; Returns: string }
+      current_event_actor_profile_id: { Args: never; Returns: string }
+      current_event_request_id: { Args: never; Returns: string }
+      current_event_source: { Args: never; Returns: string }
+      jsonb_diff: {
+        Args: { after_state: Json; before_state: Json; path?: string[] }
+        Returns: Json
+      }
+      normalize_event_row: {
+        Args: { resource_name: string; row_state: Json }
+        Returns: Json
+      }
+      resolve_event_record_owner_profile_id: {
+        Args: { after_state: Json; before_state: Json; resource_name: string }
+        Returns: string
+      }
+      try_parse_uuid: { Args: { raw_value: string }; Returns: string }
     }
     Enums: {
       data_operation: "Create" | "Read" | "Update" | "Delete"

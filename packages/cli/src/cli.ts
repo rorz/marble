@@ -24,6 +24,17 @@ const client = new MarbleClient();
 const program = new Command();
 
 type JsonObject = Record<string, unknown>;
+type ProgramDirectoryFile = {
+  content: string;
+  filename: string;
+  filetype: "Json" | "Markdown" | "TypeScript";
+};
+type LoadedProgramDirectory = {
+  files: ProgramDirectoryFile[];
+  inputSchema: unknown;
+  name: string;
+  outputConfig: unknown;
+};
 type CrudCommandDefinition = {
   arguments: Array<
     [
@@ -40,6 +51,20 @@ type CrudCommandDefinition = {
 
 function resolveFromInvocation(dir: string) {
   return path.resolve(invocationCwd, dir);
+}
+
+function inferProgramFileType(
+  filename: string,
+): ProgramDirectoryFile["filetype"] {
+  if (filename.endsWith(".json")) {
+    return "Json";
+  }
+
+  if (filename.endsWith(".md")) {
+    return "Markdown";
+  }
+
+  return "TypeScript";
 }
 
 function formatError(error: unknown) {
@@ -69,6 +94,85 @@ function parseJsonObject(label: string, input?: string) {
   }
 
   return value as JsonObject;
+}
+
+function requiredStringValue(value: unknown, label: string): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+
+  return value.trim();
+}
+
+async function loadProgramDirectory(
+  fullPath: string,
+): Promise<LoadedProgramDirectory> {
+  const directoryEntries = await fs.readdir(fullPath, {
+    withFileTypes: true,
+  });
+  const files = (
+    await Promise.all(
+      directoryEntries
+        .filter((entry) => entry.isFile() && !entry.name.startsWith("."))
+        .map(async (entry) => ({
+          content: await fs.readFile(path.join(fullPath, entry.name), "utf-8"),
+          filename: entry.name,
+          filetype: inferProgramFileType(entry.name),
+        })),
+    )
+  ).sort((left, right) => left.filename.localeCompare(right.filename));
+  const filesByName = new Map(
+    files.map((file) => [
+      file.filename,
+      file,
+    ]),
+  );
+  const packageManifestFile = filesByName.get("package.json");
+  const mainFile = filesByName.get("main.ts");
+  const inputSchemaFile = filesByName.get("input-schema.json");
+  const outputConfigFile = filesByName.get("output-config.json");
+
+  if (!packageManifestFile) {
+    throw new Error("Program directory must include package.json.");
+  }
+
+  if (!mainFile) {
+    throw new Error("Program directory must include main.ts.");
+  }
+
+  if (!inputSchemaFile) {
+    throw new Error("Program directory must include input-schema.json.");
+  }
+
+  if (!outputConfigFile) {
+    throw new Error("Program directory must include output-config.json.");
+  }
+
+  const packageManifest = parseJson(
+    "package.json",
+    packageManifestFile.content,
+  );
+
+  if (!packageManifest || typeof packageManifest !== "object") {
+    throw new Error("package.json must be a JSON object.");
+  }
+
+  const name = requiredStringValue(
+    (packageManifest as JsonObject).name,
+    "package.json.name",
+  );
+  const inputSchema = parseJson("input-schema.json", inputSchemaFile.content);
+  const outputConfig = parseJson(
+    "output-config.json",
+    outputConfigFile.content,
+  );
+
+  return {
+    files,
+    inputSchema,
+    name,
+    outputConfig,
+  };
 }
 
 function toCamelCaseResourceCommand(name: ApiResourceName) {
@@ -223,56 +327,44 @@ if (!programsCommand) {
 programsCommand
   .command("upsert")
   .description("Upsert a program from a local directory")
-  .argument("<dir>", "Directory containing the program code and schema")
+  .argument("<dir>", "Directory containing the program files and schema")
   .action((dir) =>
     runAction("upserting program", async () => {
       const fullPath = resolveFromInvocation(dir);
-      const code = await fs.readFile(path.join(fullPath, "index.js"), "utf-8");
-      const config = JSON.parse(
-        await fs.readFile(path.join(fullPath, "config.json"), "utf-8"),
-      ) as {
-        inputSchema: unknown;
-        name: string;
-        outputConfig: unknown;
-      };
+      const loadedProgram = await loadProgramDirectory(fullPath);
 
       const data = await client.upsertProgram({
-        code,
-        inputSchema: config.inputSchema,
-        name: config.name,
-        outputConfig: config.outputConfig,
+        files: loadedProgram.files,
+        inputSchema: loadedProgram.inputSchema,
+        name: loadedProgram.name,
+        outputConfig: loadedProgram.outputConfig,
       });
 
       console.log(
-        `Program "${config.name}" upserted successfully. (ID: ${data.id})`,
+        `Program "${loadedProgram.name}" upserted successfully. (Program ID: ${data.programId}, Version ID: ${data.versionId})`,
       );
     }),
   );
 
 programsCommand
-  .command("dry-run")
-  .description("Dry-run a program against the API")
-  .argument("<dir>", "Directory containing the program code and schema")
+  .command("test")
+  .description("Upsert a program and run /test against its latest version")
+  .argument("<dir>", "Directory containing the program files and schema")
   .argument("<input>", "Mock input payload as a stringified JSON object")
   .action((dir, inputText) =>
-    runAction("dry-running program", async () => {
+    runAction("testing program", async () => {
       const fullPath = resolveFromInvocation(dir);
-      const code = await fs.readFile(path.join(fullPath, "index.js"), "utf-8");
-      const config = JSON.parse(
-        await fs.readFile(path.join(fullPath, "config.json"), "utf-8"),
-      ) as {
-        outputConfig?: {
-          schema?: unknown;
-        };
-        outputSchema?: unknown;
-      };
+      const loadedProgram = await loadProgramDirectory(fullPath);
+      const upserted = await client.upsertProgram({
+        files: loadedProgram.files,
+        inputSchema: loadedProgram.inputSchema,
+        name: loadedProgram.name,
+        outputConfig: loadedProgram.outputConfig,
+      });
 
       printJson(
-        await client.dryRunProgram({
-          code,
+        await client.testProgramVersion(upserted.versionId, {
           input: parseJson("input", inputText),
-          outputSchema:
-            config.outputConfig?.schema || config.outputSchema || {},
         }),
       );
     }),

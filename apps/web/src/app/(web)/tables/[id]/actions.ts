@@ -1,9 +1,12 @@
 "use server";
 
 import type { Database } from "@marble/supabase";
-import { createClient } from "@marble/supabase";
 import { env } from "@/env";
 import { requireUser } from "../../../../lib/auth";
+import {
+  createActingServiceRoleClient,
+  createServiceRoleClient,
+} from "../../../../lib/supabase/service-role";
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type ColumnUpdate = Database["public"]["Tables"]["column"]["Update"];
@@ -14,11 +17,7 @@ type Json = Database["public"]["Tables"]["cell"]["Row"]["state"];
 const SUPABASE_SELECT_PAGE_SIZE = 1000;
 
 function db() {
-  const url = env.SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key)
-    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  return createClient(url, key);
+  return createServiceRoleClient();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -109,20 +108,9 @@ export async function listTables() {
   return data;
 }
 
-async function requireProfileId() {
-  const user = await requireUser();
-  const { data, error } = await db()
-    .from("profile")
-    .select("id")
-    .eq("owner_user_id", user.id)
-    .single();
-  if (error || !data) throw new Error("Could not find profile for user");
-  return data.id;
-}
-
 export async function createTable() {
-  const profileId = await requireProfileId();
-  const { data, error } = await db()
+  const { profileId, supabase } = await createActingServiceRoleClient();
+  const { data, error } = await supabase
     .from("table")
     .insert({
       name: "Untitled Table",
@@ -135,8 +123,8 @@ export async function createTable() {
 }
 
 export async function updateTableName(id: string, name: string) {
-  await requireUser();
-  const { data, error } = await db()
+  const { supabase } = await createActingServiceRoleClient();
+  const { data, error } = await supabase
     .from("table")
     .update({
       name,
@@ -164,8 +152,8 @@ export async function updateProgramOutputSchema(
   programVersionId: string,
   outputConfig: unknown,
 ) {
-  await requireUser();
-  const { error } = await db()
+  const { supabase } = await createActingServiceRoleClient();
+  const { error } = await supabase
     .from("program_version")
     .update({
       output_config: outputConfig as Json,
@@ -249,8 +237,7 @@ export async function createColumn(input: {
   program_id: string;
   input_template: string;
 }) {
-  await requireUser();
-  const supabase = db();
+  const { supabase } = await createActingServiceRoleClient();
 
   const { data: program, error: programError } = await supabase
     .from("program_version")
@@ -336,8 +323,7 @@ export async function updateColumn(input: {
   program_id?: string;
   input_template?: string;
 }) {
-  await requireUser();
-  const supabase = db();
+  const { supabase } = await createActingServiceRoleClient();
 
   const { data: existing, error: existingError } = await supabase
     .from("column")
@@ -398,8 +384,7 @@ export async function updateColumn(input: {
 }
 
 export async function deleteColumn(columnId: string) {
-  await requireUser();
-  const supabase = db();
+  const { supabase } = await createActingServiceRoleClient();
 
   const { data: cellIds } = await supabase
     .from("cell")
@@ -428,8 +413,7 @@ export async function deleteColumn(columnId: string) {
 // ── Rows ────────────────────────────────────────────────
 
 export async function createRows(tableId: string, count = 1) {
-  await requireUser();
-  const supabase = db();
+  const { supabase } = await createActingServiceRoleClient();
 
   const { data: maxRow } = await supabase
     .from("row")
@@ -487,8 +471,7 @@ export async function createRows(tableId: string, count = 1) {
 }
 
 export async function deleteRow(rowId: string) {
-  await requireUser();
-  const supabase = db();
+  const { supabase } = await createActingServiceRoleClient();
 
   const { data: cellIds } = await supabase
     .from("cell")
@@ -513,8 +496,8 @@ export async function deleteRow(rowId: string) {
 // ── Cells ───────────────────────────────────────────────
 
 export async function updateCellManualInput(cellId: string, value: string) {
-  await requireUser();
-  const { data, error } = await db()
+  const { supabase } = await createActingServiceRoleClient();
+  const { data, error } = await supabase
     .from("cell")
     .update({
       manual_input: value,
@@ -562,8 +545,7 @@ export async function executeRun(input: {
   output: unknown;
   runId: string;
 }> {
-  await requireUser();
-  const supabase = db();
+  const { supabase } = await createActingServiceRoleClient();
   // Persist manual_input if provided (cell edit flow)
   if (input.cellValue !== undefined) {
     await supabase

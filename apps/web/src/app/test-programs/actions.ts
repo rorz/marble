@@ -1,9 +1,13 @@
 "use server";
 
 import type { Database, Json } from "@marble/supabase";
-import { createClient } from "@marble/supabase";
 import { env } from "@/env";
 import { requireUser } from "../../lib/auth";
+import {
+  createActingServiceRoleClient,
+  createActingServiceRoleClientForUser,
+  createServiceRoleClient,
+} from "../../lib/supabase/service-role";
 
 type Program = Database["public"]["Tables"]["program"]["Row"];
 type ProgramVersion = Database["public"]["Tables"]["program_version"]["Row"];
@@ -16,11 +20,7 @@ export type FullProgram = Program & {
 };
 
 function db() {
-  const url = env.SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key)
-    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  return createClient(url, key);
+  return createServiceRoleClient();
 }
 
 export async function listPrograms(): Promise<FullProgram[]> {
@@ -47,15 +47,9 @@ export async function saveProgramVersion(
   }[],
 ) {
   const user = await requireUser();
-  const supabase = db();
-
-  const { data: profile } = await supabase
-    .from("profile")
-    .select("id")
-    .eq("owner_user_id", user.id)
-    .single();
-
-  if (!profile) throw new Error("Profile not found");
+  const { profileId, supabase } = await createActingServiceRoleClientForUser(
+    user.id,
+  );
 
   let pId = programId;
 
@@ -64,7 +58,7 @@ export async function saveProgramVersion(
       .from("program")
       .insert({
         name,
-        owner_profile_id: profile.id,
+        owner_profile_id: profileId,
       })
       .select()
       .single();
@@ -99,7 +93,7 @@ export async function saveProgramVersion(
   if (versionErr) throw versionErr;
 
   const filesToInsert = files.map((f) => ({
-    owner_profile_id: profile.id,
+    owner_profile_id: profileId,
     version_id: version.id,
     filename: f.filename,
     content: f.content,
@@ -128,8 +122,7 @@ export async function testProgram(
   output: unknown;
   error?: string;
 }> {
-  await requireUser();
-  const supabase = db();
+  const { supabase } = await createActingServiceRoleClient();
 
   const { data: tables } = await supabase
     .from("table")

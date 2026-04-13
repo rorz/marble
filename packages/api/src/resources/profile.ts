@@ -77,11 +77,29 @@ export function mountProfileResource(app: Hono<ApiEnv>) {
 
 export async function resolveOwnerProfileId(
   supabase: SupabaseClient,
-  ownerProfileId?: string,
+  options: {
+    authenticatedProfileId?: string;
+    ownerProfileId?: string;
+  },
 ) {
-  if (ownerProfileId) {
-    await getRecord(supabase, "profile", ownerProfileId);
-    return ownerProfileId;
+  if (options.authenticatedProfileId) {
+    if (
+      options.ownerProfileId &&
+      options.ownerProfileId !== options.authenticatedProfileId
+    ) {
+      throw new ApiError(
+        403,
+        "owner_profile_id is fixed by the authenticated API key and cannot be overridden.",
+      );
+    }
+
+    await getRecord(supabase, "profile", options.authenticatedProfileId);
+    return options.authenticatedProfileId;
+  }
+
+  if (options.ownerProfileId) {
+    await getRecord(supabase, "profile", options.ownerProfileId);
+    return options.ownerProfileId;
   }
 
   const { data, error } = await supabase
@@ -111,4 +129,39 @@ export async function resolveOwnerProfileId(
   }
 
   return data[0].id;
+}
+
+export function resolveOwnerProfileFilter(options: {
+  authenticatedProfileId?: string;
+  ownerProfileId?: string;
+}) {
+  if (!options.authenticatedProfileId) {
+    return options.ownerProfileId;
+  }
+
+  if (
+    options.ownerProfileId &&
+    options.ownerProfileId !== options.authenticatedProfileId
+  ) {
+    throw new ApiError(
+      403,
+      "owner_profile_id filters must match the authenticated API key profile.",
+    );
+  }
+
+  return options.authenticatedProfileId;
+}
+
+export async function validateOwnerProfileId(
+  supabase: SupabaseClient,
+  options: {
+    authenticatedProfileId?: string;
+    ownerProfileId?: string;
+  },
+) {
+  if (options.ownerProfileId === undefined) {
+    return undefined;
+  }
+
+  return resolveOwnerProfileId(supabase, options);
 }

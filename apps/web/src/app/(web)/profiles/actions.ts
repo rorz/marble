@@ -7,9 +7,12 @@ import {
   revokeApiKeyRecord,
 } from "@marble/keys";
 import type { Database } from "@marble/supabase";
-import { createClient } from "@marble/supabase";
-import { env } from "@/env";
 import { requireUser } from "../../../lib/auth";
+import {
+  createActingServiceRoleClient,
+  createActingServiceRoleClientForUser,
+  createServiceRoleClient,
+} from "../../../lib/supabase/service-role";
 
 type KeyRow = Database["public"]["Tables"]["key"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profile"]["Row"];
@@ -24,14 +27,7 @@ export type ManagedProfile = ProfileRow & {
 };
 
 function db() {
-  const url = env.SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  }
-
-  return createClient(url, key);
+  return createServiceRoleClient();
 }
 
 function assertNonEmpty(value: string, label: string) {
@@ -136,7 +132,8 @@ export async function createProfile(input: {
   const user = await requireUser();
   const name = assertNonEmpty(input.name, "Profile name");
   const externalName = input.externalName?.trim() || null;
-  const { data, error } = await db()
+  const { supabase } = await createActingServiceRoleClientForUser(user.id);
+  const { data, error } = await supabase
     .from("profile")
     .insert({
       external_name: externalName,
@@ -156,7 +153,8 @@ export async function createProfile(input: {
 
 export async function createProfileKey(profileId: string) {
   const profile = await requireOwnedProfile(profileId);
-  const { key, token } = await createApiKeyRecord(db(), profile.id);
+  const { supabase } = await createActingServiceRoleClient();
+  const { key, token } = await createApiKeyRecord(supabase, profile.id);
 
   return {
     key: {
@@ -175,7 +173,8 @@ export async function createProfileKey(profileId: string) {
 
 export async function revokeProfileKey(keyId: string) {
   await requireOwnedKey(keyId);
-  const key = await revokeApiKeyRecord(db(), keyId);
+  const { supabase } = await createActingServiceRoleClient();
+  const key = await revokeApiKeyRecord(supabase, keyId);
 
   if (!key) {
     throw new Error("API key already revoked");

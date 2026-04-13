@@ -3,6 +3,7 @@ import {
   ApiResourceNames,
   apiResourcePath,
 } from "@marble/core";
+import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
 import { createClient } from "@marble/supabase";
 import { Hono } from "hono";
 import { type ApiEnv, readJsonBody, route } from "./core";
@@ -34,14 +35,76 @@ const resourceMounts = {
   program_runs: mountProgramRunResource,
 } satisfies Record<ApiResourceName, (app: Hono<ApiEnv>) => void>;
 
+function executorEndpointUrl(baseUrl: string, path: string, search: string) {
+  const endpoint = new URL(baseUrl);
+  endpoint.pathname = `${endpoint.pathname.replace(/\/$/, "")}${path}`;
+  endpoint.search = search;
+  return endpoint;
+}
+
 app.use("*", async (c, next) => {
   const env = getEnv(c.env);
   const authHeader = c.req.header("Authorization");
-  const headers: Record<string, string> = authHeader
-    ? {
-        Authorization: authHeader,
+  const forwardedProfileId =
+    c.req.header("x-marble-auth-profile-id")?.trim() || undefined;
+  const forwardedKeyId =
+    c.req.header("x-marble-auth-key-id")?.trim() || undefined;
+  const requestedActorSource =
+    c.req.header("x-marble-actor-source")?.trim() || undefined;
+  const requestId =
+    c.req.header("x-marble-request-id")?.trim() || crypto.randomUUID();
+  let actorProfileId = forwardedProfileId;
+  let actorKeyId = forwardedKeyId;
+
+  if (!forwardedProfileId) {
+    const apiKeyToken = getApiKeyTokenFromHeaders(c.req.raw.headers);
+
+    if (apiKeyToken) {
+      const keyAuth = await resolveApiKeyAuth(
+        createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY),
+        apiKeyToken,
+      );
+
+      if (keyAuth) {
+        actorProfileId = keyAuth.owner_profile_id;
+        actorKeyId = keyAuth.id;
+        c.set("auth", {
+          keyId: keyAuth.id,
+          profileId: keyAuth.owner_profile_id,
+          type: "api-key",
+        });
       }
-    : {};
+    }
+  } else {
+    c.set("auth", {
+      ...(forwardedKeyId
+        ? {
+            keyId: forwardedKeyId,
+          }
+        : {}),
+      profileId: forwardedProfileId,
+      type: "forwarded-key",
+    });
+  }
+
+  const headers: Record<string, string> = {
+    "x-marble-actor-source":
+      requestedActorSource ??
+      (actorKeyId ? "api" : forwardedProfileId ? "webapp" : "system"),
+    "x-marble-request-id": requestId,
+  };
+
+  if (authHeader) {
+    headers.Authorization = authHeader;
+  }
+
+  if (actorProfileId) {
+    headers["x-marble-auth-profile-id"] = actorProfileId;
+  }
+
+  if (actorKeyId) {
+    headers["x-marble-auth-key-id"] = actorKeyId;
+  }
 
   c.set(
     "supabase",
@@ -74,16 +137,45 @@ for (const resourceName of ApiResourceNames) {
 }
 
 app.post(
-  "/programs/dry-run",
+  "/test",
   route(async (c) => {
     const env = getEnv(c.env);
+    const requestUrl = new URL(c.req.url);
     const response = await fetch(
-      `${env.MARBLE_EXECUTOR_URL || "http://localhost:8787"}/dry-run`,
+      executorEndpointUrl(
+        env.MARBLE_EXECUTOR_URL || "http://localhost:8787",
+        "/test",
+        requestUrl.search,
+      ),
       {
         body: JSON.stringify(await readJsonBody(c)),
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: Object.fromEntries(
+          [
+            [
+              "Authorization",
+              c.req.header("Authorization"),
+            ],
+            [
+              "Content-Type",
+              "application/json",
+            ],
+            [
+              "x-marble-actor-source",
+              c.req.header("x-marble-actor-source"),
+            ],
+            [
+              "x-marble-request-id",
+              c.req.header("x-marble-request-id"),
+            ],
+          ].filter(
+            (
+              entry,
+            ): entry is [
+              string,
+              string,
+            ] => entry[1] !== undefined,
+          ),
+        ),
         method: "POST",
       },
     );

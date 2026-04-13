@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@marble/core": "workspace:*",
+    "@marble/keys": "workspace:*",
     "@marble/supabase": "workspace:*",
     "@t3-oss/env-core": "catalog:base",
     "hono": "catalog:base",

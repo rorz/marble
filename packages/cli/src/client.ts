@@ -11,12 +11,24 @@ type EntityWithId = {
   id: string;
 } & Record<string, unknown>;
 
+type ProgramFilePayload = {
+  content: string;
+  filename: string;
+  filetype: "Json" | "Markdown" | "TypeScript";
+  ownerProfileId?: string;
+};
+
 type ProgramUpsertPayload = {
-  code: string;
+  files: ProgramFilePayload[];
   inputSchema: unknown;
   name: string;
   outputConfig: unknown;
   ownerProfileId?: string;
+};
+
+type ProgramUpsertResult = {
+  programId: string;
+  versionId: string;
 };
 
 type QueryValue = boolean | number | string | null | undefined;
@@ -73,6 +85,7 @@ export class MarbleClient {
     const url = `${this.apiUrl}${this.buildEndpoint(endpoint, query)}`;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      "x-marble-actor-source": "cli",
       ...((options.headers as Record<string, string>) || {}),
     };
 
@@ -145,48 +158,68 @@ export class MarbleClient {
     });
   }
 
-  public async upsertProgram(payload: ProgramUpsertPayload) {
+  public async upsertProgram(
+    payload: ProgramUpsertPayload,
+  ): Promise<ProgramUpsertResult> {
     const programs = (await this.list("programs")) as Array<{
       id: string;
       name: string;
     }>;
 
     const existing = programs.find((program) => program.name === payload.name);
-    const files = [
-      {
-        content: payload.code,
-        filename: "index.js",
-        filetype: "TypeScript",
-      },
-    ];
 
     if (existing) {
-      return this.create("program_versions", {
-        files,
+      const version = (await this.create("program_versions", {
+        files: payload.files,
         inputSchema: payload.inputSchema,
         outputConfig: payload.outputConfig,
         ownerProfileId: payload.ownerProfileId,
         programId: existing.id,
-      });
+      })) as EntityWithId;
+
+      return {
+        programId: existing.id,
+        versionId: version.id,
+      };
     }
 
-    return this.create("programs", {
-      files,
+    const program = (await this.create("programs", {
+      files: payload.files,
       inputSchema: payload.inputSchema,
       name: payload.name,
       outputConfig: payload.outputConfig,
       ownerProfileId: payload.ownerProfileId,
-    });
+    })) as EntityWithId & {
+      initialVersion?: {
+        id: string;
+      };
+    };
+
+    if (!program.initialVersion?.id) {
+      throw new Error("Program creation did not return an initial version ID.");
+    }
+
+    return {
+      programId: program.id,
+      versionId: program.initialVersion.id,
+    };
   }
 
-  public dryRunProgram(payload: {
-    code: string;
-    input: unknown;
-    outputSchema: unknown;
-  }) {
-    return this.fetchAPI("/programs/dry-run", {
-      body: JSON.stringify(payload),
-      method: "POST",
-    });
+  public testProgramVersion(
+    programVersionId: string,
+    payload: {
+      input: unknown;
+    },
+  ) {
+    return this.fetchAPI(
+      "/test",
+      {
+        body: JSON.stringify(payload),
+        method: "POST",
+      },
+      {
+        programVersionId,
+      },
+    );
   }
 }

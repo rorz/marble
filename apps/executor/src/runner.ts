@@ -317,7 +317,7 @@ export const resolveStoredRunInput = async (
   };
 };
 
-export const loadDryRunProgramFiles = async (
+export const loadProgramVersionFiles = async (
   supabase: SupabaseClient,
   programVersionId: string,
 ): Promise<ProgramFile[]> => {

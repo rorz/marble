@@ -10,7 +10,11 @@ import {
   successResponse,
   updateRecord,
 } from "../data";
-import { resolveOwnerProfileId } from "./profile";
+import {
+  resolveOwnerProfileFilter,
+  resolveOwnerProfileId,
+  validateOwnerProfileId,
+} from "./profile";
 import {
   assertProgramVersionsNotInUse,
   createProgramVersionRecord,
@@ -97,10 +101,10 @@ export function mountProgramResource(app: Hono<ApiEnv>) {
     collection: {
       create: {
         handler: async (c, body) => {
-          const ownerProfileId = await resolveOwnerProfileId(
-            c.var.supabase,
-            body.ownerProfileId,
-          );
+          const ownerProfileId = await resolveOwnerProfileId(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            ownerProfileId: body.ownerProfileId,
+          });
           const program = await createRecord(c.var.supabase, "program", {
             first_party: body.firstParty ?? false,
             forked_from_version_id: body.forkedFromVersionId ?? null,
@@ -141,7 +145,13 @@ export function mountProgramResource(app: Hono<ApiEnv>) {
           listRecordsFromQuery(
             c.var.supabase,
             "program",
-            query,
+            {
+              ...query,
+              ownerProfileId: resolveOwnerProfileFilter({
+                authenticatedProfileId: c.var.auth?.profileId,
+                ownerProfileId: query.ownerProfileId,
+              }),
+            },
             {
               ownerProfileId: "owner_profile_id",
             },
@@ -209,10 +219,6 @@ export function mountProgramResource(app: Hono<ApiEnv>) {
             body.ownerProfileId,
           ]);
 
-          if (body.ownerProfileId) {
-            await getRecord(c.var.supabase, "profile", body.ownerProfileId);
-          }
-
           if (body.forkedFromVersionId) {
             await getRecord(
               c.var.supabase,
@@ -225,7 +231,10 @@ export function mountProgramResource(app: Hono<ApiEnv>) {
             first_party: body.firstParty,
             forked_from_version_id: body.forkedFromVersionId,
             name: body.name,
-            owner_profile_id: body.ownerProfileId,
+            owner_profile_id: await validateOwnerProfileId(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              ownerProfileId: body.ownerProfileId,
+            }),
           });
         },
         schema: programPatchSchema,

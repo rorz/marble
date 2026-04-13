@@ -13,7 +13,11 @@ import {
   updateRecord,
 } from "../data";
 import { deleteColumnDependenciesForColumnIds } from "./column";
-import { resolveOwnerProfileId } from "./profile";
+import {
+  resolveOwnerProfileFilter,
+  resolveOwnerProfileId,
+  validateOwnerProfileId,
+} from "./profile";
 import { deleteProgramRunsForCellIds } from "./program_run";
 import { nonEmptyStringSchema, requestObject, uuidSchema } from "./shared";
 
@@ -64,10 +68,10 @@ export function mountTableResource(app: Hono<ApiEnv>) {
     collection: {
       create: {
         handler: async (c, body) => {
-          const ownerProfileId = await resolveOwnerProfileId(
-            c.var.supabase,
-            body.ownerProfileId,
-          );
+          const ownerProfileId = await resolveOwnerProfileId(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            ownerProfileId: body.ownerProfileId,
+          });
           const data = await createRecord(c.var.supabase, "table", {
             name: body.name ?? "Untitled Table",
             owner_profile_id: ownerProfileId,
@@ -85,7 +89,13 @@ export function mountTableResource(app: Hono<ApiEnv>) {
           listRecordsFromQuery(
             c.var.supabase,
             "table",
-            query,
+            {
+              ...query,
+              ownerProfileId: resolveOwnerProfileFilter({
+                authenticatedProfileId: c.var.auth?.profileId,
+                ownerProfileId: query.ownerProfileId,
+              }),
+            },
             {
               ownerProfileId: "owner_profile_id",
             },
@@ -118,13 +128,12 @@ export function mountTableResource(app: Hono<ApiEnv>) {
             body.ownerProfileId,
           ]);
 
-          if (body.ownerProfileId) {
-            await getRecord(c.var.supabase, "profile", body.ownerProfileId);
-          }
-
           return updateRecord(c.var.supabase, "table", id, {
             name: body.name,
-            owner_profile_id: body.ownerProfileId,
+            owner_profile_id: await validateOwnerProfileId(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              ownerProfileId: body.ownerProfileId,
+            }),
           });
         },
         schema: tableWriteSchema,

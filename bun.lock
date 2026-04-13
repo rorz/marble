@@ -67,6 +67,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@marble/core": "workspace:*",
+        "@marble/keys": "workspace:*",
         "@marble/supabase": "workspace:*",
         "@t3-oss/env-core": "catalog:base",
         "hono": "catalog:base",
@@ -79,20 +80,18 @@
     },
     "packages/cli": {
       "name": "marble-cli",
-      "version": "1.0.0",
+      "version": "0.0.1",
       "bin": {
         "marble": "./dist/cli.js",
       },
-      "dependencies": {
+      "devDependencies": {
         "@marble/core": "workspace:*",
         "@t3-oss/env-core": "catalog:base",
+        "@types/node": "catalog:base",
         "commander": "catalog:base",
         "dotenv": "catalog:base",
-        "zod": "catalog:base",
-      },
-      "devDependencies": {
-        "@types/node": "catalog:base",
         "typescript": "catalog:base",
+        "zod": "catalog:base",
       },
     },
     "packages/core": {

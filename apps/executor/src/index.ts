@@ -15,7 +15,7 @@ import {
   executeAndValidate,
   failureStateFromError,
   formatZodIssues,
-  loadDryRunProgramFiles,
+  loadProgramVersionFiles,
   loadStoredRun,
   persistStoredRunFailure,
   resolveStoredRunInput,
@@ -51,9 +51,9 @@ type LiveRunValidatedRequest = {
   valid(target: "query"): z.infer<typeof RunQuerySchema>;
 };
 
-type DryRunValidatedRequest = {
-  valid(target: "json"): z.infer<typeof DryRunBodySchema>;
-  valid(target: "query"): z.infer<typeof DryRunQuerySchema>;
+type TestValidatedRequest = {
+  valid(target: "json"): z.infer<typeof TestBodySchema>;
+  valid(target: "query"): z.infer<typeof TestQuerySchema>;
 };
 
 const BODY_LIMIT_BYTES = 1024 * 1024;
@@ -62,7 +62,7 @@ const RunQuerySchema = z.object({
   run_id: z.string().uuid(),
 });
 
-const DryRunQuerySchema = z.object({
+const TestQuerySchema = z.object({
   programVersionId: z.string().uuid(),
   testKey: z.string().min(1).optional(),
 });
@@ -76,9 +76,8 @@ const JsonContentTypeSchema = z.object({
     ),
 });
 
-const DryRunBodySchema = z.object({
+const TestBodySchema = z.object({
   input: z.json(),
-  outputSchema: Schemas.ColumnOutputSchema,
 });
 
 const RunEnvelopeSchema = z.object({
@@ -343,19 +342,39 @@ const liveRunHandler = async (c: Context<ExecutorEnv>) => {
   }
 };
 
-const dryRunHandler = async (c: Context<ExecutorEnv>) => {
-  const query = (c.req as DryRunValidatedRequest).valid("query");
-  const body = (c.req as DryRunValidatedRequest).valid("json");
+const testHandler = async (c: Context<ExecutorEnv>) => {
+  const query = (c.req as TestValidatedRequest).valid("query");
+  const body = (c.req as TestValidatedRequest).valid("json");
+  const [files, versionRecord] = await Promise.all([
+    loadProgramVersionFiles(c.var.supabase, query.programVersionId),
+    c.var.supabase
+      .from("program_version")
+      .select("output_config")
+      .eq("id", query.programVersionId)
+      .maybeSingle(),
+  ]);
+
+  if (versionRecord.error) {
+    throw httpError(500, versionRecord.error.message, versionRecord.error);
+  }
+
+  if (!versionRecord.data) {
+    throw httpError(
+      404,
+      `Program version '${query.programVersionId}' was not found`,
+    );
+  }
 
   try {
     const output = await executeAndValidate(
       getSandbox(
         c.env.Sandbox,
-        `${query.programVersionId}--test--${query.testKey ?? crypto.randomUUID().slice(0, 6)}`,
+        `${query.programVersionId ?? "inline"}--test--${query.testKey ?? crypto.randomUUID().slice(0, 6)}`,
       ),
-      await loadDryRunProgramFiles(c.var.supabase, query.programVersionId),
+      files,
       runtimeInputFromValue(body.input, c.var.parsedEnv.APOLLO_IO_API_KEY),
-      body.outputSchema as JsonValue,
+      Schemas.ProgramOutputConfig.parse(versionRecord.data.output_config)
+        .schema as JsonValue,
     );
 
     return jsonResponse(RunEnvelopeSchema, {
@@ -363,7 +382,10 @@ const dryRunHandler = async (c: Context<ExecutorEnv>) => {
       output,
     });
   } catch (error) {
-    console.error(`[${c.get("requestId")}] Dry run failed`, error);
+    console.error(
+      `[${c.get("requestId")}] Test ${query.programVersionId} failed`,
+      error,
+    );
 
     return jsonResponse(
       RunEnvelopeSchema,
@@ -391,9 +413,9 @@ app.post(
   authMiddleware,
   requestBodyLimit,
   zodValidator("header", JsonContentTypeSchema),
-  zodValidator("query", DryRunQuerySchema),
-  zodValidator("json", DryRunBodySchema),
-  dryRunHandler,
+  zodValidator("query", TestQuerySchema),
+  zodValidator("json", TestBodySchema),
+  testHandler,
 );
 
 export default app;

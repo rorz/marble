@@ -35,7 +35,7 @@ Use the Marble CLI for Marble operator work. This skill is for provisioning and 
 
 - `marble programs list`
 - `marble programs get <programId>`
-- `marble programs dry-run <dir> '<json-input>'`
+- `marble programs test <dir> '<json-input>'`
 - `marble programs upsert <dir>`
 - `marble tables list`
 - `marble tables get <tableId>`
@@ -50,17 +50,17 @@ Use the Marble CLI for Marble operator work. This skill is for provisioning and 
 
 Create exactly these files in a temp directory such as `/tmp/marble-programs/my-program`.
 
-### `index.js`
+### `main.ts`
 
 - Export a default function or async function.
 - Signature: `({ system, cell, input }) => ...`
-- `input` is validated by `config.json.inputSchema`.
+- `input` is validated by `input-schema.json`.
 - `cell.manualInputValue` is the raw manual cell value when manual input is enabled.
-- Return a value that matches `config.json.outputConfig.schema`.
+- Return a value that matches `output-config.json.schema`.
 
 Example:
 
-```js
+```ts
 export default async function ({ system, cell, input }) {
   const apiKey = system?.providers?.APOLLO_IO?.apiKey;
   const raw = cell.manualInputValue ?? "";
@@ -73,27 +73,45 @@ export default async function ({ system, cell, input }) {
 }
 ```
 
-### `config.json`
+### `package.json`
 
-- Define the remote program metadata here.
-- `outputConfig.schema` is the source of truth for the column output schema.
+- Define the program name here.
 
 Example:
 
 ```json
 {
-  "name": "Example Program",
-  "inputSchema": {
-    "type": "object",
-    "properties": {}
+  "name": "Example Program"
+}
+```
+
+### `input-schema.json`
+
+- Define the input JSON Schema here.
+
+Example:
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+### `output-config.json`
+
+- Define the remote program output metadata here.
+- `schema` is the source of truth for the column output schema.
+
+Example:
+
+```json
+{
+  "flags": {
+    "allowManualInput": true
   },
-  "outputConfig": {
-    "flags": {
-      "allowManualInput": true
-    },
-    "schema": {
-      "type": "string"
-    }
+  "schema": {
+    "type": "string"
   }
 }
 ```
@@ -126,16 +144,15 @@ Manual-input-only columns can use `{}` and read `cell.manualInputValue` directly
 ### Build Or Update A Program
 
 1. Create a temp directory under `/tmp/marble-programs`.
-2. Write `index.js` and `config.json`.
-3. Dry-run it before upserting.
-4. Fix any schema or runtime issue until the dry-run succeeds.
-5. Upsert it and record the returned program ID.
+2. Write `main.ts`, `package.json`, `input-schema.json`, and `output-config.json`.
+3. Test it, which upserts the current program version and runs `/test`.
+4. Fix any schema or runtime issue until the test succeeds.
+5. Record the returned program and version IDs.
 
 Example:
 
 ```sh
-marble programs dry-run /tmp/marble-programs/reverse-string '{"system":{},"cell":{"manualInputValue":"hello"},"input":{}}'
-marble programs upsert /tmp/marble-programs/reverse-string
+marble programs test /tmp/marble-programs/reverse-string '{"system":{},"cell":{"manualInputValue":"hello"},"input":{}}'
 ```
 
 ### Wire A Program Into A Table
@@ -168,7 +185,7 @@ marble rows add <tableId>
 ## Troubleshooting
 
 - If CLI requests fail, inspect `.env` for `MARBLE_API_URL` and `MARBLE_API_KEY`.
-- If `programs dry-run` fails, fix the runtime code or output schema before upserting.
+- If `programs test` fails, fix the runtime code or output schema and rerun it.
 - If `columns add` fails, validate that `inputTemplate` is valid JSON text and `outputSchema` is valid JSON.
 - If a dependent column is blank, confirm the `inputTemplate` references the correct column IDs.
 - If the repo becomes dirty during CLI-only work, move temp artifacts to `/tmp` and clean up anything you created in the workspace.

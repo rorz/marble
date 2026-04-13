@@ -10,6 +10,13 @@ export type ApiEnv = {
     SUPABASE_URL: string;
   };
   Variables: {
+    auth:
+      | {
+          keyId?: string;
+          profileId?: string;
+          type: "api-key" | "forwarded-key";
+        }
+      | undefined;
     supabase: SupabaseClient;
   };
 };

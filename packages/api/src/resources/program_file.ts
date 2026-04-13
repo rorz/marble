@@ -16,6 +16,7 @@ import {
   successResponse,
   updateRecord,
 } from "../data";
+import { resolveOwnerProfileFilter, validateOwnerProfileId } from "./profile";
 import {
   nonEmptyStringSchema,
   programFileTypeSchema,
@@ -60,7 +61,11 @@ async function createProgramFile(
     content: body.content,
     filename: body.filename,
     filetype: body.filetype,
-    owner_profile_id: body.ownerProfileId ?? program.owner_profile_id,
+    owner_profile_id:
+      (await validateOwnerProfileId(c.var.supabase, {
+        authenticatedProfileId: c.var.auth?.profileId,
+        ownerProfileId: body.ownerProfileId,
+      })) ?? program.owner_profile_id,
     version_id: version.id,
   });
 }
@@ -88,7 +93,13 @@ export function mountProgramFileResource(app: Hono<ApiEnv>) {
           listRecordsFromQuery(
             c.var.supabase,
             "program_file",
-            query,
+            {
+              ...query,
+              ownerProfileId: resolveOwnerProfileFilter({
+                authenticatedProfileId: c.var.auth?.profileId,
+                ownerProfileId: query.ownerProfileId,
+              }),
+            },
             {
               ownerProfileId: "owner_profile_id",
               versionId: "version_id",
@@ -129,15 +140,15 @@ export function mountProgramFileResource(app: Hono<ApiEnv>) {
             body.ownerProfileId,
           ]);
 
-          if (body.ownerProfileId) {
-            await getRecord(c.var.supabase, "profile", body.ownerProfileId);
-          }
-
           return updateRecord(c.var.supabase, "program_file", id, {
             content: body.content,
             filename: body.filename,
             filetype: body.filetype,
-            owner_profile_id: body.ownerProfileId ?? existing.owner_profile_id,
+            owner_profile_id:
+              (await validateOwnerProfileId(c.var.supabase, {
+                authenticatedProfileId: c.var.auth?.profileId,
+                ownerProfileId: body.ownerProfileId,
+              })) ?? existing.owner_profile_id,
           });
         },
         schema: programFilePatchSchema,
