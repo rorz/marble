@@ -1,0 +1,23 @@
+{
+  "name": "@marble/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "catalog:base"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:base",
+    "typescript": "catalog:base"
+  }
+}

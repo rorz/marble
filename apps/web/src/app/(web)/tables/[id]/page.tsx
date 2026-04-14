@@ -2,6 +2,13 @@
 
 import { ArrowLeftIcon } from "@heroicons/react/20/solid";
 import {
+  MarbleButton,
+  MarbleFieldLabel,
+  MarbleInput,
+  MarbleSelect,
+  MarbleTextarea,
+} from "@marble/ui";
+import {
   AllCommunityModule,
   type CellContextMenuEvent,
   type CellValueChangedEvent,
@@ -397,8 +404,8 @@ function ConfirmModal({
         <h3 className="text-sm font-semibold mb-2">{state.title}</h3>
         <p className="text-sm text-zinc-600 mb-5">{state.message}</p>
         <div className="flex items-center justify-end gap-2">
-          <DemoButton onClick={onClose}>Cancel</DemoButton>
-          <DemoButton
+          <MarbleButton onClick={onClose}>Cancel</MarbleButton>
+          <MarbleButton
             variant="red"
             onClick={() => {
               state.onConfirm();
@@ -406,7 +413,7 @@ function ConfirmModal({
             }}
           >
             {state.confirmLabel}
-          </DemoButton>
+          </MarbleButton>
         </div>
       </div>
     </div>
@@ -681,124 +688,6 @@ function CellWithRunButton(props: CustomCellRendererProps) {
   );
 }
 
-// ── UI Components ───────────────────────────────────────
-
-type DemoButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "light" | "dark" | "orange" | "red";
-};
-
-function DemoButton({
-  variant = "light",
-  children,
-  className,
-  disabled,
-  ...props
-}: DemoButtonProps) {
-  const isOrange = variant === "orange";
-  const isRed = variant === "red";
-  const isDark = variant === "dark";
-  const isLight = variant === "light";
-
-  return (
-    <button
-      type="button"
-      className={`bg-neutral-950 p-0.5 rounded-[7px] transition-opacity ${disabled ? "opacity-40 cursor-not-allowed" : "hover:opacity-90 cursor-pointer"} ${className || ""}`}
-      disabled={disabled}
-      {...props}
-    >
-      <div
-        className={`size-full p-[1px] rounded-md ${isOrange ? "bg-orange-600" : isRed ? "bg-red-600" : isLight ? "bg-neutral-200" : ""}`}
-        style={{
-          background: isOrange
-            ? `linear-gradient(to right, var(--color-orange-300) 0px, #F6490000 4px),
-              linear-gradient(to left, var(--color-orange-800) 0px, #F6490000 4px),
-              linear-gradient(to top, var(--color-orange-950) 0px, #F6490000 4px),
-              linear-gradient(to bottom, var(--color-orange-300) 0px, #F6490000 4px),
-              linear-gradient(to bottom right, var(--color-white) 0px, #F6490000 4px), linear-gradient(to right, var(--color-orange-600) 0%, var(--color-orange-600) 100%)`
-            : isRed
-              ? `linear-gradient(to right, var(--color-red-300) 0px, #DC262600 4px),
-              linear-gradient(to left, var(--color-red-800) 0px, #DC262600 4px),
-              linear-gradient(to top, var(--color-red-950) 0px, #DC262600 4px),
-              linear-gradient(to bottom, var(--color-red-300) 0px, #DC262600 4px),
-              linear-gradient(to bottom right, var(--color-white) 0px, #DC262600 4px), linear-gradient(to right, var(--color-red-600) 0%, var(--color-red-600) 100%)`
-              : isDark
-                ? `linear-gradient(to right, var(--color-neutral-300) 0px, #40404000 4px),
-              linear-gradient(to left, var(--color-neutral-800) 0px, #40404000 4px),
-              linear-gradient(to top, var(--color-neutral-950) 0px, #40404000 4px),
-              linear-gradient(to bottom, var(--color-neutral-100) 0px, #40404000 4px),
-              linear-gradient(to bottom right, var(--color-white) 0px, #40404000 4px)`
-                : `linear-gradient(to right, var(--color-neutral-100) 0px, #e5e5e500 4px),
-              linear-gradient(to left, var(--color-neutral-400) 0px, #e5e5e500 4px),
-              linear-gradient(to top, var(--color-neutral-200) 0px, #e5e5e500 4px),
-              linear-gradient(to bottom, var(--color-neutral-300) 0px, #e5e5e500 4px),
-              linear-gradient(to bottom right, var(--color-white) 0px, #e5e5e500 4px)`,
-        }}
-      >
-        <div
-          className={`size-full flex items-center justify-center font-medium uppercase py-1.5 px-3 rounded-[5px] tracking-wide text-xs ${
-            isOrange
-              ? "bg-orange-600 text-white"
-              : isRed
-                ? "bg-red-600 text-white"
-                : isDark
-                  ? "bg-neutral-800 text-neutral-100 font-light"
-                  : "bg-neutral-50 text-neutral-700 shadow-sm font-medium"
-          }`}
-        >
-          {children}
-        </div>
-      </div>
-    </button>
-  );
-}
-
-type DemoSelectProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
-  wrapperClassName?: string;
-};
-
-function DemoSelect({
-  className,
-  wrapperClassName,
-  children,
-  ...props
-}: DemoSelectProps) {
-  return (
-    <div className={`relative inline-flex ${wrapperClassName || ""}`}>
-      <select
-        className={`w-full bg-white border-b-2 border-x border-t border-neutral-200 border-b-neutral-300 text-neutral-900 text-sm rounded-md pl-3 pr-8 py-1.5 focus:border-b-orange-400 focus:outline-none appearance-none cursor-pointer transition-colors shadow-sm ${className || ""}`}
-        {...props}
-      >
-        {children}
-      </select>
-      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-neutral-400">
-        <svg
-          className="fill-current h-4 w-4"
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 20 20"
-          aria-hidden="true"
-        >
-          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
-        </svg>
-      </div>
-    </div>
-  );
-}
-
-type DemoInputProps = React.InputHTMLAttributes<HTMLInputElement> & {
-  wrapperClassName?: string;
-};
-
-function DemoInput({ className, wrapperClassName, ...props }: DemoInputProps) {
-  return (
-    <div className={`relative flex ${wrapperClassName || ""}`}>
-      <input
-        className={`w-full bg-white border-b-2 border-x border-t border-neutral-200 border-b-neutral-300 text-neutral-900 text-sm rounded-md px-3 py-1.5 focus:border-b-orange-400 focus:outline-none placeholder-neutral-400 transition-colors shadow-sm ${className || ""}`}
-        {...props}
-      />
-    </div>
-  );
-}
-
 function ClickToEditTitle({
   value,
   onChange,
@@ -987,12 +876,54 @@ export default function TablePage(props: {
   const gridRef = useRef<AgGridReact>(null);
   const realtimeClient = useMemo(() => createBrowserClient(), []);
 
+  const tablesRef = useRef(tables);
+  tablesRef.current = tables;
   const cellsRef = useRef(cells);
   cellsRef.current = cells;
   const columnsRef = useRef(columns);
   columnsRef.current = columns;
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+
+  const upsertLocalTable = useCallback((nextTable: TableInfo) => {
+    setTables((prev) => {
+      const existingIndex = prev.findIndex(
+        (table) => table.id === nextTable.id,
+      );
+
+      if (existingIndex === -1) {
+        const next = [
+          ...prev,
+          nextTable,
+        ].sort((a, b) => a.created_at.localeCompare(b.created_at));
+        tablesRef.current = next;
+        return next;
+      }
+
+      const next = [
+        ...prev,
+      ];
+      next[existingIndex] = {
+        ...next[existingIndex],
+        ...nextTable,
+      };
+      tablesRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const removeLocalTable = useCallback((tableId: string) => {
+    setTables((prev) => {
+      const next = prev.filter((table) => table.id !== tableId);
+
+      if (next.length === prev.length) {
+        return prev;
+      }
+
+      tablesRef.current = next;
+      return next;
+    });
+  }, []);
 
   const applyLoadedData = useCallback((data: LoadedData) => {
     columnsRef.current = data.columns;
@@ -1064,6 +995,16 @@ export default function TablePage(props: {
       }
 
       rowsRef.current = next;
+      return next;
+    });
+    setCells((prev) => {
+      const next = prev.filter((cell) => cell.row_id !== rowId);
+
+      if (next.length === prev.length) {
+        return prev;
+      }
+
+      cellsRef.current = next;
       return next;
     });
   }, []);
@@ -1357,69 +1298,8 @@ export default function TablePage(props: {
 
   useEffect(() => {
     if (!selectedTableId) return;
-
-    let cancelled = false;
-    let refreshTables = false;
-    let refreshTableData = false;
-    let flushTimeout: ReturnType<typeof setTimeout> | null = null;
-
-    const scheduleRefresh = (input: {
-      tableData?: boolean;
-      tables?: boolean;
-    }) => {
-      refreshTables ||= input.tables === true;
-      refreshTableData ||= input.tableData === true;
-
-      if (flushTimeout) {
-        return;
-      }
-
-      flushTimeout = setTimeout(() => {
-        flushTimeout = null;
-
-        const shouldRefreshTables = refreshTables;
-        const shouldRefreshTableData = refreshTableData;
-        refreshTables = false;
-        refreshTableData = false;
-
-        void (async () => {
-          try {
-            const [nextTables, nextTableData] = await Promise.all([
-              shouldRefreshTables
-                ? actions.listTables()
-                : Promise.resolve(null),
-              shouldRefreshTableData
-                ? actions.loadTableData(selectedTableId)
-                : Promise.resolve(null),
-            ]);
-
-            if (cancelled) {
-              return;
-            }
-
-            startTransition(() => {
-              if (nextTables) {
-                setTables(nextTables);
-              }
-
-              if (nextTableData) {
-                applyLoadedData(nextTableData);
-              }
-            });
-          } catch (error) {
-            if (!cancelled) {
-              console.error(
-                "Failed to refresh table state from realtime event",
-                error,
-              );
-            }
-          }
-        })();
-      }, 100);
-    };
-
     const channel = realtimeClient
-      .channel(`table-structure:${selectedTableId}`)
+      .channel(`table:${selectedTableId}`)
       .on(
         "postgres_changes",
         {
@@ -1432,12 +1312,41 @@ export default function TablePage(props: {
             return;
           }
 
-          scheduleRefresh({
-            tableData: true,
-            tables: true,
+          startTransition(() => {
+            if (
+              payload.eventType === "INSERT" ||
+              payload.eventType === "UPDATE"
+            ) {
+              upsertLocalTable(payload.new as TableInfo);
+            } else if (payload.eventType === "DELETE") {
+              removeLocalTable((payload.old as TableInfo).id);
+            }
           });
         },
       )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          console.error("Table realtime channel failed", {
+            selectedTableId,
+          });
+        }
+      });
+
+    return () => {
+      realtimeClient.removeChannel(channel);
+    };
+  }, [
+    realtimeClient,
+    removeLocalTable,
+    selectedTableId,
+    upsertLocalTable,
+  ]);
+
+  useEffect(() => {
+    if (!selectedTableId) return;
+
+    const channel = realtimeClient
+      .channel(`rows:${selectedTableId}`)
       .on(
         "postgres_changes",
         {
@@ -1450,20 +1359,41 @@ export default function TablePage(props: {
             return;
           }
 
-          if (
-            payload.eventType === "INSERT" ||
-            payload.eventType === "UPDATE"
-          ) {
-            upsertLocalRow(payload.new as Row);
-          } else if (payload.eventType === "DELETE") {
-            removeLocalRow((payload.old as Row).id);
-          }
-
-          scheduleRefresh({
-            tableData: true,
+          startTransition(() => {
+            if (
+              payload.eventType === "INSERT" ||
+              payload.eventType === "UPDATE"
+            ) {
+              upsertLocalRow(payload.new as Row);
+            } else if (payload.eventType === "DELETE") {
+              removeLocalRow((payload.old as Row).id);
+            }
           });
         },
       )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          console.error("Row realtime channel failed", {
+            selectedTableId,
+          });
+        }
+      });
+
+    return () => {
+      realtimeClient.removeChannel(channel);
+    };
+  }, [
+    realtimeClient,
+    removeLocalRow,
+    selectedTableId,
+    upsertLocalRow,
+  ]);
+
+  useEffect(() => {
+    if (!selectedTableId) return;
+
+    const channel = realtimeClient
+      .channel(`columns:${selectedTableId}`)
       .on(
         "postgres_changes",
         {
@@ -1476,35 +1406,34 @@ export default function TablePage(props: {
             return;
           }
 
-          if (
-            payload.eventType === "INSERT" ||
-            payload.eventType === "UPDATE"
-          ) {
-            upsertLocalColumn(payload.new as Column);
-          } else if (payload.eventType === "DELETE") {
-            removeLocalColumn((payload.old as Column).id);
-          }
-
-          scheduleRefresh({
-            tableData: true,
+          startTransition(() => {
+            if (
+              payload.eventType === "INSERT" ||
+              payload.eventType === "UPDATE"
+            ) {
+              upsertLocalColumn(payload.new as Column);
+            } else if (payload.eventType === "DELETE") {
+              removeLocalColumn((payload.old as Column).id);
+            }
           });
         },
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          console.error("Column realtime channel failed", {
+            selectedTableId,
+          });
+        }
+      });
 
     return () => {
-      cancelled = true;
-      if (flushTimeout) clearTimeout(flushTimeout);
       realtimeClient.removeChannel(channel);
     };
   }, [
-    applyLoadedData,
     removeLocalColumn,
-    removeLocalRow,
     realtimeClient,
     selectedTableId,
     upsertLocalColumn,
-    upsertLocalRow,
   ]);
 
   // ── AG Grid config ────────────────────────────────────
@@ -2045,19 +1974,25 @@ export default function TablePage(props: {
           >
             Profiles
           </Link>
+          <Link
+            href="/ui"
+            className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+          >
+            UI
+          </Link>
           <SignOutButton />
         </div>
       </header>
 
       <div className="flex justify-between items-center px-5 py-1.5 border-b border-zinc-200 bg-white">
         <div></div>
-        <DemoButton
+        <MarbleButton
           variant="orange"
           onClick={handleRunAll}
           disabled={!selectedTableId || columns.length === 0 || running}
         >
           Run All
-        </DemoButton>
+        </MarbleButton>
       </div>
 
       {/* Main */}
@@ -2109,21 +2044,22 @@ export default function TablePage(props: {
 
             <div className="flex justify-start shrink-0 mt-2">
               <div className="flex items-center gap-2">
-                <DemoButton
+                <MarbleButton
                   onClick={handleAddRows}
                   disabled={!selectedTableId}
                 >
                   Add
-                </DemoButton>
-                <input
+                </MarbleButton>
+                <MarbleInput
                   type="number"
                   min="1"
                   max="100"
                   value={rowCount}
+                  size="sm"
                   onChange={(e) =>
                     setRowCount(Math.max(1, parseInt(e.target.value, 10) || 1))
                   }
-                  className="w-16 bg-white border border-zinc-200 text-zinc-900 text-sm rounded-md px-2 py-1 focus:border-orange-400 focus:outline-none transition-colors shadow-sm"
+                  wrapperClassName="w-16"
                 />
                 <span className="text-sm text-zinc-600">
                   {rowCount === 1 ? "Row" : "Rows"}
@@ -2452,10 +2388,8 @@ function ColumnSidebar({
 
       <div className="flex-1 overflow-auto p-4 space-y-3">
         <div className="block">
-          <span className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1 block">
-            Name
-          </span>
-          <DemoInput
+          <MarbleFieldLabel>Name</MarbleFieldLabel>
+          <MarbleInput
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -2465,10 +2399,8 @@ function ColumnSidebar({
         </div>
 
         <div className="block mt-2">
-          <span className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1 block">
-            Program
-          </span>
-          <DemoSelect
+          <MarbleFieldLabel>Program</MarbleFieldLabel>
+          <MarbleSelect
             value={programId}
             onChange={(e) => setProgramId(e.target.value)}
             wrapperClassName="w-full"
@@ -2482,7 +2414,7 @@ function ColumnSidebar({
                 {p.name}
               </option>
             ))}
-          </DemoSelect>
+          </MarbleSelect>
         </div>
 
         {hasManualInput && (
@@ -2494,9 +2426,7 @@ function ColumnSidebar({
 
         {fields.length > 0 && (
           <div className="space-y-2">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">
-              Input Template
-            </span>
+            <MarbleFieldLabel>Input Template</MarbleFieldLabel>
             {fields.map((f) => {
               const fv = fieldValues[f.key] ?? {
                 mode: "static",
@@ -2553,8 +2483,9 @@ function ColumnSidebar({
                   </div>
                   {fv.mode === "static" ? (
                     f.enumValues ? (
-                      <select
+                      <MarbleSelect
                         value={fv.value}
+                        size="xs"
                         onChange={(e) =>
                           setFieldValues((prev) => ({
                             ...prev,
@@ -2564,7 +2495,7 @@ function ColumnSidebar({
                             },
                           }))
                         }
-                        className="w-full bg-white border border-zinc-300 rounded px-2 py-1 text-xs"
+                        wrapperClassName="w-full"
                       >
                         {f.enumValues.map((v) => (
                           <option
@@ -2574,7 +2505,7 @@ function ColumnSidebar({
                             {v}
                           </option>
                         ))}
-                      </select>
+                      </MarbleSelect>
                     ) : (
                       <InterpolationEditor
                         value={fv.value}
@@ -2600,8 +2531,9 @@ function ColumnSidebar({
                       />
                     )
                   ) : (
-                    <select
+                    <MarbleSelect
                       value={fv.value}
+                      size="xs"
                       onChange={(e) =>
                         setFieldValues((prev) => ({
                           ...prev,
@@ -2611,7 +2543,7 @@ function ColumnSidebar({
                           },
                         }))
                       }
-                      className="w-full bg-white border border-zinc-300 rounded px-2 py-1 text-xs"
+                      wrapperClassName="w-full"
                     >
                       <option
                         value=""
@@ -2628,7 +2560,7 @@ function ColumnSidebar({
                           {isManualInputColumn(col) ? " (input)" : ""}
                         </option>
                       ))}
-                    </select>
+                    </MarbleSelect>
                   )}
                 </div>
               );
@@ -2662,17 +2594,18 @@ function ColumnSidebar({
             </button>
             {outputSchemaOpen && (
               <div className="mt-2 space-y-2">
-                <textarea
+                <MarbleTextarea
                   value={outputSchemaJson}
                   onChange={(e) => {
                     setOutputSchemaJson(e.target.value);
                     setOutputSchemaDirty(true);
                   }}
+                  monospace
                   spellCheck={false}
                   rows={8}
-                  className="w-full bg-white border border-zinc-300 rounded px-2 py-1.5 text-xs font-mono focus:border-orange-600 focus:outline-none resize-y"
+                  size="xs"
                 />
-                <DemoButton
+                <MarbleButton
                   className="w-full"
                   disabled={!outputSchemaDirty || savingOutputSchema}
                   onClick={async () => {
@@ -2695,7 +2628,7 @@ function ColumnSidebar({
                   }}
                 >
                   {savingOutputSchema ? "Saving..." : "Save Output Config"}
-                </DemoButton>
+                </MarbleButton>
               </div>
             )}
           </div>
@@ -2709,7 +2642,7 @@ function ColumnSidebar({
             <span>{validationError}</span>
           </div>
         )}
-        <DemoButton
+        <MarbleButton
           variant="orange"
           className="w-full"
           onClick={handleSave}
@@ -2722,7 +2655,7 @@ function ColumnSidebar({
             : isCreate
               ? "Create Column"
               : "Save Changes"}
-        </DemoButton>
+        </MarbleButton>
       </div>
     </aside>
   );

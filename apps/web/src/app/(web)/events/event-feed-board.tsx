@@ -30,13 +30,8 @@ const ABSOLUTE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   hour: "2-digit",
   minute: "2-digit",
   month: "short",
+  second: "2-digit",
 });
-const OPERATION_ORDER: EventOperation[] = [
-  "Create",
-  "Update",
-  "Delete",
-  "Read",
-];
 const OPERATION_CHIPS: Record<EventOperation, string> = {
   Create: "border-emerald-200 bg-emerald-50 text-emerald-700",
   Delete: "border-rose-200 bg-rose-50 text-rose-700",
@@ -121,6 +116,18 @@ function formatRelativeTime(value: string) {
 
 function formatAbsoluteTime(value: string) {
   return ABSOLUTE_TIME_FORMATTER.format(new Date(value));
+}
+
+function formatJson(value: unknown) {
+  if (value === null || value === undefined) {
+    return "null";
+  }
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }
 
 function parseDiffEntries(diff: unknown): EventDiffEntry[] {
@@ -260,11 +267,12 @@ export function EventFeedBoard({
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [events, setEvents] = useState(initialEvents);
+  const [expandedEventId, setExpandedEventId] = useState<null | string>(null);
   const [enteringIds, setEnteringIds] = useState<string[]>([]);
+  const [liveInsertCount, setLiveInsertCount] = useState(0);
   const entryTimeouts = useRef(
     new Map<string, ReturnType<typeof setTimeout>>(),
   );
-  const [liveInsertCount, setLiveInsertCount] = useState(0);
   const ownedProfileIds = useMemo(
     () => profiles.map((profile) => profile.id),
     [
@@ -301,6 +309,21 @@ export function EventFeedBoard({
       profiles,
     ],
   );
+
+  useEffect(() => {
+    if (!expandedEventId) {
+      return;
+    }
+
+    if (events.some((event) => event.id === expandedEventId)) {
+      return;
+    }
+
+    setExpandedEventId(null);
+  }, [
+    events,
+    expandedEventId,
+  ]);
 
   useEffect(() => {
     if (ownedProfileIds.length === 0) {
@@ -406,39 +429,17 @@ export function EventFeedBoard({
   ]);
 
   const analytics = useMemo(() => {
-    const operationCounts: Record<EventOperation, number> = {
-      Create: 0,
-      Delete: 0,
-      Read: 0,
-      Update: 0,
-    };
-    const sourceCounts = new Map<EventSource, number>([
-      [
-        "WEB_APP",
-        0,
-      ],
-      [
-        "RAW_API",
-        0,
-      ],
-      [
-        "CLI",
-        0,
-      ],
-    ]);
-    const resourceCounts = new Map<string, number>();
     const activeProfileIds = new Set<string>();
     const requestIds = new Set<string>();
+    const resourceCounts = new Map<string, number>();
     let diffCount = 0;
 
     for (const event of events) {
-      operationCounts[event.operation] += 1;
-      sourceCounts.set(event.source, (sourceCounts.get(event.source) ?? 0) + 1);
+      activeProfileIds.add(event.actor_profile_id);
       resourceCounts.set(
         event.resource,
         (resourceCounts.get(event.resource) ?? 0) + 1,
       );
-      activeProfileIds.add(event.actor_profile_id);
 
       if (event.request_id) {
         requestIds.add(event.request_id);
@@ -455,9 +456,7 @@ export function EventFeedBoard({
     return {
       activeProfileCount: activeProfileIds.size,
       diffCount,
-      operationCounts,
       requestCount: requestIds.size,
-      sourceCounts,
       topResource,
     };
   }, [
@@ -466,27 +465,27 @@ export function EventFeedBoard({
 
   const summaryChips = [
     {
-      label: "Loaded",
+      label: "loaded",
       tone: SUMMARY_CHIPS.zinc,
       value: COUNT_FORMATTER.format(events.length),
     },
     {
-      label: "Profiles",
+      label: "profiles",
       tone: SUMMARY_CHIPS.sky,
       value: `${analytics.activeProfileCount}/${profiles.length}`,
     },
     {
-      label: "Requests",
+      label: "requests",
       tone: SUMMARY_CHIPS.violet,
       value: COUNT_FORMATTER.format(analytics.requestCount),
     },
     {
-      label: "Changed fields",
+      label: "fields",
       tone: SUMMARY_CHIPS.amber,
       value: COUNT_FORMATTER.format(analytics.diffCount),
     },
     {
-      label: "Top",
+      label: "top",
       tone: SUMMARY_CHIPS.emerald,
       value: analytics.topResource
         ? `${titleCase(analytics.topResource[0])} · ${COUNT_FORMATTER.format(
@@ -495,86 +494,38 @@ export function EventFeedBoard({
         : "No data",
     },
     {
-      label: "Live",
+      label: "live",
       tone: SUMMARY_CHIPS.fuchsia,
       value: `+${COUNT_FORMATTER.format(liveInsertCount)}`,
     },
   ] as const;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-3xl font-semibold tracking-tight text-zinc-950">
-            Events
+          <h2 className="text-xl font-semibold tracking-tight text-zinc-950">
+            Event feed
           </h2>
-          <p className="mt-1 text-sm text-zinc-500">
-            Latest activity across every profile owned by the signed-in user.
+          <p className="mt-0.5 text-sm text-zinc-500">
+            Thin rows, live updates, click for full entry detail.
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5 font-mono text-[11px]">
           {summaryChips.map((chip) => (
             <span
               key={chip.label}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium ${chip.tone}`}
+              className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 ${chip.tone}`}
             >
               <span className="text-zinc-500">{chip.label}</span>
-              <span className="font-mono text-[12px] text-current">
-                {chip.value}
-              </span>
+              <span className="text-current">{chip.value}</span>
             </span>
           ))}
         </div>
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-        <div className="border-b border-zinc-200 px-4 py-3 sm:px-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                Live feed
-              </span>
-              {OPERATION_ORDER.map((operation) => (
-                <span
-                  key={operation}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${OPERATION_CHIPS[operation]}`}
-                >
-                  {operation}
-                  <span className="font-mono text-[11px]">
-                    {COUNT_FORMATTER.format(
-                      analytics.operationCounts[operation],
-                    )}
-                  </span>
-                </span>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  "WEB_APP",
-                  "RAW_API",
-                  "CLI",
-                ] as EventSource[]
-              ).map((source) => (
-                <span
-                  key={source}
-                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium ${SOURCE_CHIPS[source]}`}
-                >
-                  {SOURCE_LABELS[source]}
-                  <span className="font-mono text-[11px]">
-                    {COUNT_FORMATTER.format(
-                      analytics.sourceCounts.get(source) ?? 0,
-                    )}
-                  </span>
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
+      <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
         {events.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
             <div className="max-w-md space-y-2">
@@ -603,105 +554,212 @@ export function EventFeedBoard({
             </div>
           </div>
         ) : (
-          <div className="max-h-[72vh] overflow-auto">
-            <div className="min-w-[1080px]">
-              <div className="sticky top-0 z-10 grid grid-cols-[140px_180px_minmax(280px,1.5fr)_170px_120px_140px] gap-3 border-b border-zinc-200 bg-white/95 px-4 py-3 text-[11px] uppercase tracking-[0.22em] text-zinc-500 backdrop-blur sm:px-5">
-                <div>Time</div>
-                <div>Mutation</div>
-                <div>Resource</div>
+          <div className="max-h-[76vh] overflow-auto">
+            <div className="min-w-[1180px] font-mono text-[11px] leading-5">
+              <div className="sticky top-0 z-10 grid grid-cols-[20px_150px_86px_minmax(360px,1.8fr)_170px_110px_110px] gap-3 border-b border-zinc-200 bg-zinc-50/95 px-3 py-2 uppercase tracking-[0.18em] text-zinc-500 backdrop-blur">
+                <div />
+                <div>Timestamp</div>
+                <div>Op</div>
+                <div>Resource / Message</div>
                 <div>Actor</div>
                 <div>Source</div>
                 <div>Request</div>
               </div>
 
-              <div className="divide-y divide-zinc-100">
+              <div>
                 {events.map((event) => {
                   const diffEntries = parseDiffEntries(event.diff);
-                  const diffEntryCount = diffEntries.length;
                   const diffSummary = describeDiff(event, diffEntries);
-                  const profile = profileById.get(event.actor_profile_id);
                   const isEntering = enteringIdSet.has(event.id);
+                  const isExpanded = expandedEventId === event.id;
+                  const profile = profileById.get(event.actor_profile_id);
 
                   return (
-                    <div
+                    <article
                       key={event.id}
-                      className="event-feed-row grid grid-cols-[140px_180px_minmax(280px,1.5fr)_170px_120px_140px] gap-3 px-4 py-3 sm:px-5"
+                      className="event-feed-row border-b border-zinc-100 last:border-b-0"
                       data-entering={isEntering ? "true" : undefined}
                     >
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-zinc-900">
-                          {formatRelativeTime(event.created_at)}
-                        </p>
-                        <time
-                          className="mt-1 block font-mono text-[11px] text-zinc-500"
-                          dateTime={event.created_at}
-                          title={event.created_at}
-                        >
+                      <button
+                        aria-expanded={isExpanded}
+                        className={`grid w-full grid-cols-[20px_150px_86px_minmax(360px,1.8fr)_170px_110px_110px] gap-3 px-3 py-1.5 text-left transition ${
+                          isExpanded
+                            ? "bg-zinc-50"
+                            : "bg-white hover:bg-zinc-50/70"
+                        }`}
+                        onClick={() =>
+                          setExpandedEventId((current) =>
+                            current === event.id ? null : event.id,
+                          )
+                        }
+                        type="button"
+                      >
+                        <div className="pt-0.5 text-zinc-300">
+                          {isExpanded ? "▾" : "▸"}
+                        </div>
+
+                        <div className="truncate text-zinc-600 tabular-nums">
                           {formatAbsoluteTime(event.created_at)}
-                        </time>
-                      </div>
+                        </div>
 
-                      <div className="min-w-0">
-                        <span
-                          className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${OPERATION_CHIPS[event.operation]}`}
-                        >
-                          {event.operation}
-                        </span>
-                        <p className="mt-2 truncate text-xs text-zinc-500">
-                          {diffSummary}
-                        </p>
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div>
                           <span
-                            className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${
+                            className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium ${OPERATION_CHIPS[event.operation]}`}
+                          >
+                            {event.operation}
+                          </span>
+                        </div>
+
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span
+                            className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium ${
                               RESOURCE_CHIPS[event.resource] ??
                               "border-zinc-200 bg-zinc-50 text-zinc-700"
                             }`}
                           >
                             {titleCase(event.resource)}
                           </span>
-                          <p className="truncate text-sm font-medium text-zinc-900">
+                          <span className="truncate text-zinc-900">
                             {describeEntity(event)}
-                          </p>
+                          </span>
+                          <span className="truncate text-zinc-400">
+                            {diffSummary}
+                          </span>
                         </div>
-                        <p className="mt-2 font-mono text-[11px] text-zinc-400">
-                          {event.entity_id}
-                        </p>
-                      </div>
 
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-zinc-900">
+                        <div className="truncate text-zinc-700">
                           {profile?.name || shortId(event.actor_profile_id)}
-                        </p>
-                        <p className="mt-1 truncate text-xs text-zinc-500">
-                          {profile?.external_name ||
-                            profile?.type ||
-                            "Owned profile"}
-                        </p>
-                      </div>
+                        </div>
 
-                      <div className="min-w-0">
-                        <span
-                          className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-medium ${SOURCE_CHIPS[event.source]}`}
-                        >
-                          {SOURCE_LABELS[event.source]}
-                        </span>
-                      </div>
+                        <div>
+                          <span
+                            className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium ${SOURCE_CHIPS[event.source]}`}
+                          >
+                            {SOURCE_LABELS[event.source]}
+                          </span>
+                        </div>
 
-                      <div className="min-w-0">
-                        <p className="font-mono text-xs text-zinc-700">
+                        <div className="truncate text-zinc-500">
                           {event.request_id
                             ? shortId(event.request_id)
                             : "system"}
-                        </p>
-                        <p className="mt-1 text-[11px] text-zinc-400">
-                          {diffEntryCount} diff point
-                          {diffEntryCount === 1 ? "" : "s"}
-                        </p>
+                        </div>
+                      </button>
+
+                      <div
+                        className="event-feed-detail"
+                        data-open={isExpanded ? "true" : undefined}
+                      >
+                        <div className="event-feed-detail-inner bg-zinc-50/80">
+                          <div className="grid gap-4 border-t border-zinc-200 px-6 py-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                            <div className="space-y-4">
+                              <div className="flex flex-wrap gap-2">
+                                <span
+                                  className={`inline-flex rounded border px-2 py-1 text-[10px] font-medium ${OPERATION_CHIPS[event.operation]}`}
+                                >
+                                  {event.operation}
+                                </span>
+                                <span
+                                  className={`inline-flex rounded border px-2 py-1 text-[10px] font-medium ${
+                                    RESOURCE_CHIPS[event.resource] ??
+                                    "border-zinc-200 bg-zinc-50 text-zinc-700"
+                                  }`}
+                                >
+                                  {titleCase(event.resource)}
+                                </span>
+                                <span
+                                  className={`inline-flex rounded border px-2 py-1 text-[10px] font-medium ${SOURCE_CHIPS[event.source]}`}
+                                >
+                                  {SOURCE_LABELS[event.source]}
+                                </span>
+                                <span className="inline-flex rounded border border-zinc-200 bg-white px-2 py-1 text-[10px] text-zinc-600">
+                                  {formatRelativeTime(event.created_at)}
+                                </span>
+                              </div>
+
+                              <div className="grid gap-x-6 gap-y-3 text-[11px] text-zinc-700 sm:grid-cols-2">
+                                <div>
+                                  <div className="mb-1 uppercase tracking-[0.16em] text-zinc-400">
+                                    Entity
+                                  </div>
+                                  <div className="break-all text-zinc-900">
+                                    {event.entity_id}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="mb-1 uppercase tracking-[0.16em] text-zinc-400">
+                                    Request
+                                  </div>
+                                  <div className="break-all text-zinc-900">
+                                    {event.request_id || "system"}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="mb-1 uppercase tracking-[0.16em] text-zinc-400">
+                                    Profile
+                                  </div>
+                                  <div className="break-all text-zinc-900">
+                                    {profile?.name || event.actor_profile_id}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="mb-1 uppercase tracking-[0.16em] text-zinc-400">
+                                    Created
+                                  </div>
+                                  <div className="text-zinc-900">
+                                    {formatAbsoluteTime(event.created_at)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div>
+                                <div className="mb-2 uppercase tracking-[0.16em] text-zinc-400">
+                                  Changed paths
+                                </div>
+                                {diffEntries.length === 0 ? (
+                                  <div className="text-zinc-500">
+                                    No diff entries
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {diffEntries.map((entry) => (
+                                      <span
+                                        key={`${event.id}-${
+                                          entry.path.join(".") || "root"
+                                        }`}
+                                        className="rounded border border-zinc-200 bg-white px-2 py-1 text-[10px] text-zinc-700"
+                                      >
+                                        {entry.path.join(".") || "(root)"}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="grid gap-3 xl:grid-cols-2">
+                              <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+                                <div className="border-b border-zinc-200 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-400">
+                                  Before
+                                </div>
+                                <pre className="max-h-72 overflow-auto px-3 py-2 text-[10px] leading-5 text-zinc-700">
+                                  {formatJson(event.before_state)}
+                                </pre>
+                              </div>
+
+                              <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
+                                <div className="border-b border-zinc-200 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-400">
+                                  After
+                                </div>
+                                <pre className="max-h-72 overflow-auto px-3 py-2 text-[10px] leading-5 text-zinc-700">
+                                  {formatJson(event.after_state)}
+                                </pre>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    </article>
                   );
                 })}
               </div>

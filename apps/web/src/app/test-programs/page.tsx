@@ -1,13 +1,5 @@
 "use client";
 
-import Prism from "prismjs";
-import { useCallback, useEffect, useState } from "react";
-import Editor from "react-simple-code-editor";
-import * as actions from "./actions";
-import "prismjs/components/prism-typescript";
-import "prismjs/components/prism-json";
-import "prismjs/components/prism-markdown";
-import "prismjs/themes/prism-tomorrow.css";
 import {
   CodeBracketIcon,
   DocumentPlusIcon,
@@ -16,8 +8,58 @@ import {
   PlayIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
+import type { editor as MonacoEditorApi } from "monaco-editor";
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useState } from "react";
+import * as actions from "./actions";
 
 type FullProgram = Awaited<ReturnType<typeof actions.listPrograms>>[number];
+type ProgramFile = {
+  filename: string;
+  content: string;
+  filetype: "TypeScript" | "Json" | "Markdown";
+};
+type MonacoLanguage = "typescript" | "json" | "markdown";
+
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
+  loading: () => (
+    <div className="flex h-full items-center justify-center text-sm text-gray-500">
+      Loading editor...
+    </div>
+  ),
+  ssr: false,
+});
+
+const monacoEditorOptions = {
+  automaticLayout: true,
+  fontFamily: '"Fira Code", "Courier New", monospace',
+  fontLigatures: true,
+  fontSize: 13,
+  minimap: {
+    enabled: false,
+  },
+  padding: {
+    top: 16,
+  },
+  renderWhitespace: "selection",
+  scrollBeyondLastLine: false,
+  smoothScrolling: true,
+  tabSize: 2,
+} satisfies MonacoEditorApi.IStandaloneEditorConstructionOptions;
+
+function getMonacoLanguage(file: ProgramFile): MonacoLanguage {
+  if (file.filetype === "Json" || file.filename.endsWith(".json")) {
+    return "json";
+  }
+  if (file.filetype === "Markdown" || file.filename.endsWith(".md")) {
+    return "markdown";
+  }
+  return "typescript";
+}
+
+function getMonacoModelPath(programId: string | null, filename: string) {
+  return `inmemory://model/${programId ?? "__draft__"}/${filename}`;
+}
 
 function buildFieldsFromSchema(schema: Record<string, unknown>): {
   key: string;
@@ -44,13 +86,7 @@ export default function TestProgramsPage() {
   const [selectedProgId, setSelectedProgId] = useState<string | null>(null);
 
   // Editor State
-  const [files, setFiles] = useState<
-    {
-      filename: string;
-      content: string;
-      filetype: "TypeScript" | "Json" | "Markdown";
-    }[]
-  >([]);
+  const [files, setFiles] = useState<ProgramFile[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [progName, setProgName] = useState("");
   const [inputSchemaStr, setInputSchemaStr] = useState("{}");
@@ -296,19 +332,6 @@ export default function TestProgramsPage() {
         | undefined
     )?.allowManualInput === true;
 
-  const highlightCode = (code: string, filename: string) => {
-    let grammar = Prism.languages.typescript;
-    let language = "typescript";
-    if (filename.endsWith(".json")) {
-      grammar = Prism.languages.json;
-      language = "json";
-    } else if (filename.endsWith(".md")) {
-      grammar = Prism.languages.markdown;
-      language = "markdown";
-    }
-    return Prism.highlight(code, grammar, language);
-  };
-
   return (
     <div className="flex h-screen bg-[#1e1e1e] text-[#d4d4d4] font-sans overflow-hidden">
       {/* LEFT SIDEBAR */}
@@ -427,19 +450,25 @@ export default function TestProgramsPage() {
         {/* Code Editor */}
         <div className="flex-1 overflow-auto relative">
           {activeFileObj ? (
-            <Editor
-              value={activeFileObj.content}
-              onValueChange={handleCodeChange}
-              highlight={(code) => highlightCode(code, activeFileObj.filename)}
-              padding={16}
-              style={{
-                fontFamily: '"Fira Code", "Courier New", monospace',
-                fontSize: 13,
-                minHeight: "100%",
-              }}
-              className="editor-container absolute inset-0 outline-none"
-              textareaClassName="focus:outline-none"
-            />
+            <div className="absolute inset-0">
+              <MonacoEditor
+                height="100%"
+                language={getMonacoLanguage(activeFileObj)}
+                loading={
+                  <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                    Loading Monaco...
+                  </div>
+                }
+                options={monacoEditorOptions}
+                path={getMonacoModelPath(
+                  selectedProgId,
+                  activeFileObj.filename,
+                )}
+                theme="vs-dark"
+                value={activeFileObj.content}
+                onChange={(value) => handleCodeChange(value ?? "")}
+              />
+            </div>
           ) : (
             <div className="flex h-full items-center justify-center text-gray-500">
               Select or create a file to edit
@@ -611,15 +640,6 @@ export default function TestProgramsPage() {
           </div>
         </div>
       </div>
-      <style
-        jsx
-        global
-      >{`
-        /* Minimal custom styling for prism overriding if needed */
-        .editor-container textarea {
-          outline: none !important;
-        }
-      `}</style>
     </div>
   );
 }
