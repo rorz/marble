@@ -1,4 +1,11 @@
 {
-  "cSpell.words": ["bunx", "opencode", "supabase", "turborepo", "vercel"],
+  "cSpell.words": [
+    "Automations",
+    "bunx",
+    "opencode",
+    "supabase",
+    "turborepo",
+    "vercel"
+  ],
   "js/ts.tsdk.path": "node_modules/typescript/lib"
 }

@@ -41,6 +41,7 @@
         "@marble/supabase": "workspace:*",
         "@marble/ui": "workspace:*",
         "@monaco-editor/react": "catalog:base",
+        "@phosphor-icons/react": "catalog:base",
         "@supabase/ssr": "catalog:base",
         "@t3-oss/env-nextjs": "catalog:base",
         "ag-grid-community": "catalog:base",
@@ -163,6 +164,7 @@
       "@cloudflare/sandbox": "^0.8.6",
       "@heroicons/react": "^2.2.0",
       "@monaco-editor/react": "4.7.0",
+      "@phosphor-icons/react": "^2.1.1",
       "@postgres-language-server/cli": "^0.23.0",
       "@supabase/ssr": "^0.10.0",
       "@supabase/supabase-js": "^2",
@@ -413,6 +415,8 @@
     "@next/swc-win32-x64-msvc": ["@next/swc-win32-x64-msvc@16.2.1", "", { "os": "win32", "cpu": "x64" }, "sha512-qvU+3a39Hay+ieIztkGSbF7+mccbbg1Tk25hc4JDylf8IHjYmY/Zm64Qq1602yPyQqvie+vf5T/uPwNxDNIoeg=="],
 
     "@oxc-project/types": ["@oxc-project/types@0.123.0", "", {}, "sha512-YtECP/y8Mj1lSHiUWGSRzy/C6teUKlS87dEfuVKT09LgQbUsBW1rNg+MiJ4buGu3yuADV60gbIvo9/HplA56Ew=="],
+
+    "@phosphor-icons/react": ["@phosphor-icons/react@2.1.10", "", { "peerDependencies": { "react": ">= 16.8", "react-dom": ">= 16.8" } }, "sha512-vt8Tvq8GLjheAZZYa+YG/pW7HDbov8El/MANW8pOAz4eGxrwhnbfrQZq0Cp4q8zBEu8NIhHdnr+r8thnfRSNYA=="],
 
     "@poppinss/colors": ["@poppinss/colors@4.1.6", "", { "dependencies": { "kleur": "^4.1.5" } }, "sha512-H9xkIdFswbS8n1d6vmRd8+c10t2Qe+rZITbbDHHkQixH5+2x1FDGmi/0K+WgWiqQFKPSlIYB7jlH6Kpfn6Fleg=="],
 

@@ -6,6 +6,7 @@
     "@marble/supabase": "workspace:*",
     "@marble/ui": "workspace:*",
     "@monaco-editor/react": "catalog:base",
+    "@phosphor-icons/react": "catalog:base",
     "@supabase/ssr": "catalog:base",
     "@t3-oss/env-nextjs": "catalog:base",
     "ag-grid-community": "catalog:base",

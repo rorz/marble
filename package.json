@@ -26,6 +26,7 @@
         "@cloudflare/sandbox": "^0.8.6",
         "@heroicons/react": "^2.2.0",
         "@monaco-editor/react": "4.7.0",
+        "@phosphor-icons/react": "^2.1.1",
         "@postgres-language-server/cli": "^0.23.0",
         "@supabase/ssr": "^0.10.0",
         "@supabase/supabase-js": "^2",

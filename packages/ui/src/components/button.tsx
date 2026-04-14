@@ -17,8 +17,8 @@ const marbleButtonBackgrounds = {
     linear-gradient(to bottom, var(--color-neutral-100) 0px, #e5e5e500 4px),linear-gradient(to right, var(--color-neutral-200) 0%, var(--color-neutral-200) 100%)`,
   orange: `
     linear-gradient(120deg, var(--color-white) 0px, #f6490000 10%),
-    linear-gradient(to left, var(--color-orange-800) 0px, #f6490000 4px),
-    linear-gradient(to top, var(--color-orange-950) 0px, #f6490000 4px),
+    linear-gradient(to left, var(--color-orange-600) 0px, #f6490000 4px),
+    linear-gradient(to top, var(--color-orange-700) 0px, #f6490000 4px),
     linear-gradient(to bottom, var(--color-orange-300) 0px, #f6490000 4px),
     linear-gradient(to right, var(--color-orange-600) 0%, var(--color-orange-600) 100%)`,
   red: `
@@ -31,12 +31,19 @@ const marbleButtonBackgrounds = {
 } as const;
 
 const marbleButtonRootVariants = cva(
-  "rounded-xs bg-neutral-800/90 p-0.5 transition-opacity",
+  "rounded-sm p-0.5 transition-opacity overflow-hidden",
   {
     variants: {
       disabled: {
         false: "cursor-pointer hover:opacity-90",
         true: "cursor-not-allowed opacity-40",
+      },
+      variant: {
+        dark: "bg-neutral-500",
+        light: "bg-neutral-200",
+        orange:
+          "bg-linear-to-br from-orange-400 to-orange-700 border border-orange-300",
+        red: "bg-red-400",
       },
     },
   },
@@ -49,7 +56,7 @@ const marbleButtonBorderVariants = cva("size-full rounded-md p-px", {
   variants: {
     variant: {
       dark: "bg-neutral-700",
-      light: "bg-neutral-200",
+      light: "bg-neutral-300",
       orange: "bg-orange-500",
       red: "bg-red-600",
     },
@@ -87,16 +94,15 @@ export function MarbleButton({
   disabled = false,
   size,
   type = "button",
-  variant,
+  variant = "light",
   ...props
 }: MarbleButtonProps) {
-  const resolvedVariant = variant ?? "light";
-
   return (
     <button
       className={cx(
         marbleButtonRootVariants({
           disabled,
+          variant,
         }),
         className,
       )}
@@ -106,10 +112,10 @@ export function MarbleButton({
     >
       <div
         className={marbleButtonBorderVariants({
-          variant: resolvedVariant,
+          variant,
         })}
         style={{
-          background: marbleButtonBackgrounds[resolvedVariant],
+          background: marbleButtonBackgrounds[variant ?? "light"],
         }}
       >
         <div
