@@ -13,12 +13,12 @@ export function CreateTableButton() {
 
   return (
     <button
-      className="bg-neutral-950 p-0.5 rounded-[7px] transition-opacity hover:opacity-90 cursor-pointer"
+      className="cursor-pointer rounded-[7px] bg-neutral-950 p-0.5 transition-opacity hover:opacity-90"
       onClick={handleCreate}
       type="button"
     >
       <div
-        className="size-full p-[1px] rounded-md bg-neutral-200"
+        className="size-full rounded-md bg-neutral-200 p-[1px]"
         style={{
           background: `linear-gradient(to right, var(--color-neutral-100) 0px, #e5e5e500 4px),
           linear-gradient(to left, var(--color-neutral-400) 0px, #e5e5e500 4px),
@@ -27,7 +27,7 @@ export function CreateTableButton() {
           linear-gradient(to bottom right, var(--color-white) 0px, #e5e5e500 4px)`,
         }}
       >
-        <div className="size-full flex items-center justify-center font-medium uppercase py-1.5 px-3 rounded-[5px] tracking-wide text-xs bg-neutral-50 text-neutral-700 shadow-sm font-medium">
+        <div className="flex size-full items-center justify-center rounded-[5px] bg-neutral-50 px-3 py-1.5 font-medium font-medium text-neutral-700 text-xs uppercase tracking-wide shadow-sm">
           + New Table
         </div>
       </div>

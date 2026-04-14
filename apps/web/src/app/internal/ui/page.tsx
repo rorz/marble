@@ -15,7 +15,7 @@ function Section({
 }>) {
   return (
     <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 text-sm font-semibold text-zinc-900">{title}</h2>
+      <h2 className="mb-4 font-semibold text-sm text-zinc-900">{title}</h2>
       {children}
     </section>
   );
@@ -26,10 +26,10 @@ export default function UiPage() {
     <main className="min-h-screen bg-zinc-50 px-6 py-8 text-zinc-950">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <header className="space-y-2">
-          <p className="text-[11px] font-medium uppercase tracking-[0.24em] text-orange-600">
+          <p className="font-medium text-[11px] text-orange-600 uppercase tracking-[0.24em]">
             Marble UI
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight">
+          <h1 className="font-semibold text-3xl tracking-tight">
             Kitchen sink
           </h1>
           <p className="max-w-2xl text-sm text-zinc-600">

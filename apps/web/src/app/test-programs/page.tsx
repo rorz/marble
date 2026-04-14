@@ -23,7 +23,7 @@ type MonacoLanguage = "typescript" | "json" | "markdown";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   loading: () => (
-    <div className="flex h-full items-center justify-center text-sm text-gray-500">
+    <div className="flex h-full items-center justify-center text-gray-500 text-sm">
       Loading editor...
     </div>
   ),
@@ -333,32 +333,32 @@ export default function TestProgramsPage() {
     )?.allowManualInput === true;
 
   return (
-    <div className="flex h-screen bg-[#1e1e1e] text-[#d4d4d4] font-sans overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-[#1e1e1e] font-sans text-[#d4d4d4]">
       {/* LEFT SIDEBAR */}
-      <div className="w-64 bg-[#252526] border-r border-[#3c3c3c] flex flex-col shrink-0">
-        <div className="p-3 uppercase text-xs font-semibold tracking-wider text-gray-400">
+      <div className="flex w-64 shrink-0 flex-col border-[#3c3c3c] border-r bg-[#252526]">
+        <div className="p-3 font-semibold text-gray-400 text-xs uppercase tracking-wider">
           Programs
         </div>
         <div className="flex-1 overflow-y-auto">
           <button
-            className={`w-full text-left px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-[#2a2d2e] ${!selectedProgId ? "bg-[#37373d]" : ""}`}
+            className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left hover:bg-[#2a2d2e] ${!selectedProgId ? "bg-[#37373d]" : ""}`}
             onClick={handleCreateProgram}
             type="button"
           >
-            <PlusIcon className="w-4 h-4 text-emerald-400" />
+            <PlusIcon className="h-4 w-4 text-emerald-400" />
             <span className="text-sm">New Program</span>
           </button>
           {programs.map((p) => (
             <button
-              className={`w-full text-left px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-[#2a2d2e] ${selectedProgId === p.id ? "bg-[#37373d]" : ""}`}
+              className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left hover:bg-[#2a2d2e] ${selectedProgId === p.id ? "bg-[#37373d]" : ""}`}
               key={p.id}
               onClick={() => setSelectedProgId(p.id)}
               type="button"
             >
-              <CodeBracketIcon className="w-4 h-4 text-blue-400" />
-              <span className="text-sm truncate flex-1">{p.name}</span>
+              <CodeBracketIcon className="h-4 w-4 text-blue-400" />
+              <span className="flex-1 truncate text-sm">{p.name}</span>
               {p.program_version?.length > 0 && (
-                <span className="text-xs text-gray-500">
+                <span className="text-gray-500 text-xs">
                   v{Math.max(...p.program_version.map((v) => v.version))}
                 </span>
               )}
@@ -368,10 +368,10 @@ export default function TestProgramsPage() {
 
         {/* FILE EXPLORER FOR SELECTED PROGRAM */}
         {(selectedProgId || files.length > 0) && (
-          <div className="h-1/2 border-t border-[#3c3c3c] flex flex-col">
-            <div className="p-3 flex items-center justify-between group">
-              <span className="uppercase text-xs font-semibold tracking-wider text-gray-400 flex items-center gap-1">
-                <FolderOpenIcon className="w-4 h-4" /> Workspace
+          <div className="flex h-1/2 flex-col border-[#3c3c3c] border-t">
+            <div className="group flex items-center justify-between p-3">
+              <span className="flex items-center gap-1 font-semibold text-gray-400 text-xs uppercase tracking-wider">
+                <FolderOpenIcon className="h-4 w-4" /> Workspace
               </span>
               <button
                 className="text-gray-400 hover:text-white"
@@ -379,21 +379,21 @@ export default function TestProgramsPage() {
                 title="New File"
                 type="button"
               >
-                <DocumentPlusIcon className="w-4 h-4" />
+                <DocumentPlusIcon className="h-4 w-4" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto pb-4">
               {files.map((f) => (
                 <button
-                  className={`w-full text-left px-6 py-1 flex items-center gap-2 cursor-pointer hover:bg-[#2a2d2e] ${activeFile === f.filename ? "bg-[#37373d] text-white" : "text-gray-300"}`}
+                  className={`flex w-full cursor-pointer items-center gap-2 px-6 py-1 text-left hover:bg-[#2a2d2e] ${activeFile === f.filename ? "bg-[#37373d] text-white" : "text-gray-300"}`}
                   key={f.filename}
                   onClick={() => setActiveFile(f.filename)}
                   type="button"
                 >
                   <DocumentTextIcon
-                    className={`w-4 h-4 ${f.filename.endsWith(".ts") ? "text-blue-400" : f.filename.endsWith(".json") ? "text-yellow-400" : "text-gray-400"}`}
+                    className={`h-4 w-4 ${f.filename.endsWith(".ts") ? "text-blue-400" : f.filename.endsWith(".json") ? "text-yellow-400" : "text-gray-400"}`}
                   />
-                  <span className="text-sm truncate">{f.filename}</span>
+                  <span className="truncate text-sm">{f.filename}</span>
                 </button>
               ))}
             </div>
@@ -402,11 +402,11 @@ export default function TestProgramsPage() {
       </div>
 
       {/* MIDDLE: EDITOR */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#1e1e1e]">
+      <div className="flex min-w-0 flex-1 flex-col bg-[#1e1e1e]">
         {/* Editor Top Bar */}
-        <div className="h-10 bg-[#2d2d2d] flex items-center px-4 border-b border-[#3c3c3c] gap-4">
+        <div className="flex h-10 items-center gap-4 border-[#3c3c3c] border-b bg-[#2d2d2d] px-4">
           <input
-            className="bg-transparent text-sm font-semibold focus:outline-none placeholder-gray-500"
+            className="bg-transparent font-semibold text-sm placeholder-gray-500 focus:outline-none"
             onChange={(e) => setProgName(e.target.value)}
             placeholder="Program Name..."
             type="text"
@@ -414,7 +414,7 @@ export default function TestProgramsPage() {
           />
           <div className="flex-1" />
           <button
-            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded shadow-sm disabled:opacity-50"
+            className="rounded bg-blue-600 px-3 py-1 text-white text-xs shadow-sm hover:bg-blue-500 disabled:opacity-50"
             disabled={saving}
             onClick={handleSave}
             type="button"
@@ -425,37 +425,37 @@ export default function TestProgramsPage() {
 
         {/* File Tabs */}
         {files.length > 0 && (
-          <div className="flex bg-[#252526] overflow-x-auto no-scrollbar border-b border-[#3c3c3c]">
+          <div className="no-scrollbar flex overflow-x-auto border-[#3c3c3c] border-b bg-[#252526]">
             {files.map((f) => (
               <button
-                className={`px-4 py-2 text-sm cursor-pointer border-r border-[#3c3c3c] flex items-center gap-2 ${activeFile === f.filename ? "bg-[#1e1e1e] text-white border-t-2 border-t-blue-500" : "text-gray-400 hover:bg-[#2d2d2d]"}`}
+                className={`flex cursor-pointer items-center gap-2 border-[#3c3c3c] border-r px-4 py-2 text-sm ${activeFile === f.filename ? "border-t-2 border-t-blue-500 bg-[#1e1e1e] text-white" : "text-gray-400 hover:bg-[#2d2d2d]"}`}
                 key={f.filename}
                 onClick={() => setActiveFile(f.filename)}
                 type="button"
               >
-                <DocumentTextIcon className="w-4 h-4" />
+                <DocumentTextIcon className="h-4 w-4" />
                 {f.filename}
               </button>
             ))}
             <button
-              className="px-4 py-2 text-sm text-gray-400 hover:bg-[#2d2d2d] cursor-pointer flex items-center"
+              className="flex cursor-pointer items-center px-4 py-2 text-gray-400 text-sm hover:bg-[#2d2d2d]"
               onClick={handleAddFile}
               type="button"
             >
-              <PlusIcon className="w-4 h-4" />
+              <PlusIcon className="h-4 w-4" />
             </button>
           </div>
         )}
 
         {/* Code Editor */}
-        <div className="flex-1 overflow-auto relative">
+        <div className="relative flex-1 overflow-auto">
           {activeFileObj ? (
             <div className="absolute inset-0">
               <MonacoEditor
                 height="100%"
                 language={getMonacoLanguage(activeFileObj)}
                 loading={
-                  <div className="flex h-full items-center justify-center text-sm text-gray-500">
+                  <div className="flex h-full items-center justify-center text-gray-500 text-sm">
                     Loading Monaco...
                   </div>
                 }
@@ -477,8 +477,8 @@ export default function TestProgramsPage() {
         </div>
 
         {/* Bottom Panel: Output / Terminal */}
-        <div className="h-48 border-t border-[#3c3c3c] bg-[#1e1e1e] flex flex-col shrink-0">
-          <div className="flex items-center px-4 py-1 text-xs uppercase tracking-wider text-gray-400 border-b border-[#3c3c3c]">
+        <div className="flex h-48 shrink-0 flex-col border-[#3c3c3c] border-t bg-[#1e1e1e]">
+          <div className="flex items-center border-[#3c3c3c] border-b px-4 py-1 text-gray-400 text-xs uppercase tracking-wider">
             Output Log
           </div>
           <div className="flex-1 overflow-y-auto p-2 font-mono text-xs">
@@ -506,28 +506,28 @@ export default function TestProgramsPage() {
       </div>
 
       {/* RIGHT SIDEBAR: SETTINGS & RUNNER */}
-      <div className="w-80 bg-[#252526] border-l border-[#3c3c3c] flex flex-col shrink-0">
-        <div className="p-3 uppercase text-xs font-semibold tracking-wider text-gray-400 border-b border-[#3c3c3c]">
+      <div className="flex w-80 shrink-0 flex-col border-[#3c3c3c] border-l bg-[#252526]">
+        <div className="border-[#3c3c3c] border-b p-3 font-semibold text-gray-400 text-xs uppercase tracking-wider">
           Configuration & Test
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {/* Schema Config */}
-          <div className="p-4 border-b border-[#3c3c3c]">
-            <div className="text-xs text-gray-400 mb-2 font-semibold">
+          <div className="border-[#3c3c3c] border-b p-4">
+            <div className="mb-2 font-semibold text-gray-400 text-xs">
               INPUT SCHEMA
             </div>
             <textarea
-              className="w-full h-24 bg-[#1e1e1e] border border-[#3c3c3c] rounded p-2 text-xs font-mono focus:outline-none focus:border-blue-500"
+              className="h-24 w-full rounded border border-[#3c3c3c] bg-[#1e1e1e] p-2 font-mono text-xs focus:border-blue-500 focus:outline-none"
               onChange={(e) => setInputSchemaStr(e.target.value)}
               value={inputSchemaStr}
             />
 
-            <div className="text-xs text-gray-400 mt-4 mb-2 font-semibold">
+            <div className="mt-4 mb-2 font-semibold text-gray-400 text-xs">
               OUTPUT CONFIG
             </div>
             <textarea
-              className="w-full h-24 bg-[#1e1e1e] border border-[#3c3c3c] rounded p-2 text-xs font-mono focus:outline-none focus:border-blue-500"
+              className="h-24 w-full rounded border border-[#3c3c3c] bg-[#1e1e1e] p-2 font-mono text-xs focus:border-blue-500 focus:outline-none"
               onChange={(e) => setOutputConfigStr(e.target.value)}
               value={outputConfigStr}
             />
@@ -535,12 +535,12 @@ export default function TestProgramsPage() {
 
           {/* Test Runner */}
           <div className="p-4">
-            <div className="text-xs text-gray-400 mb-3 font-semibold">
+            <div className="mb-3 font-semibold text-gray-400 text-xs">
               TEST INPUTS
             </div>
 
             {fields.length === 0 && (
-              <div className="text-xs text-gray-500 italic mb-2">
+              <div className="mb-2 text-gray-500 text-xs italic">
                 No inputs required.
               </div>
             )}
@@ -551,14 +551,14 @@ export default function TestProgramsPage() {
                 key={f.key}
               >
                 <label
-                  className="block text-xs text-gray-300 mb-1"
+                  className="mb-1 block text-gray-300 text-xs"
                   htmlFor={`input-${f.key}`}
                 >
                   {f.title}
                 </label>
                 {f.enumValues ? (
                   <select
-                    className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-sm outline-none focus:border-blue-500"
+                    className="w-full rounded border border-[#3c3c3c] bg-[#1e1e1e] px-2 py-1 text-sm outline-none focus:border-blue-500"
                     id={`input-${f.key}`}
                     onChange={(e) =>
                       setInputValues((p) => ({
@@ -579,7 +579,7 @@ export default function TestProgramsPage() {
                   </select>
                 ) : (
                   <input
-                    className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-sm outline-none focus:border-blue-500"
+                    className="w-full rounded border border-[#3c3c3c] bg-[#1e1e1e] px-2 py-1 text-sm outline-none focus:border-blue-500"
                     id={`input-${f.key}`}
                     onChange={(e) =>
                       setInputValues((p) => ({
@@ -597,13 +597,13 @@ export default function TestProgramsPage() {
             {hasManualInput && (
               <div className="mb-3">
                 <label
-                  className="block text-xs text-gray-300 mb-1"
+                  className="mb-1 block text-gray-300 text-xs"
                   htmlFor="manual-input"
                 >
                   Manual Cell Input
                 </label>
                 <input
-                  className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-sm outline-none focus:border-blue-500"
+                  className="w-full rounded border border-[#3c3c3c] bg-[#1e1e1e] px-2 py-1 text-sm outline-none focus:border-blue-500"
                   id="manual-input"
                   onChange={(e) => setManualInput(e.target.value)}
                   placeholder="Cell value..."
@@ -614,23 +614,23 @@ export default function TestProgramsPage() {
             )}
 
             <button
-              className="w-full mt-2 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded shadow disabled:opacity-50 transition-colors"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded bg-emerald-600 px-4 py-2 text-white shadow transition-colors hover:bg-emerald-500 disabled:opacity-50"
               disabled={running || !latestVersion}
               onClick={handleRun}
               type="button"
             >
-              <PlayIcon className="w-4 h-4" />
+              <PlayIcon className="h-4 w-4" />
               {running ? "Running..." : "Run Program"}
             </button>
 
             {result && (
-              <div className="mt-4 border border-[#3c3c3c] rounded bg-[#1e1e1e]">
+              <div className="mt-4 rounded border border-[#3c3c3c] bg-[#1e1e1e]">
                 <div
-                  className={`px-3 py-1.5 border-b border-[#3c3c3c] text-xs font-semibold ${result.ok ? "text-green-400" : "text-red-400"}`}
+                  className={`border-[#3c3c3c] border-b px-3 py-1.5 font-semibold text-xs ${result.ok ? "text-green-400" : "text-red-400"}`}
                 >
                   {result.ok ? "Success" : "Error"}
                 </div>
-                <div className="p-3 text-xs font-mono overflow-auto max-h-48 break-words">
+                <div className="max-h-48 overflow-auto break-words p-3 font-mono text-xs">
                   {result.ok
                     ? JSON.stringify(result.output, null, 2)
                     : result.error}

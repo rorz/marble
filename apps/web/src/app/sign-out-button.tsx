@@ -49,7 +49,7 @@ export default function SignOutButton() {
       >
         {pending ? "Signing out..." : "Sign out"}
       </button>
-      {error ? <p className="text-xs text-red-500">{error}</p> : null}
+      {error ? <p className="text-red-500 text-xs">{error}</p> : null}
     </div>
   );
 }

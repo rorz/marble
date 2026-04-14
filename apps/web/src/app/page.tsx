@@ -7,7 +7,7 @@ const Homepage = async () => {
   return (
     <main className="min-h-screen p-6">
       <div className="max-w-xl space-y-4">
-        <h1 className="text-xl font-medium">Marble</h1>
+        <h1 className="font-medium text-xl">Marble</h1>
         <AuthForm />
       </div>
     </main>

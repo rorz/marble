@@ -79,10 +79,10 @@ export default async function EventsPage() {
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-950">
-      <header className="border-b border-zinc-200 bg-white">
+      <header className="border-zinc-200 border-b bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-4">
           <div className="flex items-center gap-6">
-            <h1 className="text-lg font-semibold tracking-tight">marble</h1>
+            <h1 className="font-semibold text-lg tracking-tight">marble</h1>
             <nav className="flex items-center gap-2 text-sm">
               <Link
                 className="rounded-lg px-3 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"

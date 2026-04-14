@@ -350,7 +350,7 @@ function ContextMenu({
         }}
       />
       <div
-        className="fixed z-[61] bg-white border border-zinc-200 rounded-lg shadow-lg py-1 min-w-[160px]"
+        className="fixed z-[61] min-w-[160px] rounded-lg border border-zinc-200 bg-white py-1 shadow-lg"
         style={{
           left: state.x,
           top: state.y,
@@ -358,7 +358,7 @@ function ContextMenu({
       >
         {state.items.map((item) => (
           <button
-            className={`w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 transition-colors ${
+            className={`w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-zinc-100 ${
               item.danger ? "text-red-600 hover:bg-red-50" : "text-zinc-700"
             }`}
             key={item.label}
@@ -387,7 +387,7 @@ function ConfirmModal({
 }) {
   return (
     <div
-      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
       onClick={onClose}
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
@@ -396,13 +396,13 @@ function ConfirmModal({
       tabIndex={-1}
     >
       <div
-        className="bg-white border border-zinc-200 rounded-lg w-full max-w-sm shadow-xl p-5"
+        className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={() => {}}
         role="document"
       >
-        <h3 className="text-sm font-semibold mb-2">{state.title}</h3>
-        <p className="text-sm text-zinc-600 mb-5">{state.message}</p>
+        <h3 className="mb-2 font-semibold text-sm">{state.title}</h3>
+        <p className="mb-5 text-sm text-zinc-600">{state.message}</p>
         <div className="flex items-center justify-end gap-2">
           <MarbleButton onClick={onClose}>Cancel</MarbleButton>
           <MarbleButton
@@ -471,7 +471,7 @@ function CellInspectorModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
       onClick={onClose}
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
@@ -480,36 +480,36 @@ function CellInspectorModal({
       tabIndex={-1}
     >
       <div
-        className="bg-white border border-zinc-200 rounded-lg w-full max-w-xl shadow-xl max-h-[80vh] flex flex-col"
+        className="flex max-h-[80vh] w-full max-w-xl flex-col rounded-lg border border-zinc-200 bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={() => {}}
         role="document"
       >
-        <div className="px-5 py-3 border-b border-zinc-200 flex items-center justify-between shrink-0">
+        <div className="flex shrink-0 items-center justify-between border-zinc-200 border-b px-5 py-3">
           <div>
-            <h3 className="text-sm font-semibold">
+            <h3 className="font-semibold text-sm">
               {cell.columnName}
-              <span className="text-zinc-400 font-normal ml-2">
+              <span className="ml-2 font-normal text-zinc-400">
                 Row {cell.rowIndex}
               </span>
             </h3>
             {state?.ok === false && (
-              <span className="text-xs text-red-500 font-medium">Error</span>
+              <span className="font-medium text-red-500 text-xs">Error</span>
             )}
             {state?.ok === true && (
-              <span className="text-xs text-emerald-600 font-medium">
+              <span className="font-medium text-emerald-600 text-xs">
                 Success
               </span>
             )}
             {state?.ok === null && (
-              <span className="text-xs text-zinc-400 font-medium">Loading</span>
+              <span className="font-medium text-xs text-zinc-400">Loading</span>
             )}
             {state === null && (
-              <span className="text-xs text-zinc-400 font-medium">Not run</span>
+              <span className="font-medium text-xs text-zinc-400">Not run</span>
             )}
           </div>
           <button
-            className="text-zinc-400 hover:text-zinc-700 text-lg leading-none"
+            className="text-lg text-zinc-400 leading-none hover:text-zinc-700"
             onClick={onClose}
             type="button"
           >
@@ -520,10 +520,10 @@ function CellInspectorModal({
         <div className="flex-1 overflow-auto p-5">
           {cell.manualInput !== null && (
             <div className="mb-4">
-              <div className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">
+              <div className="mb-1 text-[10px] text-zinc-500 uppercase tracking-wider">
                 Manual Input
               </div>
-              <div className="bg-zinc-50 border border-zinc-200 rounded px-3 py-2 text-sm font-mono">
+              <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm">
                 {cell.manualInput || (
                   <span className="text-zinc-300">empty</span>
                 )}
@@ -531,7 +531,7 @@ function CellInspectorModal({
             </div>
           )}
 
-          <div className="text-[10px] text-zinc-500 uppercase tracking-wider mb-1">
+          <div className="mb-1 text-[10px] text-zinc-500 uppercase tracking-wider">
             Cell State
           </div>
           {state === null ? (
@@ -539,7 +539,7 @@ function CellInspectorModal({
               No state — cell has not been run yet.
             </div>
           ) : (
-            <pre className="bg-zinc-50 border border-zinc-200 rounded px-4 py-3 text-xs font-mono leading-relaxed overflow-auto whitespace-pre-wrap break-words">
+            <pre className="overflow-auto whitespace-pre-wrap break-words rounded border border-zinc-200 bg-zinc-50 px-4 py-3 font-mono text-xs leading-relaxed">
               {tokens}
             </pre>
           )}
@@ -558,8 +558,8 @@ function ColumnHeader(props: IHeaderParams) {
 
   return (
     <button
-      className={`flex items-center w-full h-full cursor-pointer select-none transition-colors bg-transparent border-none p-0 text-left text-inherit ${
-        isActive ? "text-orange-700 font-semibold" : ""
+      className={`flex h-full w-full cursor-pointer select-none items-center border-none bg-transparent p-0 text-left text-inherit transition-colors ${
+        isActive ? "font-semibold text-orange-700" : ""
       }`}
       onClick={() => ctx.onHeaderClick(columnId)}
       onContextMenu={(e) => {
@@ -580,11 +580,11 @@ function AddColumnButton(props: IHeaderParams) {
 
   return (
     <button
-      className="flex items-center justify-center w-full h-full cursor-pointer bg-transparent border-none p-0 group/add"
+      className="group/add flex h-full w-full cursor-pointer items-center justify-center border-none bg-transparent p-0"
       onClick={() => ctx.openCreateColumn()}
       type="button"
     >
-      <span className="text-zinc-400 group-hover/add:text-orange-600 transition-colors text-sm font-medium leading-none">
+      <span className="font-medium text-sm text-zinc-400 leading-none transition-colors group-hover/add:text-orange-600">
         +
       </span>
     </button>
@@ -596,7 +596,7 @@ function AddColumnButton(props: IHeaderParams) {
 function CellRunningIndicator() {
   return (
     <div
-      className="absolute top-0 bottom-0 overflow-hidden bg-zinc-100/80 shadow-[inset_0_0_8px_rgba(0,0,0,0.05)] z-0 pointer-events-none"
+      className="pointer-events-none absolute top-0 bottom-0 z-0 overflow-hidden bg-zinc-100/80 shadow-[inset_0_0_8px_rgba(0,0,0,0.05)]"
       style={{
         left: "calc(var(--ag-cell-horizontal-padding, 16px) * -1)",
         right: "calc(var(--ag-cell-horizontal-padding, 16px) * -1)",
@@ -613,11 +613,11 @@ function CellRunningIndicator() {
         }
       `}</style>
 
-      <div className="absolute inset-0 bg-gradient-to-r from-zinc-200/0 via-zinc-200/80 to-zinc-200/0 animate-pulse" />
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-zinc-200/0 via-zinc-200/80 to-zinc-200/0" />
 
-      <div className="absolute inset-0 overflow-hidden mix-blend-overlay opacity-20">
+      <div className="absolute inset-0 overflow-hidden opacity-20 mix-blend-overlay">
         <div
-          className="w-full h-[200%]"
+          className="h-[200%] w-full"
           style={{
             animation: "motlo-climb 0.8s linear infinite",
             backgroundImage:
@@ -628,14 +628,14 @@ function CellRunningIndicator() {
       </div>
 
       <div
-        className="absolute top-[-50%] bottom-[-50%] w-16 flex"
+        className="absolute top-[-50%] bottom-[-50%] flex w-16"
         style={{
           animation: "motlo-swathe 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite",
           transformOrigin: "center",
         }}
       >
-        <div className="w-full h-full bg-gradient-to-r from-transparent via-orange-400/30 to-orange-500/80 blur-[2px] skew-x-[-20deg]" />
-        <div className="w-[2px] h-full bg-orange-500 shadow-[0_0_12px_3px_rgba(249,115,22,0.9)] skew-x-[-20deg] translate-x-[-2px]" />
+        <div className="h-full w-full skew-x-[-20deg] bg-gradient-to-r from-transparent via-orange-400/30 to-orange-500/80 blur-[2px]" />
+        <div className="h-full w-[2px] translate-x-[-2px] skew-x-[-20deg] bg-orange-500 shadow-[0_0_12px_3px_rgba(249,115,22,0.9)]" />
       </div>
     </div>
   );
@@ -654,7 +654,7 @@ function CellWithRunButton(props: CustomCellRendererProps) {
   const isNull = !state;
 
   return (
-    <div className="group/cell flex items-center w-full h-full relative">
+    <div className="group/cell relative flex h-full w-full items-center">
       {isLoading ? (
         <CellRunningIndicator />
       ) : isFailed ? (
@@ -665,7 +665,7 @@ function CellWithRunButton(props: CustomCellRendererProps) {
           ⚠ {state.message}
         </span>
       ) : isNull ? (
-        <span className="flex-1 text-zinc-300 text-xs">—</span>
+        <span className="flex-1 text-xs text-zinc-300">—</span>
       ) : (
         <span className="flex-1 overflow-hidden text-ellipsis">
           {props.valueFormatted ?? props.value}
@@ -673,7 +673,7 @@ function CellWithRunButton(props: CustomCellRendererProps) {
       )}
       {columnId && rowId && !isLoading && (
         <button
-          className="absolute right-0.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-sm border border-zinc-200 bg-white cursor-pointer items-center justify-center text-[8px] text-orange-600 leading-none hidden group-hover/cell:flex"
+          className="absolute top-1/2 right-0.5 hidden h-[18px] w-[18px] -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm border border-zinc-200 bg-white text-[8px] text-orange-600 leading-none group-hover/cell:flex"
           onClick={(e) => {
             e.stopPropagation();
             ctx.runCell?.(columnId, rowId);
@@ -726,7 +726,7 @@ function ClickToEditTitle({
   if (editing) {
     return (
       <input
-        className="bg-transparent border-b border-orange-500 outline-none px-1 text-sm font-medium w-48 focus:border-b-2 transition-all text-neutral-900 placeholder-neutral-400"
+        className="w-48 border-orange-500 border-b bg-transparent px-1 font-medium text-neutral-900 text-sm placeholder-neutral-400 outline-none transition-all focus:border-b-2"
         onBlur={handleSave}
         onChange={(e) => setTempValue(e.target.value)}
         onKeyDown={(e) => {
@@ -746,7 +746,7 @@ function ClickToEditTitle({
 
   return (
     <button
-      className="text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200 px-1.5 py-0.5 rounded transition-colors cursor-text text-left max-w-[200px] truncate"
+      className="max-w-[200px] cursor-text truncate rounded px-1.5 py-0.5 text-left font-medium text-neutral-600 text-sm transition-colors hover:bg-neutral-200 hover:text-neutral-900"
       onClick={() => setEditing(true)}
       title="Click to edit"
       type="button"
@@ -804,9 +804,9 @@ function InterpolationEditor({
   }, []);
 
   return (
-    <div className="relative border border-zinc-300 rounded bg-white overflow-hidden focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 transition-all text-xs">
+    <div className="relative overflow-hidden rounded border border-zinc-300 bg-white text-xs transition-all focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500">
       <Editor
-        className="font-mono min-h-[40px]"
+        className="min-h-[40px] font-mono"
         highlight={(code) => {
           let html = Prism.highlight(code, grammar, "interpolation");
 
@@ -1915,35 +1915,35 @@ export default function TablePage(props: {
 
   if (loading && tables.length === 0) {
     return (
-      <div className="bg-zinc-50 text-zinc-500 min-h-screen flex items-center justify-center font-mono text-sm">
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-mono text-sm text-zinc-500">
         Loading...
       </div>
     );
   }
 
   return (
-    <div className="bg-zinc-50 text-zinc-900 min-h-screen flex flex-col font-sans">
+    <div className="flex min-h-screen flex-col bg-zinc-50 font-sans text-zinc-900">
       {/* Header */}
-      <header className="border-b border-zinc-200 px-5 py-3 flex items-center gap-4">
-        <h1 className="text-lg font-semibold tracking-tight">
+      <header className="flex items-center gap-4 border-zinc-200 border-b px-5 py-3">
+        <h1 className="font-semibold text-lg tracking-tight">
           <Link
-            className="hover:text-orange-600 transition-colors"
+            className="transition-colors hover:text-orange-600"
             href="/tables"
           >
             marble
           </Link>
         </h1>
 
-        <div className="h-4 w-px bg-zinc-300 mx-2" />
+        <div className="mx-2 h-4 w-px bg-zinc-300" />
 
         {selectedTableId && (
           <div className="flex items-center gap-2">
             <Link
-              className="text-zinc-400 hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 rounded p-1"
+              className="rounded bg-zinc-100 p-1 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-900"
               href="/tables"
               title="Back to tables"
             >
-              <ArrowLeftIcon className="w-3.5 h-3.5" />
+              <ArrowLeftIcon className="h-3.5 w-3.5" />
             </Link>
             <ClickToEditTitle
               onChange={handleRenameTable}
@@ -1956,7 +1956,7 @@ export default function TablePage(props: {
         )}
 
         {running && (
-          <span className="text-orange-400 text-xs font-mono animate-pulse ml-4">
+          <span className="ml-4 animate-pulse font-mono text-orange-400 text-xs">
             running...
           </span>
         )}
@@ -1984,7 +1984,7 @@ export default function TablePage(props: {
         </div>
       </header>
 
-      <div className="flex justify-between items-center px-5 py-1.5 border-b border-zinc-200 bg-white">
+      <div className="flex items-center justify-between border-zinc-200 border-b bg-white px-5 py-1.5">
         <div></div>
         <MarbleButton
           disabled={!selectedTableId || columns.length === 0 || running}
@@ -1996,12 +1996,12 @@ export default function TablePage(props: {
       </div>
 
       {/* Main */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex min-h-0 flex-1">
         {/* Grid + log panel */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 p-4 flex flex-col h-full">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex h-full flex-1 flex-col p-4">
             {selectedTableId ? (
-              <div className="flex-1 min-h-0 mb-4">
+              <div className="mb-4 min-h-0 flex-1">
                 <AgGridReact
                   columnDefs={colDefs}
                   context={gridContext}
@@ -2037,12 +2037,12 @@ export default function TablePage(props: {
                 />
               </div>
             ) : (
-              <div className="text-zinc-500 text-sm flex items-center justify-center flex-1">
+              <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
                 Select or create a table to get started.
               </div>
             )}
 
-            <div className="flex justify-start shrink-0 mt-2">
+            <div className="mt-2 flex shrink-0 justify-start">
               <div className="flex items-center gap-2">
                 <MarbleButton
                   disabled={!selectedTableId}
@@ -2070,9 +2070,9 @@ export default function TablePage(props: {
 
           {/* Run log */}
           {runLog.length > 0 && (
-            <div className="border-t border-zinc-200 px-5 py-3 max-h-48 overflow-auto">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+            <div className="max-h-48 overflow-auto border-zinc-200 border-t px-5 py-3">
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="font-medium text-xs text-zinc-500 uppercase tracking-wider">
                   Log
                 </h3>
                 <button
@@ -2083,7 +2083,7 @@ export default function TablePage(props: {
                   clear
                 </button>
               </div>
-              <pre className="text-xs font-mono space-y-0.5">
+              <pre className="space-y-0.5 font-mono text-xs">
                 {runLog.map((line, i) => (
                   <div
                     className={
@@ -2372,13 +2372,13 @@ function ColumnSidebar({
   const isCreate = mode.kind === "create";
 
   return (
-    <aside className="w-80 border-l border-zinc-200 flex flex-col bg-zinc-50 shrink-0">
-      <div className="px-4 py-2.5 border-b border-zinc-200 flex items-center justify-between">
-        <h2 className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+    <aside className="flex w-80 shrink-0 flex-col border-zinc-200 border-l bg-zinc-50">
+      <div className="flex items-center justify-between border-zinc-200 border-b px-4 py-2.5">
+        <h2 className="font-medium text-xs text-zinc-500 uppercase tracking-wider">
           {isCreate ? "New Column" : "Edit Column"}
         </h2>
         <button
-          className="text-zinc-400 hover:text-zinc-700 transition-colors text-sm leading-none"
+          className="text-sm text-zinc-400 leading-none transition-colors hover:text-zinc-700"
           onClick={onClose}
           type="button"
         >
@@ -2386,7 +2386,7 @@ function ColumnSidebar({
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto p-4 space-y-3">
+      <div className="flex-1 space-y-3 overflow-auto p-4">
         <div className="block">
           <MarbleFieldLabel>Name</MarbleFieldLabel>
           <MarbleInput
@@ -2398,7 +2398,7 @@ function ColumnSidebar({
           />
         </div>
 
-        <div className="block mt-2">
+        <div className="mt-2 block">
           <MarbleFieldLabel>Program</MarbleFieldLabel>
           <MarbleSelect
             onChange={(e) => setProgramId(e.target.value)}
@@ -2418,7 +2418,7 @@ function ColumnSidebar({
         </div>
 
         {hasManualInput && (
-          <div className="text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded px-2.5 py-1.5">
+          <div className="rounded border border-orange-200 bg-orange-50 px-2.5 py-1.5 text-orange-600 text-xs">
             This program reads from cell.manualInputValue — cells will be
             editable.
           </div>
@@ -2434,17 +2434,17 @@ function ColumnSidebar({
               };
               return (
                 <div
-                  className="bg-zinc-100 rounded p-2.5 space-y-1.5 border border-zinc-200"
+                  className="space-y-1.5 rounded border border-zinc-200 bg-zinc-100 p-2.5"
                   key={f.key}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-orange-600">
+                    <span className="font-mono text-orange-600 text-xs">
                       {f.key}
                     </span>
                     <span className="text-[10px] text-zinc-500">{f.title}</span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
-                    <label className="flex items-center gap-1 cursor-pointer">
+                    <label className="flex cursor-pointer items-center gap-1">
                       <input
                         checked={fv.mode === "static"}
                         className="accent-orange-500"
@@ -2462,7 +2462,7 @@ function ColumnSidebar({
                       />
                       Formula
                     </label>
-                    <label className="flex items-center gap-1 cursor-pointer">
+                    <label className="flex cursor-pointer items-center gap-1">
                       <input
                         checked={fv.mode === "column"}
                         className="accent-orange-500"
@@ -2569,9 +2569,9 @@ function ColumnSidebar({
         )}
         {/* Output Config escape hatch — edit mode only */}
         {!isCreate && selectedProgram && (
-          <div className="border-t border-zinc-200 pt-3">
+          <div className="border-zinc-200 border-t pt-3">
             <button
-              className="flex items-center gap-1.5 text-[10px] text-zinc-500 uppercase tracking-wider w-full"
+              className="flex w-full items-center gap-1.5 text-[10px] text-zinc-500 uppercase tracking-wider"
               onClick={() => setOutputSchemaOpen((o) => !o)}
               type="button"
             >
@@ -2635,9 +2635,9 @@ function ColumnSidebar({
         )}
       </div>
 
-      <div className="border-t border-zinc-300 bg-zinc-100 p-4 space-y-3">
+      <div className="space-y-3 border-zinc-300 border-t bg-zinc-100 p-4">
         {validationError && (
-          <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2.5 py-2 flex items-start gap-2">
+          <div className="flex items-start gap-2 rounded border border-red-200 bg-red-50 px-2.5 py-2 text-red-600 text-xs">
             <span className="mt-0.5">⚠️</span>
             <span>{validationError}</span>
           </div>

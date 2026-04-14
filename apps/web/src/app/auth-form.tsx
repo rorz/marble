@@ -99,7 +99,7 @@ export default function AuthForm() {
         </label>
         <input
           autoComplete="current-password"
-          className="w-full rounded border border-stone-700 px-3 py-2 text-sm  outline-none transition focus:border-stone-500"
+          className="w-full rounded border border-stone-700 px-3 py-2 text-sm outline-none transition focus:border-stone-500"
           id="password"
           onChange={(event) => setPassword(event.target.value)}
           placeholder="••••••••"
@@ -108,8 +108,8 @@ export default function AuthForm() {
         />
       </div>
 
-      {error ? <p className="text-sm text-red-300">{error}</p> : null}
-      {message ? <p className="text-sm text-emerald-300">{message}</p> : null}
+      {error ? <p className="text-red-300 text-sm">{error}</p> : null}
+      {message ? <p className="text-emerald-300 text-sm">{message}</p> : null}
 
       <div className="flex flex-wrap gap-3">
         <button

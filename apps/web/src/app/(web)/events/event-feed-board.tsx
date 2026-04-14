@@ -504,7 +504,7 @@ export function EventFeedBoard({
     <div className="space-y-3">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-zinc-950">
+          <h2 className="font-semibold text-xl text-zinc-950 tracking-tight">
             Event feed
           </h2>
           <p className="mt-0.5 text-sm text-zinc-500">
@@ -529,10 +529,10 @@ export function EventFeedBoard({
         {events.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
             <div className="max-w-md space-y-2">
-              <h3 className="text-xl font-semibold tracking-tight text-zinc-950">
+              <h3 className="font-semibold text-xl text-zinc-950 tracking-tight">
                 No events yet
               </h3>
-              <p className="text-sm leading-6 text-zinc-500">
+              <p className="text-sm text-zinc-500 leading-6">
                 Create or mutate tables, profiles, keys, secrets, or programs
                 through one of your profiles and the feed will begin filling in
                 here.
@@ -540,13 +540,13 @@ export function EventFeedBoard({
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
-                className="rounded-full bg-zinc-950 px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+                className="rounded-full bg-zinc-950 px-4 py-2 font-medium text-sm text-white transition hover:opacity-90"
                 href="/tables"
               >
                 Go to tables
               </Link>
               <Link
-                className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950"
+                className="rounded-full border border-zinc-300 bg-white px-4 py-2 font-medium text-sm text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950"
                 href="/profiles"
               >
                 Manage profiles
@@ -556,7 +556,7 @@ export function EventFeedBoard({
         ) : (
           <div className="max-h-[76vh] overflow-auto">
             <div className="min-w-[1180px] font-mono text-[11px] leading-5">
-              <div className="sticky top-0 z-10 grid grid-cols-[20px_150px_86px_minmax(360px,1.8fr)_170px_110px_110px] gap-3 border-b border-zinc-200 bg-zinc-50/95 px-3 py-2 uppercase tracking-[0.18em] text-zinc-500 backdrop-blur">
+              <div className="sticky top-0 z-10 grid grid-cols-[20px_150px_86px_minmax(360px,1.8fr)_170px_110px_110px] gap-3 border-zinc-200 border-b bg-zinc-50/95 px-3 py-2 text-zinc-500 uppercase tracking-[0.18em] backdrop-blur">
                 <div />
                 <div>Timestamp</div>
                 <div>Op</div>
@@ -576,7 +576,7 @@ export function EventFeedBoard({
 
                   return (
                     <article
-                      className="event-feed-row border-b border-zinc-100 last:border-b-0"
+                      className="event-feed-row border-zinc-100 border-b last:border-b-0"
                       data-entering={isEntering ? "true" : undefined}
                       key={event.id}
                     >
@@ -604,7 +604,7 @@ export function EventFeedBoard({
 
                         <div>
                           <span
-                            className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium ${OPERATION_CHIPS[event.operation]}`}
+                            className={`inline-flex rounded border px-1.5 py-0.5 font-medium text-[10px] ${OPERATION_CHIPS[event.operation]}`}
                           >
                             {event.operation}
                           </span>
@@ -612,7 +612,7 @@ export function EventFeedBoard({
 
                         <div className="flex min-w-0 items-center gap-2">
                           <span
-                            className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium ${
+                            className={`inline-flex rounded border px-1.5 py-0.5 font-medium text-[10px] ${
                               RESOURCE_CHIPS[event.resource] ??
                               "border-zinc-200 bg-zinc-50 text-zinc-700"
                             }`}
@@ -633,7 +633,7 @@ export function EventFeedBoard({
 
                         <div>
                           <span
-                            className={`inline-flex rounded border px-1.5 py-0.5 text-[10px] font-medium ${SOURCE_CHIPS[event.source]}`}
+                            className={`inline-flex rounded border px-1.5 py-0.5 font-medium text-[10px] ${SOURCE_CHIPS[event.source]}`}
                           >
                             {SOURCE_LABELS[event.source]}
                           </span>
@@ -651,16 +651,16 @@ export function EventFeedBoard({
                         data-open={isExpanded ? "true" : undefined}
                       >
                         <div className="event-feed-detail-inner bg-zinc-50/80">
-                          <div className="grid gap-4 border-t border-zinc-200 px-6 py-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                          <div className="grid gap-4 border-zinc-200 border-t px-6 py-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
                             <div className="space-y-4">
                               <div className="flex flex-wrap gap-2">
                                 <span
-                                  className={`inline-flex rounded border px-2 py-1 text-[10px] font-medium ${OPERATION_CHIPS[event.operation]}`}
+                                  className={`inline-flex rounded border px-2 py-1 font-medium text-[10px] ${OPERATION_CHIPS[event.operation]}`}
                                 >
                                   {event.operation}
                                 </span>
                                 <span
-                                  className={`inline-flex rounded border px-2 py-1 text-[10px] font-medium ${
+                                  className={`inline-flex rounded border px-2 py-1 font-medium text-[10px] ${
                                     RESOURCE_CHIPS[event.resource] ??
                                     "border-zinc-200 bg-zinc-50 text-zinc-700"
                                   }`}
@@ -668,7 +668,7 @@ export function EventFeedBoard({
                                   {titleCase(event.resource)}
                                 </span>
                                 <span
-                                  className={`inline-flex rounded border px-2 py-1 text-[10px] font-medium ${SOURCE_CHIPS[event.source]}`}
+                                  className={`inline-flex rounded border px-2 py-1 font-medium text-[10px] ${SOURCE_CHIPS[event.source]}`}
                                 >
                                   {SOURCE_LABELS[event.source]}
                                 </span>
@@ -679,7 +679,7 @@ export function EventFeedBoard({
 
                               <div className="grid gap-x-6 gap-y-3 text-[11px] text-zinc-700 sm:grid-cols-2">
                                 <div>
-                                  <div className="mb-1 uppercase tracking-[0.16em] text-zinc-400">
+                                  <div className="mb-1 text-zinc-400 uppercase tracking-[0.16em]">
                                     Entity
                                   </div>
                                   <div className="break-all text-zinc-900">
@@ -687,7 +687,7 @@ export function EventFeedBoard({
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="mb-1 uppercase tracking-[0.16em] text-zinc-400">
+                                  <div className="mb-1 text-zinc-400 uppercase tracking-[0.16em]">
                                     Request
                                   </div>
                                   <div className="break-all text-zinc-900">
@@ -695,7 +695,7 @@ export function EventFeedBoard({
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="mb-1 uppercase tracking-[0.16em] text-zinc-400">
+                                  <div className="mb-1 text-zinc-400 uppercase tracking-[0.16em]">
                                     Profile
                                   </div>
                                   <div className="break-all text-zinc-900">
@@ -703,7 +703,7 @@ export function EventFeedBoard({
                                   </div>
                                 </div>
                                 <div>
-                                  <div className="mb-1 uppercase tracking-[0.16em] text-zinc-400">
+                                  <div className="mb-1 text-zinc-400 uppercase tracking-[0.16em]">
                                     Created
                                   </div>
                                   <div className="text-zinc-900">
@@ -713,7 +713,7 @@ export function EventFeedBoard({
                               </div>
 
                               <div>
-                                <div className="mb-2 uppercase tracking-[0.16em] text-zinc-400">
+                                <div className="mb-2 text-zinc-400 uppercase tracking-[0.16em]">
                                   Changed paths
                                 </div>
                                 {diffEntries.length === 0 ? (
@@ -739,19 +739,19 @@ export function EventFeedBoard({
 
                             <div className="grid gap-3 xl:grid-cols-2">
                               <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-                                <div className="border-b border-zinc-200 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-400">
+                                <div className="border-zinc-200 border-b px-3 py-2 text-[10px] text-zinc-400 uppercase tracking-[0.16em]">
                                   Before
                                 </div>
-                                <pre className="max-h-72 overflow-auto px-3 py-2 text-[10px] leading-5 text-zinc-700">
+                                <pre className="max-h-72 overflow-auto px-3 py-2 text-[10px] text-zinc-700 leading-5">
                                   {formatJson(event.before_state)}
                                 </pre>
                               </div>
 
                               <div className="overflow-hidden rounded-lg border border-zinc-200 bg-white">
-                                <div className="border-b border-zinc-200 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-zinc-400">
+                                <div className="border-zinc-200 border-b px-3 py-2 text-[10px] text-zinc-400 uppercase tracking-[0.16em]">
                                   After
                                 </div>
-                                <pre className="max-h-72 overflow-auto px-3 py-2 text-[10px] leading-5 text-zinc-700">
+                                <pre className="max-h-72 overflow-auto px-3 py-2 text-[10px] text-zinc-700 leading-5">
                                   {formatJson(event.after_state)}
                                 </pre>
                               </div>
