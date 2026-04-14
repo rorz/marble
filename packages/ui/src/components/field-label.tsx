@@ -2,7 +2,7 @@ import { cva } from "class-variance-authority";
 import type { HTMLAttributes } from "react";
 import { cx } from "../utils/cx";
 
-export const marbleFieldLabelVariants = cva(
+const marbleFieldLabelVariants = cva(
   "mb-1 block text-[10px] uppercase tracking-wider text-zinc-500",
 );
 

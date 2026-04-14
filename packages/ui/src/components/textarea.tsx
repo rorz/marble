@@ -2,7 +2,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import type { TextareaHTMLAttributes } from "react";
 import { cx } from "../utils/cx";
 
-export const marbleTextareaVariants = cva(
+const marbleTextareaVariants = cva(
   "w-full resize-y rounded-md border-x border-t border-b-2 border-neutral-200 border-b-neutral-300 bg-white text-neutral-900 shadow-sm transition-colors placeholder-neutral-400 focus:border-b-orange-400 focus:outline-none",
   {
     defaultVariants: {

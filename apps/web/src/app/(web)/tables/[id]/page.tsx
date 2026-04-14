@@ -1976,7 +1976,7 @@ export default function TablePage(props: {
           </Link>
           <Link
             className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
-            href="/ui"
+            href="/internal/ui"
           >
             UI
           </Link>

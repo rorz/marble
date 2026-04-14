@@ -30,7 +30,7 @@ const marbleButtonBackgrounds = {
     linear-gradient(to right, var(--color-red-600) 0%, var(--color-red-600) 100%)`,
 } as const;
 
-export const marbleButtonRootVariants = cva(
+const marbleButtonRootVariants = cva(
   "rounded-xs bg-neutral-900 p-0.5 transition-opacity",
   {
     variants: {
@@ -42,7 +42,7 @@ export const marbleButtonRootVariants = cva(
   },
 );
 
-export const marbleButtonBorderVariants = cva("size-full rounded-md p-px", {
+const marbleButtonBorderVariants = cva("size-full rounded-md p-px", {
   defaultVariants: {
     variant: "light",
   },
@@ -56,7 +56,7 @@ export const marbleButtonBorderVariants = cva("size-full rounded-md p-px", {
   },
 });
 
-export const marbleButtonInnerVariants = cva(
+const marbleButtonInnerVariants = cva(
   "size-full rounded-[5px] flex items-center justify-center font-medium uppercase",
   {
     defaultVariants: {

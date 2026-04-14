@@ -1,5 +1,11 @@
 import {
   MarbleButton,
+  MarbleCard,
+  MarbleCardContent,
+  MarbleCardDescription,
+  MarbleCardFooter,
+  MarbleCardHeader,
+  MarbleCardTitle,
   MarbleFieldLabel,
   MarbleInput,
   MarbleSelect,
@@ -14,10 +20,12 @@ function Section({
   title: string;
 }>) {
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-      <h2 className="mb-4 font-semibold text-sm text-zinc-900">{title}</h2>
-      {children}
-    </section>
+    <MarbleCard>
+      <MarbleCardHeader className="pb-4">
+        <MarbleCardTitle>{title}</MarbleCardTitle>
+      </MarbleCardHeader>
+      <MarbleCardContent>{children}</MarbleCardContent>
+    </MarbleCard>
   );
 }
 
@@ -52,8 +60,67 @@ export default function UiPage() {
           </div>
         </Section>
 
+        <Section title="Cards">
+          <div className="grid gap-4 md:grid-cols-3">
+            <MarbleCard>
+              <MarbleCardHeader>
+                <MarbleCardTitle>Default</MarbleCardTitle>
+                <MarbleCardDescription>
+                  Neutral chrome for standard workspace panels.
+                </MarbleCardDescription>
+              </MarbleCardHeader>
+              <MarbleCardContent>
+                <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600">
+                  Rows: 128
+                </div>
+              </MarbleCardContent>
+              <MarbleCardFooter>
+                <MarbleButton size="sm">Inspect</MarbleButton>
+              </MarbleCardFooter>
+            </MarbleCard>
+
+            <MarbleCard tone="subtle">
+              <MarbleCardHeader>
+                <MarbleCardTitle>Subtle</MarbleCardTitle>
+                <MarbleCardDescription>
+                  Low-contrast framing for dense UI surfaces.
+                </MarbleCardDescription>
+              </MarbleCardHeader>
+              <MarbleCardContent className="space-y-2">
+                <MarbleFieldLabel>Table Name</MarbleFieldLabel>
+                <MarbleInput
+                  defaultValue="Prospects"
+                  wrapperClassName="w-full"
+                />
+              </MarbleCardContent>
+            </MarbleCard>
+
+            <MarbleCard tone="orange">
+              <MarbleCardHeader>
+                <MarbleCardTitle>Orange</MarbleCardTitle>
+                <MarbleCardDescription>
+                  Accent treatment for active or important surfaces.
+                </MarbleCardDescription>
+              </MarbleCardHeader>
+              <MarbleCardContent className="space-y-2">
+                <div className="rounded-xl border border-orange-200 bg-white/80 p-3 text-sm text-zinc-700">
+                  14 runnable columns ready.
+                </div>
+              </MarbleCardContent>
+              <MarbleCardFooter>
+                <MarbleButton
+                  size="sm"
+                  variant="orange"
+                >
+                  Run All
+                </MarbleButton>
+              </MarbleCardFooter>
+            </MarbleCard>
+          </div>
+        </Section>
+
         <Section title="Toolbar Example">
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-100 p-4">
+          <div className="flex flex-wrap items-center gap-0.5 rounded-xs border border-neutral-200 bg-neutral-100 p-2">
             <MarbleButton variant="orange">Run All</MarbleButton>
             <MarbleButton>Add</MarbleButton>
             <MarbleInput
