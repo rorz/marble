@@ -2,6 +2,7 @@
 
 import { cx } from "@marble/ui";
 import {
+  BookOpenTextIcon,
   BriefcaseMetalIcon,
   CaretDoubleLeftIcon,
   CaretDoubleRightIcon,
@@ -13,7 +14,9 @@ import {
   RobotIcon,
   TreeStructureIcon,
 } from "@phosphor-icons/react";
-import { usePathname, useRouter } from "next/navigation";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 const routes = [
@@ -77,6 +80,16 @@ const routes = [
     name: "Secrets",
     path: "/secrets",
   },
+  {
+    icon: (
+      <BookOpenTextIcon
+        size={28}
+        weight="regular"
+      />
+    ),
+    name: "Events",
+    path: "/events",
+  },
 ] as const;
 
 type SidebarMode = "collapsed" | "expanded";
@@ -98,7 +111,7 @@ const sidebarModes = {
     asideClassName: "items-start",
     brandClassName: "justify-between gap-2",
     brandInnerClassName: "gap-2 px-2",
-    gridClassName: "md:grid-cols-[250px_1fr]",
+    gridClassName: "md:grid-cols-[190px_1fr]",
     helpClassName: "gap-1",
     iconOnly: false,
     navClassName: "items-stretch",
@@ -204,12 +217,13 @@ export function GuiShell({
           {routes.map((route) => {
             const isActive = topLevelPath === route.path;
             return (
-              <div
+              <Link
                 className={cx(
-                  "flex items-center rounded-sm px-2 py-1.5 transition-colors",
+                  "flex items-center rounded-sm px-2 py-0.5 transition-colors text-taupe-700",
                   isActive ? "bg-taupe-300/80" : "bg-transparent",
                   sidebar.routeClassName,
                 )}
+                href={route.path}
                 key={route.name}
                 title={sidebar.iconOnly ? route.name : undefined}
               >
@@ -219,7 +233,7 @@ export function GuiShell({
                 {!sidebar.iconOnly ? (
                   <span className="text-sm font-medium">{route.name}</span>
                 ) : null}
-              </div>
+              </Link>
             );
           })}
         </nav>

@@ -2,13 +2,13 @@
 
 import type { Database } from "@marble/supabase";
 import { env } from "@/env";
-import { requireUser } from "../../lib/auth";
-import { callMarbleApi } from "../../lib/marble-api";
+import { requireUser } from "../../../lib/auth";
+import { callMarbleApi } from "../../../lib/marble-api";
 import {
   createServiceRoleClient,
   listOwnedProfileIds,
   resolveOwnedProfileId,
-} from "../../lib/supabase/service-role";
+} from "../../../lib/supabase/service-role";
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type Program = Database["public"]["Tables"]["program"]["Row"];
