@@ -1,4 +1,5 @@
 import { MarbleButton, type MarbleButtonProps } from "@marble/ui";
+import { CaretRightIcon } from "@phosphor-icons/react/ssr";
 import type { FunctionComponent, ReactNode } from "react";
 
 type Crumb = {
@@ -34,7 +35,7 @@ export const Pane: FunctionComponent<PaneProps> = ({
                 className="text-taupe-300"
                 key={`slash_key_for--${crumb.label}`}
               >
-                |
+                <CaretRightIcon />
               </span>
             ) : (
               []

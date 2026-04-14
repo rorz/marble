@@ -30,6 +30,7 @@ import React, {
 } from "react";
 import Editor from "react-simple-code-editor";
 import { createClient as createBrowserClient } from "@/lib/supabase/browser";
+import { Pane } from "../../../../components/pane";
 import SignOutButton from "../../../sign-out-button";
 import * as actions from "./actions";
 
@@ -2001,7 +2002,7 @@ export default function TablePage(props: {
 
   const selectedTable = tables.find((table) => table.id === selectedTableId);
 
-  if (loading && tables.length === 0) {
+  if ((loading && tables.length === 0) || !selectedTable) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-mono text-sm text-zinc-500">
         Loading...
@@ -2010,249 +2011,178 @@ export default function TablePage(props: {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 font-sans text-zinc-900">
-      {/* Header */}
-      <header className="flex items-center gap-4 border-zinc-200 border-b px-5 py-3">
-        <h1 className="font-semibold text-lg tracking-tight">
-          <Link
-            className="transition-colors hover:text-orange-600"
-            href="/projects"
-          >
-            marble
-          </Link>
-        </h1>
+    <Pane
+      crumbs={[
+        {
+          label: selectedTable.project_name,
+        },
+        {
+          label: "Tables",
+        },
+        {
+          label: selectedTable.name,
+        },
+      ]}
+    >
+      <div className="flex h-full flex-col bg-zinc-50 font-sans text-zinc-900">
+        {/* Main */}
+        <div className="flex min-h-0 flex-1">
+          {/* Grid + log panel */}
+          <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex h-full flex-1 flex-col">
+              {selectedTableId ? (
+                <div className="mb-4 min-h-0 flex-1">
+                  <AgGridReact
+                    columnDefs={colDefs}
+                    context={gridContext}
+                    domLayout="normal"
+                    getRowId={(params) => params.data._rowId as string}
+                    headerHeight={34}
+                    onCellContextMenu={onCellContextMenu}
+                    onCellDoubleClicked={(event) => {
+                      const columnId = event.colDef.field;
+                      if (!columnId) return;
+                      const col = columnsRef.current.find(
+                        (c) => c.id === columnId,
+                      );
+                      if (!col) return;
+                      if (isManualInputColumn(col)) return;
+                      const rowId = event.data?._rowId as string;
+                      const cell = cellsRef.current.find(
+                        (c) => c.row_id === rowId && c.column_id === columnId,
+                      );
+                      setInspectedCell({
+                        columnName: col.name,
+                        manualInput: cell?.manual_input ?? null,
+                        rowIndex: event.data?._rowIndex as number,
+                        state: getCellState(cell),
+                      });
+                    }}
+                    onCellValueChanged={onCellValueChanged}
+                    preventDefaultOnContextMenu
+                    ref={gridRef}
+                    rowData={rowData}
+                    rowHeight={32}
+                    theme={gridTheme}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
+                  Select or create a table to get started.
+                </div>
+              )}
 
-        <div className="mx-2 h-4 w-px bg-zinc-300" />
-
-        {selectedTableId && (
-          <div className="flex items-center gap-2">
-            <Link
-              className="rounded bg-zinc-100 p-1 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-900"
-              href={
-                selectedTable
-                  ? `/projects/${selectedTable.project_id}`
-                  : "/projects"
-              }
-              title="Back to project"
-            >
-              <ArrowLeftIcon className="h-3.5 w-3.5" />
-            </Link>
-            {selectedTable ? (
-              <Link
-                className="max-w-[220px] truncate rounded px-1.5 py-0.5 font-mono text-[11px] text-zinc-500 uppercase tracking-[0.18em] transition-colors hover:bg-zinc-100 hover:text-zinc-900"
-                href={`/projects/${selectedTable.project_id}`}
-              >
-                {selectedTable.project_name}
-              </Link>
-            ) : null}
-            <ClickToEditTitle
-              onChange={handleRenameTable}
-              value={selectedTable?.name || "Untitled Table"}
-            />
-          </div>
-        )}
-
-        {running && (
-          <span className="ml-4 animate-pulse font-mono text-orange-400 text-xs">
-            running...
-          </span>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
-          <Link
-            className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
-            href="/projects"
-          >
-            Projects
-          </Link>
-          <Link
-            className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
-            href="/events"
-          >
-            Events
-          </Link>
-          <Link
-            className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
-            href="/profiles"
-          >
-            Profiles
-          </Link>
-          <Link
-            className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
-            href="/internal/ui"
-          >
-            UI
-          </Link>
-          <SignOutButton />
-        </div>
-      </header>
-
-      <div className="flex items-center justify-between border-zinc-200 border-b bg-white px-5 py-1.5">
-        <div></div>
-        <MarbleButton
-          disabled={!selectedTableId || columns.length === 0 || running}
-          onClick={handleRunAll}
-          variant="orange"
-        >
-          Run All
-        </MarbleButton>
-      </div>
-
-      {/* Main */}
-      <div className="flex min-h-0 flex-1">
-        {/* Grid + log panel */}
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex h-full flex-1 flex-col p-4">
-            {selectedTableId ? (
-              <div className="mb-4 min-h-0 flex-1">
-                <AgGridReact
-                  columnDefs={colDefs}
-                  context={gridContext}
-                  domLayout="normal"
-                  getRowId={(params) => params.data._rowId as string}
-                  headerHeight={34}
-                  onCellContextMenu={onCellContextMenu}
-                  onCellDoubleClicked={(event) => {
-                    const columnId = event.colDef.field;
-                    if (!columnId) return;
-                    const col = columnsRef.current.find(
-                      (c) => c.id === columnId,
-                    );
-                    if (!col) return;
-                    if (isManualInputColumn(col)) return;
-                    const rowId = event.data?._rowId as string;
-                    const cell = cellsRef.current.find(
-                      (c) => c.row_id === rowId && c.column_id === columnId,
-                    );
-                    setInspectedCell({
-                      columnName: col.name,
-                      manualInput: cell?.manual_input ?? null,
-                      rowIndex: event.data?._rowIndex as number,
-                      state: getCellState(cell),
-                    });
-                  }}
-                  onCellValueChanged={onCellValueChanged}
-                  preventDefaultOnContextMenu
-                  ref={gridRef}
-                  rowData={rowData}
-                  rowHeight={32}
-                  theme={gridTheme}
-                />
+              <div className="mt-2 flex shrink-0 justify-start">
+                <div className="flex items-center gap-2">
+                  <MarbleButton
+                    disabled={!selectedTableId}
+                    onClick={handleAddRows}
+                  >
+                    Add
+                  </MarbleButton>
+                  <MarbleInput
+                    max="100"
+                    min="1"
+                    onChange={(e) =>
+                      setRowCount(
+                        Math.max(1, parseInt(e.target.value, 10) || 1),
+                      )
+                    }
+                    size="sm"
+                    type="number"
+                    value={rowCount}
+                    wrapperClassName="w-16"
+                  />
+                  <span className="text-sm text-zinc-600">
+                    {rowCount === 1 ? "Row" : "Rows"}
+                  </span>
+                </div>
               </div>
-            ) : (
-              <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
-                Select or create a table to get started.
+            </div>
+
+            {/* Run log */}
+            {runLog.length > 0 && (
+              <div className="max-h-48 overflow-auto border-zinc-200 border-t px-5 py-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <h3 className="font-medium text-xs text-zinc-500 uppercase tracking-wider">
+                    Log
+                  </h3>
+                  <button
+                    className="text-xs text-zinc-400 hover:text-zinc-600"
+                    onClick={() => setRunLog([])}
+                    type="button"
+                  >
+                    clear
+                  </button>
+                </div>
+                <pre className="space-y-0.5 font-mono text-xs">
+                  {runLog.map((line, i) => (
+                    <div
+                      className={
+                        line.includes("✗")
+                          ? "text-red-400"
+                          : line.includes("✓")
+                            ? "text-green-600"
+                            : line.includes("skip")
+                              ? "text-blue-500"
+                              : "text-zinc-500"
+                      }
+                      // biome-ignore lint/suspicious/noArrayIndexKey: log
+                      key={`${i}-${line.slice(0, 20)}`}
+                    >
+                      {line}
+                    </div>
+                  ))}
+                </pre>
               </div>
             )}
-
-            <div className="mt-2 flex shrink-0 justify-start">
-              <div className="flex items-center gap-2">
-                <MarbleButton
-                  disabled={!selectedTableId}
-                  onClick={handleAddRows}
-                >
-                  Add
-                </MarbleButton>
-                <MarbleInput
-                  max="100"
-                  min="1"
-                  onChange={(e) =>
-                    setRowCount(Math.max(1, parseInt(e.target.value, 10) || 1))
-                  }
-                  size="sm"
-                  type="number"
-                  value={rowCount}
-                  wrapperClassName="w-16"
-                />
-                <span className="text-sm text-zinc-600">
-                  {rowCount === 1 ? "Row" : "Rows"}
-                </span>
-              </div>
-            </div>
           </div>
 
-          {/* Run log */}
-          {runLog.length > 0 && (
-            <div className="max-h-48 overflow-auto border-zinc-200 border-t px-5 py-3">
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="font-medium text-xs text-zinc-500 uppercase tracking-wider">
-                  Log
-                </h3>
-                <button
-                  className="text-xs text-zinc-400 hover:text-zinc-600"
-                  onClick={() => setRunLog([])}
-                  type="button"
-                >
-                  clear
-                </button>
-              </div>
-              <pre className="space-y-0.5 font-mono text-xs">
-                {runLog.map((line, i) => (
-                  <div
-                    className={
-                      line.includes("✗")
-                        ? "text-red-400"
-                        : line.includes("✓")
-                          ? "text-green-600"
-                          : line.includes("skip")
-                            ? "text-blue-500"
-                            : "text-zinc-500"
-                    }
-                    // biome-ignore lint/suspicious/noArrayIndexKey: log
-                    key={`${i}-${line.slice(0, 20)}`}
-                  >
-                    {line}
-                  </div>
-                ))}
-              </pre>
-            </div>
+          {/* Column sidebar — only visible when creating or editing */}
+          {sidebarMode.kind !== "closed" && (
+            <ColumnSidebar
+              columns={sortedColumns}
+              currentTableId={selectedTableId}
+              key={
+                sidebarMode.kind === "edit"
+                  ? `edit-${sidebarMode.columnId}`
+                  : "create"
+              }
+              mode={sidebarMode}
+              onClose={() =>
+                setSidebarMode({
+                  kind: "closed",
+                })
+              }
+              onCreateColumn={handleCreateColumn}
+              onUpdateColumn={handleUpdateColumn}
+              programs={programs}
+              referenceColumns={referenceColumns}
+            />
           )}
         </div>
 
-        {/* Column sidebar — only visible when creating or editing */}
-        {sidebarMode.kind !== "closed" && (
-          <ColumnSidebar
-            columns={sortedColumns}
-            currentTableId={selectedTableId}
-            key={
-              sidebarMode.kind === "edit"
-                ? `edit-${sidebarMode.columnId}`
-                : "create"
-            }
-            mode={sidebarMode}
-            onClose={() =>
-              setSidebarMode({
-                kind: "closed",
-              })
-            }
-            onCreateColumn={handleCreateColumn}
-            onUpdateColumn={handleUpdateColumn}
-            programs={programs}
-            referenceColumns={referenceColumns}
+        {/* Overlays */}
+        {contextMenu && (
+          <ContextMenu
+            onClose={() => setContextMenu(null)}
+            state={contextMenu}
+          />
+        )}
+        {confirmState && (
+          <ConfirmModal
+            onClose={() => setConfirmState(null)}
+            state={confirmState}
+          />
+        )}
+        {inspectedCell && (
+          <CellInspectorModal
+            cell={inspectedCell}
+            onClose={() => setInspectedCell(null)}
           />
         )}
       </div>
-
-      {/* Overlays */}
-      {contextMenu && (
-        <ContextMenu
-          onClose={() => setContextMenu(null)}
-          state={contextMenu}
-        />
-      )}
-      {confirmState && (
-        <ConfirmModal
-          onClose={() => setConfirmState(null)}
-          state={confirmState}
-        />
-      )}
-      {inspectedCell && (
-        <CellInspectorModal
-          cell={inspectedCell}
-          onClose={() => setInspectedCell(null)}
-        />
-      )}
-    </div>
+    </Pane>
   );
 }
 
