@@ -1,32 +1,32 @@
 {
-  "name": "@marble/executor",
-  "version": "1.0.0",
-  "type": "module",
-  "private": true,
-  "description": "A minimal example of using the Sandbox SDK",
-  "scripts": {
-    "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
-    "typegen": "wrangler types",
-    "typecheck": "tsc --noEmit"
-  },
+  "author": "",
   "dependencies": {
     "@marble/core": "workspace:",
     "@marble/keys": "workspace:*",
+    "@marble/lib": "workspace:",
     "@marble/supabase": "workspace:",
     "@t3-oss/env-core": "catalog:base",
     "hono": "catalog:base",
-    "zod": "catalog:base",
     "nanoid": "catalog:base",
-    "@marble/lib": "workspace:"
+    "zod": "catalog:base"
   },
+  "description": "A minimal example of using the Sandbox SDK",
   "devDependencies": {
     "@cloudflare/sandbox": "catalog:base",
     "@types/node": "catalog:base",
     "typescript": "catalog:base",
     "wrangler": "catalog:base"
   },
-  "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "name": "@marble/executor",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "typegen": "wrangler types"
+  },
+  "type": "module",
+  "version": "1.0.0"
 }

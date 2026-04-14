@@ -4,24 +4,8 @@
  */
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "marble-executor",
-  "main": "src/index.ts",
   "compatibility_date": "2026-04-12",
   "compatibility_flags": ["nodejs_compat"],
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 1,
-    "traces": {
-      "enabled": true,
-      "head_sampling_rate": 1
-    }
-  },
-  "routes": [
-    {
-      "pattern": "exec.marble.zone",
-      "custom_domain": true
-    }
-  ],
   "containers": [
     {
       "class_name": "Sandbox",
@@ -38,10 +22,26 @@
       }
     ]
   },
+  "main": "src/index.ts",
   "migrations": [
     {
       "new_sqlite_classes": ["Sandbox"],
       "tag": "v1"
+    }
+  ],
+  "name": "marble-executor",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "routes": [
+    {
+      "custom_domain": true,
+      "pattern": "exec.marble.zone"
     }
   ],
   "upload_source_maps": true,

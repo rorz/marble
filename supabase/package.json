@@ -1,24 +1,24 @@
 {
-  "name": "@marble/supabase",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
-  },
-  "scripts": {
-    "dangerously-splat": "supabase db reset",
-    "gen:program-seed": "node generate-seed.mjs",
-    "typegen": "tmp=$(mktemp src/types.ts.XXXXXX) && supabase gen types typescript --local > \"$tmp\" && mv \"$tmp\" src/types.ts",
-    "typecheck": "tsc --noEmit"
-  },
   "dependencies": {
     "@supabase/supabase-js": "catalog:base"
   },
   "devDependencies": {
     "typescript": "catalog:base"
-  }
+  },
+  "exports": {
+    ".": {
+      "default": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "name": "@marble/supabase",
+  "private": true,
+  "scripts": {
+    "dangerously-splat": "supabase db reset",
+    "gen:program-seed": "node generate-seed.mjs",
+    "typecheck": "tsc --noEmit",
+    "typegen": "tmp=$(mktemp src/types.ts.XXXXXX) && supabase gen types typescript --local > \"$tmp\" && mv \"$tmp\" src/types.ts"
+  },
+  "type": "module",
+  "version": "0.1.0"
 }

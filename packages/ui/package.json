@@ -1,18 +1,4 @@
 {
-  "name": "@marble/ui",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "sideEffects": false,
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
-  },
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
   "dependencies": {
     "class-variance-authority": "catalog:base",
     "clsx": "catalog:base",
@@ -22,5 +8,19 @@
   "devDependencies": {
     "@types/react": "catalog:base",
     "typescript": "catalog:base"
-  }
+  },
+  "exports": {
+    ".": {
+      "default": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "name": "@marble/ui",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "sideEffects": false,
+  "type": "module",
+  "version": "1.0.0"
 }

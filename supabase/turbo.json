@@ -2,11 +2,11 @@
   "$schema": "https://turborepo.dev/schema.json",
   "extends": ["//"],
   "tasks": {
-    "typegen": {
-      "outputs": ["src/types.ts"]
-    },
     "typecheck": {
       "dependsOn": ["$TURBO_EXTENDS$", "typegen"]
+    },
+    "typegen": {
+      "outputs": ["src/types.ts"]
     }
   }
 }

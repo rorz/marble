@@ -1,11 +1,4 @@
 {
-  "name": "@marble/api",
-  "version": "1.0.0",
-  "type": "module",
-  "main": "src/index.ts",
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
   "dependencies": {
     "@marble/core": "workspace:*",
     "@marble/keys": "workspace:*",
@@ -17,5 +10,12 @@
   "devDependencies": {
     "@types/node": "catalog:base",
     "typescript": "catalog:base"
-  }
+  },
+  "main": "src/index.ts",
+  "name": "@marble/api",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "1.0.0"
 }

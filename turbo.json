@@ -15,41 +15,41 @@
     "SUPABASE_URL"
   ],
   "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "cache": false
-    },
-    "symlink": {
-      "dependsOn": ["build"],
-      "cache": false
-    },
-    "typegen": {
-      "dependsOn": ["^typegen"],
-      "cache": false
-    },
-    "typecheck": {
-      "dependsOn": ["^typecheck"],
-      "cache": false
-    },
-    "test": {
-      "dependsOn": ["^test"],
-      "cache": false
-    },
-    "install:local": {
-      "dependsOn": ["^install:local"],
-      "cache": false
-    },
-    "dev": {
-      "persistent": true,
-      "cache": false
-    },
-    "start": {
-      "persistent": true,
-      "cache": false
-    },
     "//#format-and-lint": {},
     "//#format-and-lint:fix": {
       "cache": false
+    },
+    "build": {
+      "cache": false,
+      "dependsOn": ["^build"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "install:local": {
+      "cache": false,
+      "dependsOn": ["^install:local"]
+    },
+    "start": {
+      "cache": false,
+      "persistent": true
+    },
+    "symlink": {
+      "cache": false,
+      "dependsOn": ["build"]
+    },
+    "test": {
+      "cache": false,
+      "dependsOn": ["^test"]
+    },
+    "typecheck": {
+      "cache": false,
+      "dependsOn": ["^typecheck"]
+    },
+    "typegen": {
+      "cache": false,
+      "dependsOn": ["^typegen"]
     }
   }
 }

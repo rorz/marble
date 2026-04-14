@@ -1,20 +1,6 @@
 {
-  "name": "marble-cli",
-  "version": "0.0.3",
-  "type": "module",
-  "files": [
-    "dist/cli.js"
-  ],
   "bin": {
     "marble": "./dist/cli.js"
-  },
-  "scripts": {
-    "build": "bun build ./src/cli.ts --target=node --outfile ./dist/cli.js",
-    "dev": "bun build ./src/cli.ts --target=node --outfile ./dist/cli.js --watch",
-    "prepublishOnly": "bun run build",
-    "typecheck": "tsc --noEmit",
-    "start": "node ./dist/cli.js",
-    "install:local": "bun link"
   },
   "devDependencies": {
     "@marble/core": "workspace:*",
@@ -24,5 +10,19 @@
     "dotenv": "catalog:base",
     "typescript": "catalog:base",
     "zod": "catalog:base"
-  }
+  },
+  "files": [
+    "dist/cli.js"
+  ],
+  "name": "marble-cli",
+  "scripts": {
+    "build": "bun build ./src/cli.ts --target=node --outfile ./dist/cli.js",
+    "dev": "bun build ./src/cli.ts --target=node --outfile ./dist/cli.js --watch",
+    "install:local": "bun link",
+    "prepublishOnly": "bun run build",
+    "start": "node ./dist/cli.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "0.0.3"
 }

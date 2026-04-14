@@ -1,13 +1,4 @@
 {
-  "name": "@marble/web",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev -p 3084",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit"
-  },
   "dependencies": {
     "@heroicons/react": "catalog:base",
     "@marble/api": "workspace:*",
@@ -37,5 +28,14 @@
     "babel-plugin-react-compiler": "catalog:base",
     "tailwindcss": "catalog:base",
     "typescript": "catalog:base"
-  }
+  },
+  "name": "@marble/web",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "dev": "next dev -p 3084",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "version": "0.1.0"
 }

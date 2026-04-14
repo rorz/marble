@@ -5,7 +5,6 @@ export {
   marbleButtonInnerVariants,
   marbleButtonRootVariants,
 } from "./components/button";
-export { cx } from "./utils/cx";
 export {
   MarbleFieldLabel,
   type MarbleFieldLabelProps,
@@ -26,3 +25,4 @@ export {
   type MarbleTextareaProps,
   marbleTextareaVariants,
 } from "./components/textarea";
+export { cx } from "./utils/cx";

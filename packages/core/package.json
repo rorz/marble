@@ -1,26 +1,26 @@
 {
-  "name": "@marble/core",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
+  "dependencies": {
+    "jsonpath-plus": "catalog:base",
+    "sift": "catalog:base",
+    "zod": "catalog:base"
+  },
+  "devDependencies": {
+    "typescript": "catalog:base",
+    "vitest": "catalog:base"
+  },
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./dist/index.js"
+      "default": "./dist/index.js",
+      "types": "./src/index.ts"
     }
   },
+  "name": "@marble/core",
+  "private": true,
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "sift": "catalog:base",
-    "zod": "catalog:base",
-    "jsonpath-plus": "catalog:base"
-  },
-  "devDependencies": {
-    "typescript": "catalog:base",
-    "vitest": "catalog:base"
-  }
+  "type": "module",
+  "version": "1.0.0"
 }
