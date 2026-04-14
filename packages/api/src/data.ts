@@ -47,10 +47,6 @@ const RECORD_METADATA = {
     idKey: "profileId",
     label: "Profile",
   },
-  secret: {
-    idKey: "secretId",
-    label: "Secret",
-  },
   program: {
     idKey: "programId",
     label: "Program",
@@ -70,6 +66,10 @@ const RECORD_METADATA = {
   row: {
     idKey: "rowId",
     label: "Row",
+  },
+  secret: {
+    idKey: "secretId",
+    label: "Secret",
   },
   table: {
     idKey: "tableId",

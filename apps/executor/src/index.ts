@@ -82,15 +82,15 @@ const TestBodySchema = z.object({
 });
 
 const RunEnvelopeSchema = z.object({
-  success: z.boolean(),
   output: Schemas.RunReturnValue,
+  success: z.boolean(),
 });
 
 const ErrorResponseSchema = z.object({
+  detail: z.json().optional(),
   error: z.literal(true),
   message: z.string(),
   requestId: z.string(),
-  detail: z.json().optional(),
 });
 
 const jsonResponse = <Schema extends z.ZodTypeAny>(
@@ -323,8 +323,8 @@ const liveRunHandler = async (c: Context<ExecutorEnv>) => {
     ]);
 
     return jsonResponse(RunEnvelopeSchema, {
-      success: true,
       output,
+      success: true,
     });
   } catch (error) {
     console.error(`[${c.get("requestId")}] Run ${run_id} failed`, error);
@@ -335,8 +335,8 @@ const liveRunHandler = async (c: Context<ExecutorEnv>) => {
     return jsonResponse(
       RunEnvelopeSchema,
       {
-        success: false,
         output: failState,
+        success: false,
       },
       {
         status: 500,
@@ -383,8 +383,8 @@ const testHandler = async (c: Context<ExecutorEnv>) => {
     );
 
     return jsonResponse(RunEnvelopeSchema, {
-      success: true,
       output,
+      success: true,
     });
   } catch (error) {
     console.error(
@@ -395,8 +395,8 @@ const testHandler = async (c: Context<ExecutorEnv>) => {
     return jsonResponse(
       RunEnvelopeSchema,
       {
-        success: false,
         output: failureStateFromError(error),
+        success: false,
       },
       {
         status: 500,

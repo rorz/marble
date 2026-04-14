@@ -5,15 +5,15 @@ import { cx } from "../utils/cx";
 export const marbleInputVariants = cva(
   "w-full rounded-md border-x border-t border-b-2 border-neutral-200 border-b-neutral-300 bg-white text-neutral-900 shadow-sm transition-colors placeholder-neutral-400 focus:border-b-orange-400 focus:outline-none",
   {
+    defaultVariants: {
+      size: "md",
+    },
     variants: {
       size: {
         md: "px-3 py-1.5 text-sm",
         sm: "px-2.5 py-1.5 text-sm",
         xs: "px-2 py-1 text-xs",
       },
-    },
-    defaultVariants: {
-      size: "md",
     },
   },
 );

@@ -90,16 +90,16 @@ type GridContext = {
 
 const gridTheme = themeQuartz.withParams({
   backgroundColor: "#fafafa",
+  borderColor: "#e4e4e7",
+  cellHorizontalPaddingScale: 0.8,
+  fontSize: 13,
   foregroundColor: "#18181b",
   headerBackgroundColor: "#f4f4f5",
-  borderColor: "#e4e4e7",
-  rowHoverColor: "#f4f4f5",
   headerFontSize: 12,
-  fontSize: 13,
   headerFontWeight: 500,
+  rowHoverColor: "#f4f4f5",
   spacing: 6,
   wrapperBorderRadius: 8,
-  cellHorizontalPaddingScale: 0.8,
 });
 
 // ── Helpers ─────────────────────────────────────────────
@@ -185,12 +185,12 @@ function buildFieldsFromSchema(schema: Record<string, unknown>): SchemaField[] {
   >;
   const req = new Set((schema.required as string[] | undefined) ?? []);
   return Object.entries(props).map(([key, def]) => ({
-    key,
-    type: (def.type as string) ?? "string",
-    title: (def.title as string) ?? key,
-    required: req.has(key),
-    enumValues: def.enum as string[] | undefined,
     defaultValue: def.default as string | undefined,
+    enumValues: def.enum as string[] | undefined,
+    key,
+    required: req.has(key),
+    title: (def.title as string) ?? key,
+    type: (def.type as string) ?? "string",
   }));
 }
 
@@ -352,8 +352,8 @@ function ContextMenu({
       <div
         className="fixed z-[61] bg-white border border-zinc-200 rounded-lg shadow-lg py-1 min-w-[160px]"
         style={{
-          top: state.y,
           left: state.x,
+          top: state.y,
         }}
       >
         {state.items.map((item) => (
@@ -619,10 +619,10 @@ function CellRunningIndicator() {
         <div
           className="w-full h-[200%]"
           style={{
+            animation: "motlo-climb 0.8s linear infinite",
             backgroundImage:
               "radial-gradient(circle, #000 1px, transparent 1px)",
             backgroundSize: "4px 4px",
-            animation: "motlo-climb 0.8s linear infinite",
           }}
         />
       </div>
@@ -773,32 +773,32 @@ function InterpolationEditor({
   const grammar = useMemo(() => {
     return {
       interpolation: {
-        pattern: /\{\{[^}]+\}\}/,
         inside: {
-          "tag-open": {
-            pattern: /^\{\{/,
-            alias: "punctuation",
-          },
-          "tag-close": {
-            pattern: /\}\}$/,
-            alias: "punctuation",
-          },
           "col-name": {
+            alias: "keyword",
             // Match the column name component (which may include spaces)
             // It stops at the first unescaped dot, square bracket, or the opening/closing braces.
             pattern: /^([^{}.[\]]+)/,
-            alias: "keyword",
           },
           "col-path": {
+            alias: "property",
             // Match the property path dot-notation or array indexing
             pattern: /^[.[][^\s}]+/,
-            alias: "property",
           },
           "invalid-text": {
-            pattern: /[^}]+/,
             alias: "invalid",
+            pattern: /[^}]+/,
+          },
+          "tag-close": {
+            alias: "punctuation",
+            pattern: /\}\}$/,
+          },
+          "tag-open": {
+            alias: "punctuation",
+            pattern: /^\{\{/,
           },
         },
+        pattern: /\{\{[^}]+\}\}/,
       },
     };
   }, []);
@@ -1100,11 +1100,11 @@ export default function TablePage(props: {
               manual_input: manualInput,
             }),
         state: {
-          ok: false,
           error: {
             type: "Client",
           },
           message,
+          ok: false,
         } as Cell["state"],
       });
     },
@@ -1451,26 +1451,20 @@ export default function TablePage(props: {
   const colDefs = useMemo<ColDef[]>(() => {
     return [
       {
-        headerName: "#",
-        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
-        width: 52,
-        pinned: "left" as const,
-        sortable: false,
-        suppressMovable: true,
         cellStyle: {
           color: "#666",
           fontFamily: "var(--font-geist-mono)",
         },
+        headerName: "#",
+        pinned: "left" as const,
+        sortable: false,
+        suppressMovable: true,
+        valueGetter: (p) => (p.node?.rowIndex ?? 0) + 1,
+        width: 52,
       },
       ...sortedColumns.map((col) => {
         const editable = isManualInputColumn(col);
         return {
-          headerName: col.name,
-          headerComponent: ColumnHeader,
-          headerTooltip: col.program_version?.program?.name,
-          field: col.id,
-          editable,
-          sortable: false,
           cellRenderer: CellWithRunButton,
           cellStyle: (params) => {
             const hasValue = params.value && String(params.value).trim() !== "";
@@ -1483,16 +1477,22 @@ export default function TablePage(props: {
               fontFamily: "var(--font-geist-mono)",
             };
           },
+          editable,
+          field: col.id,
+          headerComponent: ColumnHeader,
+          headerName: col.name,
+          headerTooltip: col.program_version?.program?.name,
+          sortable: false,
         } satisfies ColDef;
       }),
       {
-        headerName: "",
+        cellRenderer: () => null,
         headerComponent: AddColumnButton,
-        width: 44,
+        headerName: "",
+        resizable: false,
         sortable: false,
         suppressMovable: true,
-        resizable: false,
-        cellRenderer: () => null,
+        width: 44,
       },
     ];
   }, [
@@ -1553,9 +1553,9 @@ export default function TablePage(props: {
 
       try {
         const result = await actions.executeRun({
-          programId: col.program_version_id,
           cellId: cell.id,
           cellValue: manualInput,
+          programId: col.program_version_id,
         });
         applyRunOutputToCell(cell.id, result.output, manualInput);
         addLog(`✓ "${col.name}" → ${JSON.stringify(result.output)}`);
@@ -1596,8 +1596,8 @@ export default function TablePage(props: {
 
       try {
         const result = await actions.executeRun({
-          programId: col.program_version_id,
           cellId: cell.id,
+          programId: col.program_version_id,
         });
         applyRunOutputToCell(cell.id, result.output);
         addLog(`✓ "${col.name}" → ${JSON.stringify(result.output)}`);
@@ -1651,8 +1651,8 @@ export default function TablePage(props: {
         try {
           markCellAsRunning(cell.id);
           const result = await actions.executeRun({
-            programId: col.program_version_id,
             cellId: cell.id,
+            programId: col.program_version_id,
           });
           applyRunOutputToCell(cell.id, result.output);
           addLog(
@@ -1797,9 +1797,8 @@ export default function TablePage(props: {
     (columnId: string) => {
       const col = columnsRef.current.find((c) => c.id === columnId);
       setConfirmState({
-        title: "Delete Column",
-        message: `Delete "${col?.name ?? "this column"}"? All cells in this column will be permanently removed.`,
         confirmLabel: "Delete",
+        message: `Delete "${col?.name ?? "this column"}"? All cells in this column will be permanently removed.`,
         onConfirm: () => {
           handleDeleteColumn(columnId);
           setSidebarMode((prev) =>
@@ -1810,6 +1809,7 @@ export default function TablePage(props: {
               : prev,
           );
         },
+        title: "Delete Column",
       });
     },
     [
@@ -1820,10 +1820,10 @@ export default function TablePage(props: {
   const requestDeleteRow = useCallback(
     (rowId: string, rowIndex: number) => {
       setConfirmState({
-        title: "Delete Row",
-        message: `Delete Row ${rowIndex + 1}? All cells in this row will be permanently removed.`,
         confirmLabel: "Delete",
+        message: `Delete Row ${rowIndex + 1}? All cells in this row will be permanently removed.`,
         onConfirm: () => handleDeleteRow(rowId),
+        title: "Delete Row",
       });
     },
     [
@@ -1833,31 +1833,31 @@ export default function TablePage(props: {
 
   const handleHeaderClick = useCallback((columnId: string) => {
     setSidebarMode({
-      kind: "edit",
       columnId,
+      kind: "edit",
     });
   }, []);
 
   const handleHeaderContextMenu = useCallback(
     (columnId: string, x: number, y: number) => {
       setContextMenu({
-        x,
-        y,
         items: [
           {
             label: "Edit Column",
             onClick: () =>
               setSidebarMode({
-                kind: "edit",
                 columnId,
+                kind: "edit",
               }),
           },
           {
+            danger: true,
             label: "Delete Column",
             onClick: () => requestDeleteColumn(columnId),
-            danger: true,
           },
         ],
+        x,
+        y,
       });
     },
     [
@@ -1874,15 +1874,15 @@ export default function TablePage(props: {
       const rowIndex = event.data?._rowIndex as number | undefined;
       if (!rowId || rowIndex === undefined || !browserEvent) return;
       setContextMenu({
-        x: browserEvent.clientX,
-        y: browserEvent.clientY,
         items: [
           {
+            danger: true,
             label: `Delete Row ${rowIndex + 1}`,
             onClick: () => requestDeleteRow(rowId, rowIndex),
-            danger: true,
           },
         ],
+        x: browserEvent.clientX,
+        y: browserEvent.clientY,
       });
     },
     [
@@ -1894,14 +1894,14 @@ export default function TablePage(props: {
 
   const gridContext = useMemo<GridContext>(
     () => ({
-      runCell,
+      activeColumnId: sidebarMode.kind === "edit" ? sidebarMode.columnId : null,
       onHeaderClick: handleHeaderClick,
       onHeaderContextMenu: handleHeaderContextMenu,
       openCreateColumn: () =>
         setSidebarMode({
           kind: "create",
         }),
-      activeColumnId: sidebarMode.kind === "edit" ? sidebarMode.columnId : null,
+      runCell,
     }),
     [
       runCell,
@@ -2025,9 +2025,9 @@ export default function TablePage(props: {
                     );
                     setInspectedCell({
                       columnName: col.name,
+                      manualInput: cell?.manual_input ?? null,
                       rowIndex: event.data?._rowIndex as number,
                       state: getCellState(cell),
-                      manualInput: cell?.manual_input ?? null,
                     });
                   }}
                   domLayout="normal"
@@ -2348,9 +2348,9 @@ function ColumnSidebar({
     try {
       if (mode.kind === "create") {
         await onCreateColumn({
+          input_template: buildTemplate(),
           name: name.trim(),
           program_id: latestVersion.id,
-          input_template: buildTemplate(),
         });
         setName("");
         setProgramId("");
@@ -2359,9 +2359,9 @@ function ColumnSidebar({
       } else {
         await onUpdateColumn({
           columnId: mode.columnId,
+          input_template: buildTemplate(),
           name: name.trim(),
           program_id: latestVersion.id,
-          input_template: buildTemplate(),
         });
       }
     } finally {

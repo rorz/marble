@@ -3,7 +3,8 @@
   "assist": {
     "actions": {
       "source": {
-        "organizeImports": "on"
+        "organizeImports": "on",
+        "useSortedKeys": "on"
       }
     }
   },
@@ -48,18 +49,6 @@
       }
     }
   },
-  "overrides": [
-    {
-      "assist": {
-        "actions": {
-          "source": {
-            "useSortedKeys": "on"
-          }
-        }
-      },
-      "includes": ["**/*.json", "**/*.jsonc"]
-    }
-  ],
   "vcs": {
     "clientKind": "git",
     "enabled": true,

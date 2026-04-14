@@ -25,18 +25,18 @@ const READ_UPDATE_OPERATIONS = [
 ] as const satisfies readonly CrudOperation[];
 
 export const ApiResources = {
-  profiles: READ_CREATE_UPDATE_OPERATIONS,
-  events: READ_OPERATIONS,
-  tables: CRUD_OPERATIONS,
-  columns: CRUD_OPERATIONS,
-  column_dependencies: READ_OPERATIONS,
-  rows: CRUD_OPERATIONS,
   cells: READ_UPDATE_OPERATIONS,
-  programs: CRUD_OPERATIONS,
-  program_versions: CRUD_OPERATIONS,
+  column_dependencies: READ_OPERATIONS,
+  columns: CRUD_OPERATIONS,
+  events: READ_OPERATIONS,
+  profiles: READ_CREATE_UPDATE_OPERATIONS,
   program_files: CRUD_OPERATIONS,
   program_runs: CRUD_OPERATIONS,
+  program_versions: CRUD_OPERATIONS,
+  programs: CRUD_OPERATIONS,
+  rows: CRUD_OPERATIONS,
   secrets: CRUD_OPERATIONS,
+  tables: CRUD_OPERATIONS,
 } as const;
 
 export type ApiResourceName = keyof typeof ApiResources;

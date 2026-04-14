@@ -3,15 +3,15 @@ import { z } from "zod";
 
 export const getEnv = (runtimeEnv: Record<string, unknown>) => {
   return createEnv({
-    server: {
-      SUPABASE_URL: z.string().url(),
-      SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-      EXECUTOR_BEARER_TOKEN: z.string().min(1).optional(),
-    },
+    emptyStringAsUndefined: true,
     runtimeEnv: runtimeEnv as Record<
       string,
       string | boolean | number | undefined
     >,
-    emptyStringAsUndefined: true,
+    server: {
+      EXECUTOR_BEARER_TOKEN: z.string().min(1).optional(),
+      SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+      SUPABASE_URL: z.string().url(),
+    },
   });
 };

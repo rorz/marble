@@ -13,15 +13,15 @@ const numberOutputSchema = {
   type: "number",
 } as const;
 const imageOutputSchema = {
-  type: "object",
   properties: {
-    url: {
-      type: "string",
-    },
     alt: {
       type: "string",
     },
+    url: {
+      type: "string",
+    },
   },
+  type: "object",
 } as const;
 
 const baseOutputConfig: ProgramOutputConfig = {
@@ -342,14 +342,14 @@ describe("resolveColumnConfig", () => {
   it("mixes static and dynamic keys in the same object", () => {
     const config = {
       prompt: "Translate the following:",
-      "text.$": "$.columns.col-abc.value",
       targetLanguage: "fr",
+      "text.$": "$.columns.col-abc.value",
     };
 
     expect(resolveColumnConfig(config, rowContext)).toEqual({
       prompt: "Translate the following:",
-      text: "hello world",
       targetLanguage: "fr",
+      text: "hello world",
     });
   });
 

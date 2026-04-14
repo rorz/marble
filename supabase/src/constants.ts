@@ -29,14 +29,14 @@ export const Constants = {
         "Human",
         "Agent",
       ],
-      secret_category: [
-        "UserDefined",
-        "Managed",
-      ],
       program_file_type: [
         "TypeScript",
         "Json",
         "Markdown",
+      ],
+      secret_category: [
+        "UserDefined",
+        "Managed",
       ],
     } satisfies EnumRecord<"public">,
   },

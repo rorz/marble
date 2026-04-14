@@ -34,7 +34,6 @@ export const createFailureState = (
   message: string,
   detail?: Json,
 ): Schemas.RunReturnValue => ({
-  ok: false,
   error: {
     type: errorType,
     ...(detail == null
@@ -44,6 +43,7 @@ export const createFailureState = (
         }),
   },
   message,
+  ok: false,
 });
 
 export const failureStateFromError = (
@@ -70,7 +70,6 @@ function createRuntimeEnvelope(
   manualInputValue?: string | null,
 ): JsonValue {
   return {
-    system: {},
     cell:
       manualInputValue == null
         ? {}
@@ -78,6 +77,7 @@ function createRuntimeEnvelope(
             manualInputValue,
           },
     input,
+    system: {},
   };
 }
 

@@ -73,11 +73,11 @@ function buildFieldsFromSchema(schema: Record<string, unknown>): {
     Record<string, unknown>
   >;
   return Object.entries(props).map(([key, def]) => ({
-    key,
-    type: (def.type as string) ?? "string",
-    title: (def.title as string) ?? key,
-    enumValues: def.enum as string[] | undefined,
     defaultValue: def.default as string | undefined,
+    enumValues: def.enum as string[] | undefined,
+    key,
+    title: (def.title as string) ?? key,
+    type: (def.type as string) ?? "string",
   }));
 }
 
@@ -178,9 +178,9 @@ export default function TestProgramsPage() {
     setProgName("New Program");
     setFiles([
       {
-        filename: "main.ts",
         content:
           "export default async function run(input) {\n  return { ok: true, value: input };\n}",
+        filename: "main.ts",
         filetype: "TypeScript",
       },
     ]);
@@ -188,12 +188,12 @@ export default function TestProgramsPage() {
     setInputSchemaStr(
       JSON.stringify(
         {
-          type: "object",
           properties: {
             param1: {
               type: "string",
             },
           },
+          type: "object",
         },
         null,
         2,
@@ -226,8 +226,8 @@ export default function TestProgramsPage() {
     setFiles((prev) => [
       ...prev,
       {
-        filename: name,
         content: "",
+        filename: name,
         filetype,
       },
     ]);
@@ -309,9 +309,9 @@ export default function TestProgramsPage() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setResult({
+        error: msg,
         ok: false,
         output: null,
-        error: msg,
       });
       addLog(`✗ Error: ${msg}`);
     } finally {

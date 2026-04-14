@@ -35,8 +35,8 @@ export function resolveColumnConfig(
       const exactMatch = config.match(/^\{\{(\$\.[^}]+)\}\}$/);
       if (exactMatch) {
         return JSONPath({
-          path: exactMatch[1],
           json: rowContext,
+          path: exactMatch[1],
           wrap: false,
         }) as JsonValue;
       }
@@ -44,8 +44,8 @@ export function resolveColumnConfig(
       // Otherwise, replace all occurrences, coercing them to strings
       return config.replace(/\{\{(\$\.[^}]+)\}\}/g, (_, path) => {
         const val = JSONPath({
-          path,
           json: rowContext,
+          path,
           wrap: false,
         });
         return val === null || val === undefined ? "" : String(val);
@@ -66,8 +66,8 @@ export function resolveColumnConfig(
 
       // wrap: false returns the exact primitive/object for a single match
       const extractedValue = JSONPath({
-        path: value as string,
         json: rowContext,
+        path: value as string,
         wrap: false,
       });
 

@@ -25,18 +25,18 @@ import { mountTableResource } from "./resources/table";
 
 const app = new Hono<ApiEnv>();
 const resourceMounts = {
-  profiles: mountProfileResource,
-  events: mountEventResource,
-  tables: mountTableResource,
-  columns: mountColumnResource,
-  column_dependencies: mountColumnDependencyResource,
-  rows: mountRowResource,
   cells: mountCellResource,
-  programs: mountProgramResource,
-  program_versions: mountProgramVersionResource,
+  column_dependencies: mountColumnDependencyResource,
+  columns: mountColumnResource,
+  events: mountEventResource,
+  profiles: mountProfileResource,
   program_files: mountProgramFileResource,
   program_runs: mountProgramRunResource,
+  program_versions: mountProgramVersionResource,
+  programs: mountProgramResource,
+  rows: mountRowResource,
   secrets: mountSecretResource,
+  tables: mountTableResource,
 } satisfies Record<ApiResourceName, (app: Hono<ApiEnv>) => void>;
 
 function executorEndpointUrl(baseUrl: string, path: string, search: string) {

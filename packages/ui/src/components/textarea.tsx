@@ -5,6 +5,10 @@ import { cx } from "../utils/cx";
 export const marbleTextareaVariants = cva(
   "w-full resize-y rounded-md border-x border-t border-b-2 border-neutral-200 border-b-neutral-300 bg-white text-neutral-900 shadow-sm transition-colors placeholder-neutral-400 focus:border-b-orange-400 focus:outline-none",
   {
+    defaultVariants: {
+      monospace: false,
+      size: "md",
+    },
     variants: {
       monospace: {
         false: "",
@@ -15,10 +19,6 @@ export const marbleTextareaVariants = cva(
         sm: "px-2.5 py-1.5 text-sm",
         xs: "px-2 py-1 text-xs",
       },
-    },
-    defaultVariants: {
-      monospace: false,
-      size: "md",
     },
   },
 );

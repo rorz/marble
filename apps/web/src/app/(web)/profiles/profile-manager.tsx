@@ -14,8 +14,8 @@ import {
 } from "./actions";
 
 const secretSortOrder = {
-  UserDefined: 0,
   Managed: 1,
+  UserDefined: 0,
 } as const;
 
 export function ProfileManager({

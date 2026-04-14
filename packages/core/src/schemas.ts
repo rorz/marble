@@ -30,7 +30,7 @@ const MongoLiteral = z.union([
 const MongoFieldOperators = z
   .object({
     $eq: MongoLiteral.optional(),
-    $ne: MongoLiteral.optional(),
+    $exists: z.boolean().optional(),
     $gt: z
       .union([
         z.number(),
@@ -43,6 +43,7 @@ const MongoFieldOperators = z
         z.string(),
       ])
       .optional(),
+    $in: z.array(MongoLiteral).optional(),
     $lt: z
       .union([
         z.number(),
@@ -55,12 +56,11 @@ const MongoFieldOperators = z
         z.string(),
       ])
       .optional(),
-    $in: z.array(MongoLiteral).optional(),
+    $ne: MongoLiteral.optional(),
     $nin: z.array(MongoLiteral).optional(),
-    $exists: z.boolean().optional(),
-    $size: z.number().int().nonnegative().optional(),
-    $regex: z.string().optional(), // Must be a string in the DB, not a JS RegExp object
     $options: z.string().optional(), // Modifiers for regex like "i"
+    $regex: z.string().optional(), // Must be a string in the DB, not a JS RegExp object
+    $size: z.number().int().nonnegative().optional(),
   })
   .strict(); // .strict() ensures typo'd operators throw an error before saving
 
@@ -168,8 +168,8 @@ export const ProgramOutputConfig = z.object({
       allowInference: false,
       allowManualInput: false,
     }),
-  schema: JsonSchema,
   overloads: z.array(OverloadRule).optional(),
+  schema: JsonSchema,
 });
 export type ProgramOutputConfig = z.infer<typeof ProgramOutputConfig>;
 
@@ -181,6 +181,10 @@ export type ColumnOutputSchema = z.infer<typeof ColumnOutputSchema>;
 // --- Run
 
 export const RunInput = z.object({
+  cell: z.object({
+    manualInputValue: z.string().optional(),
+  }),
+  input: z.any(),
   system: z
     .object({
       providers: z.record(z.string(), z.any()).optional().default({}),
@@ -190,18 +194,14 @@ export const RunInput = z.object({
     .default({
       providers: {},
     }),
-  cell: z.object({
-    manualInputValue: z.string().optional(),
-  }),
-  input: z.any(),
 });
 export type RunInput = z.infer<typeof RunInput>;
 
 export const RunReturnValue = z.discriminatedUnion("ok", [
   z.object({
-    ok: z.literal(false),
     error: z.json(),
     message: z.string(),
+    ok: z.literal(false),
   }),
   z.object({
     ok: z.literal(true),

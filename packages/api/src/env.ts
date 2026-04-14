@@ -5,15 +5,15 @@ export const getEnv = (
   runtimeEnv: Record<string, unknown> | NodeJS.ProcessEnv,
 ) => {
   return createEnv({
-    server: {
-      SUPABASE_URL: z.string().url(),
-      SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-      MARBLE_EXECUTOR_URL: z.string().url().optional(),
-    },
+    emptyStringAsUndefined: true,
     runtimeEnv: runtimeEnv as Record<
       string,
       string | boolean | number | undefined
     >,
-    emptyStringAsUndefined: true,
+    server: {
+      MARBLE_EXECUTOR_URL: z.string().url().optional(),
+      SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+      SUPABASE_URL: z.string().url(),
+    },
   });
 };

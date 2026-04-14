@@ -63,19 +63,19 @@ function buildProgramValues(dirName) {
     .map((d) => {
       const content = readText(join(dir, d.name));
       return {
+        content,
         filename: d.name,
         filetype: getFileType(d.name),
-        content,
       };
     });
 
   return {
-    slug: dirName,
-    name: pkg.name,
-    firstParty: true, // all seeded are first party
     files,
+    firstParty: true, // all seeded are first party
     inputSchema: JSON.stringify(inputSchema),
+    name: pkg.name,
     outputConfig: JSON.stringify(outputConfig),
+    slug: dirName,
   };
 }
 
