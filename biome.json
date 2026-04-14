@@ -1,9 +1,11 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.4.11/schema.json",
-  "vcs": {
-    "enabled": true,
-    "clientKind": "git",
-    "useIgnoreFile": true
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
   },
   "files": {
     "ignoreUnknown": true,
@@ -26,31 +28,41 @@
   },
   "javascript": {
     "formatter": {
-      "expand": "always",
-      "attributePosition": "multiline"
+      "attributePosition": "multiline",
+      "expand": "always"
     }
   },
   "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "complexity": {
-        "useArrowFunction": "error"
-      },
-      "suspicious": {
-        "noUnknownAtRules": "off"
-      }
-    },
     "domains": {
       "next": "recommended",
       "react": "recommended"
-    }
-  },
-  "assist": {
-    "actions": {
-      "source": {
-        "organizeImports": "on"
+    },
+    "enabled": true,
+    "rules": {
+      "complexity": {
+        "useArrowFunction": "error"
+      },
+      "recommended": true,
+      "suspicious": {
+        "noUnknownAtRules": "off"
       }
     }
+  },
+  "overrides": [
+    {
+      "assist": {
+        "actions": {
+          "source": {
+            "useSortedKeys": "on"
+          }
+        }
+      },
+      "includes": ["**/*.json", "**/*.jsonc"]
+    }
+  ],
+  "vcs": {
+    "clientKind": "git",
+    "enabled": true,
+    "useIgnoreFile": true
   }
 }
