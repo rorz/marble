@@ -13,9 +13,9 @@ export function CreateTableButton() {
 
   return (
     <button
-      type="button"
-      onClick={handleCreate}
       className="bg-neutral-950 p-0.5 rounded-[7px] transition-opacity hover:opacity-90 cursor-pointer"
+      onClick={handleCreate}
+      type="button"
     >
       <div
         className="size-full p-[1px] rounded-md bg-neutral-200"

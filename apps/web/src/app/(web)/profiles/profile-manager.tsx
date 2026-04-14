@@ -303,8 +303,8 @@ export function ProfileManager({
           <div className="grid gap-4">
             {profiles.map((profile) => (
               <article
-                key={profile.id}
                 className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+                key={profile.id}
               >
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div className="space-y-2">
@@ -350,8 +350,8 @@ export function ProfileManager({
                     <div className="divide-y divide-zinc-200">
                       {profile.keys.map((key) => (
                         <div
-                          key={key.id}
                           className="flex flex-col gap-3 px-4 py-4 md:flex-row md:items-center md:justify-between"
+                          key={key.id}
                         >
                           <div className="space-y-1">
                             <div className="font-mono text-sm text-zinc-900">
@@ -422,8 +422,8 @@ export function ProfileManager({
 
               return (
                 <article
-                  key={secret.id}
                   className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+                  key={secret.id}
                 >
                   <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                     <div className="space-y-2">

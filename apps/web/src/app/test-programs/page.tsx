@@ -341,19 +341,19 @@ export default function TestProgramsPage() {
         </div>
         <div className="flex-1 overflow-y-auto">
           <button
-            type="button"
             className={`w-full text-left px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-[#2a2d2e] ${!selectedProgId ? "bg-[#37373d]" : ""}`}
             onClick={handleCreateProgram}
+            type="button"
           >
             <PlusIcon className="w-4 h-4 text-emerald-400" />
             <span className="text-sm">New Program</span>
           </button>
           {programs.map((p) => (
             <button
-              type="button"
-              key={p.id}
               className={`w-full text-left px-3 py-1.5 flex items-center gap-2 cursor-pointer hover:bg-[#2a2d2e] ${selectedProgId === p.id ? "bg-[#37373d]" : ""}`}
+              key={p.id}
               onClick={() => setSelectedProgId(p.id)}
+              type="button"
             >
               <CodeBracketIcon className="w-4 h-4 text-blue-400" />
               <span className="text-sm truncate flex-1">{p.name}</span>
@@ -374,10 +374,10 @@ export default function TestProgramsPage() {
                 <FolderOpenIcon className="w-4 h-4" /> Workspace
               </span>
               <button
-                type="button"
-                onClick={handleAddFile}
                 className="text-gray-400 hover:text-white"
+                onClick={handleAddFile}
                 title="New File"
+                type="button"
               >
                 <DocumentPlusIcon className="w-4 h-4" />
               </button>
@@ -385,10 +385,10 @@ export default function TestProgramsPage() {
             <div className="flex-1 overflow-y-auto pb-4">
               {files.map((f) => (
                 <button
-                  type="button"
-                  key={f.filename}
                   className={`w-full text-left px-6 py-1 flex items-center gap-2 cursor-pointer hover:bg-[#2a2d2e] ${activeFile === f.filename ? "bg-[#37373d] text-white" : "text-gray-300"}`}
+                  key={f.filename}
                   onClick={() => setActiveFile(f.filename)}
+                  type="button"
                 >
                   <DocumentTextIcon
                     className={`w-4 h-4 ${f.filename.endsWith(".ts") ? "text-blue-400" : f.filename.endsWith(".json") ? "text-yellow-400" : "text-gray-400"}`}
@@ -406,18 +406,18 @@ export default function TestProgramsPage() {
         {/* Editor Top Bar */}
         <div className="h-10 bg-[#2d2d2d] flex items-center px-4 border-b border-[#3c3c3c] gap-4">
           <input
+            className="bg-transparent text-sm font-semibold focus:outline-none placeholder-gray-500"
+            onChange={(e) => setProgName(e.target.value)}
+            placeholder="Program Name..."
             type="text"
             value={progName}
-            onChange={(e) => setProgName(e.target.value)}
-            className="bg-transparent text-sm font-semibold focus:outline-none placeholder-gray-500"
-            placeholder="Program Name..."
           />
           <div className="flex-1" />
           <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
             className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded shadow-sm disabled:opacity-50"
+            disabled={saving}
+            onClick={handleSave}
+            type="button"
           >
             {saving ? "Saving..." : "Save Version"}
           </button>
@@ -428,19 +428,19 @@ export default function TestProgramsPage() {
           <div className="flex bg-[#252526] overflow-x-auto no-scrollbar border-b border-[#3c3c3c]">
             {files.map((f) => (
               <button
-                type="button"
-                key={f.filename}
                 className={`px-4 py-2 text-sm cursor-pointer border-r border-[#3c3c3c] flex items-center gap-2 ${activeFile === f.filename ? "bg-[#1e1e1e] text-white border-t-2 border-t-blue-500" : "text-gray-400 hover:bg-[#2d2d2d]"}`}
+                key={f.filename}
                 onClick={() => setActiveFile(f.filename)}
+                type="button"
               >
                 <DocumentTextIcon className="w-4 h-4" />
                 {f.filename}
               </button>
             ))}
             <button
-              type="button"
               className="px-4 py-2 text-sm text-gray-400 hover:bg-[#2d2d2d] cursor-pointer flex items-center"
               onClick={handleAddFile}
+              type="button"
             >
               <PlusIcon className="w-4 h-4" />
             </button>
@@ -459,6 +459,7 @@ export default function TestProgramsPage() {
                     Loading Monaco...
                   </div>
                 }
+                onChange={(value) => handleCodeChange(value ?? "")}
                 options={monacoEditorOptions}
                 path={getMonacoModelPath(
                   selectedProgId,
@@ -466,7 +467,6 @@ export default function TestProgramsPage() {
                 )}
                 theme="vs-dark"
                 value={activeFileObj.content}
-                onChange={(value) => handleCodeChange(value ?? "")}
               />
             </div>
           ) : (
@@ -487,8 +487,6 @@ export default function TestProgramsPage() {
             ) : (
               log.map((l, i) => (
                 <div
-                  // biome-ignore lint/suspicious/noArrayIndexKey: log
-                  key={`${i}-${l.slice(0, 16)}`}
                   className={
                     l.includes("✗")
                       ? "text-red-400"
@@ -496,6 +494,8 @@ export default function TestProgramsPage() {
                         ? "text-green-400"
                         : "text-gray-300"
                   }
+                  // biome-ignore lint/suspicious/noArrayIndexKey: log
+                  key={`${i}-${l.slice(0, 16)}`}
                 >
                   {l}
                 </div>
@@ -519,8 +519,8 @@ export default function TestProgramsPage() {
             </div>
             <textarea
               className="w-full h-24 bg-[#1e1e1e] border border-[#3c3c3c] rounded p-2 text-xs font-mono focus:outline-none focus:border-blue-500"
-              value={inputSchemaStr}
               onChange={(e) => setInputSchemaStr(e.target.value)}
+              value={inputSchemaStr}
             />
 
             <div className="text-xs text-gray-400 mt-4 mb-2 font-semibold">
@@ -528,8 +528,8 @@ export default function TestProgramsPage() {
             </div>
             <textarea
               className="w-full h-24 bg-[#1e1e1e] border border-[#3c3c3c] rounded p-2 text-xs font-mono focus:outline-none focus:border-blue-500"
-              value={outputConfigStr}
               onChange={(e) => setOutputConfigStr(e.target.value)}
+              value={outputConfigStr}
             />
           </div>
 
@@ -547,26 +547,26 @@ export default function TestProgramsPage() {
 
             {fields.map((f) => (
               <div
-                key={f.key}
                 className="mb-3"
+                key={f.key}
               >
                 <label
-                  htmlFor={`input-${f.key}`}
                   className="block text-xs text-gray-300 mb-1"
+                  htmlFor={`input-${f.key}`}
                 >
                   {f.title}
                 </label>
                 {f.enumValues ? (
                   <select
-                    id={`input-${f.key}`}
                     className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-sm outline-none focus:border-blue-500"
-                    value={inputValues[f.key] ?? ""}
+                    id={`input-${f.key}`}
                     onChange={(e) =>
                       setInputValues((p) => ({
                         ...p,
                         [f.key]: e.target.value,
                       }))
                     }
+                    value={inputValues[f.key] ?? ""}
                   >
                     {f.enumValues.map((v) => (
                       <option
@@ -579,16 +579,16 @@ export default function TestProgramsPage() {
                   </select>
                 ) : (
                   <input
-                    id={`input-${f.key}`}
-                    type="text"
                     className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-sm outline-none focus:border-blue-500"
-                    value={inputValues[f.key] ?? ""}
+                    id={`input-${f.key}`}
                     onChange={(e) =>
                       setInputValues((p) => ({
                         ...p,
                         [f.key]: e.target.value,
                       }))
                     }
+                    type="text"
+                    value={inputValues[f.key] ?? ""}
                   />
                 )}
               </div>
@@ -597,27 +597,27 @@ export default function TestProgramsPage() {
             {hasManualInput && (
               <div className="mb-3">
                 <label
-                  htmlFor="manual-input"
                   className="block text-xs text-gray-300 mb-1"
+                  htmlFor="manual-input"
                 >
                   Manual Cell Input
                 </label>
                 <input
-                  id="manual-input"
-                  type="text"
                   className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 text-sm outline-none focus:border-blue-500"
-                  value={manualInput}
+                  id="manual-input"
                   onChange={(e) => setManualInput(e.target.value)}
                   placeholder="Cell value..."
+                  type="text"
+                  value={manualInput}
                 />
               </div>
             )}
 
             <button
-              type="button"
-              onClick={handleRun}
-              disabled={running || !latestVersion}
               className="w-full mt-2 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded shadow disabled:opacity-50 transition-colors"
+              disabled={running || !latestVersion}
+              onClick={handleRun}
+              type="button"
             >
               <PlayIcon className="w-4 h-4" />
               {running ? "Running..." : "Run Program"}

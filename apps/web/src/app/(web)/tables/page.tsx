@@ -17,20 +17,20 @@ export default async function TablesPage() {
           <h1 className="text-lg font-semibold tracking-tight">marble</h1>
           <nav className="flex items-center gap-2 text-sm">
             <Link
-              href="/tables"
               className="rounded-lg bg-orange-50 px-3 py-1.5 font-medium text-orange-700"
+              href="/tables"
             >
               Tables
             </Link>
             <Link
-              href="/events"
               className="rounded-lg px-3 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+              href="/events"
             >
               Events
             </Link>
             <Link
-              href="/profiles"
               className="rounded-lg px-3 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+              href="/profiles"
             >
               Profiles + Secrets
             </Link>
@@ -59,9 +59,9 @@ export default async function TablesPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {tables.map((table) => (
               <Link
-                key={table.id}
-                href={`/tables/${table.id}`}
                 className="group block p-5 bg-white border border-zinc-200 rounded-lg hover:border-orange-400 hover:shadow-sm transition-all"
+                href={`/tables/${table.id}`}
+                key={table.id}
               >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-medium truncate group-hover:text-orange-600 transition-colors">

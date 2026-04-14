@@ -358,15 +358,15 @@ function ContextMenu({
       >
         {state.items.map((item) => (
           <button
+            className={`w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 transition-colors ${
+              item.danger ? "text-red-600 hover:bg-red-50" : "text-zinc-700"
+            }`}
             key={item.label}
-            type="button"
             onClick={() => {
               item.onClick();
               onClose();
             }}
-            className={`w-full text-left px-3 py-1.5 text-sm hover:bg-zinc-100 transition-colors ${
-              item.danger ? "text-red-600 hover:bg-red-50" : "text-zinc-700"
-            }`}
+            type="button"
           >
             {item.label}
           </button>
@@ -406,11 +406,11 @@ function ConfirmModal({
         <div className="flex items-center justify-end gap-2">
           <MarbleButton onClick={onClose}>Cancel</MarbleButton>
           <MarbleButton
-            variant="red"
             onClick={() => {
               state.onConfirm();
               onClose();
             }}
+            variant="red"
           >
             {state.confirmLabel}
           </MarbleButton>
@@ -448,9 +448,9 @@ function tokenizeJson(json: string): React.ReactNode[] {
     }
     return (
       <span
+        className={cls}
         // biome-ignore lint/suspicious/noArrayIndexKey: log
         key={`${i}:${part.slice(0, 12)}`}
-        className={cls}
       >
         {part}
       </span>
@@ -509,9 +509,9 @@ function CellInspectorModal({
             )}
           </div>
           <button
-            type="button"
-            onClick={onClose}
             className="text-zinc-400 hover:text-zinc-700 text-lg leading-none"
+            onClick={onClose}
+            type="button"
           >
             ×
           </button>
@@ -558,7 +558,6 @@ function ColumnHeader(props: IHeaderParams) {
 
   return (
     <button
-      type="button"
       className={`flex items-center w-full h-full cursor-pointer select-none transition-colors bg-transparent border-none p-0 text-left text-inherit ${
         isActive ? "text-orange-700 font-semibold" : ""
       }`}
@@ -567,6 +566,7 @@ function ColumnHeader(props: IHeaderParams) {
         e.preventDefault();
         ctx.onHeaderContextMenu(columnId, e.clientX, e.clientY);
       }}
+      type="button"
     >
       <span className="truncate">{props.displayName}</span>
     </button>
@@ -580,9 +580,9 @@ function AddColumnButton(props: IHeaderParams) {
 
   return (
     <button
-      type="button"
       className="flex items-center justify-center w-full h-full cursor-pointer bg-transparent border-none p-0 group/add"
       onClick={() => ctx.openCreateColumn()}
+      type="button"
     >
       <span className="text-zinc-400 group-hover/add:text-orange-600 transition-colors text-sm font-medium leading-none">
         +
@@ -673,13 +673,13 @@ function CellWithRunButton(props: CustomCellRendererProps) {
       )}
       {columnId && rowId && !isLoading && (
         <button
-          type="button"
+          className="absolute right-0.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-sm border border-zinc-200 bg-white cursor-pointer items-center justify-center text-[8px] text-orange-600 leading-none hidden group-hover/cell:flex"
           onClick={(e) => {
             e.stopPropagation();
             ctx.runCell?.(columnId, rowId);
           }}
-          className="absolute right-0.5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-sm border border-zinc-200 bg-white cursor-pointer items-center justify-center text-[8px] text-orange-600 leading-none hidden group-hover/cell:flex"
           title="Run this cell"
+          type="button"
         >
           ▶
         </button>
@@ -726,11 +726,9 @@ function ClickToEditTitle({
   if (editing) {
     return (
       <input
-        ref={inputRef}
-        type="text"
-        value={tempValue}
-        onChange={(e) => setTempValue(e.target.value)}
+        className="bg-transparent border-b border-orange-500 outline-none px-1 text-sm font-medium w-48 focus:border-b-2 transition-all text-neutral-900 placeholder-neutral-400"
         onBlur={handleSave}
+        onChange={(e) => setTempValue(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter") handleSave();
           if (e.key === "Escape") {
@@ -738,18 +736,20 @@ function ClickToEditTitle({
             setEditing(false);
           }
         }}
-        className="bg-transparent border-b border-orange-500 outline-none px-1 text-sm font-medium w-48 focus:border-b-2 transition-all text-neutral-900 placeholder-neutral-400"
         placeholder="Table Name"
+        ref={inputRef}
+        type="text"
+        value={tempValue}
       />
     );
   }
 
   return (
     <button
-      type="button"
-      onClick={() => setEditing(true)}
       className="text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200 px-1.5 py-0.5 rounded transition-colors cursor-text text-left max-w-[200px] truncate"
+      onClick={() => setEditing(true)}
       title="Click to edit"
+      type="button"
     >
       {value || "Untitled Table"}
     </button>
@@ -806,8 +806,7 @@ function InterpolationEditor({
   return (
     <div className="relative border border-zinc-300 rounded bg-white overflow-hidden focus-within:border-orange-500 focus-within:ring-1 focus-within:ring-orange-500 transition-all text-xs">
       <Editor
-        value={value}
-        onValueChange={onChange}
+        className="font-mono min-h-[40px]"
         highlight={(code) => {
           let html = Prism.highlight(code, grammar, "interpolation");
 
@@ -825,13 +824,14 @@ function InterpolationEditor({
 
           return html;
         }}
+        onValueChange={onChange}
         padding={8}
         placeholder={placeholder}
-        className="font-mono min-h-[40px]"
-        textareaClassName="focus:outline-none"
         style={{
           fontFamily: "var(--font-geist-mono), monospace",
         }}
+        textareaClassName="focus:outline-none"
+        value={value}
       />
       <style>{`
         /* Custom Prism styles for interpolation */
@@ -1927,8 +1927,8 @@ export default function TablePage(props: {
       <header className="border-b border-zinc-200 px-5 py-3 flex items-center gap-4">
         <h1 className="text-lg font-semibold tracking-tight">
           <Link
-            href="/tables"
             className="hover:text-orange-600 transition-colors"
+            href="/tables"
           >
             marble
           </Link>
@@ -1939,18 +1939,18 @@ export default function TablePage(props: {
         {selectedTableId && (
           <div className="flex items-center gap-2">
             <Link
-              href="/tables"
               className="text-zinc-400 hover:text-zinc-900 transition-colors bg-zinc-100 hover:bg-zinc-200 rounded p-1"
+              href="/tables"
               title="Back to tables"
             >
               <ArrowLeftIcon className="w-3.5 h-3.5" />
             </Link>
             <ClickToEditTitle
+              onChange={handleRenameTable}
               value={
                 tables.find((t) => t.id === selectedTableId)?.name ||
                 "Untitled Table"
               }
-              onChange={handleRenameTable}
             />
           </div>
         )}
@@ -1963,20 +1963,20 @@ export default function TablePage(props: {
 
         <div className="ml-auto flex items-center gap-2">
           <Link
-            href="/events"
             className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+            href="/events"
           >
             Events
           </Link>
           <Link
-            href="/profiles"
             className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+            href="/profiles"
           >
             Profiles
           </Link>
           <Link
-            href="/ui"
             className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+            href="/ui"
           >
             UI
           </Link>
@@ -1987,9 +1987,9 @@ export default function TablePage(props: {
       <div className="flex justify-between items-center px-5 py-1.5 border-b border-zinc-200 bg-white">
         <div></div>
         <MarbleButton
-          variant="orange"
-          onClick={handleRunAll}
           disabled={!selectedTableId || columns.length === 0 || running}
+          onClick={handleRunAll}
+          variant="orange"
         >
           Run All
         </MarbleButton>
@@ -2003,13 +2003,11 @@ export default function TablePage(props: {
             {selectedTableId ? (
               <div className="flex-1 min-h-0 mb-4">
                 <AgGridReact
-                  ref={gridRef}
-                  theme={gridTheme}
                   columnDefs={colDefs}
-                  rowData={rowData}
                   context={gridContext}
-                  onCellValueChanged={onCellValueChanged}
-                  preventDefaultOnContextMenu
+                  domLayout="normal"
+                  getRowId={(params) => params.data._rowId as string}
+                  headerHeight={34}
                   onCellContextMenu={onCellContextMenu}
                   onCellDoubleClicked={(event) => {
                     const columnId = event.colDef.field;
@@ -2030,10 +2028,12 @@ export default function TablePage(props: {
                       state: getCellState(cell),
                     });
                   }}
-                  domLayout="normal"
-                  headerHeight={34}
+                  onCellValueChanged={onCellValueChanged}
+                  preventDefaultOnContextMenu
+                  ref={gridRef}
+                  rowData={rowData}
                   rowHeight={32}
-                  getRowId={(params) => params.data._rowId as string}
+                  theme={gridTheme}
                 />
               </div>
             ) : (
@@ -2045,20 +2045,20 @@ export default function TablePage(props: {
             <div className="flex justify-start shrink-0 mt-2">
               <div className="flex items-center gap-2">
                 <MarbleButton
-                  onClick={handleAddRows}
                   disabled={!selectedTableId}
+                  onClick={handleAddRows}
                 >
                   Add
                 </MarbleButton>
                 <MarbleInput
-                  type="number"
-                  min="1"
                   max="100"
-                  value={rowCount}
-                  size="sm"
+                  min="1"
                   onChange={(e) =>
                     setRowCount(Math.max(1, parseInt(e.target.value, 10) || 1))
                   }
+                  size="sm"
+                  type="number"
+                  value={rowCount}
                   wrapperClassName="w-16"
                 />
                 <span className="text-sm text-zinc-600">
@@ -2076,9 +2076,9 @@ export default function TablePage(props: {
                   Log
                 </h3>
                 <button
-                  type="button"
-                  onClick={() => setRunLog([])}
                   className="text-xs text-zinc-400 hover:text-zinc-600"
+                  onClick={() => setRunLog([])}
+                  type="button"
                 >
                   clear
                 </button>
@@ -2086,8 +2086,6 @@ export default function TablePage(props: {
               <pre className="text-xs font-mono space-y-0.5">
                 {runLog.map((line, i) => (
                   <div
-                    // biome-ignore lint/suspicious/noArrayIndexKey: log
-                    key={`${i}-${line.slice(0, 20)}`}
                     className={
                       line.includes("✗")
                         ? "text-red-400"
@@ -2097,6 +2095,8 @@ export default function TablePage(props: {
                             ? "text-blue-500"
                             : "text-zinc-500"
                     }
+                    // biome-ignore lint/suspicious/noArrayIndexKey: log
+                    key={`${i}-${line.slice(0, 20)}`}
                   >
                     {line}
                   </div>
@@ -2109,21 +2109,21 @@ export default function TablePage(props: {
         {/* Column sidebar — only visible when creating or editing */}
         {sidebarMode.kind !== "closed" && (
           <ColumnSidebar
+            columns={sortedColumns}
             key={
               sidebarMode.kind === "edit"
                 ? `edit-${sidebarMode.columnId}`
                 : "create"
             }
             mode={sidebarMode}
-            columns={sortedColumns}
-            programs={programs}
-            onCreateColumn={handleCreateColumn}
-            onUpdateColumn={handleUpdateColumn}
             onClose={() =>
               setSidebarMode({
                 kind: "closed",
               })
             }
+            onCreateColumn={handleCreateColumn}
+            onUpdateColumn={handleUpdateColumn}
+            programs={programs}
           />
         )}
       </div>
@@ -2131,14 +2131,14 @@ export default function TablePage(props: {
       {/* Overlays */}
       {contextMenu && (
         <ContextMenu
-          state={contextMenu}
           onClose={() => setContextMenu(null)}
+          state={contextMenu}
         />
       )}
       {confirmState && (
         <ConfirmModal
-          state={confirmState}
           onClose={() => setConfirmState(null)}
+          state={confirmState}
         />
       )}
       {inspectedCell && (
@@ -2378,9 +2378,9 @@ function ColumnSidebar({
           {isCreate ? "New Column" : "Edit Column"}
         </h2>
         <button
-          type="button"
-          onClick={onClose}
           className="text-zinc-400 hover:text-zinc-700 transition-colors text-sm leading-none"
+          onClick={onClose}
+          type="button"
         >
           ×
         </button>
@@ -2390,10 +2390,10 @@ function ColumnSidebar({
         <div className="block">
           <MarbleFieldLabel>Name</MarbleFieldLabel>
           <MarbleInput
-            type="text"
-            value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. Uppercased"
+            type="text"
+            value={name}
             wrapperClassName="w-full"
           />
         </div>
@@ -2401,8 +2401,8 @@ function ColumnSidebar({
         <div className="block mt-2">
           <MarbleFieldLabel>Program</MarbleFieldLabel>
           <MarbleSelect
-            value={programId}
             onChange={(e) => setProgramId(e.target.value)}
+            value={programId}
             wrapperClassName="w-full"
           >
             <option value="">Select program...</option>
@@ -2434,8 +2434,8 @@ function ColumnSidebar({
               };
               return (
                 <div
-                  key={f.key}
                   className="bg-zinc-100 rounded p-2.5 space-y-1.5 border border-zinc-200"
+                  key={f.key}
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono text-orange-600">
@@ -2446,9 +2446,9 @@ function ColumnSidebar({
                   <div className="flex items-center gap-2 text-xs">
                     <label className="flex items-center gap-1 cursor-pointer">
                       <input
-                        type="radio"
-                        name={`mode-${f.key}`}
                         checked={fv.mode === "static"}
+                        className="accent-orange-500"
+                        name={`mode-${f.key}`}
                         onChange={() =>
                           setFieldValues((prev) => ({
                             ...prev,
@@ -2458,15 +2458,15 @@ function ColumnSidebar({
                             },
                           }))
                         }
-                        className="accent-orange-500"
+                        type="radio"
                       />
                       Formula
                     </label>
                     <label className="flex items-center gap-1 cursor-pointer">
                       <input
-                        type="radio"
-                        name={`mode-${f.key}`}
                         checked={fv.mode === "column"}
+                        className="accent-orange-500"
+                        name={`mode-${f.key}`}
                         onChange={() =>
                           setFieldValues((prev) => ({
                             ...prev,
@@ -2476,7 +2476,7 @@ function ColumnSidebar({
                             },
                           }))
                         }
-                        className="accent-orange-500"
+                        type="radio"
                       />
                       From column
                     </label>
@@ -2484,8 +2484,6 @@ function ColumnSidebar({
                   {fv.mode === "static" ? (
                     f.enumValues ? (
                       <MarbleSelect
-                        value={fv.value}
-                        size="xs"
                         onChange={(e) =>
                           setFieldValues((prev) => ({
                             ...prev,
@@ -2495,6 +2493,8 @@ function ColumnSidebar({
                             },
                           }))
                         }
+                        size="xs"
+                        value={fv.value}
                         wrapperClassName="w-full"
                       >
                         {f.enumValues.map((v) => (
@@ -2508,7 +2508,7 @@ function ColumnSidebar({
                       </MarbleSelect>
                     ) : (
                       <InterpolationEditor
-                        value={fv.value}
+                        columns={columns}
                         onChange={(newVal) =>
                           setFieldValues((prev) => ({
                             ...prev,
@@ -2518,7 +2518,6 @@ function ColumnSidebar({
                             },
                           }))
                         }
-                        columns={columns}
                         placeholder={
                           f.type === "object"
                             ? f.required
@@ -2528,12 +2527,11 @@ function ColumnSidebar({
                               ? "[]"
                               : undefined
                         }
+                        value={fv.value}
                       />
                     )
                   ) : (
                     <MarbleSelect
-                      value={fv.value}
-                      size="xs"
                       onChange={(e) =>
                         setFieldValues((prev) => ({
                           ...prev,
@@ -2543,11 +2541,13 @@ function ColumnSidebar({
                           },
                         }))
                       }
+                      size="xs"
+                      value={fv.value}
                       wrapperClassName="w-full"
                     >
                       <option
-                        value=""
                         disabled
+                        value=""
                       >
                         Pick a column...
                       </option>
@@ -2571,9 +2571,9 @@ function ColumnSidebar({
         {!isCreate && selectedProgram && (
           <div className="border-t border-zinc-200 pt-3">
             <button
-              type="button"
-              onClick={() => setOutputSchemaOpen((o) => !o)}
               className="flex items-center gap-1.5 text-[10px] text-zinc-500 uppercase tracking-wider w-full"
+              onClick={() => setOutputSchemaOpen((o) => !o)}
+              type="button"
             >
               <span
                 className="text-[8px] transition-transform"
@@ -2595,15 +2595,15 @@ function ColumnSidebar({
             {outputSchemaOpen && (
               <div className="mt-2 space-y-2">
                 <MarbleTextarea
-                  value={outputSchemaJson}
+                  monospace
                   onChange={(e) => {
                     setOutputSchemaJson(e.target.value);
                     setOutputSchemaDirty(true);
                   }}
-                  monospace
-                  spellCheck={false}
                   rows={8}
                   size="xs"
+                  spellCheck={false}
+                  value={outputSchemaJson}
                 />
                 <MarbleButton
                   className="w-full"
@@ -2643,10 +2643,10 @@ function ColumnSidebar({
           </div>
         )}
         <MarbleButton
-          variant="orange"
           className="w-full"
-          onClick={handleSave}
           disabled={!name.trim() || !programId || saving || !!validationError}
+          onClick={handleSave}
+          variant="orange"
         >
           {saving
             ? isCreate

@@ -515,8 +515,8 @@ export function EventFeedBoard({
         <div className="flex flex-wrap gap-1.5 font-mono text-[11px]">
           {summaryChips.map((chip) => (
             <span
-              key={chip.label}
               className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 ${chip.tone}`}
+              key={chip.label}
             >
               <span className="text-zinc-500">{chip.label}</span>
               <span className="text-current">{chip.value}</span>
@@ -576,9 +576,9 @@ export function EventFeedBoard({
 
                   return (
                     <article
-                      key={event.id}
                       className="event-feed-row border-b border-zinc-100 last:border-b-0"
                       data-entering={isEntering ? "true" : undefined}
+                      key={event.id}
                     >
                       <button
                         aria-expanded={isExpanded}
@@ -724,10 +724,10 @@ export function EventFeedBoard({
                                   <div className="flex flex-wrap gap-1.5">
                                     {diffEntries.map((entry) => (
                                       <span
+                                        className="rounded border border-zinc-200 bg-white px-2 py-1 text-[10px] text-zinc-700"
                                         key={`${event.id}-${
                                           entry.path.join(".") || "root"
                                         }`}
-                                        className="rounded border border-zinc-200 bg-white px-2 py-1 text-[10px] text-zinc-700"
                                       >
                                         {entry.path.join(".") || "(root)"}
                                       </span>
