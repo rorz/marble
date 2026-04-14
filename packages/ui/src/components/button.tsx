@@ -64,7 +64,7 @@ const marbleButtonBorderVariants = cva("size-full rounded-md p-px", {
 });
 
 const marbleButtonInnerVariants = cva(
-  "size-full rounded-[5px] flex items-center justify-center font-medium uppercase",
+  "size-full rounded-[5px] flex items-center justify-center font-bold uppercase",
   {
     defaultVariants: {
       size: "md",
@@ -76,8 +76,8 @@ const marbleButtonInnerVariants = cva(
         sm: "px-2.5 py-1 text-[11px] tracking-[0.18em]",
       },
       variant: {
-        dark: "bg-neutral-600 text-neutral-100 font-light",
-        light: "bg-neutral-200 text-neutral-900 shadow-sm font-regular",
+        dark: "bg-neutral-600 text-neutral-100",
+        light: "bg-neutral-200 text-neutral-900",
         orange: "bg-orange-600 text-white",
         red: "bg-red-600 text-white",
       },

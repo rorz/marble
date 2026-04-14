@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Page } from "../../../components";
 import { Pane } from "../../../components/pane";
 import { requireUser } from "../../../lib/auth";
 import * as actions from "./actions";
@@ -36,7 +35,11 @@ export default async function ProjectsPage() {
           variant: "orange",
         },
       ]}
-      title="Projects"
+      crumbs={[
+        {
+          label: "Projects",
+        },
+      ]}
     >
       {projects.length === 0 ? (
         <div className="rounded-lg border border-zinc-200 bg-white py-12 text-center">
@@ -51,10 +54,10 @@ export default async function ProjectsPage() {
       ) : (
         <div className="space-y-8">
           {groupedProjects.map(([folderLabel, scopedProjects]) => (
-            <section key={folderLabel || "root"}>
+            <section key={folderLabel || "/"}>
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="font-medium text-sm text-zinc-500 uppercase tracking-[0.18em]">
-                  {folderLabel || "Root"}
+                  {folderLabel || "/"}
                 </h3>
                 <span className="font-mono text-xs text-zinc-400">
                   {scopedProjects.length} project
