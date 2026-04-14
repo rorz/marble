@@ -1,11 +1,16 @@
 import type { Hono } from "hono";
-import { type ApiEnv, mountResource } from "../core";
+import { type ApiEnv, ApiError, mountResource } from "../core";
 import {
   type DbRow,
   getRecord,
   listRecordsFromQuery,
   listRecordsInColumn,
 } from "../data";
+import {
+  listAccessibleColumnIds,
+  requireAccessibleColumn,
+  requireAccessibleTable,
+} from "./access";
 import { requestObject, uuidSchema } from "./shared";
 
 const columnDependencyListSchema = requestObject({
@@ -19,8 +24,26 @@ export function mountColumnDependencyResource(app: Hono<ApiEnv>) {
     collection: {
       list: {
         handler: async (c, query) => {
+          const mergeDependencies = (
+            dependencyGroups: DbRow<"column_dependency">[][],
+          ) =>
+            Array.from(
+              new Map(
+                dependencyGroups.flat().map((dependency) => [
+                  dependency.id,
+                  dependency,
+                ]),
+              ).values(),
+            ).sort((left, right) =>
+              left.created_at.localeCompare(right.created_at),
+            );
+
           if (query.tableId) {
-            await getRecord(c.var.supabase, "table", query.tableId);
+            await requireAccessibleTable(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              tableId: query.tableId,
+              userId: c.var.auth?.userId,
+            });
             const columns = await listRecordsFromQuery(
               c.var.supabase,
               "column",
@@ -37,7 +60,7 @@ export function mountColumnDependencyResource(app: Hono<ApiEnv>) {
               return [];
             }
 
-            const [sourceResult, targetResult] = await Promise.all([
+            const dependencyGroups = await Promise.all([
               listRecordsInColumn(
                 c.var.supabase,
                 "column_dependency",
@@ -52,15 +75,7 @@ export function mountColumnDependencyResource(app: Hono<ApiEnv>) {
               ),
             ]);
 
-            const merged = new Map<string, DbRow<"column_dependency">>();
-            for (const dependency of [
-              ...sourceResult,
-              ...targetResult,
-            ]) {
-              merged.set(dependency.id, dependency);
-            }
-
-            return Array.from(merged.values()).filter((dependency) => {
+            return mergeDependencies(dependencyGroups).filter((dependency) => {
               if (
                 query.sourceColumnId &&
                 dependency.source_column_id !== query.sourceColumnId
@@ -79,20 +94,82 @@ export function mountColumnDependencyResource(app: Hono<ApiEnv>) {
             });
           }
 
-          return listRecordsFromQuery(
-            c.var.supabase,
-            "column_dependency",
-            query,
-            {
-              sourceColumnId: "source_column_id",
-              targetColumnId: "target_column_id",
-            },
-            [
+          if (query.sourceColumnId) {
+            await requireAccessibleColumn(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              columnId: query.sourceColumnId,
+              userId: c.var.auth?.userId,
+            });
+          }
+
+          if (query.targetColumnId) {
+            await requireAccessibleColumn(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              columnId: query.targetColumnId,
+              userId: c.var.auth?.userId,
+            });
+          }
+
+          if (query.sourceColumnId || query.targetColumnId) {
+            return listRecordsFromQuery(
+              c.var.supabase,
+              "column_dependency",
+              query,
               {
-                column: "created_at",
+                sourceColumnId: "source_column_id",
+                targetColumnId: "target_column_id",
               },
-            ],
+              [
+                {
+                  column: "created_at",
+                },
+              ],
+            );
+          }
+
+          const accessibleColumnIds = await listAccessibleColumnIds(
+            c.var.supabase,
+            {
+              authenticatedProfileId: c.var.auth?.profileId,
+              userId: c.var.auth?.userId,
+            },
           );
+
+          if (accessibleColumnIds !== undefined) {
+            if (accessibleColumnIds.length === 0) {
+              return [];
+            }
+
+            return mergeDependencies(
+              await Promise.all([
+                listRecordsInColumn(
+                  c.var.supabase,
+                  "column_dependency",
+                  "source_column_id",
+                  accessibleColumnIds,
+                ),
+                listRecordsInColumn(
+                  c.var.supabase,
+                  "column_dependency",
+                  "target_column_id",
+                  accessibleColumnIds,
+                ),
+              ]),
+            );
+          }
+
+          const { data, error } = await c.var.supabase
+            .from("column_dependency")
+            .select("*")
+            .order("created_at", {
+              ascending: true,
+            });
+
+          if (error) {
+            throw new ApiError(500, error.message);
+          }
+
+          return data ?? [];
         },
         schema: columnDependencyListSchema,
       },
@@ -100,7 +177,24 @@ export function mountColumnDependencyResource(app: Hono<ApiEnv>) {
     },
     item: {
       get: {
-        handler: (c, id) => getRecord(c.var.supabase, "column_dependency", id),
+        handler: async (c, id) => {
+          const dependency = await getRecord(
+            c.var.supabase,
+            "column_dependency",
+            id,
+          );
+          const targetColumn = await getRecord(
+            c.var.supabase,
+            "column",
+            dependency.target_column_id,
+          );
+          await requireAccessibleTable(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            tableId: targetColumn.table_id,
+            userId: c.var.auth?.userId,
+          });
+          return dependency;
+        },
       },
       idParam: "dependencyId",
       path: "/column-dependencies/:dependencyId",

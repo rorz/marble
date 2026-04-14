@@ -80,6 +80,11 @@ type ProgramTestOptions = {
   inputFile?: string;
   manualInput?: string;
 };
+type ProjectCommandOptions = {
+  folderPath?: string;
+  folderPathFile?: string;
+  ownerProfileId?: string;
+};
 
 function resolveFromInvocation(targetPath: string) {
   return path.resolve(invocationCwd, targetPath);
@@ -279,6 +284,29 @@ async function loadStringifiedJsonValue(
   }
 
   return JSON.stringify(value);
+}
+
+function parseStringArray(label: string, value: unknown) {
+  if (
+    !Array.isArray(value) ||
+    value.some(
+      (entry) => typeof entry !== "string" || entry.trim().length === 0,
+    )
+  ) {
+    throw new Error(`${label} must be a JSON array of non-empty strings`);
+  }
+
+  return value.map((entry) => entry.trim());
+}
+
+async function loadFolderPath(options: { file?: string; value?: string }) {
+  const value = await loadJsonValue("folder path", options);
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return parseStringArray("folder path", value);
 }
 
 async function loadProgramDirectory(
@@ -574,12 +602,12 @@ function registerTableCommands() {
     .command("create")
     .description("Create a table")
     .argument("<name>", "Table name")
-    .option("--owner-profile-id <profileId>", "Owner profile ID")
+    .requiredOption("--project <projectId>", "Owning project ID")
     .action(
       (
         name,
         options: {
-          ownerProfileId?: string;
+          project?: string;
         },
       ) =>
         runAction("creating table", async () => {
@@ -588,7 +616,7 @@ function registerTableCommands() {
               "tables",
               compactObject({
                 name,
-                ownerProfileId: options.ownerProfileId,
+                projectId: options.project,
               }),
             ),
           );
@@ -598,14 +626,14 @@ function registerTableCommands() {
   tableCommand
     .command("list")
     .description("List tables")
-    .option("--owner-profile-id <profileId>", "Filter by owner profile ID")
-    .action((options: { ownerProfileId?: string }) =>
+    .option("--project <projectId>", "Filter by project ID")
+    .action((options: { project?: string }) =>
       runAction("listing tables", async () => {
         printJson(
           await client.list(
             "tables",
             compactObject({
-              ownerProfileId: options.ownerProfileId,
+              projectId: options.project,
             }) as Record<string, QueryValue>,
           ),
         );
@@ -627,24 +655,24 @@ function registerTableCommands() {
     .description("Update a table")
     .argument("<tableId>", "Table ID")
     .option("--name <name>", "New table name")
-    .option("--owner-profile-id <profileId>", "New owner profile ID")
+    .option("--project <projectId>", "New owning project ID")
     .action(
       (
         tableId,
         options: {
           name?: string;
-          ownerProfileId?: string;
+          project?: string;
         },
       ) =>
         runAction("updating table", async () => {
           const payload = compactObject({
             name: options.name,
-            ownerProfileId: options.ownerProfileId,
+            projectId: options.project,
           });
 
           assertHasDefinedValues("table update", payload, [
             "--name",
-            "--owner-profile-id",
+            "--project",
           ]);
           printJson(await client.update("tables", tableId, payload));
         }),
@@ -657,6 +685,115 @@ function registerTableCommands() {
     .action((tableId) =>
       runAction("deleting table", async () => {
         printJson(await client.delete("tables", tableId));
+      }),
+    );
+}
+
+function registerProjectCommands() {
+  const projectCommand = rootCommand
+    .command("project")
+    .description("Human-friendly project commands");
+
+  projectCommand
+    .command("create")
+    .description("Create a project")
+    .argument("<name>", "Project name")
+    .option("--owner-profile-id <profileId>", "Owner profile ID")
+    .option("--folder-path <json>", "Folder path as a JSON string array")
+    .option(
+      "--folder-path-file <path>",
+      "Path to a JSON file containing the folder path array",
+    )
+    .action((name, options: ProjectCommandOptions) =>
+      runAction("creating project", async () => {
+        printJson(
+          await client.create(
+            "projects",
+            compactObject({
+              folderPath: await loadFolderPath({
+                file: options.folderPathFile,
+                value: options.folderPath,
+              }),
+              name,
+              ownerProfileId: options.ownerProfileId,
+            }),
+          ),
+        );
+      }),
+    );
+
+  projectCommand
+    .command("list")
+    .description("List projects")
+    .option("--owner-profile-id <profileId>", "Filter by owner profile ID")
+    .action((options: { ownerProfileId?: string }) =>
+      runAction("listing projects", async () => {
+        printJson(
+          await client.list(
+            "projects",
+            compactObject({
+              ownerProfileId: options.ownerProfileId,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  projectCommand
+    .command("get")
+    .description("Get a project by ID")
+    .argument("<projectId>", "Project ID")
+    .action((projectId) =>
+      runAction("getting project", async () => {
+        printJson(await client.get("projects", projectId));
+      }),
+    );
+
+  projectCommand
+    .command("update")
+    .description("Update a project")
+    .argument("<projectId>", "Project ID")
+    .option("--name <name>", "New project name")
+    .option("--owner-profile-id <profileId>", "New owner profile ID")
+    .option("--folder-path <json>", "Folder path as a JSON string array")
+    .option(
+      "--folder-path-file <path>",
+      "Path to a JSON file containing the folder path array",
+    )
+    .action(
+      (
+        projectId,
+        options: ProjectCommandOptions & {
+          name?: string;
+        },
+      ) =>
+        runAction("updating project", async () => {
+          const payload = compactObject({
+            folderPath: await loadFolderPath({
+              file: options.folderPathFile,
+              value: options.folderPath,
+            }),
+            name: options.name,
+            ownerProfileId: options.ownerProfileId,
+          });
+
+          assertHasDefinedValues("project update", payload, [
+            "--name",
+            "--owner-profile-id",
+            "--folder-path",
+            "--folder-path-file",
+          ]);
+          printJson(await client.update("projects", projectId, payload));
+        }),
+    );
+
+  projectCommand
+    .command("delete")
+    .description("Delete a project")
+    .argument("<projectId>", "Project ID")
+    .action((projectId) =>
+      runAction("deleting project", async () => {
+        printJson(await client.delete("projects", projectId));
       }),
     );
 }
@@ -1081,6 +1218,7 @@ rootCommand
   .showHelpAfterError()
   .showSuggestionAfterError();
 
+registerProjectCommands();
 registerTableCommands();
 registerColumnCommands();
 registerRowCommands();

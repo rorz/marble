@@ -13,11 +13,14 @@ import {
   type DbUpdate,
   deleteRecord,
   deleteRecordsInColumn,
-  getRecord,
-  listRecordsFromQuery,
   successResponse,
   updateRecord,
 } from "../data";
+import {
+  listAccessibleCellIds,
+  requireAccessibleCell,
+  requireAccessibleProgramRun,
+} from "./access";
 import { resolveProgramVersionId } from "./program_version";
 import { jsonValueSchema, requestObject, uuidSchema } from "./shared";
 
@@ -51,7 +54,11 @@ export function mountProgramRunResource(app: Hono<ApiEnv>) {
             throw new ApiError(400, "targetCellId is required");
           }
 
-          await getRecord(c.var.supabase, "cell", body.targetCellId);
+          await requireAccessibleCell(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            cellId: body.targetCellId,
+            userId: c.var.auth?.userId,
+          });
 
           const programVersionId = await resolveProgramVersionId(
             c.var.supabase,
@@ -75,22 +82,48 @@ export function mountProgramRunResource(app: Hono<ApiEnv>) {
         schema: programRunCreateSchema,
       },
       list: {
-        handler: (c, query) =>
-          listRecordsFromQuery(
-            c.var.supabase,
-            "program_run",
-            query,
-            {
-              programVersionId: "program_version_id",
-              targetCellId: "target_cell_id",
-            },
-            [
+        handler: async (c, query) => {
+          let request = c.var.supabase.from("program_run").select("*");
+
+          if (query.programVersionId) {
+            request = request.eq("program_version_id", query.programVersionId);
+          }
+
+          if (query.targetCellId) {
+            await requireAccessibleCell(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              cellId: query.targetCellId,
+              userId: c.var.auth?.userId,
+            });
+            request = request.eq("target_cell_id", query.targetCellId);
+          } else {
+            const accessibleCellIds = await listAccessibleCellIds(
+              c.var.supabase,
               {
-                ascending: false,
-                column: "created_at",
+                authenticatedProfileId: c.var.auth?.profileId,
+                userId: c.var.auth?.userId,
               },
-            ],
-          ),
+            );
+
+            if (accessibleCellIds !== undefined) {
+              if (accessibleCellIds.length === 0) {
+                return [];
+              }
+
+              request = request.in("target_cell_id", accessibleCellIds);
+            }
+          }
+
+          const { data, error } = await request.order("created_at", {
+            ascending: false,
+          });
+
+          if (error) {
+            throw new ApiError(500, error.message);
+          }
+
+          return data ?? [];
+        },
         schema: programRunListSchema,
       },
       path: "/program-runs",
@@ -98,19 +131,32 @@ export function mountProgramRunResource(app: Hono<ApiEnv>) {
     item: {
       delete: {
         handler: async (c, id) => {
-          await getRecord(c.var.supabase, "program_run", id);
+          await requireAccessibleProgramRun(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            runId: id,
+            userId: c.var.auth?.userId,
+          });
           await deleteRecord(c.var.supabase, "program_run", id);
 
           return successResponse();
         },
       },
       get: {
-        handler: (c, id) => getRecord(c.var.supabase, "program_run", id),
+        handler: (c, id) =>
+          requireAccessibleProgramRun(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            runId: id,
+            userId: c.var.auth?.userId,
+          }),
       },
       idParam: "runId",
       patch: {
         handler: async (c, id, body) => {
-          await getRecord(c.var.supabase, "program_run", id);
+          await requireAccessibleProgramRun(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            runId: id,
+            userId: c.var.auth?.userId,
+          });
           requireAnyDefined([
             body.input,
             body.output,
@@ -130,7 +176,11 @@ export function mountProgramRunResource(app: Hono<ApiEnv>) {
           }
 
           if (body.targetCellId) {
-            await getRecord(c.var.supabase, "cell", body.targetCellId);
+            await requireAccessibleCell(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              cellId: body.targetCellId,
+              userId: c.var.auth?.userId,
+            });
             updates.target_cell_id = body.targetCellId;
           }
 
@@ -160,23 +210,28 @@ export function mountProgramRunResource(app: Hono<ApiEnv>) {
   mountResource(app, {
     collection: {
       list: {
-        handler: (c) =>
-          listRecordsFromQuery(
-            c.var.supabase,
-            "program_run",
-            {
-              targetCellId: requiredParam(c, "cellId"),
-            },
-            {
-              targetCellId: "target_cell_id",
-            },
-            [
-              {
-                ascending: false,
-                column: "created_at",
-              },
-            ],
-          ),
+        handler: async (c) => {
+          const cellId = requiredParam(c, "cellId");
+          await requireAccessibleCell(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            cellId,
+            userId: c.var.auth?.userId,
+          });
+
+          const { data, error } = await c.var.supabase
+            .from("program_run")
+            .select("*")
+            .eq("target_cell_id", cellId)
+            .order("created_at", {
+              ascending: false,
+            });
+
+          if (error) {
+            throw new ApiError(500, error.message);
+          }
+
+          return data ?? [];
+        },
       },
       path: "/cells/:cellId/runs",
     },

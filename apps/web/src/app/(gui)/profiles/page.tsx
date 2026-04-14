@@ -20,9 +20,9 @@ export default async function ProfilesPage() {
             <nav className="flex items-center gap-2 text-sm">
               <Link
                 className="rounded-lg px-3 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
-                href="/tables"
+                href="/projects"
               >
-                Tables
+                Projects
               </Link>
               <Link
                 className="rounded-lg px-3 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"

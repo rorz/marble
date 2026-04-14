@@ -470,6 +470,41 @@ export type Database = {
           },
         ]
       }
+      project: {
+        Row: {
+          created_at: string
+          folder_path: string[]
+          id: string
+          name: string
+          owner_profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          folder_path?: string[]
+          id?: string
+          name?: string
+          owner_profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          folder_path?: string[]
+          id?: string
+          name?: string
+          owner_profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_owner_profile_id_fkey"
+            columns: ["owner_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       row: {
         Row: {
           created_at: string
@@ -537,29 +572,29 @@ export type Database = {
           created_at: string
           id: string
           name: string
-          owner_profile_id: string
+          project_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
           name?: string
-          owner_profile_id: string
+          project_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
-          owner_profile_id?: string
+          project_id?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "table_owner_profile_id_fkey"
-            columns: ["owner_profile_id"]
+            foreignKeyName: "table_project_id_fkey"
+            columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "profile"
+            referencedRelation: "project"
             referencedColumns: ["id"]
           },
         ]

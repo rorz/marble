@@ -19,6 +19,7 @@ import { mountProgramResource } from "./resources/program";
 import { mountProgramFileResource } from "./resources/program_file";
 import { mountProgramRunResource } from "./resources/program_run";
 import { mountProgramVersionResource } from "./resources/program_version";
+import { mountProjectResource } from "./resources/project";
 import { mountRowResource } from "./resources/row";
 import { mountSecretResource } from "./resources/secret";
 import { mountTableResource } from "./resources/table";
@@ -34,6 +35,7 @@ const resourceMounts = {
   program_runs: mountProgramRunResource,
   program_versions: mountProgramVersionResource,
   programs: mountProgramResource,
+  projects: mountProjectResource,
   rows: mountRowResource,
   secrets: mountSecretResource,
   tables: mountTableResource,

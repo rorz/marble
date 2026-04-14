@@ -25,6 +25,7 @@ import {
   successResponse,
   updateRecord,
 } from "../data";
+import { listAccessibleTableIds, requireAccessibleTable } from "./access";
 import { deleteProgramRunsForCellIds } from "./program_run";
 import { resolveProgramVersionId } from "./program_version";
 import {
@@ -181,7 +182,11 @@ async function createColumn(
     throw new ApiError(400, "tableId is required");
   }
 
-  await getRecord(c.var.supabase, "table", tableId);
+  await requireAccessibleTable(c.var.supabase, {
+    authenticatedProfileId: c.var.auth?.profileId,
+    tableId,
+    userId: c.var.auth?.userId,
+  });
 
   const programVersionId = await resolveProgramVersionId(c.var.supabase, {
     programId: body.programId,
@@ -285,7 +290,28 @@ export function mountColumnResource(app: Hono<ApiEnv>) {
           let request = c.var.supabase.from("column").select("*");
 
           if (query.tableId) {
+            await requireAccessibleTable(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              tableId: query.tableId,
+              userId: c.var.auth?.userId,
+            });
             request = request.eq("table_id", query.tableId);
+          } else {
+            const accessibleTableIds = await listAccessibleTableIds(
+              c.var.supabase,
+              {
+                authenticatedProfileId: c.var.auth?.profileId,
+                userId: c.var.auth?.userId,
+              },
+            );
+
+            if (accessibleTableIds !== undefined) {
+              if (accessibleTableIds.length === 0) {
+                return [];
+              }
+
+              request = request.in("table_id", accessibleTableIds);
+            }
           }
 
           if (query.programVersionId) {
@@ -320,7 +346,12 @@ export function mountColumnResource(app: Hono<ApiEnv>) {
     item: {
       delete: {
         handler: async (c, id) => {
-          await getRecord(c.var.supabase, "column", id);
+          const existing = await getRecord(c.var.supabase, "column", id);
+          await requireAccessibleTable(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            tableId: existing.table_id,
+            userId: c.var.auth?.userId,
+          });
           const cells = await listRecordsFromQuery(
             c.var.supabase,
             "cell",
@@ -348,12 +379,25 @@ export function mountColumnResource(app: Hono<ApiEnv>) {
         },
       },
       get: {
-        handler: (c, id) => getRecord(c.var.supabase, "column", id),
+        handler: async (c, id) => {
+          const column = await getRecord(c.var.supabase, "column", id);
+          await requireAccessibleTable(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            tableId: column.table_id,
+            userId: c.var.auth?.userId,
+          });
+          return column;
+        },
       },
       idParam: "columnId",
       patch: {
         handler: async (c, id, body) => {
           const existing = await getRecord(c.var.supabase, "column", id);
+          await requireAccessibleTable(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            tableId: existing.table_id,
+            userId: c.var.auth?.userId,
+          });
           requireAnyDefined([
             body.idx,
             body.inputTemplate,
@@ -424,7 +468,11 @@ export function mountColumnResource(app: Hono<ApiEnv>) {
       list: {
         handler: async (c) => {
           const tableId = requiredParam(c, "tableId");
-          await getRecord(c.var.supabase, "table", tableId);
+          await requireAccessibleTable(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            tableId,
+            userId: c.var.auth?.userId,
+          });
 
           return listRecordsFromQuery(
             c.var.supabase,

@@ -16,6 +16,7 @@ type ProgramRunRow = Database["public"]["Tables"]["program_run"]["Row"];
 type ProgramVersion = Database["public"]["Tables"]["program_version"]["Row"];
 type ProgramFile = Database["public"]["Tables"]["program_file"]["Row"];
 type RowRow = Database["public"]["Tables"]["row"]["Row"];
+type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
 type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
 
@@ -143,10 +144,31 @@ export async function testProgram(
   const user = await requireUser();
   const actorProfileId = await resolveOwnedProfileId(user.id);
   const requestId = crypto.randomUUID();
+  const { data: existingProject, error: projectError } = await db()
+    .from("project")
+    .select("id")
+    .eq("owner_profile_id", actorProfileId)
+    .order("created_at", {
+      ascending: true,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (projectError) {
+    throw projectError;
+  }
+
+  const project =
+    existingProject ??
+    (await callMarbleApi<ProjectRow>("/projects", {
+      method: "POST",
+      profileId: actorProfileId,
+      requestId,
+    }));
   const { data: existingTable, error: tableError } = await db()
     .from("table")
     .select("id")
-    .eq("owner_profile_id", actorProfileId)
+    .eq("project_id", project.id)
     .order("created_at", {
       ascending: true,
     })
@@ -159,8 +181,9 @@ export async function testProgram(
 
   const table =
     existingTable ??
-    (await callMarbleApi<TableRow>("/tables", {
+    (await callMarbleApi<TableRow>(`/projects/${project.id}/tables`, {
       method: "POST",
+      profileId: actorProfileId,
       requestId,
     }));
   const ts = Date.now();

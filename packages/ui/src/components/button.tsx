@@ -31,7 +31,7 @@ const marbleButtonBackgrounds = {
 } as const;
 
 const marbleButtonRootVariants = cva(
-  "rounded-xs bg-neutral-900 p-0.5 transition-opacity",
+  "rounded-xs bg-neutral-800/90 p-0.5 transition-opacity",
   {
     variants: {
       disabled: {
@@ -50,7 +50,7 @@ const marbleButtonBorderVariants = cva("size-full rounded-md p-px", {
     variant: {
       dark: "bg-neutral-700",
       light: "bg-neutral-200",
-      orange: "bg-orange-600",
+      orange: "bg-orange-500",
       red: "bg-red-600",
     },
   },
@@ -69,7 +69,7 @@ const marbleButtonInnerVariants = cva(
         sm: "px-2.5 py-1 text-[11px] tracking-[0.18em]",
       },
       variant: {
-        dark: "bg-neutral-700 text-neutral-100 font-light",
+        dark: "bg-neutral-600 text-neutral-100 font-light",
         light: "bg-neutral-200 text-neutral-900 shadow-sm font-regular",
         orange: "bg-orange-600 text-white",
         red: "bg-red-600 text-white",

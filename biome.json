@@ -46,9 +46,6 @@
       "complexity": {
         "useArrowFunction": "error"
       },
-      "nursery": {
-        "useSortedClasses": "error"
-      },
       "recommended": true,
       "suspicious": {
         "noUnknownAtRules": "off"

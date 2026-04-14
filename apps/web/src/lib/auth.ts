@@ -20,7 +20,7 @@ export async function redirectIfAuthenticated() {
   const user = await getCurrentUser();
 
   if (user) {
-    redirect("/tables");
+    redirect("/projects");
   }
 }
 

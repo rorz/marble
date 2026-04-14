@@ -63,6 +63,10 @@ const RECORD_METADATA = {
     idKey: "programVersionId",
     label: "Program version",
   },
+  project: {
+    idKey: "projectId",
+    label: "Project",
+  },
   row: {
     idKey: "rowId",
     label: "Row",

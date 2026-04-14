@@ -5,6 +5,7 @@ import { getSupabaseBrowserKey, getSupabaseUrl } from "./config";
 
 const PROTECTED_PATHS = [
   "/profiles",
+  "/projects",
   "/tables",
   "/test-programs",
 ];
@@ -90,7 +91,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (signedIn && pathname === "/") {
-    return NextResponse.redirect(new URL("/tables", request.url));
+    return NextResponse.redirect(new URL("/projects", request.url));
   }
 
   if (authCookieNames.length > 0) {

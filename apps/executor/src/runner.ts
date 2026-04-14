@@ -307,7 +307,7 @@ export const loadStoredRun = async (
   const { data, error } = await supabase
     .from("program_run")
     .select(
-      `*, program_version(*, program!program_version_program_id_fkey(*), program_file(*)), cell!target_cell_id(*, row!cell_row_id_fkey(*, table!row_table_id_fkey(*, profile!table_owner_profile_id_fkey(*))), column!cell_column_id_fkey(*))`,
+      `*, program_version(*, program!program_version_program_id_fkey(*), program_file(*)), cell!target_cell_id(*, row!cell_row_id_fkey(*, table!row_table_id_fkey(*, project!table_project_id_fkey(*, profile!project_owner_profile_id_fkey(*)))), column!cell_column_id_fkey(*))`,
     )
     .eq("id", runId);
 
@@ -347,6 +347,13 @@ export const resolveStoredRunInput = async (
   supabase: SupabaseClient,
   run: StoredRun,
 ) => {
+  const targetRow = firstRelation(run.cell.row);
+  const targetTable = firstRelation(targetRow?.table);
+
+  if (!targetRow || !targetTable) {
+    throw new Error("Could not resolve the run row or table.");
+  }
+
   const { data: dependencies, error: dependenciesError } = await supabase
     .from("column_dependency")
     .select("source_column_id")
@@ -358,16 +365,84 @@ export const resolveStoredRunInput = async (
 
   const sourceColumnIds =
     dependencies?.map((entry) => entry.source_column_id) ?? [];
-  const dependencyCells =
+  const { data: sourceColumnData, error: sourceColumnError } =
     sourceColumnIds.length === 0
-      ? []
-      : ((
-          await supabase
-            .from("cell")
-            .select("*")
-            .eq("row_id", run.cell.row_id)
-            .in("column_id", sourceColumnIds)
-        ).data ?? []);
+      ? {
+          data: [],
+          error: null,
+        }
+      : await supabase
+          .from("column")
+          .select("id, table_id")
+          .in("id", sourceColumnIds);
+
+  if (sourceColumnError) {
+    throw new Error(sourceColumnError.message);
+  }
+
+  const sourceColumns = sourceColumnData ?? [];
+
+  const externalTableIds = Array.from(
+    new Set(
+      sourceColumns
+        .map((column) => column.table_id)
+        .filter((tableId) => tableId !== targetTable.id),
+    ),
+  );
+  const { data: externalRowData, error: externalRowError } =
+    externalTableIds.length === 0
+      ? {
+          data: [],
+          error: null,
+        }
+      : await supabase
+          .from("row")
+          .select("id, table_id")
+          .eq("idx", targetRow.idx)
+          .in("table_id", externalTableIds);
+
+  if (externalRowError) {
+    throw new Error(externalRowError.message);
+  }
+
+  const rowsByTableId = new Map(
+    (externalRowData ?? []).map((row) => [
+      row.table_id,
+      row.id,
+    ]),
+  );
+  const dependencyRowIds = Array.from(
+    new Set(
+      sourceColumns.flatMap((column) =>
+        column.table_id === targetTable.id
+          ? [
+              targetRow.id,
+            ]
+          : rowsByTableId.has(column.table_id)
+            ? [
+                rowsByTableId.get(column.table_id) as string,
+              ]
+            : [],
+      ),
+    ),
+  );
+  const { data: dependencyCellData, error: dependencyCellError } =
+    sourceColumns.length === 0 || dependencyRowIds.length === 0
+      ? {
+          data: [],
+          error: null,
+        }
+      : await supabase
+          .from("cell")
+          .select("*")
+          .in("column_id", sourceColumnIds)
+          .in("row_id", dependencyRowIds);
+
+  if (dependencyCellError) {
+    throw new Error(dependencyCellError.message);
+  }
+
+  const dependencyCells = dependencyCellData ?? [];
 
   const columns = Object.fromEntries(
     dependencyCells.map((cell) => {
@@ -432,7 +507,8 @@ export const resolveEnvironmentVariablesForRun = async (
 ) => {
   const row = firstRelation(run.cell.row);
   const table = firstRelation(row?.table);
-  const profile = firstRelation(table?.profile);
+  const project = firstRelation(table?.project);
+  const profile = firstRelation(project?.profile);
 
   if (!profile?.owner_user_id) {
     throw new Error("Could not resolve the run owner for secret loading.");

@@ -41,6 +41,9 @@ ModuleRegistry.registerModules([
 
 type Program = Awaited<ReturnType<typeof actions.listPrograms>>[number];
 type TableInfo = Awaited<ReturnType<typeof actions.listTables>>[number];
+type ReferenceableColumn = Awaited<
+  ReturnType<typeof actions.listReferenceableColumns>
+>[number];
 type LoadedData = Awaited<ReturnType<typeof actions.loadTableData>>;
 type Column = LoadedData["columns"][number];
 type Row = LoadedData["rows"][number];
@@ -250,10 +253,50 @@ function getTableIdFromChange(
 
 const COL_REF_PATTERN = /^\$\.columns\.([a-f0-9-]+)\./;
 
+function resolveReferenceColumnToken(
+  token: string,
+  referenceColumns: ReferenceableColumn[],
+  currentTableId?: string,
+) {
+  const sortedColumns = [
+    ...referenceColumns,
+  ].sort(
+    (left, right) =>
+      right.label.length - left.label.length ||
+      right.name.length - left.name.length,
+  );
+
+  for (const column of sortedColumns) {
+    const aliases = [
+      column.label,
+      ...(column.table_id === currentTableId
+        ? [
+            column.name,
+          ]
+        : []),
+    ];
+
+    for (const alias of aliases) {
+      if (
+        token === alias ||
+        token.startsWith(`${alias}.`) ||
+        token.startsWith(`${alias}[`)
+      ) {
+        return {
+          column,
+          restPath: token.slice(alias.length),
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 function parseTemplateToFieldValues(
   templateJson: string,
   fields: SchemaField[],
-  columns: Column[],
+  referenceColumns: ReferenceableColumn[],
 ): Record<
   string,
   {
@@ -297,8 +340,8 @@ function parseTemplateToFieldValues(
       strVal = strVal.replace(
         /\{\{\$\.columns\.([a-f0-9-]+)\.value([^}]*)\}\}/g,
         (match, id, restPath) => {
-          const col = columns.find((c) => c.id === id);
-          if (col) return `{{${col.name}${restPath}}}`;
+          const col = referenceColumns.find((candidate) => candidate.id === id);
+          if (col) return `{{${col.label}${restPath}}}`;
           return match;
         },
       );
@@ -762,13 +805,35 @@ function InterpolationEditor({
   value,
   onChange,
   placeholder,
-  columns,
+  currentTableId,
+  referenceColumns,
 }: {
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
-  columns: Column[];
+  currentTableId?: string;
+  referenceColumns: ReferenceableColumn[];
 }) {
+  const validTokens = useMemo(
+    () =>
+      new Set(
+        referenceColumns.flatMap((column) =>
+          column.table_id === currentTableId
+            ? [
+                column.label,
+                column.name,
+              ]
+            : [
+                column.label,
+              ],
+        ),
+      ),
+    [
+      currentTableId,
+      referenceColumns,
+    ],
+  );
+
   // Custom prism grammar for our interpolation tags
   const grammar = useMemo(() => {
     return {
@@ -811,11 +876,10 @@ function InterpolationEditor({
           let html = Prism.highlight(code, grammar, "interpolation");
 
           // Post-process the generated HTML to validate column names visually
-          // Prism produces tokens like: <span class="token keyword col-name">enrich_email_with_apollo</span>
-          const colNames = columns.map((c) => c.name);
+          // Prism produces tokens like: <span class="token keyword col-name">Project / Table / Column</span>
           const regex = /<span class="token keyword col-name">([^<]+)<\/span>/g;
           html = html.replace(regex, (match, name) => {
-            const isValid = colNames.some((c) => name === c);
+            const isValid = validTokens.has(name);
             if (!isValid) {
               return `<span class="token keyword col-name invalid" title="Unrecognized column name">${name}</span>`;
             }
@@ -859,6 +923,9 @@ export default function TablePage(props: {
   const [cells, setCells] = useState<Cell[]>([]);
   const [, setDependencies] = useState<Dependency[]>([]);
   const [programs, setPrograms] = useState<Program[]>([]);
+  const [referenceColumns, setReferenceColumns] = useState<
+    ReferenceableColumn[]
+  >([]);
 
   const [runLog, setRunLog] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
@@ -884,6 +951,10 @@ export default function TablePage(props: {
   columnsRef.current = columns;
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
+
+  const refreshReferenceColumns = useCallback(async () => {
+    setReferenceColumns(await actions.listReferenceableColumns());
+  }, []);
 
   const upsertLocalTable = useCallback((nextTable: TableInfo) => {
     setTables((prev) => {
@@ -1129,13 +1200,15 @@ export default function TablePage(props: {
     let cancelled = false;
 
     (async () => {
-      const [t, p] = await Promise.all([
+      const [t, p, rc] = await Promise.all([
         actions.listTables(),
         actions.listPrograms(),
+        actions.listReferenceableColumns(),
       ]);
       if (cancelled) return;
       setTables(t);
       setPrograms(p);
+      setReferenceColumns(rc);
       setLoading(false);
     })();
 
@@ -1716,26 +1789,34 @@ export default function TablePage(props: {
               : t,
           ),
         );
+        await refreshReferenceColumns();
       } catch (err) {
         console.error("Failed to rename table", err);
       }
     },
     [
+      refreshReferenceColumns,
       selectedTableId,
     ],
   );
 
-  const handleDeleteColumn = useCallback(async (columnId: string) => {
-    await actions.deleteColumn(columnId);
-    setColumns((prev) => prev.filter((c) => c.id !== columnId));
-    setCells((prev) => prev.filter((c) => c.column_id !== columnId));
-    setDependencies((prev) =>
-      prev.filter(
-        (d) =>
-          d.source_column_id !== columnId && d.target_column_id !== columnId,
-      ),
-    );
-  }, []);
+  const handleDeleteColumn = useCallback(
+    async (columnId: string) => {
+      await actions.deleteColumn(columnId);
+      setColumns((prev) => prev.filter((c) => c.id !== columnId));
+      setCells((prev) => prev.filter((c) => c.column_id !== columnId));
+      setDependencies((prev) =>
+        prev.filter(
+          (d) =>
+            d.source_column_id !== columnId && d.target_column_id !== columnId,
+        ),
+      );
+      await refreshReferenceColumns();
+    },
+    [
+      refreshReferenceColumns,
+    ],
+  );
 
   const handleDeleteRow = useCallback(async (rowId: string) => {
     await actions.deleteRow(rowId);
@@ -1770,8 +1851,10 @@ export default function TablePage(props: {
         ...prev,
         ...(newDeps as Dependency[]),
       ]);
+      await refreshReferenceColumns();
     },
     [
+      refreshReferenceColumns,
       selectedTableId,
     ],
   );
@@ -1787,8 +1870,11 @@ export default function TablePage(props: {
       setColumns((prev) =>
         prev.map((c) => (c.id === updated.id ? (updated as Column) : c)),
       );
+      await refreshReferenceColumns();
     },
-    [],
+    [
+      refreshReferenceColumns,
+    ],
   );
 
   // ── Context menu + confirm handlers ───────────────────
@@ -1913,6 +1999,8 @@ export default function TablePage(props: {
 
   // ── Render ────────────────────────────────────────────
 
+  const selectedTable = tables.find((table) => table.id === selectedTableId);
+
   if (loading && tables.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-mono text-sm text-zinc-500">
@@ -1928,7 +2016,7 @@ export default function TablePage(props: {
         <h1 className="font-semibold text-lg tracking-tight">
           <Link
             className="transition-colors hover:text-orange-600"
-            href="/tables"
+            href="/projects"
           >
             marble
           </Link>
@@ -1940,17 +2028,26 @@ export default function TablePage(props: {
           <div className="flex items-center gap-2">
             <Link
               className="rounded bg-zinc-100 p-1 text-zinc-400 transition-colors hover:bg-zinc-200 hover:text-zinc-900"
-              href="/tables"
-              title="Back to tables"
+              href={
+                selectedTable
+                  ? `/projects/${selectedTable.project_id}`
+                  : "/projects"
+              }
+              title="Back to project"
             >
               <ArrowLeftIcon className="h-3.5 w-3.5" />
             </Link>
+            {selectedTable ? (
+              <Link
+                className="max-w-[220px] truncate rounded px-1.5 py-0.5 font-mono text-[11px] text-zinc-500 uppercase tracking-[0.18em] transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+                href={`/projects/${selectedTable.project_id}`}
+              >
+                {selectedTable.project_name}
+              </Link>
+            ) : null}
             <ClickToEditTitle
               onChange={handleRenameTable}
-              value={
-                tables.find((t) => t.id === selectedTableId)?.name ||
-                "Untitled Table"
-              }
+              value={selectedTable?.name || "Untitled Table"}
             />
           </div>
         )}
@@ -1962,6 +2059,12 @@ export default function TablePage(props: {
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          <Link
+            className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+            href="/projects"
+          >
+            Projects
+          </Link>
           <Link
             className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
             href="/events"
@@ -2110,6 +2213,7 @@ export default function TablePage(props: {
         {sidebarMode.kind !== "closed" && (
           <ColumnSidebar
             columns={sortedColumns}
+            currentTableId={selectedTableId}
             key={
               sidebarMode.kind === "edit"
                 ? `edit-${sidebarMode.columnId}`
@@ -2124,6 +2228,7 @@ export default function TablePage(props: {
             onCreateColumn={handleCreateColumn}
             onUpdateColumn={handleUpdateColumn}
             programs={programs}
+            referenceColumns={referenceColumns}
           />
         )}
       </div>
@@ -2160,6 +2265,8 @@ function ColumnSidebar({
   onCreateColumn,
   onUpdateColumn,
   onClose,
+  referenceColumns,
+  currentTableId,
 }: {
   mode:
     | {
@@ -2183,6 +2290,8 @@ function ColumnSidebar({
     input_template?: string;
   }) => Promise<void>;
   onClose: () => void;
+  referenceColumns: ReferenceableColumn[];
+  currentTableId: string;
 }) {
   const editingColumn =
     mode.kind === "edit"
@@ -2206,7 +2315,7 @@ function ColumnSidebar({
     return parseTemplateToFieldValues(
       (editingColumn.input_template as string) ?? "{}",
       fs,
-      columns as unknown as Column[],
+      referenceColumns,
     );
   };
 
@@ -2290,18 +2399,13 @@ function ColumnSidebar({
         let val = fv.value;
         if (typeof val === "string") {
           val = val.replace(/\{\{([^}]+)\}\}/g, (match, inner) => {
-            const sortedCols = [
-              ...columns,
-            ].sort((a, b) => b.name.length - a.name.length);
-            const col = sortedCols.find(
-              (c) =>
-                inner === c.name ||
-                inner.startsWith(`${c.name}.`) ||
-                inner.startsWith(`${c.name}[`),
+            const reference = resolveReferenceColumnToken(
+              inner,
+              referenceColumns,
+              currentTableId,
             );
-            if (col) {
-              const restPath = inner.slice(col.name.length);
-              return `{{$.columns.${col.id}.value${restPath}}}`;
+            if (reference) {
+              return `{{$.columns.${reference.column.id}.value${reference.restPath}}}`;
             }
             return match;
           });
@@ -2322,16 +2426,13 @@ function ColumnSidebar({
         ];
         for (const match of matches) {
           const inner = match[1];
-          const sortedCols = [
-            ...columns,
-          ].sort((a, b) => b.name.length - a.name.length);
-          const col = sortedCols.find(
-            (c) =>
-              inner === c.name ||
-              inner.startsWith(`${c.name}.`) ||
-              inner.startsWith(`${c.name}[`),
-          );
-          if (!col) {
+          if (
+            !resolveReferenceColumnToken(
+              inner,
+              referenceColumns,
+              currentTableId,
+            )
+          ) {
             return `Unrecognized column in formula: "${inner}". Please check your spelling.`;
           }
         }
@@ -2472,7 +2573,7 @@ function ColumnSidebar({
                             ...prev,
                             [f.key]: {
                               mode: "column",
-                              value: columns[0]?.id ?? "",
+                              value: referenceColumns[0]?.id ?? "",
                             },
                           }))
                         }
@@ -2508,7 +2609,7 @@ function ColumnSidebar({
                       </MarbleSelect>
                     ) : (
                       <InterpolationEditor
-                        columns={columns}
+                        currentTableId={currentTableId}
                         onChange={(newVal) =>
                           setFieldValues((prev) => ({
                             ...prev,
@@ -2527,6 +2628,7 @@ function ColumnSidebar({
                               ? "[]"
                               : undefined
                         }
+                        referenceColumns={referenceColumns}
                         value={fv.value}
                       />
                     )
@@ -2551,13 +2653,13 @@ function ColumnSidebar({
                       >
                         Pick a column...
                       </option>
-                      {columns.map((col) => (
+                      {referenceColumns.map((col) => (
                         <option
                           key={col.id}
                           value={col.id}
                         >
-                          {col.name}
-                          {isManualInputColumn(col) ? " (input)" : ""}
+                          {col.label}
+                          {col.allow_manual_input ? " (input)" : ""}
                         </option>
                       ))}
                     </MarbleSelect>

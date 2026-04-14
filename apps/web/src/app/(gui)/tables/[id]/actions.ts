@@ -5,6 +5,11 @@ import { env } from "@/env";
 import { requireUser } from "../../../../lib/auth";
 import { callMarbleApi } from "../../../../lib/marble-api";
 import {
+  getOwnedTableForUser,
+  listOwnedTablesForUser,
+  listReferenceableColumnsForUser,
+} from "../../../../lib/project-data";
+import {
   createServiceRoleClient,
   listOwnedProfileIds,
 } from "../../../../lib/supabase/service-role";
@@ -91,24 +96,13 @@ async function loadColumn(columnId: string) {
 // ── Tables ──────────────────────────────────────────────
 
 export async function listTables() {
-  const ownedProfileIds = await listCurrentUserOwnedProfileIds();
-
-  if (ownedProfileIds.length === 0) {
-    return [];
-  }
-
-  const { data, error } = await db()
-    .from("table")
-    .select("*")
-    .in("owner_profile_id", ownedProfileIds)
-    .order("created_at");
-  if (error) throw error;
-  return data;
+  const user = await requireUser();
+  return listOwnedTablesForUser(user.id);
 }
 
-export async function createTable() {
+export async function createTable(projectId: string) {
   return callMarbleApi<Database["public"]["Tables"]["table"]["Row"]>(
-    "/tables",
+    `/projects/${projectId}/tables`,
     {
       method: "POST",
     },
@@ -183,25 +177,10 @@ export async function updateProgramOutputSchema(
 // ── Table data (columns + rows + cells) ─────────────────
 
 export async function loadTableData(tableId: string) {
-  const ownedProfileIds = await listCurrentUserOwnedProfileIds();
+  const user = await requireUser();
   const supabase = db();
 
-  if (ownedProfileIds.length === 0) {
-    throw new Error("Table not found");
-  }
-
-  const { data: tableRecord, error: tableError } = await supabase
-    .from("table")
-    .select("id")
-    .eq("id", tableId)
-    .in("owner_profile_id", ownedProfileIds)
-    .maybeSingle();
-
-  if (tableError) {
-    throw tableError;
-  }
-
-  if (!tableRecord) {
+  if (!(await getOwnedTableForUser(user.id, tableId))) {
     throw new Error("Table not found");
   }
 
@@ -247,14 +226,37 @@ export async function loadTableData(tableId: string) {
         .order("column_id")
         .range(from, to),
     ),
-    selectAllPages<DependencyRow>((from, to) =>
-      supabase
-        .from("column_dependency")
-        .select("*")
-        .in("source_column_id", columnIds)
-        .order("source_column_id")
-        .order("target_column_id")
-        .range(from, to),
+    Promise.all([
+      selectAllPages<DependencyRow>((from, to) =>
+        supabase
+          .from("column_dependency")
+          .select("*")
+          .in("source_column_id", columnIds)
+          .order("source_column_id")
+          .order("target_column_id")
+          .range(from, to),
+      ),
+      selectAllPages<DependencyRow>((from, to) =>
+        supabase
+          .from("column_dependency")
+          .select("*")
+          .in("target_column_id", columnIds)
+          .order("source_column_id")
+          .order("target_column_id")
+          .range(from, to),
+      ),
+    ]).then(([sourceDependencies, targetDependencies]) =>
+      Array.from(
+        new Map(
+          [
+            ...sourceDependencies,
+            ...targetDependencies,
+          ].map((dependency) => [
+            dependency.id,
+            dependency,
+          ]),
+        ).values(),
+      ),
     ),
   ]);
 
@@ -264,6 +266,11 @@ export async function loadTableData(tableId: string) {
     dependencies,
     rows,
   };
+}
+
+export async function listReferenceableColumns() {
+  const user = await requireUser();
+  return listReferenceableColumnsForUser(user.id);
 }
 
 // ── Columns ─────────────────────────────────────────────

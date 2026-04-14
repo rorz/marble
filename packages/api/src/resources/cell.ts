@@ -9,6 +9,13 @@ import {
   requiredParam,
 } from "../core";
 import { getRecord, listRecordsFromQuery, updateRecord } from "../data";
+import {
+  listAccessibleRowIds,
+  requireAccessibleCell,
+  requireAccessibleColumn,
+  requireAccessibleRow,
+  requireAccessibleTable,
+} from "./access";
 import { jsonValueSchema, requestObject, uuidSchema } from "./shared";
 
 const cellListSchema = requestObject({
@@ -30,14 +37,29 @@ export function mountCellResource(app: Hono<ApiEnv>) {
           let request = c.var.supabase.from("cell").select("*");
 
           if (query.rowId) {
+            await requireAccessibleRow(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              rowId: query.rowId,
+              userId: c.var.auth?.userId,
+            });
             request = request.eq("row_id", query.rowId);
           }
 
           if (query.columnId) {
+            await requireAccessibleColumn(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              columnId: query.columnId,
+              userId: c.var.auth?.userId,
+            });
             request = request.eq("column_id", query.columnId);
           }
 
           if (query.tableId) {
+            await requireAccessibleTable(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              tableId: query.tableId,
+              userId: c.var.auth?.userId,
+            });
             const rows = await listRecordsFromQuery(
               c.var.supabase,
               "row",
@@ -55,6 +77,22 @@ export function mountCellResource(app: Hono<ApiEnv>) {
             }
 
             request = request.in("row_id", rowIds);
+          } else if (!query.rowId && !query.columnId) {
+            const accessibleRowIds = await listAccessibleRowIds(
+              c.var.supabase,
+              {
+                authenticatedProfileId: c.var.auth?.profileId,
+                userId: c.var.auth?.userId,
+              },
+            );
+
+            if (accessibleRowIds !== undefined) {
+              if (accessibleRowIds.length === 0) {
+                return [];
+              }
+
+              request = request.in("row_id", accessibleRowIds);
+            }
           }
 
           const { data, error } = await request
@@ -77,16 +115,25 @@ export function mountCellResource(app: Hono<ApiEnv>) {
     },
     item: {
       get: {
-        handler: (c, id) =>
-          getRecord(c.var.supabase, "cell", id, {
+        handler: async (c, id) => {
+          await requireAccessibleCell(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            cellId: id,
+            userId: c.var.auth?.userId,
+          });
+
+          return getRecord(c.var.supabase, "cell", id, {
             select: "*, program_run(*)",
-          }),
+          });
+        },
       },
       idParam: "cellId",
       patch: {
         handler: async (c, id, body) => {
-          await getRecord(c.var.supabase, "cell", id, {
-            select: "*, program_run(*)",
+          await requireAccessibleCell(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            cellId: id,
+            userId: c.var.auth?.userId,
           });
           requireAnyDefined([
             body.manualInput,
@@ -109,7 +156,11 @@ export function mountCellResource(app: Hono<ApiEnv>) {
       list: {
         handler: async (c) => {
           const rowId = requiredParam(c, "rowId");
-          await getRecord(c.var.supabase, "row", rowId);
+          await requireAccessibleRow(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            rowId,
+            userId: c.var.auth?.userId,
+          });
 
           return listRecordsFromQuery(
             c.var.supabase,
@@ -137,7 +188,11 @@ export function mountCellResource(app: Hono<ApiEnv>) {
       list: {
         handler: async (c) => {
           const columnId = requiredParam(c, "columnId");
-          await getRecord(c.var.supabase, "column", columnId);
+          await requireAccessibleColumn(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.profileId,
+            columnId,
+            userId: c.var.auth?.userId,
+          });
 
           return listRecordsFromQuery(
             c.var.supabase,

@@ -44,6 +44,7 @@ const RESOURCE_CHIPS: Record<string, string> = {
   key: "border-lime-200 bg-lime-50 text-lime-700",
   profile: "border-teal-200 bg-teal-50 text-teal-700",
   program: "border-indigo-200 bg-indigo-50 text-indigo-700",
+  project: "border-rose-200 bg-rose-50 text-rose-700",
   row: "border-amber-200 bg-amber-50 text-amber-700",
   secret: "border-violet-200 bg-violet-50 text-violet-700",
   table: "border-pink-200 bg-pink-50 text-pink-700",
@@ -533,17 +534,17 @@ export function EventFeedBoard({
                 No events yet
               </h3>
               <p className="text-sm text-zinc-500 leading-6">
-                Create or mutate tables, profiles, keys, secrets, or programs
-                through one of your profiles and the feed will begin filling in
-                here.
+                Create or mutate projects, tables, profiles, keys, secrets, or
+                programs through one of your profiles and the feed will begin
+                filling in here.
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
                 className="rounded-full bg-zinc-950 px-4 py-2 font-medium text-sm text-white transition hover:opacity-90"
-                href="/tables"
+                href="/projects"
               >
-                Go to tables
+                Go to projects
               </Link>
               <Link
                 className="rounded-full border border-zinc-300 bg-white px-4 py-2 font-medium text-sm text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950"

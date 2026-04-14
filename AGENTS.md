@@ -43,6 +43,52 @@ This monorepo uses Turborepo for pretty much everything. This means that you mus
 - Not only _use_ root package and `turbo *` scripts exclusively, but;
 - You **must** ALWAYS update, check, and reflect on any changes that are necessary to the various config files in our repo. Bad things happen when the `turbo.json` files throughout the repository aren't kept in constant symbiosis with the rest of the repo.
 
+## Introducing A New Resource Type
+
+If you add or reshape a top-level resource, you are not done when the migration and one route compile. You must audit the entire resource surface before reporting completion.
+
+### Required Checklist
+1. Search the repo first.
+   Run a repo-wide search for the old ownership model, route segment, resource name, landing page, and any nested-resource assumptions. Do not assume the only affected code is in `packages/api`.
+2. Update the database model fully.
+   Add the migration, backfill existing data, fix or replace RLS policies, update indexes, and regenerate any generated database types.
+3. Update seeds and reset flow.
+   Update `supabase/generate-seed.mjs`, regenerate `supabase/seed.sql`, and if the schema changed enough to require a clean local reset, explicitly ask for permission before running `bun run dangerously-splat`.
+4. Update resource registries.
+   Audit `packages/core/src/api-resources.ts`, `packages/api/src/index.ts`, and `packages/api/src/data.ts` so the new resource is actually first-class everywhere IDs, labels, and route mounting are derived.
+5. Update API authorization explicitly.
+   The web app forwards through the API using a service-role client. That means every mounted resource must perform its own access checks. Do not rely on RLS alone for forwarded web requests. Audit collection and item handlers for list/get/create/update/delete, including nested routes.
+6. Update ownership helpers instead of copying logic.
+   If a new resource changes how ownership works, centralize the new ownership and accessibility rules in shared helpers under `packages/api/src/resources/` and update existing resources to use them.
+7. Update CLI surfaces.
+   Audit both the raw plural resource commands and the ergonomic singular commands in `packages/cli/src/cli.ts`. Remove or replace stale flags and assumptions; do not leave the human-friendly CLI pointing at the old ownership model.
+8. Update the web app entry points and navigation.
+   Audit auth redirects, proxy allowlists, landing pages, top-level navigation, server actions, and any “empty state” or “create first X” flows so the new resource is actually the primary UI concept where intended.
+9. Audit references, execution, and eventing.
+   If the new resource changes relationships or ownership boundaries, audit dependency loaders, reference pickers, execution/runtime lookup code, event feeds, and realtime refresh paths.
+10. Audit helper flows and internal tools.
+    Check test pages, setup helpers, scratch-resource creation flows, and any operational scripts or skills that create related resources.
+11. Run `bun check` after every edit and finish clean.
+    Never batch up broken work. If `bun check` fails, stop and fix the issue immediately.
+
+### Minimum Files To Inspect For Resource Work
+- `supabase/migrations/*`
+- `supabase/generate-seed.mjs`
+- `supabase/seed.sql`
+- `supabase/src/types.ts`
+- `packages/core/src/api-resources.ts`
+- `packages/api/src/index.ts`
+- `packages/api/src/data.ts`
+- `packages/api/src/resources/*`
+- `packages/cli/src/cli.ts`
+- `apps/web/src/lib/auth.ts`
+- `apps/web/src/lib/supabase/proxy.ts`
+- `apps/web/src/app/(web)/*`
+- `apps/executor/src/*`
+
+### Explicit Warning
+- If you introduce a new resource type and do not audit access checks, nested routes, CLI ergonomics, event surfaces, references, and seeds, you have not finished the task.
+
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 

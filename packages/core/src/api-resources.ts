@@ -34,6 +34,7 @@ export const ApiResources = {
   program_runs: CRUD_OPERATIONS,
   program_versions: CRUD_OPERATIONS,
   programs: CRUD_OPERATIONS,
+  projects: CRUD_OPERATIONS,
   rows: CRUD_OPERATIONS,
   secrets: CRUD_OPERATIONS,
   tables: CRUD_OPERATIONS,

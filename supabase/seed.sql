@@ -426,11 +426,17 @@ program_version_user_input AS (
   SELECT id FROM inserted_version_user_input LIMIT 1
 ),
 
--- Demo table
+-- Demo project + table
+
+inserted_project AS (
+  INSERT INTO "project" (owner_profile_id, name, folder_path)
+  SELECT id, 'Demo Project', '{}'::TEXT[] FROM system_profile
+  RETURNING id
+),
 
 inserted_table AS (
-  INSERT INTO "table" (owner_profile_id, name)
-  SELECT id, 'Demo Table' FROM system_profile
+  INSERT INTO "table" (project_id, name)
+  SELECT id, 'Demo Table' FROM inserted_project
   RETURNING id
 ),
 
@@ -493,88 +499,3 @@ _cell2 AS (
 )
 
 SELECT 1;
-
-DO $$
-BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.table;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END
-$$;
-
-DO $$
-BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.row;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END
-$$;
-
-DO $$
-BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.column;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END
-$$;
-
-DO $$
-BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.cell;
-EXCEPTION
-  WHEN duplicate_object THEN NULL;
-END
-$$;
-
-DROP POLICY IF EXISTS "Users can view tables they own" ON public.table;
-DROP POLICY IF EXISTS "Users can view rows in their own tables" ON public.row;
-DROP POLICY IF EXISTS "Users can view columns in their own tables" ON public.column;
-DROP POLICY IF EXISTS "allow_select_cells" ON public.cell;
-DROP POLICY IF EXISTS "Users can view cells in their own tables" ON public.cell;
-CREATE POLICY "Users can view tables they own" ON public."table"
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1
-    FROM public.profile
-    WHERE profile.id = "table".owner_profile_id
-      AND profile.owner_user_id = auth.uid()
-  )
-);
-
-CREATE POLICY "Users can view rows in their own tables" ON public."row"
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1
-    FROM public."table"
-    JOIN public.profile ON profile.id = "table".owner_profile_id
-    WHERE "table".id = "row".table_id
-      AND profile.owner_user_id = auth.uid()
-  )
-);
-
-CREATE POLICY "Users can view columns in their own tables" ON public."column"
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1
-    FROM public."table"
-    JOIN public.profile ON profile.id = "table".owner_profile_id
-    WHERE "table".id = "column".table_id
-      AND profile.owner_user_id = auth.uid()
-  )
-);
-
-CREATE POLICY "Users can view cells in their own tables" ON public.cell
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1
-    FROM public."row"
-    JOIN public."table" ON "table".id = "row".table_id
-    JOIN public.profile ON profile.id = "table".owner_profile_id
-    WHERE "row".id = cell.row_id
-      AND profile.owner_user_id = auth.uid()
-  )
-);

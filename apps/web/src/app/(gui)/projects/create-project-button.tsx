@@ -2,14 +2,14 @@
 
 import { MarbleButton } from "@marble/ui";
 import { useRouter } from "next/navigation";
-import * as actions from "./[id]/actions";
+import * as actions from "./actions";
 
-export function CreateTableButton() {
+export function CreateProjectButton() {
   const router = useRouter();
 
   const handleCreate = async () => {
-    const table = await actions.createTable();
-    router.push(`/tables/${table.id}`);
+    const project = await actions.createProject();
+    router.push(`/projects/${project.id}`);
   };
 
   return (
@@ -17,7 +17,7 @@ export function CreateTableButton() {
       onClick={handleCreate}
       variant="orange"
     >
-      + New Table
+      + New Project
     </MarbleButton>
   );
 }
