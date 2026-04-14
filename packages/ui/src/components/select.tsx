@@ -1,32 +1,47 @@
+import { cva, type VariantProps } from "class-variance-authority";
 import type { SelectHTMLAttributes } from "react";
-import { cx } from "../internal/cx";
-import {
-  getMarbleSelectClassName,
-  type MarbleControlSize,
-} from "../themes/control";
+import { cx } from "../utils/cx";
+
+export const marbleSelectVariants = cva(
+  "w-full appearance-none cursor-pointer rounded-md border-x border-t border-b-2 border-neutral-200 border-b-neutral-300 bg-white pr-8 text-neutral-900 shadow-sm transition-colors focus:border-b-orange-400 focus:outline-none",
+  {
+    variants: {
+      size: {
+        md: "px-3 py-1.5 text-sm",
+        sm: "px-2.5 py-1.5 text-sm",
+        xs: "px-2 py-1 text-xs",
+      },
+    },
+    defaultVariants: {
+      size: "md",
+    },
+  },
+);
 
 export type MarbleSelectProps = Omit<
   SelectHTMLAttributes<HTMLSelectElement>,
   "size"
-> & {
-  size?: MarbleControlSize;
-  wrapperClassName?: string;
-};
+> &
+  VariantProps<typeof marbleSelectVariants> & {
+    wrapperClassName?: string;
+  };
 
 export function MarbleSelect({
   children,
   className,
-  size = "md",
+  size,
   wrapperClassName,
   ...props
 }: MarbleSelectProps) {
   return (
     <div className={cx("relative inline-flex", wrapperClassName)}>
       <select
-        className={getMarbleSelectClassName({
+        className={cx(
+          marbleSelectVariants({
+            size,
+          }),
           className,
-          size,
-        })}
+        )}
         {...props}
       >
         {children}

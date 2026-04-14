@@ -11,7 +11,11 @@
     ],
     "catalogs": {
       "base": {
+        "@cloudflare/sandbox": "^0.8.6",
+        "@heroicons/react": "^2.2.0",
         "@monaco-editor/react": "4.7.0",
+        "class-variance-authority": "0.7.1",
+        "clsx": "2.1.1",
         "react": "19.2.4",
         "react-dom": "19.2.4",
         "next": "16.2.1",
@@ -19,9 +23,13 @@
         "tailwindcss": "^4",
         "@tailwindcss/postcss": "^4",
         "@types/node": "^22",
+        "@types/prismjs": "^1.26.6",
         "@types/react": "^19",
         "@types/react-dom": "^19",
+        "@supabase/ssr": "^0.10.0",
         "@supabase/supabase-js": "^2",
+        "ag-grid-community": "^35.2.0",
+        "ag-grid-react": "^35.2.0",
         "supabase": "^2.84.0",
         "typescript": "^5",
         "hono": "^4",
@@ -37,7 +45,10 @@
         "commander": "^12",
         "dotenv": "^16",
         "nanoid": "^5.1.7",
-        "monaco-editor": "0.55.1"
+        "monaco-editor": "0.55.1",
+        "prismjs": "^1.30.0",
+        "react-simple-code-editor": "^0.14.1",
+        "tailwind-merge": "3.3.1"
       }
     }
   },

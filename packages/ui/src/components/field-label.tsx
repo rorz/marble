@@ -1,5 +1,10 @@
+import { cva } from "class-variance-authority";
 import type { HTMLAttributes } from "react";
-import { cx } from "../internal/cx";
+import { cx } from "../utils/cx";
+
+export const marbleFieldLabelVariants = cva(
+  "mb-1 block text-[10px] uppercase tracking-wider text-zinc-500",
+);
 
 export type MarbleFieldLabelProps = HTMLAttributes<HTMLSpanElement>;
 
@@ -10,10 +15,7 @@ export function MarbleFieldLabel({
 }: MarbleFieldLabelProps) {
   return (
     <span
-      className={cx(
-        "mb-1 block text-[10px] uppercase tracking-wider text-zinc-500",
-        className,
-      )}
+      className={cx(marbleFieldLabelVariants(), className)}
       {...props}
     >
       {children}

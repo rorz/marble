@@ -14,7 +14,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "react": "catalog:base"
+    "class-variance-authority": "catalog:base",
+    "clsx": "catalog:base",
+    "react": "catalog:base",
+    "tailwind-merge": "catalog:base"
   },
   "devDependencies": {
     "@types/react": "catalog:base",

@@ -25,7 +25,7 @@
         "zod": "catalog:base",
       },
       "devDependencies": {
-        "@cloudflare/sandbox": "*",
+        "@cloudflare/sandbox": "catalog:base",
         "@types/node": "catalog:base",
         "typescript": "catalog:base",
         "wrangler": "catalog:base",
@@ -35,29 +35,29 @@
       "name": "@marble/web",
       "version": "0.1.0",
       "dependencies": {
-        "@heroicons/react": "^2.2.0",
+        "@heroicons/react": "catalog:base",
         "@marble/api": "workspace:*",
         "@marble/keys": "workspace:*",
         "@marble/supabase": "workspace:*",
         "@marble/ui": "workspace:*",
         "@monaco-editor/react": "catalog:base",
-        "@supabase/ssr": "^0.10.0",
+        "@supabase/ssr": "catalog:base",
         "@t3-oss/env-nextjs": "catalog:base",
-        "ag-grid-community": "^35.2.0",
-        "ag-grid-react": "^35.2.0",
-        "hono": "^4.12.12",
+        "ag-grid-community": "catalog:base",
+        "ag-grid-react": "catalog:base",
+        "hono": "catalog:base",
         "monaco-editor": "catalog:base",
         "next": "catalog:base",
-        "prismjs": "^1.30.0",
+        "prismjs": "catalog:base",
         "react": "catalog:base",
         "react-dom": "catalog:base",
-        "react-simple-code-editor": "^0.14.1",
+        "react-simple-code-editor": "catalog:base",
         "zod": "catalog:base",
       },
       "devDependencies": {
         "@tailwindcss/postcss": "catalog:base",
         "@types/node": "catalog:base",
-        "@types/prismjs": "^1.26.6",
+        "@types/prismjs": "catalog:base",
         "@types/react": "catalog:base",
         "@types/react-dom": "catalog:base",
         "babel-plugin-react-compiler": "catalog:base",
@@ -130,7 +130,10 @@
       "name": "@marble/ui",
       "version": "1.0.0",
       "dependencies": {
+        "class-variance-authority": "catalog:base",
+        "clsx": "catalog:base",
         "react": "catalog:base",
+        "tailwind-merge": "catalog:base",
       },
       "devDependencies": {
         "@types/react": "catalog:base",
@@ -157,16 +160,24 @@
   "catalogs": {
     "base": {
       "@biomejs/biome": "^2",
+      "@cloudflare/sandbox": "^0.8.6",
+      "@heroicons/react": "^2.2.0",
       "@monaco-editor/react": "4.7.0",
       "@postgres-language-server/cli": "^0.23.0",
+      "@supabase/ssr": "^0.10.0",
       "@supabase/supabase-js": "^2",
       "@t3-oss/env-core": "^0.12.0",
       "@t3-oss/env-nextjs": "^0.12.0",
       "@tailwindcss/postcss": "^4",
       "@types/node": "^22",
+      "@types/prismjs": "^1.26.6",
       "@types/react": "^19",
       "@types/react-dom": "^19",
+      "ag-grid-community": "^35.2.0",
+      "ag-grid-react": "^35.2.0",
       "babel-plugin-react-compiler": "1.0.0",
+      "class-variance-authority": "0.7.1",
+      "clsx": "2.1.1",
       "commander": "^12",
       "dotenv": "^16",
       "hono": "^4",
@@ -174,10 +185,13 @@
       "monaco-editor": "0.55.1",
       "nanoid": "^5.1.7",
       "next": "16.2.1",
+      "prismjs": "^1.30.0",
       "react": "19.2.4",
       "react-dom": "19.2.4",
+      "react-simple-code-editor": "^0.14.1",
       "sift": "17.1.3",
       "supabase": "^2.84.0",
+      "tailwind-merge": "3.3.1",
       "tailwindcss": "^4",
       "typescript": "^5",
       "vitest": "^4",
@@ -578,7 +592,11 @@
 
     "chai": ["chai@6.2.2", "", {}, "sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg=="],
 
+    "class-variance-authority": ["class-variance-authority@0.7.1", "", { "dependencies": { "clsx": "^2.1.1" } }, "sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg=="],
+
     "client-only": ["client-only@0.0.1", "", {}, "sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA=="],
+
+    "clsx": ["clsx@2.1.1", "", {}, "sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA=="],
 
     "commander": ["commander@12.1.0", "", {}, "sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA=="],
 
@@ -715,6 +733,8 @@
     "styled-jsx": ["styled-jsx@5.1.6", "", { "dependencies": { "client-only": "0.0.1" }, "peerDependencies": { "react": ">= 16.8.0 || 17.x.x || ^18.0.0-0 || ^19.0.0-0" } }, "sha512-qSVyDTeMotdvQYoHWLNGwRFJHC+i+ZvdBRYosOFgC+Wg1vx4frN2/RG/NA7SYqqvKNLf39P2LSRA2pu6n0XYZA=="],
 
     "supports-color": ["supports-color@10.2.2", "", {}, "sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g=="],
+
+    "tailwind-merge": ["tailwind-merge@3.3.1", "", {}, "sha512-gBXpgUm/3rp1lMZZrM/w7D8GKqshif0zAymAhbCyIt8KMe+0v9DQ7cdYLR4FHH/cKpdTXb+A/tKKU3eolfsI+g=="],
 
     "tailwindcss": ["tailwindcss@4.2.2", "", {}, "sha512-KWBIxs1Xb6NoLdMVqhbhgwZf2PGBpPEiwOqgI4pFIYbNTfBXiKYyWoTsXgBQ9WFg/OlhnvHaY+AEpW7wSmFo2Q=="],
 

@@ -22,7 +22,7 @@
     "@marble/lib": "workspace:"
   },
   "devDependencies": {
-    "@cloudflare/sandbox": "*",
+    "@cloudflare/sandbox": "catalog:base",
     "@types/node": "catalog:base",
     "typescript": "catalog:base",
     "wrangler": "catalog:base"
