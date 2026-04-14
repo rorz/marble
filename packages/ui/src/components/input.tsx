@@ -2,16 +2,28 @@ import { cva, type VariantProps } from "class-variance-authority";
 import type { InputHTMLAttributes } from "react";
 import { cx } from "../utils/cx";
 
+const marbleInputRootVariants = cva(
+  "relative flex bg-transparent transition-opacity border-b-2 border-b-neutral-300 focus-within:border-b-orange-600",
+  {
+    variants: {
+      disabled: {
+        false: "",
+        true: "cursor-not-allowed opacity-50",
+      },
+    },
+  },
+);
+
 const marbleInputVariants = cva(
-  "w-full rounded-md border border-neutral-200 bg-white text-neutral-900 transition-colors placeholder-neutral-400 focus:border-b-orange-400 focus:outline-none focus:inset-shadow-sm",
+  "w-full rounded-sm bg-white text-neutral-900 transition-colors placeholder-neutral-400 focus:bg-white focus:outline-none rounded-b-none border-t border-x border-neutral-200 ",
   {
     defaultVariants: {
       size: "md",
     },
     variants: {
       size: {
-        md: "px-3 py-1.5 text-sm",
-        sm: "px-2.5 py-1.5 text-sm",
+        md: "px-2 py-1.5 text-base",
+        sm: "px-2 py-1.5 text-sm",
         xs: "px-2 py-1 text-xs",
       },
     },
@@ -28,12 +40,21 @@ export type MarbleInputProps = Omit<
 
 export function MarbleInput({
   className,
+  disabled = false,
   size,
   wrapperClassName,
   ...props
 }: MarbleInputProps) {
   return (
-    <div className={cx("relative flex", wrapperClassName)}>
+    <div
+      className={cx(
+        marbleInputRootVariants({
+          disabled,
+        }),
+        "group/input",
+        wrapperClassName,
+      )}
+    >
       <input
         className={cx(
           marbleInputVariants({
@@ -41,6 +62,7 @@ export function MarbleInput({
           }),
           className,
         )}
+        disabled={disabled}
         {...props}
       />
     </div>

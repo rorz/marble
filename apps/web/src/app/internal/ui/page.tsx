@@ -131,7 +131,9 @@ export default function UiPage() {
               type="number"
               wrapperClassName="w-20"
             />
-            <span className="text-sm text-zinc-600">Rows</span>
+            <span className="text-sm text-zinc-200 p-0.5 ml-1 bg-neutral-500/90 rounded-sm px-2">
+              Rows
+            </span>
           </div>
         </Section>
 
