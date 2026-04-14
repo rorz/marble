@@ -20,6 +20,7 @@ import { mountProgramFileResource } from "./resources/program_file";
 import { mountProgramRunResource } from "./resources/program_run";
 import { mountProgramVersionResource } from "./resources/program_version";
 import { mountRowResource } from "./resources/row";
+import { mountSecretResource } from "./resources/secret";
 import { mountTableResource } from "./resources/table";
 
 const app = new Hono<ApiEnv>();
@@ -35,6 +36,7 @@ const resourceMounts = {
   program_versions: mountProgramVersionResource,
   program_files: mountProgramFileResource,
   program_runs: mountProgramRunResource,
+  secrets: mountSecretResource,
 } satisfies Record<ApiResourceName, (app: Hono<ApiEnv>) => void>;
 
 function executorEndpointUrl(baseUrl: string, path: string, search: string) {
@@ -206,6 +208,18 @@ app.post(
             [
               "x-marble-actor-source",
               c.req.header("x-marble-actor-source"),
+            ],
+            [
+              "x-marble-auth-key-id",
+              c.req.header("x-marble-auth-key-id"),
+            ],
+            [
+              "x-marble-auth-profile-id",
+              c.req.header("x-marble-auth-profile-id"),
+            ],
+            [
+              "x-marble-auth-user-id",
+              c.req.header("x-marble-auth-user-id"),
             ],
             [
               "x-marble-request-id",

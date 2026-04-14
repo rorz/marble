@@ -96,6 +96,11 @@ function normalizeEventRow(
     delete normalized.hash;
   }
 
+  if (resource === "secret") {
+    delete normalized.value;
+    delete normalized.vault_secret_id;
+  }
+
   return normalized as Json;
 }
 

@@ -18,6 +18,8 @@ import {
   loadProgramVersionFiles,
   loadStoredRun,
   persistStoredRunFailure,
+  resolveEnvironmentVariablesForAuth,
+  resolveEnvironmentVariablesForRun,
   resolveStoredRunInput,
   runtimeInputFromValue,
   type StoredRun,
@@ -26,7 +28,6 @@ import {
 export { Sandbox } from "@cloudflare/sandbox";
 
 type ExecutorBindings = Env & {
-  APOLLO_IO_API_KEY?: string;
   EXECUTOR_BEARER_TOKEN?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   SUPABASE_URL?: string;
@@ -290,10 +291,11 @@ const liveRunHandler = async (c: Context<ExecutorEnv>) => {
   }
 
   try {
-    const { parsedInput, runInput } = await resolveStoredRunInput(
-      c.var.supabase,
-      run,
-      c.var.parsedEnv.APOLLO_IO_API_KEY,
+    const [{ parsedInput, runInput }, environmentVariables] = await Promise.all(
+      [
+        resolveStoredRunInput(c.var.supabase, run),
+        resolveEnvironmentVariablesForRun(c.var.supabase, run),
+      ],
     );
 
     const output = await executeAndValidate(
@@ -301,6 +303,7 @@ const liveRunHandler = async (c: Context<ExecutorEnv>) => {
       run.program_version.program_file,
       runInput,
       run.cell.column.output_schema as JsonValue,
+      environmentVariables,
     );
 
     await Promise.all([
@@ -345,13 +348,14 @@ const liveRunHandler = async (c: Context<ExecutorEnv>) => {
 const testHandler = async (c: Context<ExecutorEnv>) => {
   const query = (c.req as TestValidatedRequest).valid("query");
   const body = (c.req as TestValidatedRequest).valid("json");
-  const [files, versionRecord] = await Promise.all([
+  const [files, versionRecord, environmentVariables] = await Promise.all([
     loadProgramVersionFiles(c.var.supabase, query.programVersionId),
     c.var.supabase
       .from("program_version")
       .select("output_config")
       .eq("id", query.programVersionId)
       .maybeSingle(),
+    resolveEnvironmentVariablesForAuth(c.var.supabase, c.var.auth),
   ]);
 
   if (versionRecord.error) {
@@ -372,9 +376,10 @@ const testHandler = async (c: Context<ExecutorEnv>) => {
         `${query.programVersionId ?? "inline"}--test--${query.testKey ?? crypto.randomUUID().slice(0, 6)}`,
       ),
       files,
-      runtimeInputFromValue(body.input, c.var.parsedEnv.APOLLO_IO_API_KEY),
+      runtimeInputFromValue(body.input),
       Schemas.ProgramOutputConfig.parse(versionRecord.data.output_config)
         .schema as JsonValue,
+      environmentVariables,
     );
 
     return jsonResponse(RunEnvelopeSchema, {

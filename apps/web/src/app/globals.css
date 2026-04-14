@@ -24,3 +24,93 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), sans-serif;
 }
+
+.event-feed-row {
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+}
+
+.event-feed-row[data-entering="true"] {
+  animation: event-feed-row-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@supports (mask-image: linear-gradient(black, transparent)) or
+  (-webkit-mask-image: linear-gradient(black, transparent)) {
+  .event-feed-row[data-entering="true"]::after {
+    -webkit-mask-image:
+      repeating-linear-gradient(
+        90deg,
+        black 0 6px,
+        transparent 6px 12px
+      ),
+      repeating-linear-gradient(0deg, black 0 6px, transparent 6px 12px);
+    -webkit-mask-repeat: repeat, repeat;
+    -webkit-mask-size: 12px 12px, 12px 12px;
+    animation:
+      event-feed-dither-sweep 240ms steps(14, end) both,
+      event-feed-dither-fade 240ms linear both;
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.96),
+      rgba(244, 244, 245, 0.92)
+    );
+    content: "";
+    inset: 0;
+    mask-image:
+      repeating-linear-gradient(
+        90deg,
+        black 0 6px,
+        transparent 6px 12px
+      ),
+      repeating-linear-gradient(0deg, black 0 6px, transparent 6px 12px);
+    mask-repeat: repeat, repeat;
+    mask-size: 12px 12px, 12px 12px;
+    pointer-events: none;
+    position: absolute;
+    z-index: 2;
+  }
+}
+
+@keyframes event-feed-row-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.995);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes event-feed-dither-sweep {
+  from {
+    transform: translateX(-10%) skewX(-3deg) scaleX(1.02);
+  }
+
+  to {
+    transform: translateX(110%) skewX(0deg) scaleX(0.98);
+  }
+}
+
+@keyframes event-feed-dither-fade {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-feed-row[data-entering="true"] {
+    animation: none;
+  }
+
+  .event-feed-row[data-entering="true"]::after {
+    animation: none;
+    opacity: 0;
+  }
+}

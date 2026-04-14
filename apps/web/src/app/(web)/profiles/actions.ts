@@ -8,6 +8,8 @@ import { createServiceRoleClient } from "../../../lib/supabase/service-role";
 
 type KeyRow = Database["public"]["Tables"]["key"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profile"]["Row"];
+type SecretCategory = Database["public"]["Enums"]["secret_category"];
+type SecretRow = Database["public"]["Tables"]["secret"]["Row"];
 type ProfileType = Database["public"]["Enums"]["profile_type"];
 
 export type ManagedKey = Omit<KeyRow, "hash"> & {
@@ -17,6 +19,9 @@ export type ManagedKey = Omit<KeyRow, "hash"> & {
 export type ManagedProfile = ProfileRow & {
   keys: ManagedKey[];
 };
+export type StoredSecret = Omit<SecretRow, "vault_secret_id">;
+
+const ENVIRONMENT_VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 function db() {
   return createServiceRoleClient();
@@ -29,6 +34,24 @@ function assertNonEmpty(value: string, label: string) {
   }
 
   return normalized;
+}
+
+function assertSecretName(value: string) {
+  const normalized = assertNonEmpty(value, "Secret name");
+
+  if (!ENVIRONMENT_VARIABLE_NAME_PATTERN.test(normalized)) {
+    throw new Error("Secret names must be valid environment variable names.");
+  }
+
+  return normalized;
+}
+
+function assertSecretValue(value: string) {
+  if (!value.trim()) {
+    throw new Error("Secret value is required");
+  }
+
+  return value;
 }
 
 async function requireOwnedProfile(profileId: string) {
@@ -69,6 +92,26 @@ async function requireOwnedKey(keyId: string) {
   }
 
   return data;
+}
+
+async function requireOwnedSecret(secretId: string) {
+  const user = await requireUser();
+  const { data, error } = await db()
+    .from("secret")
+    .select("category, created_at, id, name, owner_user_id, updated_at")
+    .eq("id", secretId)
+    .eq("owner_user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data) {
+    throw new Error("Secret not found");
+  }
+
+  return data satisfies StoredSecret;
 }
 
 export async function listProfilesWithKeys(): Promise<ManagedProfile[]> {
@@ -114,6 +157,26 @@ export async function listProfilesWithKeys(): Promise<ManagedProfile[]> {
     ...profile,
     keys: keysByProfileId.get(profile.id) ?? [],
   }));
+}
+
+export async function listSecrets(): Promise<StoredSecret[]> {
+  const user = await requireUser();
+  const { data, error } = await db()
+    .from("secret")
+    .select("category, created_at, id, name, owner_user_id, updated_at")
+    .eq("owner_user_id", user.id)
+    .order("name", {
+      ascending: true,
+    })
+    .order("category", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as StoredSecret[];
 }
 
 export async function createProfile(input: {
@@ -163,5 +226,59 @@ export async function revokeProfileKey(keyId: string) {
 
   return {
     id: key.id,
+  };
+}
+
+export async function createSecret(input: {
+  category?: SecretCategory;
+  name: string;
+  value: string;
+}) {
+  return callMarbleApi<StoredSecret>("/secrets", {
+    body: {
+      category: input.category ?? "UserDefined",
+      name: assertSecretName(input.name),
+      value: assertSecretValue(input.value),
+    },
+    method: "POST",
+  });
+}
+
+export async function replaceSecretValue(secretId: string, value: string) {
+  const secret = await requireOwnedSecret(secretId);
+
+  if (secret.category !== "UserDefined") {
+    throw new Error(
+      "Managed secrets are system-provided and cannot be replaced here.",
+    );
+  }
+
+  await callMarbleApi<StoredSecret>(`/secrets/${secretId}`, {
+    body: {
+      value: assertSecretValue(value),
+    },
+    method: "PATCH",
+  });
+
+  return {
+    id: secret.id,
+  };
+}
+
+export async function deleteSecret(secretId: string) {
+  const secret = await requireOwnedSecret(secretId);
+
+  if (secret.category !== "UserDefined") {
+    throw new Error(
+      "Managed secrets are system-provided and cannot be deleted here.",
+    );
+  }
+
+  await callMarbleApi(`/secrets/${secretId}`, {
+    method: "DELETE",
+  });
+
+  return {
+    id: secret.id,
   };
 }

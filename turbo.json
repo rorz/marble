@@ -2,7 +2,6 @@
   "$schema": "https://turborepo.dev/schema.json",
   "globalDependencies": ["tsconfig.json"],
   "globalEnv": [
-    "APOLLO_IO_API_KEY",
     "EXECUTOR_URL",
     "EXECUTOR_BEARER_TOKEN",
     "INIT_CWD",

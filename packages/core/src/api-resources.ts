@@ -36,6 +36,7 @@ export const ApiResources = {
   program_versions: CRUD_OPERATIONS,
   program_files: CRUD_OPERATIONS,
   program_runs: CRUD_OPERATIONS,
+  secrets: CRUD_OPERATIONS,
 } as const;
 
 export type ApiResourceName = keyof typeof ApiResources;

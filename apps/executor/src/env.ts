@@ -6,7 +6,6 @@ export const getEnv = (runtimeEnv: Record<string, unknown>) => {
     server: {
       SUPABASE_URL: z.string().url(),
       SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-      APOLLO_IO_API_KEY: z.string().optional(),
       EXECUTOR_BEARER_TOKEN: z.string().min(1).optional(),
     },
     runtimeEnv: runtimeEnv as Record<

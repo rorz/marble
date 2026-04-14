@@ -1004,6 +1004,100 @@ export default function TablePage(props: {
     setDependencies(data.dependencies);
   }, []);
 
+  const upsertLocalRow = useCallback((nextRow: Row) => {
+    setRows((prev) => {
+      const existingIndex = prev.findIndex((row) => row.id === nextRow.id);
+
+      if (existingIndex === -1) {
+        const next = [
+          ...prev,
+          nextRow,
+        ].sort((a, b) => a.idx - b.idx);
+        rowsRef.current = next;
+        return next;
+      }
+
+      const next = [
+        ...prev,
+      ];
+      next[existingIndex] = nextRow;
+      next.sort((a, b) => a.idx - b.idx);
+      rowsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const upsertLocalColumn = useCallback((nextColumn: Column) => {
+    setColumns((prev) => {
+      const existingIndex = prev.findIndex(
+        (column) => column.id === nextColumn.id,
+      );
+
+      if (existingIndex === -1) {
+        const next = [
+          ...prev,
+          nextColumn,
+        ].sort((a, b) => a.idx - b.idx);
+        columnsRef.current = next;
+        return next;
+      }
+
+      const next = [
+        ...prev,
+      ];
+      next[existingIndex] = {
+        ...next[existingIndex],
+        ...nextColumn,
+      };
+      next.sort((a, b) => a.idx - b.idx);
+      columnsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const removeLocalRow = useCallback((rowId: string) => {
+    setRows((prev) => {
+      const next = prev.filter((row) => row.id !== rowId);
+
+      if (next.length === prev.length) {
+        return prev;
+      }
+
+      rowsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const removeLocalColumn = useCallback((columnId: string) => {
+    setColumns((prev) => {
+      const next = prev.filter((column) => column.id !== columnId);
+
+      if (next.length === prev.length) {
+        return prev;
+      }
+
+      columnsRef.current = next;
+      return next;
+    });
+    setCells((prev) => {
+      const next = prev.filter((cell) => cell.column_id !== columnId);
+
+      if (next.length === prev.length) {
+        return prev;
+      }
+
+      cellsRef.current = next;
+      return next;
+    });
+    setDependencies((prev) =>
+      prev.filter(
+        (dependency) =>
+          dependency.source_column_id !== columnId &&
+          dependency.target_column_id !== columnId,
+      ),
+    );
+  }, []);
+
   const patchLocalCell = useCallback((cellId: string, patch: Partial<Cell>) => {
     setCells((prev) => {
       let changed = false;
@@ -1356,6 +1450,15 @@ export default function TablePage(props: {
             return;
           }
 
+          if (
+            payload.eventType === "INSERT" ||
+            payload.eventType === "UPDATE"
+          ) {
+            upsertLocalRow(payload.new as Row);
+          } else if (payload.eventType === "DELETE") {
+            removeLocalRow((payload.old as Row).id);
+          }
+
           scheduleRefresh({
             tableData: true,
           });
@@ -1373,6 +1476,15 @@ export default function TablePage(props: {
             return;
           }
 
+          if (
+            payload.eventType === "INSERT" ||
+            payload.eventType === "UPDATE"
+          ) {
+            upsertLocalColumn(payload.new as Column);
+          } else if (payload.eventType === "DELETE") {
+            removeLocalColumn((payload.old as Column).id);
+          }
+
           scheduleRefresh({
             tableData: true,
           });
@@ -1387,8 +1499,12 @@ export default function TablePage(props: {
     };
   }, [
     applyLoadedData,
+    removeLocalColumn,
+    removeLocalRow,
     realtimeClient,
     selectedTableId,
+    upsertLocalColumn,
+    upsertLocalRow,
   ]);
 
   // ── AG Grid config ────────────────────────────────────
@@ -1917,6 +2033,18 @@ export default function TablePage(props: {
         )}
 
         <div className="ml-auto flex items-center gap-2">
+          <Link
+            href="/events"
+            className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+          >
+            Events
+          </Link>
+          <Link
+            href="/profiles"
+            className="rounded-lg px-3 py-1.5 text-sm text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+          >
+            Profiles
+          </Link>
           <SignOutButton />
         </div>
       </header>

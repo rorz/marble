@@ -502,6 +502,36 @@ export type Database = {
           },
         ]
       }
+      secret: {
+        Row: {
+          category: Database["public"]["Enums"]["secret_category"]
+          created_at: string
+          id: string
+          name: string
+          owner_user_id: string
+          updated_at: string
+          vault_secret_id: string
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["secret_category"]
+          created_at?: string
+          id?: string
+          name: string
+          owner_user_id: string
+          updated_at?: string
+          vault_secret_id: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["secret_category"]
+          created_at?: string
+          id?: string
+          name?: string
+          owner_user_id?: string
+          updated_at?: string
+          vault_secret_id?: string
+        }
+        Relationships: []
+      }
       table: {
         Row: {
           created_at: string
@@ -539,13 +569,67 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      secret_store_create: {
+        Args: {
+          p_category: Database["public"]["Enums"]["secret_category"]
+          p_name: string
+          p_owner_user_id: string
+          p_plaintext_value: string
+        }
+        Returns: {
+          category: Database["public"]["Enums"]["secret_category"]
+          created_at: string
+          id: string
+          name: string
+          owner_user_id: string
+          updated_at: string
+          vault_secret_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "secret"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      secret_store_delete: { Args: { p_secret_id: string }; Returns: undefined }
+      secret_store_resolve: {
+        Args: { p_owner_user_id: string }
+        Returns: {
+          category: Database["public"]["Enums"]["secret_category"]
+          name: string
+          value: string
+        }[]
+      }
+      secret_store_update: {
+        Args: {
+          p_name?: string
+          p_plaintext_value?: string
+          p_secret_id: string
+        }
+        Returns: {
+          category: Database["public"]["Enums"]["secret_category"]
+          created_at: string
+          id: string
+          name: string
+          owner_user_id: string
+          updated_at: string
+          vault_secret_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "secret"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       data_operation: "Create" | "Read" | "Update" | "Delete"
       event_source: "WEB_APP" | "RAW_API" | "CLI"
       profile_type: "Human" | "Agent"
       program_file_type: "TypeScript" | "Json" | "Markdown"
+      secret_category: "UserDefined" | "Managed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -680,6 +764,7 @@ export const Constants = {
       event_source: ["WEB_APP", "RAW_API", "CLI"],
       profile_type: ["Human", "Agent"],
       program_file_type: ["TypeScript", "Json", "Markdown"],
+      secret_category: ["UserDefined", "Managed"],
     },
   },
 } as const

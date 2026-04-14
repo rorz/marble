@@ -47,6 +47,10 @@ const RECORD_METADATA = {
     idKey: "profileId",
     label: "Profile",
   },
+  secret: {
+    idKey: "secretId",
+    label: "Secret",
+  },
   program: {
     idKey: "programId",
     label: "Program",

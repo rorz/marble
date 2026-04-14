@@ -23,10 +23,16 @@ export default async function TablesPage() {
               Tables
             </Link>
             <Link
+              href="/events"
+              className="rounded-lg px-3 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+            >
+              Events
+            </Link>
+            <Link
               href="/profiles"
               className="rounded-lg px-3 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
             >
-              Profiles + Keys
+              Profiles + Secrets
             </Link>
           </nav>
         </div>

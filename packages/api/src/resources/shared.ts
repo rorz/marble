@@ -24,6 +24,8 @@ export const nonEmptyStringSchema = z.string().trim().min(1);
 
 export const profileTypeSchema = databaseEnumSchema("profile_type");
 
+export const secretCategorySchema = databaseEnumSchema("secret_category");
+
 export const programFileTypeSchema = databaseEnumSchema("program_file_type");
 
 export const dataOperationSchema = databaseEnumSchema("data_operation");

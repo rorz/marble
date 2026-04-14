@@ -9,6 +9,20 @@ type ProgramFile = Pick<
   Tables<"program_file">,
   "content" | "filename" | "filetype"
 >;
+type ExecutionSecret = {
+  category: Tables<"secret">["category"];
+  name: string;
+  value: string;
+};
+
+const executionSecretSchema = z.object({
+  category: z.enum([
+    "Managed",
+    "UserDefined",
+  ]),
+  name: z.string(),
+  value: z.string(),
+});
 
 export const formatZodIssues = (issues: z.ZodIssue[]): string =>
   issues
@@ -51,13 +65,99 @@ export const failureStateFromError = (
   );
 };
 
-const createRuntimeSystem = (apolloApiKey?: string): JsonValue => ({
-  providers: {
-    APOLLO_IO: {
-      apiKey: apolloApiKey ? String(apolloApiKey) : null,
-    },
-  },
-});
+function createRuntimeEnvelope(
+  input: JsonValue,
+  manualInputValue?: string | null,
+): JsonValue {
+  return {
+    system: {},
+    cell:
+      manualInputValue == null
+        ? {}
+        : {
+            manualInputValue,
+          },
+    input,
+  };
+}
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | undefined {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  return value ?? undefined;
+}
+
+async function listSecretsForOwnerUserId(
+  supabase: SupabaseClient,
+  ownerUserId: string,
+) {
+  const { data, error } = await supabase.rpc("secret_store_resolve", {
+    p_owner_user_id: ownerUserId,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return z.array(executionSecretSchema).parse(data ?? []) as ExecutionSecret[];
+}
+
+function secretsToEnvironmentVariables(
+  secrets: ExecutionSecret[],
+): Record<string, string> {
+  const managedEnv: Record<string, string> = {};
+  const userEnv: Record<string, string> = {};
+
+  for (const secret of secrets) {
+    if (secret.category === "Managed") {
+      managedEnv[secret.name] = secret.value;
+      continue;
+    }
+
+    userEnv[secret.name] = secret.value;
+  }
+
+  return {
+    ...managedEnv,
+    ...userEnv,
+  };
+}
+
+async function resolveOwnerUserIdForProfile(
+  supabase: SupabaseClient,
+  profileId: string,
+) {
+  const { data, error } = await supabase
+    .from("profile")
+    .select("owner_user_id")
+    .eq("id", profileId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    throw new Error(`Profile '${profileId}' was not found.`);
+  }
+
+  return data.owner_user_id;
+}
+
+async function resolveEnvironmentVariablesForOwnerUserId(
+  supabase: SupabaseClient,
+  ownerUserId?: string,
+) {
+  if (!ownerUserId) {
+    return {};
+  }
+
+  return secretsToEnvironmentVariables(
+    await listSecretsForOwnerUserId(supabase, ownerUserId),
+  );
+}
 
 const prepareExecutionEnvironment = async (
   sandbox: Sandbox,
@@ -119,6 +219,7 @@ export const executeAndValidate = async (
   programFiles: ProgramFile[],
   runInput: JsonValue,
   outputSchemaConfig: JsonValue,
+  environmentVariables: Record<string, string> = {},
 ): Promise<Schemas.RunReturnValue> => {
   if (programFiles.length === 0) {
     return createFailureState(
@@ -129,7 +230,11 @@ export const executeAndValidate = async (
 
   await prepareExecutionEnvironment(sandbox, programFiles);
 
-  const executionResult = await executeProgram(sandbox, runInput, {});
+  const executionResult = await executeProgram(
+    sandbox,
+    runInput,
+    environmentVariables,
+  );
   const outputSchema = Schemas.ColumnOutputSchema.parse(outputSchemaConfig);
 
   const rawOutput = (() => {
@@ -186,20 +291,13 @@ export const executeAndValidate = async (
   return Schemas.RunReturnValue.parse(rawOutput);
 };
 
-export const runtimeInputFromValue = (
-  input: JsonValue,
-  apolloApiKey?: string,
-): JsonValue => {
+export const runtimeInputFromValue = (input: JsonValue): JsonValue => {
   const parsedRunInput = Schemas.RunInput.safeParse(input);
   if (parsedRunInput.success) {
     return parsedRunInput.data as JsonValue;
   }
 
-  return {
-    system: createRuntimeSystem(apolloApiKey),
-    cell: {},
-    input,
-  };
+  return createRuntimeEnvelope(input);
 };
 
 export const loadStoredRun = async (
@@ -209,7 +307,7 @@ export const loadStoredRun = async (
   const { data, error } = await supabase
     .from("program_run")
     .select(
-      `*, program_version(*, program!program_version_program_id_fkey(*), program_file(*)), cell!target_cell_id(*, column!column_id(*))`,
+      `*, program_version(*, program!program_version_program_id_fkey(*), program_file(*)), cell!target_cell_id(*, row!cell_row_id_fkey(*, table!row_table_id_fkey(*, profile!table_owner_profile_id_fkey(*))), column!cell_column_id_fkey(*))`,
     )
     .eq("id", runId);
 
@@ -248,7 +346,6 @@ export const persistStoredRunFailure = async (
 export const resolveStoredRunInput = async (
   supabase: SupabaseClient,
   run: StoredRun,
-  apolloApiKey?: string,
 ) => {
   const { data: dependencies, error: dependenciesError } = await supabase
     .from("column_dependency")
@@ -304,17 +401,47 @@ export const resolveStoredRunInput = async (
 
   return {
     parsedInput: parsedInput as Json,
-    runInput: {
-      system: createRuntimeSystem(apolloApiKey),
-      cell:
-        run.cell.manual_input == null
-          ? {}
-          : {
-              manualInputValue: run.cell.manual_input,
-            },
-      input: parsedInput as JsonValue,
-    } as JsonValue,
+    runInput: createRuntimeEnvelope(
+      parsedInput as JsonValue,
+      run.cell.manual_input,
+    ),
   };
+};
+
+export const resolveEnvironmentVariablesForAuth = async (
+  supabase: SupabaseClient,
+  auth:
+    | {
+        profileId?: string;
+        userId?: string;
+      }
+    | undefined,
+) => {
+  const ownerUserId =
+    auth?.userId ??
+    (auth?.profileId
+      ? await resolveOwnerUserIdForProfile(supabase, auth.profileId)
+      : undefined);
+
+  return resolveEnvironmentVariablesForOwnerUserId(supabase, ownerUserId);
+};
+
+export const resolveEnvironmentVariablesForRun = async (
+  supabase: SupabaseClient,
+  run: StoredRun,
+) => {
+  const row = firstRelation(run.cell.row);
+  const table = firstRelation(row?.table);
+  const profile = firstRelation(table?.profile);
+
+  if (!profile?.owner_user_id) {
+    throw new Error("Could not resolve the run owner for secret loading.");
+  }
+
+  return resolveEnvironmentVariablesForOwnerUserId(
+    supabase,
+    profile.owner_user_id,
+  );
 };
 
 export const loadProgramVersionFiles = async (

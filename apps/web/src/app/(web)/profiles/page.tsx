@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { requireUser } from "../../../lib/auth";
 import SignOutButton from "../../sign-out-button";
-import { listProfilesWithKeys } from "./actions";
+import { listProfilesWithKeys, listSecrets } from "./actions";
 import { ProfileManager } from "./profile-manager";
 
 export default async function ProfilesPage() {
   await requireUser();
-  const profiles = await listProfilesWithKeys();
+  const [profiles, secrets] = await Promise.all([
+    listProfilesWithKeys(),
+    listSecrets(),
+  ]);
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900">
@@ -22,10 +25,16 @@ export default async function ProfilesPage() {
                 Tables
               </Link>
               <Link
+                className="rounded-lg px-3 py-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+                href="/events"
+              >
+                Events
+              </Link>
+              <Link
                 className="rounded-lg bg-orange-50 px-3 py-1.5 font-medium text-orange-700"
                 href="/profiles"
               >
-                Profiles + Keys
+                Profiles + Secrets
               </Link>
             </nav>
           </div>
@@ -36,16 +45,19 @@ export default async function ProfilesPage() {
       <main className="mx-auto max-w-6xl px-6 py-8">
         <div className="mb-8 max-w-3xl">
           <h2 className="text-3xl font-semibold tracking-tight">
-            Profile and key management
+            Profiles, keys, and secrets
           </h2>
           <p className="mt-2 text-sm leading-6 text-zinc-600">
-            Agent profiles are the owner record for API keys. Create a profile,
-            mint one or more keys onto it, and use those keys against the web
-            API proxy or executor surfaces.
+            Profiles own API keys. Secrets are scoped to the signed-in user and
+            flow into execution environments as environment variables, with
+            user-defined values overriding managed ones of the same name.
           </p>
         </div>
 
-        <ProfileManager profiles={profiles} />
+        <ProfileManager
+          profiles={profiles}
+          secrets={secrets}
+        />
       </main>
     </div>
   );
