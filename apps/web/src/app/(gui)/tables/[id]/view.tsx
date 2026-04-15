@@ -1251,6 +1251,7 @@ export default function TablePageView({
 
   useEffect(() => {
     if (!selectedTableId) return;
+
     const channel = realtimeClient
       .channel(`table:${selectedTableId}`)
       .on(

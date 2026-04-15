@@ -29,7 +29,6 @@ import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -39,7 +38,10 @@ import {
   type SidebarMode,
 } from "../../lib/gui-sidebar";
 import type { RealtimePayload } from "../../lib/realtime-crud";
-import { applySidebarMutation } from "../../lib/sidebar-sync";
+import {
+  applySidebarMutation,
+  type SidebarMutation,
+} from "../../lib/sidebar-sync";
 import {
   collectActiveSidebarKeys,
   type SidebarTreeData,
@@ -281,7 +283,6 @@ export function GuiShell({
   const ToggleIcon = sidebar.toggleIcon;
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const supabase = useMemo(() => createClient(), []);
   const resizeHandleRef = useRef<HTMLButtonElement | null>(null);
   const sidebarWidthRef = useRef(sidebarWidth);
   const resizeStateRef = useRef<null | {
@@ -478,139 +479,107 @@ export function GuiShell({
   ]);
 
   useEffect(() => {
-    let cancelled = false;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-
-    const subscribe = async () => {
-      await supabase.auth.getSession();
-
-      if (cancelled) {
-        return;
-      }
-
-      channel = supabase
-        .channel("gui-sidebar")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "project",
-          },
-          (payload) => {
-            const change = payload as RealtimePayload<ProjectRow>;
-
-            if (change.eventType === "DELETE") {
-              if (typeof change.old.id !== "string") {
-                return;
-              }
-
-              const deletedId = change.old.id;
-
-              setSidebarData((current) =>
-                applySidebarMutation(current, {
-                  id: deletedId,
-                  type: "project:delete",
-                }),
-              );
-              return;
-            }
-
-            setSidebarData((current) =>
-              applySidebarMutation(current, {
-                row: change.new as ProjectRow,
-                type: "project:upsert",
-              }),
-            );
-          },
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "table",
-          },
-          (payload) => {
-            const change = payload as RealtimePayload<TableRow>;
-
-            if (change.eventType === "DELETE") {
-              if (typeof change.old.id !== "string") {
-                return;
-              }
-
-              const deletedId = change.old.id;
-
-              setSidebarData((current) =>
-                applySidebarMutation(current, {
-                  id: deletedId,
-                  type: "table:delete",
-                }),
-              );
-              return;
-            }
-
-            setSidebarData((current) =>
-              applySidebarMutation(current, {
-                row: change.new as TableRow,
-                type: "table:upsert",
-              }),
-            );
-          },
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "program",
-          },
-          (payload) => {
-            const change = payload as RealtimePayload<ProgramRow>;
-
-            if (change.eventType === "DELETE") {
-              if (typeof change.old.id !== "string") {
-                return;
-              }
-
-              const deletedId = change.old.id;
-
-              setSidebarData((current) =>
-                applySidebarMutation(current, {
-                  id: deletedId,
-                  type: "program:delete",
-                }),
-              );
-              return;
-            }
-
-            setSidebarData((current) =>
-              applySidebarMutation(current, {
-                row: change.new as ProgramRow,
-                type: "program:upsert",
-              }),
-            );
-          },
-        )
-        .subscribe((status) => {
-          if (status === "CHANNEL_ERROR") {
-            console.error("GUI sidebar realtime channel failed");
-          }
-        });
+    const supabase = createClient();
+    const applyMutation = (mutation: SidebarMutation) => {
+      setSidebarData((current) => applySidebarMutation(current, mutation));
     };
 
-    void subscribe();
+    const channel = supabase
+      .channel("gui-sidebar")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "project",
+        },
+        (payload) => {
+          const change = payload as RealtimePayload<ProjectRow>;
+
+          if (change.eventType === "DELETE") {
+            if (typeof change.old.id !== "string") {
+              return;
+            }
+
+            applyMutation({
+              id: change.old.id,
+              type: "project:delete",
+            });
+            return;
+          }
+
+          applyMutation({
+            row: change.new as ProjectRow,
+            type: "project:upsert",
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "table",
+        },
+        (payload) => {
+          const change = payload as RealtimePayload<TableRow>;
+
+          if (change.eventType === "DELETE") {
+            if (typeof change.old.id !== "string") {
+              return;
+            }
+
+            applyMutation({
+              id: change.old.id,
+              type: "table:delete",
+            });
+            return;
+          }
+
+          applyMutation({
+            row: change.new as TableRow,
+            type: "table:upsert",
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "program",
+        },
+        (payload) => {
+          const change = payload as RealtimePayload<ProgramRow>;
+
+          if (change.eventType === "DELETE") {
+            if (typeof change.old.id !== "string") {
+              return;
+            }
+
+            applyMutation({
+              id: change.old.id,
+              type: "program:delete",
+            });
+            return;
+          }
+
+          applyMutation({
+            row: change.new as ProgramRow,
+            type: "program:upsert",
+          });
+        },
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR") {
+          console.error("GUI sidebar realtime channel failed");
+        }
+      });
 
     return () => {
-      cancelled = true;
-
-      if (channel) {
-        void supabase.removeChannel(channel);
-      }
+      void supabase.removeChannel(channel);
     };
-  }, [
-    supabase,
-  ]);
+  }, []);
 
   useEffect(
     () => () => {
