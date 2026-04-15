@@ -1,13 +1,16 @@
-import { Pane } from "../../../components/pane";
+import { MarbleEmptyState, MarblePane } from "@marble/ui";
 
 const HelpPage = () => {
   return (
-    <Pane
+    <MarblePane
       title="Help"
       width="Narrow"
     >
-      <p>Work in progress...</p>
-    </Pane>
+      <MarbleEmptyState
+        description="Documentation and guided workflows will land here once the shared help surface is ready."
+        title="Work in progress"
+      />
+    </MarblePane>
   );
 };
 

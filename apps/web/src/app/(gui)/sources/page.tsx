@@ -1,13 +1,16 @@
-import { Pane } from "../../../components/pane";
+import { MarbleEmptyState, MarblePane } from "@marble/ui";
 
 const SourcesPage = () => {
   return (
-    <Pane
+    <MarblePane
       title="Sources"
       width="Narrow"
     >
-      <p>Work in progress...</p>
-    </Pane>
+      <MarbleEmptyState
+        description="Source management is being pulled into the shared workspace patterns before this page opens up."
+        title="Work in progress"
+      />
+    </MarblePane>
   );
 };
 

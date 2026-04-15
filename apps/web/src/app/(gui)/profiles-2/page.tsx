@@ -1,5 +1,5 @@
 import type { Database } from "@marble/supabase";
-import { Pane } from "../../../components/pane";
+import { MarblePane } from "@marble/ui";
 import { requireUser } from "../../../lib/auth";
 import { createClient } from "../../../lib/supabase/server";
 import { ProfilesPageView } from "./view";
@@ -34,9 +34,10 @@ export default async function ProfilesPage() {
   }
 
   return (
-    <Pane
+    <MarblePane
       crumbs={[
         {
+          id: "profiles",
           label: "Profiles",
         },
       ]}
@@ -45,6 +46,6 @@ export default async function ProfilesPage() {
         initialProfiles={(data ?? []) as ProfileRecord[]}
         userId={user.id}
       />
-    </Pane>
+    </MarblePane>
   );
 }

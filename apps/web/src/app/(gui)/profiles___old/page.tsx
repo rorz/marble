@@ -1,4 +1,4 @@
-import { Pane } from "../../../components/pane";
+import { MarblePane } from "@marble/ui";
 import { requireUser } from "../../../lib/auth";
 import { listProfilesWithKeys, listSecrets } from "./actions";
 import { ProfileManager } from "./profile-manager";
@@ -11,9 +11,10 @@ export default async function ProfilesPage() {
   ]);
 
   return (
-    <Pane
+    <MarblePane
       crumbs={[
         {
+          id: "profiles",
           label: "Profiles",
         },
       ]}
@@ -22,6 +23,6 @@ export default async function ProfilesPage() {
         profiles={profiles}
         secrets={secrets}
       />
-    </Pane>
+    </MarblePane>
   );
 }

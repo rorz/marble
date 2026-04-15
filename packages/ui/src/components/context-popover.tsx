@@ -25,6 +25,7 @@ export type MarbleContextPopoverProps = {
   disabled?: boolean;
   items: MarbleContextPopoverItem[];
   menuClassName?: string;
+  triggerClassName?: string;
 } & Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
   "aria-label" | "children" | "disabled" | "type"
@@ -42,6 +43,7 @@ export function MarbleContextPopover({
   items,
   menuClassName,
   onKeyDown,
+  triggerClassName,
   ...props
 }: MarbleContextPopoverProps) {
   const menuId = useId();
@@ -198,8 +200,9 @@ export function MarbleContextPopover({
         aria-haspopup="menu"
         aria-label={ariaLabel}
         className={cx(
-          "inline-flex size-9 items-center justify-center rounded-xs border border-zinc-300 bg-linear-to-b from-white to-zinc-100 text-zinc-700 shadow-xs transition-colors",
-          "hover:border-zinc-400 hover:text-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50",
+          "inline-flex size-7 items-center justify-center rounded-[4px] text-zinc-400 transition-colors",
+          "hover:bg-zinc-100 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50",
+          triggerClassName,
         )}
         disabled={isTriggerDisabled}
         onClick={() => {
@@ -212,11 +215,11 @@ export function MarbleContextPopover({
       >
         <span
           aria-hidden="true"
-          className="flex flex-col gap-0.5"
+          className="flex flex-col gap-px"
         >
-          <span className="size-1 rounded-full bg-current" />
-          <span className="size-1 rounded-full bg-current" />
-          <span className="size-1 rounded-full bg-current" />
+          <span className="size-[3px] rounded-full bg-current" />
+          <span className="size-[3px] rounded-full bg-current" />
+          <span className="size-[3px] rounded-full bg-current" />
         </span>
       </button>
 

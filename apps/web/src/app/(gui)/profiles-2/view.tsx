@@ -2,12 +2,15 @@
 
 import type { Database } from "@marble/supabase";
 import {
+  MarbleAlert,
+  MarbleBadge,
   MarbleButton,
   MarbleCard,
   MarbleCardContent,
   MarbleCardDescription,
   MarbleCardHeader,
   MarbleCardTitle,
+  MarbleEmptyState,
   MarbleFieldLabel,
   MarbleInput,
   MarbleSelect,
@@ -218,24 +221,6 @@ function ProfileFields({
           <option value="Human">Human</option>
         </MarbleSelect>
       </div>
-    </div>
-  );
-}
-
-function FeedbackBanner({ feedback }: { feedback: Feedback }) {
-  if (!feedback) {
-    return null;
-  }
-
-  return (
-    <div
-      className={
-        feedback.tone === "error"
-          ? "rounded-xs border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm"
-          : "rounded-xs border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-700 text-sm"
-      }
-    >
-      {feedback.text}
     </div>
   );
 }
@@ -486,16 +471,16 @@ export function ProfilesPageView({
             </div>
 
             <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em]">
-              <span className="rounded-full border border-zinc-200 bg-white px-2 py-1 text-zinc-600">
+              <MarbleBadge tone="solid">
                 {optimisticProfiles.length} total
-              </span>
-              <span
-                className={
+              </MarbleBadge>
+              <MarbleBadge
+                tone={
                   realtimeStatus === "live"
-                    ? "rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-emerald-700"
+                    ? "success"
                     : realtimeStatus === "error"
-                      ? "rounded-full border border-red-200 bg-red-50 px-2 py-1 text-red-700"
-                      : "rounded-full border border-zinc-200 bg-zinc-100 px-2 py-1 text-zinc-600"
+                      ? "error"
+                      : "neutral"
                 }
               >
                 {realtimeStatus === "live"
@@ -503,13 +488,17 @@ export function ProfilesPageView({
                   : realtimeStatus === "error"
                     ? "Realtime error"
                     : "Connecting"}
-              </span>
+              </MarbleBadge>
             </div>
           </div>
         </MarbleCardHeader>
 
         <MarbleCardContent className="space-y-4 pt-5">
-          <FeedbackBanner feedback={feedback} />
+          {feedback ? (
+            <MarbleAlert tone={feedback.tone === "error" ? "error" : "success"}>
+              {feedback.text}
+            </MarbleAlert>
+          ) : null}
 
           <form
             action={handleCreate}
@@ -533,11 +522,11 @@ export function ProfilesPageView({
 
       {optimisticProfiles.length === 0 ? (
         <MarbleCard>
-          <MarbleCardContent className="py-10 text-center">
-            <p className="font-medium text-sm text-zinc-900">No profiles yet</p>
-            <p className="mt-1 text-sm text-zinc-500">
-              Create one above to watch the list update locally and across tabs.
-            </p>
+          <MarbleCardContent>
+            <MarbleEmptyState
+              description="Create one above to watch the list update locally and across tabs."
+              title="No profiles yet"
+            />
           </MarbleCardContent>
         </MarbleCard>
       ) : (
@@ -564,18 +553,27 @@ export function ProfilesPageView({
                         <MarbleCardTitle className="text-base">
                           {profile.name}
                         </MarbleCardTitle>
-                        <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] text-zinc-600 uppercase tracking-[0.18em]">
+                        <MarbleBadge
+                          caps
+                          tone="neutral"
+                        >
                           {profile.type}
-                        </span>
+                        </MarbleBadge>
                         {profile.external_name ? (
-                          <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-1 text-[11px] text-orange-700 uppercase tracking-[0.18em]">
+                          <MarbleBadge
+                            caps
+                            tone="warning"
+                          >
                             {profile.external_name}
-                          </span>
+                          </MarbleBadge>
                         ) : null}
                         {profile.optimisticState ? (
-                          <span className="rounded-full border border-sky-200 bg-sky-50 px-2 py-1 text-[11px] text-sky-700 uppercase tracking-[0.18em]">
+                          <MarbleBadge
+                            caps
+                            tone="info"
+                          >
                             {profile.optimisticState}
-                          </span>
+                          </MarbleBadge>
                         ) : null}
                       </div>
 

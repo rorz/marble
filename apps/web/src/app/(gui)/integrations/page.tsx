@@ -1,13 +1,16 @@
-import { Pane } from "../../../components/pane";
+import { MarbleEmptyState, MarblePane } from "@marble/ui";
 
 const IntegrationsPage = () => {
   return (
-    <Pane
+    <MarblePane
       title="Integrations"
       width="Narrow"
     >
-      <p>Work in progress...</p>
-    </Pane>
+      <MarbleEmptyState
+        description="Integration setup is still being shaped around the shared UI package before the page is opened up."
+        title="Work in progress"
+      />
+    </MarblePane>
   );
 };
 

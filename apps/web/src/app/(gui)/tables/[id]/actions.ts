@@ -1,12 +1,12 @@
 "use server";
 
 import type { Database } from "@marble/supabase";
+import { revalidatePath } from "next/cache";
 import { env } from "@/env";
 import { requireUser } from "../../../../lib/auth";
 import { callMarbleApi } from "../../../../lib/marble-api";
 import {
   getOwnedTableForUser,
-  listOwnedTablesForUser,
   listReferenceableColumnsForUser,
 } from "../../../../lib/project-data";
 import {
@@ -17,23 +17,35 @@ import {
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
 type DependencyRow = Database["public"]["Tables"]["column_dependency"]["Row"];
-type ProgramFileRow = Database["public"]["Tables"]["program_file"]["Row"];
 type ProgramRunRow = Database["public"]["Tables"]["program_run"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type ProgramVersionRow = Database["public"]["Tables"]["program_version"]["Row"];
 type RowRow = Database["public"]["Tables"]["row"]["Row"];
+type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type FullProgram = ProgramRow & {
-  program_version: (ProgramVersionRow & {
-    program_file: ProgramFileRow[];
-  })[];
+  program_version: Pick<
+    ProgramVersionRow,
+    "id" | "input_schema" | "output_config" | "version"
+  >[];
 };
 
 const SUPABASE_SELECT_PAGE_SIZE = 1000;
 const PROGRAM_SELECT =
-  "*, program_version!program_version_program_id_fkey(*, program_file(*))";
+  "*, program_version!program_version_program_id_fkey(id, version, input_schema, output_config)";
 
 function db() {
   return createServiceRoleClient();
+}
+
+async function requireOwnedTable(tableId: string) {
+  const user = await requireUser();
+  const table = await getOwnedTableForUser(user.id, tableId);
+
+  if (!table) {
+    throw new Error("Table not found");
+  }
+
+  return table;
 }
 
 async function listCurrentUserOwnedProfileIds() {
@@ -93,37 +105,26 @@ async function loadColumn(columnId: string) {
   return data;
 }
 
-// ── Tables ──────────────────────────────────────────────
-
-export async function listTables() {
-  const user = await requireUser();
-  return listOwnedTablesForUser(user.id);
-}
-
-export async function createTable(projectId: string) {
-  return callMarbleApi<Database["public"]["Tables"]["table"]["Row"]>(
-    `/projects/${projectId}/tables`,
-    {
-      method: "POST",
-    },
-  );
-}
-
 export async function updateTableName(id: string, name: string) {
-  return callMarbleApi<Database["public"]["Tables"]["table"]["Row"]>(
-    `/tables/${id}`,
-    {
-      body: {
-        name,
-      },
-      method: "PATCH",
+  const table = await requireOwnedTable(id);
+  const updated = await callMarbleApi<TableRow>(`/tables/${id}`, {
+    body: {
+      name: name.trim() || "Untitled Table",
     },
-  );
+    method: "PATCH",
+  });
+
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${table.project_id}`);
+  revalidatePath(`/projects/${table.project_id}/tables/${id}`);
+  revalidatePath(`/tables/${id}`);
+
+  return updated;
 }
 
 // ── Programs ────────────────────────────────────────────
 
-export async function listPrograms(): Promise<FullProgram[]> {
+export async function listProgramsForEditor(): Promise<FullProgram[]> {
   const ownedProfileIds = await listCurrentUserOwnedProfileIds();
   const supabase = db();
 
@@ -211,60 +212,40 @@ export async function loadTableData(tableId: string) {
     return {
       cells: [] as CellRow[],
       columns,
-      dependencies: [] as DependencyRow[],
       rows,
     };
   }
 
-  const [cells, dependencies] = await Promise.all([
-    selectAllPages<CellRow>((from, to) =>
-      supabase
-        .from("cell")
-        .select("*")
-        .in("column_id", columnIds)
-        .order("row_id")
-        .order("column_id")
-        .range(from, to),
-    ),
-    Promise.all([
-      selectAllPages<DependencyRow>((from, to) =>
-        supabase
-          .from("column_dependency")
-          .select("*")
-          .in("source_column_id", columnIds)
-          .order("source_column_id")
-          .order("target_column_id")
-          .range(from, to),
-      ),
-      selectAllPages<DependencyRow>((from, to) =>
-        supabase
-          .from("column_dependency")
-          .select("*")
-          .in("target_column_id", columnIds)
-          .order("source_column_id")
-          .order("target_column_id")
-          .range(from, to),
-      ),
-    ]).then(([sourceDependencies, targetDependencies]) =>
-      Array.from(
-        new Map(
-          [
-            ...sourceDependencies,
-            ...targetDependencies,
-          ].map((dependency) => [
-            dependency.id,
-            dependency,
-          ]),
-        ).values(),
-      ),
-    ),
-  ]);
+  const cells = await selectAllPages<CellRow>((from, to) =>
+    supabase
+      .from("cell")
+      .select("*")
+      .in("column_id", columnIds)
+      .order("row_id")
+      .order("column_id")
+      .range(from, to),
+  );
 
   return {
     cells,
     columns,
-    dependencies,
     rows,
+  };
+}
+
+export async function loadTablePageData(tableId: string) {
+  const [table, data, programs, referenceColumns] = await Promise.all([
+    requireOwnedTable(tableId),
+    loadTableData(tableId),
+    listProgramsForEditor(),
+    listReferenceableColumns(),
+  ]);
+
+  return {
+    ...data,
+    programs,
+    referenceColumns,
+    table,
   };
 }
 

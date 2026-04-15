@@ -1,13 +1,16 @@
-import { Pane } from "../../../components/pane";
+import { MarbleEmptyState, MarblePane } from "@marble/ui";
 
 const AutomationsPage = () => {
   return (
-    <Pane
+    <MarblePane
       title="Automations"
       width="Narrow"
     >
-      <p>Work in progress...</p>
-    </Pane>
+      <MarbleEmptyState
+        description="Automation management will sit on top of the same shared panels and feedback components as the rest of the workspace."
+        title="Work in progress"
+      />
+    </MarblePane>
   );
 };
 

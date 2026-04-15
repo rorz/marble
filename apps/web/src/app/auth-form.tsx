@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  MarbleAlert,
   MarbleButton,
   MarbleCard,
   MarbleCardContent,
@@ -97,8 +98,22 @@ export default function AuthForm() {
           value={password}
         />
 
-        {error ? <p className="text-red-300 text-sm">{error}</p> : null}
-        {message ? <p className="text-emerald-300 text-sm">{message}</p> : null}
+        {error ? (
+          <MarbleAlert
+            size="sm"
+            tone="error"
+          >
+            {error}
+          </MarbleAlert>
+        ) : null}
+        {message ? (
+          <MarbleAlert
+            size="sm"
+            tone="success"
+          >
+            {message}
+          </MarbleAlert>
+        ) : null}
 
         <div className="flex flex-wrap gap-3">
           <MarbleButton

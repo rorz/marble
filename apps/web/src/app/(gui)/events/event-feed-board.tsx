@@ -1,6 +1,7 @@
 "use client";
 
 import type { Database } from "@marble/supabase";
+import { MarbleEmptyState } from "@marble/ui";
 import Link from "next/link";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/browser";
@@ -528,32 +529,27 @@ export function EventFeedBoard({
 
       <section className="overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm">
         {events.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-            <div className="max-w-md space-y-2">
-              <h3 className="font-semibold text-xl text-zinc-950 tracking-tight">
-                No events yet
-              </h3>
-              <p className="text-sm text-zinc-500 leading-6">
-                Create or mutate projects, tables, profiles, keys, secrets, or
-                programs through one of your profiles and the feed will begin
-                filling in here.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Link
-                className="rounded-full bg-zinc-950 px-4 py-2 font-medium text-sm text-white transition hover:opacity-90"
-                href="/projects"
-              >
-                Go to projects
-              </Link>
-              <Link
-                className="rounded-full border border-zinc-300 bg-white px-4 py-2 font-medium text-sm text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950"
-                href="/profiles"
-              >
-                Manage profiles
-              </Link>
-            </div>
-          </div>
+          <MarbleEmptyState
+            actions={
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Link
+                  className="rounded-full bg-zinc-950 px-4 py-2 font-medium text-sm text-white transition hover:opacity-90"
+                  href="/projects"
+                >
+                  Go to projects
+                </Link>
+                <Link
+                  className="rounded-full border border-zinc-300 bg-white px-4 py-2 font-medium text-sm text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950"
+                  href="/profiles"
+                >
+                  Manage profiles
+                </Link>
+              </div>
+            }
+            className="px-6 py-16"
+            description="Create or mutate projects, tables, profiles, keys, secrets, or programs through one of your profiles and the feed will begin filling in here."
+            title="No events yet"
+          />
         ) : (
           <div className="max-h-[76vh] overflow-auto">
             <div className="min-w-[1180px] font-mono text-[11px] leading-5">

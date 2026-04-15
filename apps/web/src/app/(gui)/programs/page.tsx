@@ -8,8 +8,10 @@ import {
   PlayIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
+import { cx } from "@marble/ui";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import dynamic from "next/dynamic";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import * as actions from "./actions";
 
@@ -23,23 +25,35 @@ type MonacoLanguage = "typescript" | "json" | "markdown";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   loading: () => (
-    <div className="flex h-full items-center justify-center text-gray-500 text-sm">
+    <div className="flex h-full items-center justify-center text-taupe-500 text-xs">
       Loading editor...
     </div>
   ),
   ssr: false,
 });
 
+const chromeButtonClassName =
+  "inline-flex h-7 items-center justify-center rounded-sm border border-[#d8cfbf] bg-[#fffdf8] px-2.5 font-medium text-[#5f5348] text-[11px] uppercase tracking-[0.18em] transition-colors hover:bg-[#fff4e7] hover:text-[#9a4d10] disabled:cursor-not-allowed disabled:opacity-50";
+const chromeFieldClassName =
+  "w-full rounded-sm border border-taupe-300 bg-taupe-100 px-2 py-1.5 text-taupe-900 text-xs outline-none transition-colors placeholder:text-taupe-500 focus:border-taupe-500 focus:bg-white";
+const chromeHeaderLabelClassName =
+  "font-medium text-taupe-600 text-[11px] uppercase tracking-[0.18em]";
+const primaryButtonClassName =
+  "inline-flex items-center justify-center rounded-sm border border-[#f0b47b] bg-[#fff1e2] font-medium text-[#9a4d10] text-[11px] uppercase tracking-[0.18em] transition-colors hover:bg-[#ffe7cf] disabled:cursor-not-allowed disabled:opacity-50";
+const sidebarHeaderLabelClassName =
+  "font-medium text-[11px] text-white/70 uppercase tracking-[0.18em]";
+
 const monacoEditorOptions = {
   automaticLayout: true,
-  fontFamily: '"Fira Code", "Courier New", monospace',
-  fontLigatures: true,
-  fontSize: 13,
+  fontFamily:
+    '"Geist Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+  fontSize: 12,
+  lineNumbersMinChars: 3,
   minimap: {
     enabled: false,
   },
   padding: {
-    top: 16,
+    top: 12,
   },
   renderWhitespace: "selection",
   scrollBeyondLastLine: false,
@@ -47,18 +61,46 @@ const monacoEditorOptions = {
   tabSize: 2,
 } satisfies MonacoEditorApi.IStandaloneEditorConstructionOptions;
 
+function countLabel(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
 function getMonacoLanguage(file: ProgramFile): MonacoLanguage {
   if (file.filetype === "Json" || file.filename.endsWith(".json")) {
     return "json";
   }
+
   if (file.filetype === "Markdown" || file.filename.endsWith(".md")) {
     return "markdown";
   }
+
   return "typescript";
 }
 
 function getMonacoModelPath(programId: string | null, filename: string) {
   return `inmemory://model/${programId ?? "__draft__"}/${filename}`;
+}
+
+function getLatestVersion(program: FullProgram | undefined) {
+  if (!program?.program_version?.length) {
+    return null;
+  }
+
+  return [
+    ...program.program_version,
+  ].sort((left, right) => right.version - left.version)[0];
+}
+
+function getFileAccent(filename: string) {
+  if (filename.endsWith(".json")) {
+    return "text-amber-600";
+  }
+
+  if (filename.endsWith(".md")) {
+    return "text-zinc-500";
+  }
+
+  return "text-sky-600";
 }
 
 function buildFieldsFromSchema(schema: Record<string, unknown>): {
@@ -68,31 +110,115 @@ function buildFieldsFromSchema(schema: Record<string, unknown>): {
   enumValues?: string[];
   defaultValue?: string;
 }[] {
-  const props = (schema?.properties ?? {}) as Record<
+  const properties = (schema?.properties ?? {}) as Record<
     string,
     Record<string, unknown>
   >;
-  return Object.entries(props).map(([key, def]) => ({
-    defaultValue: def.default as string | undefined,
-    enumValues: def.enum as string[] | undefined,
+
+  return Object.entries(properties).map(([key, definition]) => ({
+    defaultValue: definition.default as string | undefined,
+    enumValues: definition.enum as string[] | undefined,
     key,
-    title: (def.title as string) ?? key,
-    type: (def.type as string) ?? "string",
+    title: (definition.title as string) ?? key,
+    type: (definition.type as string) ?? "string",
   }));
 }
 
-export default function TestProgramsPage() {
-  const [programs, setPrograms] = useState<FullProgram[]>([]);
-  const [selectedProgId, setSelectedProgId] = useState<string | null>(null);
+function CompactBadge({
+  children,
+  tone = "neutral",
+}: Readonly<{
+  children: React.ReactNode;
+  tone?: "neutral" | "orange";
+}>) {
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center rounded-full border px-2 py-0.5 font-medium text-[10px] uppercase tracking-[0.18em]",
+        tone === "neutral" && "border-taupe-300 bg-taupe-100 text-taupe-700",
+        tone === "orange" && "border-taupe-500 bg-taupe-200 text-taupe-900",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
 
-  // Editor State
+function ProgramRow({
+  active,
+  onSelect,
+  program,
+}: Readonly<{
+  active: boolean;
+  onSelect: () => void;
+  program: FullProgram;
+}>) {
+  const latestVersion = getLatestVersion(program);
+
+  return (
+    <button
+      aria-pressed={active}
+      className={cx(
+        "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
+        active ? "bg-taupe-600 text-white" : "text-white/92 hover:bg-taupe-700",
+      )}
+      onClick={onSelect}
+      type="button"
+    >
+      <CodeBracketIcon className="h-4 w-4 shrink-0 text-taupe-200" />
+      <span className="flex-1 truncate">
+        {program.name || "Untitled Program"}
+      </span>
+      {latestVersion ? (
+        <span className="font-mono text-[11px] text-white/55">
+          v{latestVersion.version}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
+function FileRow({
+  active,
+  file,
+  onSelect,
+}: Readonly<{
+  active: boolean;
+  file: ProgramFile;
+  onSelect: () => void;
+}>) {
+  return (
+    <button
+      aria-pressed={active}
+      className={cx(
+        "flex w-full items-center gap-2 px-5 py-1.5 text-left text-sm transition-colors",
+        active ? "bg-taupe-600 text-white" : "text-white/92 hover:bg-taupe-700",
+      )}
+      onClick={onSelect}
+      type="button"
+    >
+      <DocumentTextIcon
+        className={cx("h-4 w-4 shrink-0", getFileAccent(file.filename))}
+      />
+      <span className="flex-1 truncate">{file.filename}</span>
+    </button>
+  );
+}
+
+export default function ProgramsPage() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [programs, setPrograms] = useState<FullProgram[]>([]);
+
+  // Editor state
   const [files, setFiles] = useState<ProgramFile[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [progName, setProgName] = useState("");
   const [inputSchemaStr, setInputSchemaStr] = useState("{}");
   const [outputConfigStr, setOutputConfigStr] = useState("{}");
 
-  // Runner State
+  // Runner state
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [manualInput, setManualInput] = useState("");
   const [result, setResult] = useState<{
@@ -104,36 +230,49 @@ export default function TestProgramsPage() {
   const [saving, setSaving] = useState(false);
   const [log, setLog] = useState<string[]>([]);
 
+  const selectedProgId = searchParams.get("programId");
+  const selectedProgram = programs.find(
+    (program) => program.id === selectedProgId,
+  );
+  const latestVersion = getLatestVersion(selectedProgram);
+
   const loadPrograms = useCallback(async () => {
-    const progs = await actions.listPrograms();
-    setPrograms(progs);
+    const nextPrograms = await actions.listPrograms();
+    setPrograms(nextPrograms);
   }, []);
 
   useEffect(() => {
-    loadPrograms();
+    void loadPrograms();
   }, [
     loadPrograms,
   ]);
 
-  const addLog = useCallback((msg: string) => {
-    const ts = new Date().toLocaleTimeString();
-    setLog((prev) =>
+  const selectProgram = useCallback(
+    (programId: string | null) => {
+      router.replace(
+        programId ? `${pathname}?programId=${programId}` : pathname,
+      );
+    },
+    [
+      pathname,
+      router,
+    ],
+  );
+
+  const addLog = useCallback((message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setLog((current) =>
       [
-        `[${ts}] ${msg}`,
-        ...prev,
+        `[${timestamp}] ${message}`,
+        ...current,
       ].slice(0, 50),
     );
   }, []);
 
-  const selectedProgram = programs.find((p) => p.id === selectedProgId);
-  const latestVersion = selectedProgram?.program_version?.length
-    ? selectedProgram.program_version.sort((a, b) => b.version - a.version)[0]
-    : null;
-
-  // Load program into editor
   useEffect(() => {
     if (selectedProgram) {
       setProgName(selectedProgram.name);
+
       if (latestVersion) {
         setFiles(latestVersion.program_file || []);
         setActiveFile(latestVersion.program_file?.[0]?.filename || null);
@@ -147,35 +286,46 @@ export default function TestProgramsPage() {
         setInputSchemaStr("{}");
         setOutputConfigStr("{}");
       }
-    } else {
-      setProgName("");
-      setFiles([]);
-      setActiveFile(null);
+
+      return;
     }
+
+    setProgName("");
+    setFiles([]);
+    setActiveFile(null);
+    setInputSchemaStr("{}");
+    setOutputConfigStr("{}");
   }, [
-    selectedProgram,
     latestVersion,
+    selectedProgram,
   ]);
 
-  // Load inputs for runner
   useEffect(() => {
     if (latestVersion) {
       const schema = latestVersion.input_schema as Record<string, unknown>;
-      const fs = schema ? buildFieldsFromSchema(schema) : [];
+      const fields = buildFieldsFromSchema(schema);
       const defaults: Record<string, string> = {};
-      for (const f of fs)
-        defaults[f.key] = f.defaultValue ?? f.enumValues?.[0] ?? "";
+
+      for (const field of fields) {
+        defaults[field.key] = field.defaultValue ?? field.enumValues?.[0] ?? "";
+      }
+
       setInputValues(defaults);
       setManualInput("");
       setResult(null);
+      return;
     }
+
+    setInputValues({});
+    setManualInput("");
+    setResult(null);
   }, [
     latestVersion,
   ]);
 
   const handleCreateProgram = () => {
-    setSelectedProgId(null);
-    setProgName("New Program");
+    selectProgram(null);
+    setProgName("Untitled Program");
     setFiles([
       {
         content:
@@ -210,60 +360,78 @@ export default function TestProgramsPage() {
         2,
       ),
     );
+    setLog([]);
+    setResult(null);
   };
 
   const handleAddFile = () => {
-    const name = window.prompt(
+    const filename = window.prompt(
       "Enter filename (e.g. utils.ts, data.json):",
       "utils.ts",
     );
-    if (!name) return;
-    const filetype = name.endsWith(".json")
+
+    if (!filename) {
+      return;
+    }
+
+    const filetype = filename.endsWith(".json")
       ? "Json"
-      : name.endsWith(".md")
+      : filename.endsWith(".md")
         ? "Markdown"
         : "TypeScript";
-    setFiles((prev) => [
-      ...prev,
+
+    setFiles((current) => [
+      ...current,
       {
         content: "",
-        filename: name,
+        filename,
         filetype,
       },
     ]);
-    setActiveFile(name);
+    setActiveFile(filename);
   };
 
-  const activeFileObj = files.find((f) => f.filename === activeFile);
+  const activeFileObj = files.find((file) => file.filename === activeFile);
 
   const handleCodeChange = (newCode: string) => {
-    if (!activeFile) return;
-    setFiles((prev) =>
-      prev.map((f) =>
-        f.filename === activeFile
+    if (!activeFile) {
+      return;
+    }
+
+    setFiles((current) =>
+      current.map((file) =>
+        file.filename === activeFile
           ? {
-              ...f,
+              ...file,
               content: newCode,
             }
-          : f,
+          : file,
       ),
     );
   };
 
   const handleSave = async () => {
-    if (!progName) return window.alert("Program name is required");
+    if (!progName.trim()) {
+      window.alert("Program name is required");
+      return;
+    }
+
     setSaving(true);
     addLog(`Saving program "${progName}"...`);
+
     try {
-      let parsedInput: unknown, parsedOutput: unknown;
+      let parsedInput: unknown;
+      let parsedOutput: unknown;
+
       try {
         parsedInput = JSON.parse(inputSchemaStr);
-      } catch (_e) {
+      } catch {
         throw new Error("Invalid Input Schema JSON");
       }
+
       try {
         parsedOutput = JSON.parse(outputConfigStr);
-      } catch (_e) {
+      } catch {
         throw new Error("Invalid Output Config JSON");
       }
 
@@ -275,12 +443,12 @@ export default function TestProgramsPage() {
         files,
       );
 
-      addLog(`✓ Saved successfully.`);
+      addLog("✓ Saved successfully.");
       await loadPrograms();
-      setSelectedProgId(programId);
-    } catch (err) {
+      selectProgram(programId);
+    } catch (error) {
       addLog(
-        `✗ Save failed: ${err instanceof Error ? err.message : String(err)}`,
+        `✗ Save failed: ${error instanceof Error ? error.message : String(error)}`,
       );
     } finally {
       setSaving(false);
@@ -288,32 +456,38 @@ export default function TestProgramsPage() {
   };
 
   const handleRun = async () => {
-    if (!selectedProgId)
-      return window.alert("You must save the program first!");
-    // we assume the latest version is the one we want to run. If they have unsaved changes, they should save.
-    if (!latestVersion)
-      return window.alert("No version to run. Please save first.");
+    if (!selectedProgId) {
+      window.alert("You must save the program first.");
+      return;
+    }
+
+    if (!latestVersion) {
+      window.alert("No version to run. Please save first.");
+      return;
+    }
 
     setRunning(true);
     setResult(null);
     addLog(`▶ Running "${progName}" (v${latestVersion.version})...`);
 
     try {
-      const res = await actions.testProgram(
+      const nextResult = await actions.testProgram(
         latestVersion.id,
         inputValues,
         manualInput || undefined,
       );
-      setResult(res);
-      addLog(res.ok ? `✓ Success` : `✗ Failed: ${res.error}`);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+
+      setResult(nextResult);
+      addLog(nextResult.ok ? "✓ Success" : `✗ Failed: ${nextResult.error}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
       setResult({
-        error: msg,
+        error: message,
         ok: false,
         output: null,
       });
-      addLog(`✗ Error: ${msg}`);
+      addLog(`✗ Error: ${message}`);
     } finally {
       setRunning(false);
     }
@@ -333,48 +507,56 @@ export default function TestProgramsPage() {
     )?.allowManualInput === true;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#1e1e1e] font-sans text-[#d4d4d4]">
-      {/* LEFT SIDEBAR */}
-      <div className="flex w-64 shrink-0 flex-col border-[#3c3c3c] border-r bg-[#252526]">
-        <div className="p-3 font-semibold text-gray-400 text-xs uppercase tracking-wider">
-          Programs
+    <div
+      className="flex size-full min-h-0 overflow-hidden bg-[linear-gradient(180deg,#f8f5ee_0%,#f4efe6_100%)] text-zinc-800"
+      style={{
+        colorScheme: "light",
+      }}
+    >
+      <div className="flex w-60 shrink-0 flex-col border-r border-taupe-700 bg-taupe-800">
+        <div className="flex items-center border-b border-taupe-700 px-3 py-2">
+          <span className={sidebarHeaderLabelClassName}>Programs</span>
         </div>
+
         <div className="flex-1 overflow-y-auto">
           <button
-            className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left hover:bg-[#2a2d2e] ${!selectedProgId ? "bg-[#37373d]" : ""}`}
+            className={cx(
+              "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
+              !selectedProgId && files.length > 0
+                ? "bg-taupe-600 text-white"
+                : "text-white/92 hover:bg-taupe-700",
+            )}
             onClick={handleCreateProgram}
             type="button"
           >
-            <PlusIcon className="h-4 w-4 text-emerald-400" />
-            <span className="text-sm">New Program</span>
+            <PlusIcon className="h-4 w-4 shrink-0 text-taupe-200" />
+            <span className="truncate">New Program</span>
           </button>
-          {programs.map((p) => (
-            <button
-              className={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left hover:bg-[#2a2d2e] ${selectedProgId === p.id ? "bg-[#37373d]" : ""}`}
-              key={p.id}
-              onClick={() => setSelectedProgId(p.id)}
-              type="button"
-            >
-              <CodeBracketIcon className="h-4 w-4 text-blue-400" />
-              <span className="flex-1 truncate text-sm">{p.name}</span>
-              {p.program_version?.length > 0 && (
-                <span className="text-gray-500 text-xs">
-                  v{Math.max(...p.program_version.map((v) => v.version))}
-                </span>
-              )}
-            </button>
+
+          {programs.map((program) => (
+            <ProgramRow
+              active={selectedProgId === program.id}
+              key={program.id}
+              onSelect={() => selectProgram(program.id)}
+              program={program}
+            />
           ))}
         </div>
 
-        {/* FILE EXPLORER FOR SELECTED PROGRAM */}
-        {(selectedProgId || files.length > 0) && (
-          <div className="flex h-1/2 flex-col border-[#3c3c3c] border-t">
-            <div className="group flex items-center justify-between p-3">
-              <span className="flex items-center gap-1 font-semibold text-gray-400 text-xs uppercase tracking-wider">
-                <FolderOpenIcon className="h-4 w-4" /> Workspace
+        {selectedProgId || files.length > 0 ? (
+          <div className="flex min-h-0 basis-[42%] flex-col border-t border-taupe-700">
+            <div className="flex items-center justify-between px-3 py-2">
+              <span
+                className={cx(
+                  sidebarHeaderLabelClassName,
+                  "flex items-center gap-1.5",
+                )}
+              >
+                <FolderOpenIcon className="h-4 w-4" />
+                Workspace
               </span>
               <button
-                className="text-gray-400 hover:text-white"
+                className="text-white/65 transition-colors hover:text-white"
                 onClick={handleAddFile}
                 title="New File"
                 type="button"
@@ -382,40 +564,44 @@ export default function TestProgramsPage() {
                 <DocumentPlusIcon className="h-4 w-4" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto pb-4">
-              {files.map((f) => (
-                <button
-                  className={`flex w-full cursor-pointer items-center gap-2 px-6 py-1 text-left hover:bg-[#2a2d2e] ${activeFile === f.filename ? "bg-[#37373d] text-white" : "text-gray-300"}`}
-                  key={f.filename}
-                  onClick={() => setActiveFile(f.filename)}
-                  type="button"
-                >
-                  <DocumentTextIcon
-                    className={`h-4 w-4 ${f.filename.endsWith(".ts") ? "text-blue-400" : f.filename.endsWith(".json") ? "text-yellow-400" : "text-gray-400"}`}
-                  />
-                  <span className="truncate text-sm">{f.filename}</span>
-                </button>
+
+            <div className="flex-1 overflow-y-auto pb-2">
+              {files.map((file) => (
+                <FileRow
+                  active={activeFile === file.filename}
+                  file={file}
+                  key={file.filename}
+                  onSelect={() => setActiveFile(file.filename)}
+                />
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
 
-      {/* MIDDLE: EDITOR */}
-      <div className="flex min-w-0 flex-1 flex-col bg-[#1e1e1e]">
-        {/* Editor Top Bar */}
-        <div className="flex h-10 items-center gap-4 border-[#3c3c3c] border-b bg-[#2d2d2d] px-4">
+      <div className="flex min-w-0 flex-1 flex-col bg-taupe-50">
+        <div className="flex h-9 items-center gap-2 border-b border-taupe-200 bg-taupe-100 px-3">
           <input
-            className="bg-transparent font-semibold text-sm placeholder-gray-500 focus:outline-none"
-            onChange={(e) => setProgName(e.target.value)}
+            className="h-7 min-w-0 flex-1 rounded-sm border border-taupe-300 bg-taupe-50 px-2 font-medium text-sm text-taupe-900 outline-none transition-colors placeholder:text-taupe-500 focus:border-taupe-500 focus:bg-white"
+            onChange={(event) => setProgName(event.target.value)}
             placeholder="Program Name..."
             type="text"
             value={progName}
           />
-          <div className="flex-1" />
+
+          {selectedProgram?.first_party ? (
+            <CompactBadge tone="orange">Built-in</CompactBadge>
+          ) : null}
+          {latestVersion ? (
+            <CompactBadge>v{latestVersion.version}</CompactBadge>
+          ) : null}
+          {files.length > 0 ? (
+            <CompactBadge>{countLabel(files.length, "file")}</CompactBadge>
+          ) : null}
+
           <button
-            className="rounded bg-blue-600 px-3 py-1 text-white text-xs shadow-sm hover:bg-blue-500 disabled:opacity-50"
-            disabled={saving}
+            className={chromeButtonClassName}
+            disabled={saving || !progName.trim() || files.length === 0}
             onClick={handleSave}
             type="button"
           >
@@ -423,39 +609,45 @@ export default function TestProgramsPage() {
           </button>
         </div>
 
-        {/* File Tabs */}
-        {files.length > 0 && (
-          <div className="no-scrollbar flex overflow-x-auto border-[#3c3c3c] border-b bg-[#252526]">
-            {files.map((f) => (
+        {files.length > 0 ? (
+          <div className="flex h-8 overflow-x-auto border-b border-taupe-200 bg-taupe-100">
+            {files.map((file) => (
               <button
-                className={`flex cursor-pointer items-center gap-2 border-[#3c3c3c] border-r px-4 py-2 text-sm ${activeFile === f.filename ? "border-t-2 border-t-blue-500 bg-[#1e1e1e] text-white" : "text-gray-400 hover:bg-[#2d2d2d]"}`}
-                key={f.filename}
-                onClick={() => setActiveFile(f.filename)}
+                className={cx(
+                  "flex items-center gap-2 border-r border-taupe-200 px-3 text-xs transition-colors",
+                  activeFile === file.filename
+                    ? "border-t-2 border-t-taupe-500 bg-white text-taupe-900"
+                    : "text-taupe-600 hover:bg-taupe-200",
+                )}
+                key={file.filename}
+                onClick={() => setActiveFile(file.filename)}
                 type="button"
               >
-                <DocumentTextIcon className="h-4 w-4" />
-                {f.filename}
+                <DocumentTextIcon
+                  className={cx("h-4 w-4", getFileAccent(file.filename))}
+                />
+                <span className="max-w-40 truncate">{file.filename}</span>
               </button>
             ))}
+
             <button
-              className="flex cursor-pointer items-center px-4 py-2 text-gray-400 text-sm hover:bg-[#2d2d2d]"
+              className="flex items-center px-3 text-taupe-600 text-xs transition-colors hover:bg-taupe-200 hover:text-taupe-900"
               onClick={handleAddFile}
               type="button"
             >
               <PlusIcon className="h-4 w-4" />
             </button>
           </div>
-        )}
+        ) : null}
 
-        {/* Code Editor */}
-        <div className="relative flex-1 overflow-auto">
+        <div className="relative flex-1 overflow-hidden bg-white">
           {activeFileObj ? (
             <div className="absolute inset-0">
               <MonacoEditor
                 height="100%"
                 language={getMonacoLanguage(activeFileObj)}
                 loading={
-                  <div className="flex h-full items-center justify-center text-gray-500 text-sm">
+                  <div className="flex h-full items-center justify-center text-taupe-500 text-xs">
                     Loading Monaco...
                   </div>
                 }
@@ -465,39 +657,39 @@ export default function TestProgramsPage() {
                   selectedProgId,
                   activeFileObj.filename,
                 )}
-                theme="vs-dark"
+                theme="vs"
                 value={activeFileObj.content}
               />
             </div>
           ) : (
-            <div className="flex h-full items-center justify-center text-gray-500">
-              Select or create a file to edit
+            <div className="flex h-full items-center justify-center text-taupe-500 text-xs">
+              Select or create a file to edit.
             </div>
           )}
         </div>
 
-        {/* Bottom Panel: Output / Terminal */}
-        <div className="flex h-48 shrink-0 flex-col border-[#3c3c3c] border-t bg-[#1e1e1e]">
-          <div className="flex items-center border-[#3c3c3c] border-b px-4 py-1 text-gray-400 text-xs uppercase tracking-wider">
-            Output Log
+        <div className="flex h-36 shrink-0 flex-col border-t border-taupe-200 bg-taupe-50">
+          <div className="border-b border-taupe-200 px-3 py-2">
+            <span className={chromeHeaderLabelClassName}>Output Log</span>
           </div>
-          <div className="flex-1 overflow-y-auto p-2 font-mono text-xs">
+
+          <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-5">
             {log.length === 0 ? (
-              <span className="text-gray-600">No output yet...</span>
+              <span className="text-taupe-500">No output yet...</span>
             ) : (
-              log.map((l, i) => (
+              log.map((entry, index) => (
                 <div
-                  className={
-                    l.includes("✗")
-                      ? "text-red-400"
-                      : l.includes("✓")
-                        ? "text-green-400"
-                        : "text-gray-300"
-                  }
-                  // biome-ignore lint/suspicious/noArrayIndexKey: log
-                  key={`${i}-${l.slice(0, 16)}`}
+                  className={cx(
+                    entry.includes("✗")
+                      ? "text-red-600"
+                      : entry.includes("✓")
+                        ? "text-emerald-700"
+                        : "text-taupe-800",
+                  )}
+                  // biome-ignore lint/suspicious/noArrayIndexKey: log entries are append-only UI state
+                  key={`${index}-${entry.slice(0, 16)}`}
                 >
-                  {l}
+                  {entry}
                 </div>
               ))
             )}
@@ -505,116 +697,118 @@ export default function TestProgramsPage() {
         </div>
       </div>
 
-      {/* RIGHT SIDEBAR: SETTINGS & RUNNER */}
-      <div className="flex w-80 shrink-0 flex-col border-[#3c3c3c] border-l bg-[#252526]">
-        <div className="border-[#3c3c3c] border-b p-3 font-semibold text-gray-400 text-xs uppercase tracking-wider">
-          Configuration & Test
+      <div className="flex w-80 shrink-0 flex-col border-l border-taupe-700 bg-taupe-800">
+        <div className="flex items-center border-b border-taupe-700 px-3 py-2">
+          <span className={sidebarHeaderLabelClassName}>
+            Configuration & Test
+          </span>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {/* Schema Config */}
-          <div className="border-[#3c3c3c] border-b p-4">
-            <div className="mb-2 font-semibold text-gray-400 text-xs">
-              INPUT SCHEMA
+          <div className="border-b border-taupe-700 p-3">
+            <div className="mb-2">
+              <span className={sidebarHeaderLabelClassName}>Input Schema</span>
             </div>
             <textarea
-              className="h-24 w-full rounded border border-[#3c3c3c] bg-[#1e1e1e] p-2 font-mono text-xs focus:border-blue-500 focus:outline-none"
-              onChange={(e) => setInputSchemaStr(e.target.value)}
+              className={cx(chromeFieldClassName, "h-28 resize-y font-mono")}
+              onChange={(event) => setInputSchemaStr(event.target.value)}
               value={inputSchemaStr}
             />
 
-            <div className="mt-4 mb-2 font-semibold text-gray-400 text-xs">
-              OUTPUT CONFIG
+            <div className="mt-4 mb-2">
+              <span className={sidebarHeaderLabelClassName}>Output Config</span>
             </div>
             <textarea
-              className="h-24 w-full rounded border border-[#3c3c3c] bg-[#1e1e1e] p-2 font-mono text-xs focus:border-blue-500 focus:outline-none"
-              onChange={(e) => setOutputConfigStr(e.target.value)}
+              className={cx(chromeFieldClassName, "h-28 resize-y font-mono")}
+              onChange={(event) => setOutputConfigStr(event.target.value)}
               value={outputConfigStr}
             />
           </div>
 
-          {/* Test Runner */}
-          <div className="p-4">
-            <div className="mb-3 font-semibold text-gray-400 text-xs">
-              TEST INPUTS
+          <div className="p-3">
+            <div className="mb-3 flex items-center gap-2">
+              <span className={sidebarHeaderLabelClassName}>Test Inputs</span>
+              {selectedProgram?.first_party ? (
+                <CompactBadge tone="orange">Built-in</CompactBadge>
+              ) : null}
             </div>
 
-            {fields.length === 0 && (
-              <div className="mb-2 text-gray-500 text-xs italic">
+            {fields.length === 0 ? (
+              <div className="mb-3 text-white/60 text-xs italic">
                 No inputs required.
               </div>
-            )}
+            ) : null}
 
-            {fields.map((f) => (
+            {fields.map((field) => (
               <div
                 className="mb-3"
-                key={f.key}
+                key={field.key}
               >
                 <label
-                  className="mb-1 block text-gray-300 text-xs"
-                  htmlFor={`input-${f.key}`}
+                  className="mb-1 block text-white/85 text-xs"
+                  htmlFor={`input-${field.key}`}
                 >
-                  {f.title}
+                  {field.title}
                 </label>
-                {f.enumValues ? (
+                {field.enumValues ? (
                   <select
-                    className="w-full rounded border border-[#3c3c3c] bg-[#1e1e1e] px-2 py-1 text-sm outline-none focus:border-blue-500"
-                    id={`input-${f.key}`}
-                    onChange={(e) =>
-                      setInputValues((p) => ({
-                        ...p,
-                        [f.key]: e.target.value,
+                    className={chromeFieldClassName}
+                    id={`input-${field.key}`}
+                    onChange={(event) =>
+                      setInputValues((current) => ({
+                        ...current,
+                        [field.key]: event.target.value,
                       }))
                     }
-                    value={inputValues[f.key] ?? ""}
+                    value={inputValues[field.key] ?? ""}
                   >
-                    {f.enumValues.map((v) => (
+                    {field.enumValues.map((value) => (
                       <option
-                        key={v}
-                        value={v}
+                        key={value}
+                        value={value}
                       >
-                        {v}
+                        {value}
                       </option>
                     ))}
                   </select>
                 ) : (
                   <input
-                    className="w-full rounded border border-[#3c3c3c] bg-[#1e1e1e] px-2 py-1 text-sm outline-none focus:border-blue-500"
-                    id={`input-${f.key}`}
-                    onChange={(e) =>
-                      setInputValues((p) => ({
-                        ...p,
-                        [f.key]: e.target.value,
+                    className={chromeFieldClassName}
+                    id={`input-${field.key}`}
+                    onChange={(event) =>
+                      setInputValues((current) => ({
+                        ...current,
+                        [field.key]: event.target.value,
                       }))
                     }
-                    type="text"
-                    value={inputValues[f.key] ?? ""}
+                    type={field.type === "number" ? "number" : "text"}
+                    value={inputValues[field.key] ?? ""}
                   />
                 )}
               </div>
             ))}
 
-            {hasManualInput && (
+            {hasManualInput ? (
               <div className="mb-3">
                 <label
-                  className="mb-1 block text-gray-300 text-xs"
+                  className="mb-1 block text-white/85 text-xs"
                   htmlFor="manual-input"
                 >
                   Manual Cell Input
                 </label>
                 <input
-                  className="w-full rounded border border-[#3c3c3c] bg-[#1e1e1e] px-2 py-1 text-sm outline-none focus:border-blue-500"
+                  className={chromeFieldClassName}
                   id="manual-input"
-                  onChange={(e) => setManualInput(e.target.value)}
+                  onChange={(event) => setManualInput(event.target.value)}
                   placeholder="Cell value..."
                   type="text"
                   value={manualInput}
                 />
               </div>
-            )}
+            ) : null}
 
             <button
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded bg-emerald-600 px-4 py-2 text-white shadow transition-colors hover:bg-emerald-500 disabled:opacity-50"
+              className={cx(primaryButtonClassName, "mt-1 h-8 w-full gap-2")}
               disabled={running || !latestVersion}
               onClick={handleRun}
               type="button"
@@ -623,20 +817,23 @@ export default function TestProgramsPage() {
               {running ? "Running..." : "Run Program"}
             </button>
 
-            {result && (
-              <div className="mt-4 rounded border border-[#3c3c3c] bg-[#1e1e1e]">
+            {result ? (
+              <div className="mt-4 overflow-hidden rounded-sm border border-taupe-300 bg-taupe-50">
                 <div
-                  className={`border-[#3c3c3c] border-b px-3 py-1.5 font-semibold text-xs ${result.ok ? "text-green-400" : "text-red-400"}`}
+                  className={cx(
+                    "border-b border-taupe-200 px-3 py-1.5 font-medium text-[11px] uppercase tracking-[0.18em]",
+                    result.ok ? "text-emerald-700" : "text-red-600",
+                  )}
                 >
                   {result.ok ? "Success" : "Error"}
                 </div>
-                <div className="max-h-48 overflow-auto break-words p-3 font-mono text-xs">
+                <div className="max-h-48 overflow-auto break-words px-3 py-2 font-mono text-[11px] leading-5 text-taupe-800">
                   {result.ok
                     ? JSON.stringify(result.output, null, 2)
                     : result.error}
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </div>

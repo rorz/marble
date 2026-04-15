@@ -1,28 +1,17 @@
 "use server";
 
 import type { Database } from "@marble/supabase";
+import { revalidatePath } from "next/cache";
 import { requireUser } from "../../../lib/auth";
 import { callMarbleApi } from "../../../lib/marble-api";
 import { createClient as createServerClient } from "../../../lib/supabase/server";
 import { createServiceRoleClient } from "../../../lib/supabase/service-role";
+import { PROFILE_RECORD_SELECT, type ProfileRecord } from "./shared";
 
-const PROFILE_RECORD_SELECT =
-  "created_at, external_name, id, name, owner_user_id, type, updated_at";
 const PROFILE_TYPES = new Set<ProfileType>([
   "Agent",
   "Human",
 ]);
-
-type ProfileRecord = Pick<
-  Database["public"]["Tables"]["profile"]["Row"],
-  | "created_at"
-  | "external_name"
-  | "id"
-  | "name"
-  | "owner_user_id"
-  | "type"
-  | "updated_at"
->;
 type ProfileType = Database["public"]["Enums"]["profile_type"];
 
 function readFormValue(formData: FormData, key: string) {
@@ -72,12 +61,16 @@ async function requireOwnedProfile(profileId: string) {
 export async function createProfileAction(formData: FormData) {
   const profile = normalizeProfile(formData);
 
-  return callMarbleApi<ProfileRecord>("/profiles", {
+  const createdProfile = await callMarbleApi<ProfileRecord>("/profiles", {
     body: profile,
     method: "POST",
     profileId: false,
     requireActorProfile: false,
   });
+
+  revalidatePath("/profiles");
+
+  return createdProfile;
 }
 
 export async function updateProfileAction(
@@ -87,10 +80,17 @@ export async function updateProfileAction(
   await requireOwnedProfile(profileId);
   const profile = normalizeProfile(formData);
 
-  return callMarbleApi<ProfileRecord>(`/profiles/${profileId}`, {
-    body: profile,
-    method: "PATCH",
-  });
+  const updatedProfile = await callMarbleApi<ProfileRecord>(
+    `/profiles/${profileId}`,
+    {
+      body: profile,
+      method: "PATCH",
+    },
+  );
+
+  revalidatePath("/profiles");
+
+  return updatedProfile;
 }
 
 export async function deleteProfileAction(profileId: string) {
@@ -110,4 +110,6 @@ export async function deleteProfileAction(profileId: string) {
 
     throw error;
   }
+
+  revalidatePath("/profiles");
 }

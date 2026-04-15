@@ -1,22 +1,8 @@
-import type { Database } from "@marble/supabase";
-import { Pane } from "../../../components/pane";
+import { MarblePane } from "@marble/ui";
 import { requireUser } from "../../../lib/auth";
 import { createClient } from "../../../lib/supabase/server";
+import { PROFILE_RECORD_SELECT, type ProfileRecord } from "./shared";
 import { ProfilesPageView } from "./view";
-
-const PROFILE_RECORD_SELECT =
-  "created_at, external_name, id, name, owner_user_id, type, updated_at";
-
-type ProfileRecord = Pick<
-  Database["public"]["Tables"]["profile"]["Row"],
-  | "created_at"
-  | "external_name"
-  | "id"
-  | "name"
-  | "owner_user_id"
-  | "type"
-  | "updated_at"
->;
 
 export default async function Profile4Page() {
   const user = await requireUser();
@@ -34,7 +20,7 @@ export default async function Profile4Page() {
   }
 
   return (
-    <Pane
+    <MarblePane
       description="Create a profile for each agent you intend to use with Marble. Every action taken on your account will be tracked according to its profile so that you can easily view changes according to who made them."
       title="Profiles"
       width="Narrow"
@@ -43,6 +29,6 @@ export default async function Profile4Page() {
         initialProfiles={(data ?? []) as ProfileRecord[]}
         userId={user.id}
       />
-    </Pane>
+    </MarblePane>
   );
 }

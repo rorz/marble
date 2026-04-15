@@ -1,5 +1,6 @@
 "use client";
 
+import { MarbleAlert, MarbleBadge, MarbleEmptyState } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { startTransition, useState } from "react";
 import {
@@ -206,9 +207,12 @@ export function ProfileManager({
         </div>
 
         {error ? (
-          <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700 text-sm">
+          <MarbleAlert
+            className="mt-4 rounded-xl"
+            tone="error"
+          >
             {error}
-          </p>
+          </MarbleAlert>
         ) : null}
 
         {lastCreatedKey ? (
@@ -273,9 +277,12 @@ export function ProfileManager({
         </div>
 
         {error ? (
-          <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700 text-sm">
+          <MarbleAlert
+            className="mt-4 rounded-xl"
+            tone="error"
+          >
             {error}
-          </p>
+          </MarbleAlert>
         ) : null}
       </section>
 
@@ -294,10 +301,11 @@ export function ProfileManager({
 
         {profiles.length === 0 ? (
           <div className="rounded-2xl border border-zinc-300 border-dashed bg-white p-10 text-center">
-            <p className="font-medium text-sm text-zinc-900">No profiles yet</p>
-            <p className="mt-1 text-sm text-zinc-500">
-              Create an agent profile above, then mint a key onto it.
-            </p>
+            <MarbleEmptyState
+              className="py-0"
+              description="Create an agent profile above, then mint a key onto it."
+              title="No profiles yet"
+            />
           </div>
         ) : (
           <div className="grid gap-4">
@@ -312,13 +320,19 @@ export function ProfileManager({
                       <h3 className="font-semibold text-base text-zinc-900">
                         {profile.name}
                       </h3>
-                      <span className="rounded-full bg-zinc-100 px-2 py-1 font-medium text-[11px] text-zinc-500 uppercase tracking-[0.18em]">
+                      <MarbleBadge
+                        caps
+                        tone="neutral"
+                      >
                         {profile.type}
-                      </span>
+                      </MarbleBadge>
                       {profile.external_name ? (
-                        <span className="rounded-full bg-orange-50 px-2 py-1 font-medium text-[11px] text-orange-700 uppercase tracking-[0.18em]">
+                        <MarbleBadge
+                          caps
+                          tone="warning"
+                        >
                           {profile.external_name}
-                        </span>
+                        </MarbleBadge>
                       ) : null}
                     </div>
 
@@ -343,9 +357,13 @@ export function ProfileManager({
 
                 <div className="mt-4 overflow-hidden rounded-xl border border-zinc-200">
                   {profile.keys.length === 0 ? (
-                    <div className="bg-zinc-50 px-4 py-4 text-sm text-zinc-500">
+                    <MarbleAlert
+                      className="m-4"
+                      size="sm"
+                      tone="neutral"
+                    >
                       No keys yet.
-                    </div>
+                    </MarbleAlert>
                   ) : (
                     <div className="divide-y divide-zinc-200">
                       {profile.keys.map((key) => (
@@ -405,10 +423,11 @@ export function ProfileManager({
 
         {orderedSecrets.length === 0 ? (
           <div className="rounded-2xl border border-zinc-300 border-dashed bg-white p-10 text-center">
-            <p className="font-medium text-sm text-zinc-900">No secrets yet</p>
-            <p className="mt-1 text-sm text-zinc-500">
-              Add a user-defined secret above to inject it into program runs.
-            </p>
+            <MarbleEmptyState
+              className="py-0"
+              description="Add a user-defined secret above to inject it into program runs."
+              title="No secrets yet"
+            />
           </div>
         ) : (
           <div className="grid gap-4">
@@ -431,20 +450,29 @@ export function ProfileManager({
                         <h3 className="font-mono font-semibold text-sm text-zinc-900">
                           {secret.name}
                         </h3>
-                        <span className="rounded-full bg-zinc-100 px-2 py-1 font-medium text-[11px] text-zinc-500 uppercase tracking-[0.18em]">
+                        <MarbleBadge
+                          caps
+                          tone="neutral"
+                        >
                           {secret.category === "Managed"
                             ? "Managed"
                             : "User defined"}
-                        </span>
+                        </MarbleBadge>
                         {overridesManaged ? (
-                          <span className="rounded-full bg-emerald-50 px-2 py-1 font-medium text-[11px] text-emerald-700 uppercase tracking-[0.18em]">
+                          <MarbleBadge
+                            caps
+                            tone="success"
+                          >
                             Overrides managed
-                          </span>
+                          </MarbleBadge>
                         ) : null}
                         {overriddenByUser ? (
-                          <span className="rounded-full bg-amber-50 px-2 py-1 font-medium text-[11px] text-amber-700 uppercase tracking-[0.18em]">
+                          <MarbleBadge
+                            caps
+                            tone="warning"
+                          >
                             Overridden
-                          </span>
+                          </MarbleBadge>
                         ) : null}
                       </div>
 
