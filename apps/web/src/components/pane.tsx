@@ -59,9 +59,9 @@ export const Pane: FunctionComponent<PaneProps> = ({
       <div className="p-4 size-full flex justify-center">
         <div
           className={cx(
-            "h-full flex flex-col",
-            width === "Full" ? "w-full" : "max-w-2xl",
-            crumbs === undefined && "pt-12",
+            "h-full flex flex-col w-full",
+            width === "Narrow" && "max-w-2xl",
+            crumbs === undefined && width === "Narrow" && "pt-12",
           )}
         >
           {title && <h2 className="text-2xl mb-4">{title}</h2>}
