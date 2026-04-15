@@ -29,6 +29,14 @@ function clearSupabaseAuthCookies(
   return response;
 }
 
+function copySupabaseCookies(source: NextResponse, target: NextResponse) {
+  for (const cookie of source.cookies.getAll()) {
+    target.cookies.set(cookie.name, cookie.value, cookie);
+  }
+
+  return target;
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request,
@@ -91,7 +99,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (signedIn && pathname === "/") {
-    return NextResponse.redirect(new URL("/projects", request.url));
+    return copySupabaseCookies(
+      response,
+      NextResponse.redirect(new URL("/projects", request.url)),
+    );
   }
 
   if (authCookieNames.length > 0) {

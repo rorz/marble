@@ -4,12 +4,19 @@ import { createClient } from "./supabase/server";
 
 export async function getCurrentUser() {
   const supabase = await createClient();
+  const { data: claimsData, error: claimsError } =
+    await supabase.auth.getClaims();
+
+  if (claimsError || !claimsData?.claims?.sub) {
+    return null;
+  }
+
   const {
     data: { user },
-    error,
+    error: userError,
   } = await supabase.auth.getUser();
 
-  if (error) {
+  if (userError || !user) {
     return null;
   }
 

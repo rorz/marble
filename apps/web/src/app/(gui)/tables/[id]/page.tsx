@@ -1,6 +1,5 @@
 "use client";
 
-import { ArrowLeftIcon } from "@heroicons/react/20/solid";
 import {
   MarbleButton,
   MarbleFieldLabel,
@@ -18,7 +17,6 @@ import {
   themeQuartz,
 } from "ag-grid-community";
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
-import Link from "next/link";
 import Prism from "prismjs";
 import React, {
   startTransition,
@@ -31,7 +29,6 @@ import React, {
 import Editor from "react-simple-code-editor";
 import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 import { Pane } from "../../../../components/pane";
-import SignOutButton from "../../../sign-out-button";
 import * as actions from "./actions";
 
 ModuleRegistry.registerModules([
@@ -732,74 +729,6 @@ function CellWithRunButton(props: CustomCellRendererProps) {
   );
 }
 
-function ClickToEditTitle({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (newValue: string) => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [tempValue, setTempValue] = useState(value);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setTempValue(value);
-  }, [
-    value,
-  ]);
-
-  useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus();
-      inputRef.current.select();
-    }
-  }, [
-    editing,
-  ]);
-
-  const handleSave = () => {
-    setEditing(false);
-    if (tempValue.trim() && tempValue !== value) {
-      onChange(tempValue.trim());
-    } else {
-      setTempValue(value);
-    }
-  };
-
-  if (editing) {
-    return (
-      <input
-        className="w-48 border-orange-500 border-b bg-transparent px-1 font-medium text-neutral-900 text-sm placeholder-neutral-400 outline-none transition-all focus:border-b-2"
-        onBlur={handleSave}
-        onChange={(e) => setTempValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") handleSave();
-          if (e.key === "Escape") {
-            setTempValue(value);
-            setEditing(false);
-          }
-        }}
-        placeholder="Table Name"
-        ref={inputRef}
-        type="text"
-        value={tempValue}
-      />
-    );
-  }
-
-  return (
-    <button
-      className="max-w-[200px] cursor-text truncate rounded px-1.5 py-0.5 text-left font-medium text-neutral-600 text-sm transition-colors hover:bg-neutral-200 hover:text-neutral-900"
-      onClick={() => setEditing(true)}
-      title="Click to edit"
-      type="button"
-    >
-      {value || "Untitled Table"}
-    </button>
-  );
-}
-
 // ── Components ──────────────────────────────────────────
 
 function InterpolationEditor({
@@ -929,7 +858,7 @@ export default function TablePage(props: {
   >([]);
 
   const [runLog, setRunLog] = useState<string[]>([]);
-  const [running, setRunning] = useState(false);
+  const [, setRunning] = useState(false);
   const [loading, setLoading] = useState(true);
   const [inspectedCell, setInspectedCell] = useState<InspectedCell | null>(
     null,
@@ -1695,63 +1624,6 @@ export default function TablePage(props: {
     ],
   );
 
-  const handleRunAll = useCallback(async () => {
-    setRunning(true);
-    setRunLog([]);
-
-    const currentCells = cellsRef.current;
-    const currentColumns = columnsRef.current;
-    const currentRows = rowsRef.current;
-
-    const sorted = [
-      ...currentColumns,
-    ].sort((a, b) => a.idx - b.idx);
-
-    const cellLookup = new Map<string, Cell>();
-    for (const cell of currentCells) {
-      cellLookup.set(`${cell.row_id}:${cell.column_id}`, cell);
-    }
-
-    for (const col of sorted) {
-      if (isManualInputColumn(col)) {
-        addLog(`skip  "${col.name}" — user input`);
-        continue;
-      }
-
-      for (const row of currentRows) {
-        const cell = cellLookup.get(`${row.id}:${col.id}`);
-        if (!cell) continue;
-
-        try {
-          markCellAsRunning(cell.id);
-          const result = await actions.executeRun({
-            cellId: cell.id,
-            programId: col.program_version_id,
-          });
-          applyRunOutputToCell(cell.id, result.output);
-          addLog(
-            `✓ "${col.name}" × Row ${row.idx} → ${JSON.stringify(result.output)}`,
-          );
-        } catch (err) {
-          applyClientErrorToCell(
-            cell.id,
-            err instanceof Error ? err.message : String(err),
-          );
-          addLog(
-            `✗ "${col.name}" × Row ${row.idx} → ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-      }
-    }
-
-    setRunning(false);
-  }, [
-    addLog,
-    applyClientErrorToCell,
-    applyRunOutputToCell,
-    markCellAsRunning,
-  ]);
-
   // ── CRUD handlers ─────────────────────────────────────
 
   const [rowCount, setRowCount] = useState(1);
@@ -1774,32 +1646,6 @@ export default function TablePage(props: {
     selectedTableId,
     rowCount,
   ]);
-
-  const handleRenameTable = useCallback(
-    async (newName: string) => {
-      if (!selectedTableId) return;
-      try {
-        const updated = await actions.updateTableName(selectedTableId, newName);
-        setTables((prev) =>
-          prev.map((t) =>
-            t.id === selectedTableId
-              ? {
-                  ...t,
-                  name: updated.name,
-                }
-              : t,
-          ),
-        );
-        await refreshReferenceColumns();
-      } catch (err) {
-        console.error("Failed to rename table", err);
-      }
-    },
-    [
-      refreshReferenceColumns,
-      selectedTableId,
-    ],
-  );
 
   const handleDeleteColumn = useCallback(
     async (columnId: string) => {
