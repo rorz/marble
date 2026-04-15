@@ -6,9 +6,9 @@ import {
   MarbleCard,
   MarbleCardContent,
   MarbleCardDescription,
-  MarbleCardFooter,
   MarbleCardHeader,
   MarbleCardTitle,
+  MarbleContextPopover,
   MarbleFieldLabel,
   MarbleInput,
   MarbleSelect,
@@ -362,26 +362,25 @@ export function ProfilesPageView({
                         </MarbleCardDescription>
                       </div>
 
-                      <div className="flex gap-2">
-                        <MarbleButton
-                          disabled={isDeleting || isTemporary}
-                          onClick={() =>
-                            setEditingId((current) =>
-                              current === profile.id ? null : profile.id,
-                            )
-                          }
-                          variant="light"
-                        >
-                          {isEditing ? "Close" : "Edit"}
-                        </MarbleButton>
-                        <MarbleButton
-                          disabled={isDeleting || isSaving || isTemporary}
-                          onClick={() => handleDelete(profile)}
-                          variant="red"
-                        >
-                          {isDeleting ? "Deleting" : "Delete"}
-                        </MarbleButton>
-                      </div>
+                      <MarbleContextPopover
+                        ariaLabel={`Open actions for ${profile.name}`}
+                        items={[
+                          {
+                            disabled: isDeleting || isTemporary,
+                            label: isEditing ? "Close editor" : "Edit",
+                            onSelect: () =>
+                              setEditingId((current) =>
+                                current === profile.id ? null : profile.id,
+                              ),
+                          },
+                          {
+                            disabled: isDeleting || isSaving || isTemporary,
+                            label: isDeleting ? "Deleting" : "Delete",
+                            onSelect: () => handleDelete(profile),
+                            tone: "danger",
+                          },
+                        ]}
+                      />
                     </div>
                   </MarbleCardHeader>
 

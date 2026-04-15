@@ -17,6 +17,11 @@ export {
   type MarbleCardTitleProps,
 } from "./components/card";
 export {
+  MarbleContextPopover,
+  type MarbleContextPopoverItem,
+  type MarbleContextPopoverProps,
+} from "./components/context-popover";
+export {
   MarbleFieldLabel,
   type MarbleFieldLabelProps,
 } from "./components/field-label";
