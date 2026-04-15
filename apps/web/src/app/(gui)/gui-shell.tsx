@@ -9,8 +9,8 @@ import {
   CaretDownIcon,
   FileCodeIcon,
   IdentificationBadgeIcon,
-  KeyIcon,
   LifebuoyIcon,
+  PlugsIcon,
   RobotIcon,
   TreeStructureIcon,
 } from "@phosphor-icons/react";
@@ -64,13 +64,13 @@ const navigationItems: {
 
       {
         icon: (
-          <KeyIcon
+          <PlugsIcon
             size={20}
             weight="regular"
           />
         ),
-        name: "Secrets",
-        path: "/secrets",
+        name: "Integrations",
+        path: "/integrations",
       },
     ],
   },
@@ -96,21 +96,6 @@ const navigationItems: {
         ),
         name: "Automations",
         path: "/automations",
-      },
-    ],
-  },
-  {
-    name: "History",
-    routes: [
-      {
-        icon: (
-          <BookOpenTextIcon
-            size={28}
-            weight="regular"
-          />
-        ),
-        name: "Events",
-        path: "/events",
       },
     ],
   },
@@ -197,13 +182,13 @@ export function GuiShell({
   return (
     <div
       className={cx(
-        "grid min-h-screen grid-cols-1 grid-rows-1 bg-taupe-100 transition-[grid-template-columns] duration-200 ease-out",
+        "grid h-screen grid-cols-1 grid-rows-1 bg-taupe-100 transition-[grid-template-columns] duration-200 ease-out",
         sidebar.gridClassName,
       )}
     >
       <aside
         className={cx(
-          "flex w-full flex-col gap-8 px-2 pt-6 transition-[padding] duration-200 ease-out",
+          "flex size-full flex-col gap-8 px-2 pt-6 transition-[padding] duration-200 ease-out",
           sidebar.asideClassName,
         )}
       >
@@ -236,7 +221,7 @@ export function GuiShell({
         </div>
         <nav
           aria-label="Primary"
-          className={cx("flex w-full flex-col gap-4", sidebar.navClassName)}
+          className={cx("flex size-full flex-col gap-4", sidebar.navClassName)}
         >
           {navigationItems.map((group) => {
             return (
@@ -274,23 +259,43 @@ export function GuiShell({
               </div>
             );
           })}
-        </nav>
-        <button
-          className={cx(
-            "mt-auto flex items-center rounded-sm px-2 py-1.5 font-bold text-taupe-700 underline transition-colors hover:text-taupe-900",
-            sidebar.helpClassName,
-          )}
-          title={sidebar.iconOnly ? "Help" : undefined}
-          type="button"
-        >
-          <div className="flex size-6 items-center justify-center">
-            <LifebuoyIcon
-              size={20}
-              weight="regular"
-            />
+          <div className="flex flex-col gap-0.5 w-full mt-auto mb-12">
+            <Link
+              className={cx(
+                "flex items-center rounded-sm px-2 py-0.5 transition-colors text-taupe-700",
+                topLevelPath === "/events"
+                  ? "bg-taupe-300/80"
+                  : "bg-transparent",
+                sidebar.routeClassName,
+              )}
+              href={"/events"}
+              title={sidebar.iconOnly ? "Events" : undefined}
+            >
+              <div className="flex size-6 items-center justify-center">
+                <BookOpenTextIcon weight="bold" />
+              </div>
+              {!sidebar.iconOnly ? (
+                <span className="text-sm font-medium">Events</span>
+              ) : null}
+            </Link>
+            <Link
+              className={cx(
+                "flex items-center rounded-sm px-2 py-0.5 transition-colors text-taupe-700",
+                topLevelPath === "/help" ? "bg-taupe-300/80" : "bg-transparent",
+                sidebar.routeClassName,
+              )}
+              href={"/help"}
+              title={sidebar.iconOnly ? "Help" : undefined}
+            >
+              <div className="flex size-6 items-center justify-center">
+                <LifebuoyIcon weight="bold" />
+              </div>
+              {!sidebar.iconOnly ? (
+                <span className="text-sm font-medium">Help</span>
+              ) : null}
+            </Link>
           </div>
-          {!sidebar.iconOnly ? <span>help</span> : null}
-        </button>
+        </nav>
       </aside>
       <main className="bg-transparent p-2 pb-8">
         <div className="size-full overflow-hidden rounded-md border border-taupe-200 bg-taupe-50 shadow-md">

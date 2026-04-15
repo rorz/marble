@@ -14,7 +14,7 @@ export default async function ProfilesPage() {
     <Pane
       crumbs={[
         {
-          label: "Profiles, keys, and secrets",
+          label: "Profiles",
         },
       ]}
     >
