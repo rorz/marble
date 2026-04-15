@@ -31,7 +31,7 @@ function Section({
 
 export default function UiPage() {
   return (
-    <main className="min-h-screen bg-zinc-50 px-6 py-8 text-zinc-950">
+    <main className="min-h-screen bg-taupe-100 px-6 py-8 text-taupe-800">
       <div className="mx-auto flex max-w-5xl flex-col gap-6">
         <header className="space-y-2">
           <p className="font-medium text-[11px] text-orange-600 uppercase tracking-[0.24em]">

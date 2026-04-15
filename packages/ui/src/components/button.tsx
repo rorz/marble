@@ -78,7 +78,7 @@ const marbleButtonInnerVariants = cva(
       variant: {
         dark: "bg-neutral-600 text-neutral-100",
         light: "bg-neutral-200 text-neutral-900",
-        orange: "bg-orange-600 text-white",
+        orange: "bg-orange-500 text-white",
         red: "bg-red-600 text-white",
       },
     },

@@ -8,7 +8,7 @@ const marbleCardVariants = cva("overflow-hidden rounded-xs border", {
   },
   variants: {
     tone: {
-      default: "border-neutral-200 bg-white text-neutral-950",
+      default: "border-taupe-200 bg-white text-taupe-900 rounded-xs",
       orange:
         "border-orange-200 bg-linear-to-br from-orange-50 via-white to-white text-zinc-950",
       subtle: "border-zinc-200 bg-zinc-50 text-zinc-950",
