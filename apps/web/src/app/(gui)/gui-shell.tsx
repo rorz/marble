@@ -17,78 +17,102 @@ import {
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 
-const routes = [
+const navigationItems: {
+  name: string;
+  routes: {
+    name: string;
+    icon: ReactNode;
+    path: `/${string}`;
+  }[];
+}[] = [
   {
-    icon: (
-      <BriefcaseMetalIcon
-        size={20}
-        weight="regular"
-      />
-    ),
-    name: "Projects",
-    path: "/projects",
+    name: "Workspace",
+    routes: [
+      {
+        icon: (
+          <BriefcaseMetalIcon
+            size={20}
+            weight="regular"
+          />
+        ),
+        name: "Projects",
+        path: "/projects",
+      },
+      {
+        icon: (
+          <TreeStructureIcon
+            size={20}
+            weight="regular"
+          />
+        ),
+        name: "Sources",
+        path: "/sources",
+      },
+
+      {
+        icon: (
+          <FileCodeIcon
+            size={20}
+            weight="regular"
+          />
+        ),
+        name: "Programs",
+        path: "/programs",
+      },
+
+      {
+        icon: (
+          <KeyIcon
+            size={20}
+            weight="regular"
+          />
+        ),
+        name: "Secrets",
+        path: "/secrets",
+      },
+    ],
   },
   {
-    icon: (
-      <TreeStructureIcon
-        size={20}
-        weight="regular"
-      />
-    ),
-    name: "Sources",
-    path: "/sources",
+    name: "Agentic use",
+    routes: [
+      {
+        icon: (
+          <IdentificationBadgeIcon
+            size={20}
+            weight="regular"
+          />
+        ),
+        name: "Profiles",
+        path: "/profiles",
+      },
+      {
+        icon: (
+          <RobotIcon
+            size={20}
+            weight="regular"
+          />
+        ),
+        name: "Automations",
+        path: "/automations",
+      },
+    ],
   },
   {
-    icon: (
-      <RobotIcon
-        size={20}
-        weight="regular"
-      />
-    ),
-    name: "Automations",
-    path: "/automations",
-  },
-  {
-    icon: (
-      <FileCodeIcon
-        size={20}
-        weight="regular"
-      />
-    ),
-    name: "Programs",
-    path: "/programs",
-  },
-  {
-    icon: (
-      <IdentificationBadgeIcon
-        size={20}
-        weight="regular"
-      />
-    ),
-    name: "Profiles",
-    path: "/profiles",
-  },
-  {
-    icon: (
-      <KeyIcon
-        size={20}
-        weight="regular"
-      />
-    ),
-    name: "Secrets",
-    path: "/secrets",
-  },
-  {
-    icon: (
-      <BookOpenTextIcon
-        size={28}
-        weight="regular"
-      />
-    ),
-    name: "Events",
-    path: "/events",
+    name: "History",
+    routes: [
+      {
+        icon: (
+          <BookOpenTextIcon
+            size={28}
+            weight="regular"
+          />
+        ),
+        name: "Events",
+        path: "/events",
+      },
+    ],
   },
 ] as const;
 
@@ -212,28 +236,42 @@ export function GuiShell({
         </div>
         <nav
           aria-label="Primary"
-          className={cx("flex w-full flex-col gap-0.5", sidebar.navClassName)}
+          className={cx("flex w-full flex-col gap-4", sidebar.navClassName)}
         >
-          {routes.map((route) => {
-            const isActive = topLevelPath === route.path;
+          {navigationItems.map((group) => {
             return (
-              <Link
-                className={cx(
-                  "flex items-center rounded-sm px-2 py-0.5 transition-colors text-taupe-700",
-                  isActive ? "bg-taupe-300/80" : "bg-transparent",
-                  sidebar.routeClassName,
-                )}
-                href={route.path}
-                key={route.name}
-                title={sidebar.iconOnly ? route.name : undefined}
+              <div
+                className="flex flex-col gap-0.5 w-full"
+                key={group.name}
               >
-                <div className="flex size-6 items-center justify-center">
-                  {route.icon}
-                </div>
-                {!sidebar.iconOnly ? (
-                  <span className="text-sm font-medium">{route.name}</span>
-                ) : null}
-              </Link>
+                <span className="px-2 mb-1 font-medium tracking-tight text-sm">
+                  {group.name}
+                </span>
+                {group.routes.map((route) => {
+                  const isActive = topLevelPath === route.path;
+                  return (
+                    <Link
+                      className={cx(
+                        "flex items-center rounded-sm px-2 py-0.5 transition-colors text-taupe-700",
+                        isActive ? "bg-taupe-300/80" : "bg-transparent",
+                        sidebar.routeClassName,
+                      )}
+                      href={route.path}
+                      key={route.name}
+                      title={sidebar.iconOnly ? route.name : undefined}
+                    >
+                      <div className="flex size-6 items-center justify-center">
+                        {route.icon}
+                      </div>
+                      {!sidebar.iconOnly ? (
+                        <span className="text-sm font-medium">
+                          {route.name}
+                        </span>
+                      ) : null}
+                    </Link>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
