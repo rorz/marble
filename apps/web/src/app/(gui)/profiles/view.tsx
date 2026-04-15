@@ -6,6 +6,7 @@ import {
   MarbleCard,
   MarbleCardContent,
   MarbleCardDescription,
+  MarbleCardFooter,
   MarbleCardHeader,
   MarbleCardTitle,
   MarbleFieldLabel,
@@ -319,119 +320,123 @@ export function ProfilesPageView({
           </MarbleCardContent>
         </MarbleCard>
       ) : (
-        <div className="grid gap-4">
-          {optimisticProfiles.map((profile) => {
-            const isEditing = editingId === profile.id;
-            const isSaving = savingId === profile.id;
-            const isDeleting = deletingId === profile.id;
-            const isTemporary = profile.id.startsWith("temp:");
+        <div className="grid grid-cols-2 gap-2">
+          {optimisticProfiles
+            .sort((a, b) => +(b.type === "Human") - +(a.type === "Human"))
+            .map((profile) => {
+              const isEditing = editingId === profile.id;
+              const isSaving = savingId === profile.id;
+              const isDeleting = deletingId === profile.id;
+              const isTemporary = profile.id.startsWith("temp:");
 
-            return (
-              <MarbleCard
-                className="overflow-visible"
-                key={profile.id}
-                tone={isTemporary ? "subtle" : "default"}
-              >
-                <MarbleCardHeader className="border-b border-zinc-100">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <MarbleCardTitle className="text-base">
-                          {profile.name}
-                        </MarbleCardTitle>
-                        <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] text-zinc-600 uppercase tracking-[0.18em]">
-                          {profile.type}
-                        </span>
-                        {profile.external_name ? (
-                          <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-1 text-[11px] text-orange-700 uppercase tracking-[0.18em]">
-                            {profile.external_name}
+              return (
+                <MarbleCard
+                  className="overflow-visible"
+                  key={profile.id}
+                  tone={isTemporary ? "subtle" : "default"}
+                >
+                  <MarbleCardHeader className="border-b border-zinc-100">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <MarbleCardTitle className="text-base">
+                            {profile.name}
+                          </MarbleCardTitle>
+                          <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] text-zinc-600 uppercase tracking-[0.18em]">
+                            {profile.type}
                           </span>
-                        ) : null}
+                          {profile.external_name ? (
+                            <span className="rounded-full border border-orange-200 bg-orange-50 px-2 py-1 text-[11px] text-orange-700 uppercase tracking-[0.18em]">
+                              {profile.external_name}
+                            </span>
+                          ) : null}
+                        </div>
+                        <MarbleCardDescription className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs">
+                          <span>{profile.id}</span>
+                          <span>
+                            Created{" "}
+                            {CREATED_AT_FORMATTER.format(
+                              new Date(profile.created_at),
+                            )}
+                          </span>
+                        </MarbleCardDescription>
                       </div>
-                      <MarbleCardDescription className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs">
-                        <span>{profile.id}</span>
-                        <span>
-                          Created{" "}
-                          {CREATED_AT_FORMATTER.format(
-                            new Date(profile.created_at),
-                          )}
-                        </span>
-                      </MarbleCardDescription>
-                    </div>
 
-                    <div className="flex gap-2">
-                      <MarbleButton
-                        disabled={isDeleting || isTemporary}
-                        onClick={() =>
-                          setEditingId((current) =>
-                            current === profile.id ? null : profile.id,
-                          )
-                        }
-                        variant="light"
-                      >
-                        {isEditing ? "Close" : "Edit"}
-                      </MarbleButton>
-                      <MarbleButton
-                        disabled={isDeleting || isSaving || isTemporary}
-                        onClick={() => handleDelete(profile)}
-                        variant="red"
-                      >
-                        {isDeleting ? "Deleting" : "Delete"}
-                      </MarbleButton>
-                    </div>
-                  </div>
-                </MarbleCardHeader>
-
-                {isEditing ? (
-                  <MarbleCardContent className="pt-5">
-                    <form
-                      action={(formData) => handleUpdate(profile.id, formData)}
-                      className="space-y-4"
-                    >
-                      <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_180px]">
-                        <div>
-                          <MarbleFieldLabel>Profile name</MarbleFieldLabel>
-                          <MarbleInput
-                            defaultValue={profile.name}
-                            disabled={isSaving}
-                            name="name"
-                          />
-                        </div>
-                        <div>
-                          <MarbleFieldLabel>External name</MarbleFieldLabel>
-                          <MarbleInput
-                            defaultValue={profile.external_name ?? ""}
-                            disabled={isSaving}
-                            name="externalName"
-                          />
-                        </div>
-                        <div>
-                          <MarbleFieldLabel>Type</MarbleFieldLabel>
-                          <MarbleSelect
-                            defaultValue={profile.type}
-                            disabled={isSaving}
-                            name="type"
-                          >
-                            <option value="Agent">Agent</option>
-                            <option value="Human">Human</option>
-                          </MarbleSelect>
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
+                      <div className="flex gap-2">
                         <MarbleButton
-                          disabled={isSaving}
-                          type="submit"
-                          variant="dark"
+                          disabled={isDeleting || isTemporary}
+                          onClick={() =>
+                            setEditingId((current) =>
+                              current === profile.id ? null : profile.id,
+                            )
+                          }
+                          variant="light"
                         >
-                          {isSaving ? "Saving" : "Save changes"}
+                          {isEditing ? "Close" : "Edit"}
+                        </MarbleButton>
+                        <MarbleButton
+                          disabled={isDeleting || isSaving || isTemporary}
+                          onClick={() => handleDelete(profile)}
+                          variant="red"
+                        >
+                          {isDeleting ? "Deleting" : "Delete"}
                         </MarbleButton>
                       </div>
-                    </form>
-                  </MarbleCardContent>
-                ) : null}
-              </MarbleCard>
-            );
-          })}
+                    </div>
+                  </MarbleCardHeader>
+
+                  {isEditing ? (
+                    <MarbleCardContent className="pt-5">
+                      <form
+                        action={(formData) =>
+                          handleUpdate(profile.id, formData)
+                        }
+                        className="space-y-4"
+                      >
+                        <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_180px]">
+                          <div>
+                            <MarbleFieldLabel>Profile name</MarbleFieldLabel>
+                            <MarbleInput
+                              defaultValue={profile.name}
+                              disabled={isSaving}
+                              name="name"
+                            />
+                          </div>
+                          <div>
+                            <MarbleFieldLabel>External name</MarbleFieldLabel>
+                            <MarbleInput
+                              defaultValue={profile.external_name ?? ""}
+                              disabled={isSaving}
+                              name="externalName"
+                            />
+                          </div>
+                          <div>
+                            <MarbleFieldLabel>Type</MarbleFieldLabel>
+                            <MarbleSelect
+                              defaultValue={profile.type}
+                              disabled={isSaving}
+                              name="type"
+                            >
+                              <option value="Agent">Agent</option>
+                              <option value="Human">Human</option>
+                            </MarbleSelect>
+                          </div>
+                        </div>
+                        <div className="flex justify-end">
+                          <MarbleButton
+                            disabled={isSaving}
+                            type="submit"
+                            variant="dark"
+                          >
+                            {isSaving ? "Saving" : "Save changes"}
+                          </MarbleButton>
+                        </div>
+                      </form>
+                    </MarbleCardContent>
+                  ) : null}
+                </MarbleCard>
+              );
+            })}
         </div>
       )}
     </div>

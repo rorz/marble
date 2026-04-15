@@ -14,6 +14,7 @@ type PaneProps = {
   })[];
   width?: "Full" | "Narrow";
   title?: string;
+  description?: string;
 };
 
 export const Pane: FunctionComponent<PaneProps> = ({
@@ -21,10 +22,11 @@ export const Pane: FunctionComponent<PaneProps> = ({
   children,
   actions,
   title,
+  description,
   width = "Full",
 }) => {
   return (
-    <div className="size-full flex flex-col items-start w-full overflow-y-scroll">
+    <div className="size-full flex flex-col items-start w-full ">
       {crumbs && (
         <div className="flex justify-between items-center gap-1 w-full border-b border-taupe-200 px-4 py-2">
           <div className="flex gap-1 items-center">
@@ -56,16 +58,27 @@ export const Pane: FunctionComponent<PaneProps> = ({
           ))}
         </div>
       )}
-      <div className="p-4 size-full flex justify-center">
+      {/* 
+        NOTE:   The awkward-looking padding values are due to overflow-y-scroll
+                not allowing top-level i.e. p-4 padding to apply to scroll views
+      */}
+      <div className="px-4 size-full flex justify-center overflow-y-scroll">
         <div
           className={cx(
             "h-full flex flex-col w-full",
             width === "Narrow" && "max-w-2xl",
-            crumbs === undefined && width === "Narrow" && "pt-12",
+            crumbs === undefined && width === "Narrow" ? "pt-12" : "pt-4",
           )}
         >
-          {title && <h2 className="text-2xl mb-4">{title}</h2>}
-          {children}
+          {(title || description) && (
+            <div className="flex w-full flex-col gap-2 mb-6">
+              {title && <h2 className="text-2xl">{title}</h2>}
+              {description && (
+                <span className="text-sm text-taupe-600 ">{description}</span>
+              )}
+            </div>
+          )}
+          <div className="pb-4">{children}</div>
         </div>
       </div>
     </div>
