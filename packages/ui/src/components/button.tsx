@@ -21,8 +21,8 @@ const marbleButtonBorderBackgrounds = {
     raised: `
       linear-gradient(120deg, var(--color-white) 0%, #40404000 10%),
       linear-gradient(to right, var(--color-neutral-500) 0px, #40404000 4px),
-      linear-gradient(to left, var(--color-neutral-800) 0px, #40404000 4px),
-      linear-gradient(to top, var(--color-neutral-950) 0px, #40404000 4px),
+      linear-gradient(to left, var(--color-neutral-600) 0px, #40404000 4px),
+      linear-gradient(to top, var(--color-neutral-700) 0px, #40404000 4px),
       linear-gradient(to bottom, var(--color-neutral-400) 0px, #40404000 4px),
       linear-gradient(to right, var(--color-neutral-600) 0%, var(--color-neutral-600) 100%)`,
   },
@@ -68,8 +68,8 @@ const marbleButtonBorderBackgrounds = {
     raised: `
       linear-gradient(120deg, var(--color-white) 0px, #dc262600 10%),
       linear-gradient(to right, var(--color-red-300) 0px, #dc262600 4px),
-      linear-gradient(to left, var(--color-red-800) 0px, #dc262600 4px),
-      linear-gradient(to top, var(--color-red-950) 0px, #dc262600 4px),
+      linear-gradient(to left, var(--color-red-700) 0px, #dc262600 4px),
+      linear-gradient(to top, var(--color-red-700) 0px, #dc262600 4px),
       linear-gradient(to bottom, var(--color-red-300) 0px, #dc262600 4px),
       linear-gradient(to right, var(--color-red-600) 0%, var(--color-red-600) 100%)`,
   },

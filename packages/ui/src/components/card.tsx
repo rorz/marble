@@ -14,8 +14,8 @@ const marbleCardVariants = cva(
     variants: {
       tone: {
         default: "border-taupe-200 text-taupe-900",
-        orange: "border-orange-200 text-zinc-950",
-        subtle: "border-zinc-200 text-zinc-950",
+        orange: "border-orange-200 text-taupe-950",
+        subtle: "border-taupe-300 text-taupe-950",
       },
     },
   },
@@ -28,30 +28,30 @@ type MarbleCardTone = NonNullable<
 const marbleCardSurfaceStyles: Record<MarbleCardTone, CSSProperties> = {
   default: {
     backgroundBlendMode: "screen, normal",
-    backgroundColor: "var(--color-white)",
+    backgroundColor: "rgb(255 255 255)",
     backgroundImage: [
       "radial-gradient(140% 120% at 0% 0%, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0) 52%)",
-      "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(249,245,240,0.97) 100%)",
+      "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(253,253,253,0.97) 100%)",
     ].join(", "),
     backgroundRepeat: "no-repeat, no-repeat",
     backgroundSize: "100% 100%, 100% 100%",
   },
   orange: {
     backgroundBlendMode: "screen, normal",
-    backgroundColor: "rgb(255 247 237)",
+    backgroundColor: "oklch(98% 0.016 73.684)",
     backgroundImage: [
       "radial-gradient(120% 120% at 0% 0%, rgba(255,255,255,0.68) 0%, rgba(255,255,255,0) 48%)",
-      "linear-gradient(135deg, rgba(255,247,237,1) 0%, rgba(255,255,255,0.95) 55%, rgba(255,251,245,1) 100%)",
+      "linear-gradient(135deg, oklch(95.4% 0.038 75.164 / 20%) 0%, oklch(98% 0.016 73.684) 100%)",
     ].join(", "),
     backgroundRepeat: "no-repeat, no-repeat",
     backgroundSize: "100% 100%, 100% 100%",
   },
   subtle: {
     backgroundBlendMode: "screen, normal",
-    backgroundColor: "rgb(250 250 250)",
+    backgroundColor: "oklch(96% 0.002 17.2)",
     backgroundImage: [
-      "radial-gradient(140% 120% at 0% 0%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 52%)",
-      "linear-gradient(180deg, rgba(250,250,250,1) 0%, rgba(242,242,241,0.98) 100%)",
+      "radial-gradient(140% 120% at 0% 0%, oklch(96% 0.002 17.2 / 80%) 0%, rgba(255,255,255,0) 52%)",
+      "linear-gradient(180deg, oklch(96% 0.002 17.2) 0%, oklch(98.6% 0.002 67.8) 100%)",
     ].join(", "),
     backgroundRepeat: "no-repeat, no-repeat",
     backgroundSize: "100% 100%, 100% 100%",
