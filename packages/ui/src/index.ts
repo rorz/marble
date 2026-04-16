@@ -91,6 +91,11 @@ export {
 } from "./components/pane";
 export { MarblePaneEditableCrumb } from "./components/pane-editable-crumb";
 export {
+  MarbleSearchSelect,
+  type MarbleSearchSelectOption,
+  type MarbleSearchSelectProps,
+} from "./components/search-select";
+export {
   MarbleSelect,
   type MarbleSelectProps,
 } from "./components/select";

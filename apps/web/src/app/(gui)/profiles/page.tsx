@@ -51,7 +51,7 @@ export default async function Profile4Page() {
 
   return (
     <MarblePane
-      description="Create a profile for each agent you intend to use with Marble. Every action taken on your account will be tracked according to its profile so that you can easily view changes according to who made them."
+      description="Your human profile is created automatically. Add separate agent profiles for the tools you delegate to, then mint keys inside each profile so activity stays attributable."
       title="Profiles"
       width="Narrow"
     >

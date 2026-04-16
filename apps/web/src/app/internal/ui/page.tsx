@@ -40,6 +40,7 @@ import {
   MarbleModalTitle,
   MarblePane,
   MarblePaneEditableCrumb,
+  MarbleSearchSelect,
   MarbleSelect,
   MarbleTextarea,
   MarbleWorkspacePopover,
@@ -743,6 +744,24 @@ export default function UiPage() {
                 <option value="http-request">HTTP Request</option>
                 <option value="formula">Formula</option>
               </MarbleSelect>
+            </div>
+
+            <div>
+              <MarbleFieldLabel>Agent Provider</MarbleFieldLabel>
+              <MarbleSearchSelect
+                defaultValue="Codex"
+                options={[
+                  "Codex",
+                  "Claude Code",
+                  "OpenCode",
+                  "Cursor",
+                  "Windsurf",
+                  "Gemini CLI",
+                  "GitHub Copilot",
+                ]}
+                placeholder="Search or select a provider"
+                wrapperClassName="w-full"
+              />
             </div>
 
             <div className="md:col-span-2">

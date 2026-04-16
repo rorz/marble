@@ -774,19 +774,19 @@ function CellWithRunButton(props: CustomCellRendererProps) {
           width: "var(--marble-table-cell-led-gutter-width, 0px)",
         }}
       >
-        <div className="flex w-full flex-col items-center gap-[3px]">
+        <div className="flex w-full h-full flex-col items-center justify-evenly gap-[3px]">
           <span
             className={cx(
-              "block size-2.5 rounded-[3px] bg-amber-200/20 transition-all",
+              "block size-1 rounded-[1px] bg-amber-200/20 transition-all",
               isLoading &&
                 "animate-blink duration-75 bg-amber-400 shadow-[0_0_2px_rgba(251,146,60,0.55)]",
             )}
           />
           <span
             className={cx(
-              "block size-2.5 rounded-[3px] bg-zinc-300/20 transition-all",
+              "block size-1 rounded-[1px] bg-zinc-300/20 transition-all",
               state?.ok === true &&
-                "bg-emerald-400 shadow-[0_0_2px_rgba(16,185,129,0.55)]",
+                "bg-green-300 shadow-[0_0_2px_oklch(89.7%_0.196_126.665)]",
               isFailed && "bg-red-400 shadow-[0_0_2px_rgba(239,68,68,0.55)]",
             )}
           />
@@ -1491,7 +1491,7 @@ export default function TablePageView({
             return {
               "--marble-table-cell-background": background,
               "--marble-table-cell-content-padding-left": `${TABLE_CELL_LED_CLEARANCE_PX}px`,
-              "--marble-table-cell-led-gutter-width": `${TABLE_CELL_LED_GUTTER_PX}px`,
+              "--marble-table-cell-led-gutter-width": `${TABLE_CELL_LED_GUTTER_PX - 4}px`,
               "--marble-table-cell-padding-inline": `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
               background: editable ? background : "transparent",
               fontFamily: "var(--font-geist-mono)",

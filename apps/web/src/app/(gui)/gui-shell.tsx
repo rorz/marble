@@ -898,9 +898,12 @@ export function GuiShell({
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      const normalizedKey =
+        typeof event.key === "string" ? event.key.toLowerCase() : "";
+
       if (
         event.defaultPrevented ||
-        event.key.toLowerCase() !== "k" ||
+        normalizedKey !== "k" ||
         !(event.metaKey || event.ctrlKey) ||
         event.altKey ||
         event.shiftKey ||
@@ -1332,10 +1335,7 @@ export function GuiShell({
           ))}
         </MarbleCommandList>
 
-        <div className="flex items-center justify-between border-t border-taupe-200 bg-linear-to-r from-taupe-50 via-white to-white px-4 py-2 text-[11px] text-taupe-500 uppercase tracking-[0.18em]">
-          <span>Help now opens this palette</span>
-          <span>Cmd/Ctrl + K</span>
-        </div>
+        <div className="flex items-center justify-between border-t border-taupe-200 bg-linear-to-t from-taupe-200 via-white to-white px-4 py-2 text-[11px] text-taupe-500 uppercase tracking-[0.18em]"></div>
       </MarbleCommandDialog>
     </div>
   );

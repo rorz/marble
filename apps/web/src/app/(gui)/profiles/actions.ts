@@ -1,6 +1,5 @@
 "use server";
 
-import type { Database } from "@marble/supabase";
 import { revalidatePath } from "next/cache";
 import { requireUser } from "../../../lib/auth";
 import { callMarbleApi } from "../../../lib/marble-api";
@@ -11,12 +10,6 @@ import {
   type ProfileKeyRecord,
   type ProfileRecord,
 } from "./shared";
-
-const PROFILE_TYPES = new Set<ProfileType>([
-  "Agent",
-  "Human",
-]);
-type ProfileType = Database["public"]["Enums"]["profile_type"];
 
 function readFormValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -30,14 +23,9 @@ function normalizeProfile(formData: FormData) {
     throw new Error("Profile name is required.");
   }
 
-  const type = readFormValue(formData, "type");
-
   return {
     externalName: readFormValue(formData, "externalName") || null,
     name,
-    type: PROFILE_TYPES.has(type as ProfileType)
-      ? (type as ProfileType)
-      : "Agent",
   };
 }
 
@@ -98,7 +86,10 @@ export async function createProfileAction(formData: FormData) {
   const profile = normalizeProfile(formData);
 
   const createdProfile = await callMarbleApi<ProfileRecord>("/profiles", {
-    body: profile,
+    body: {
+      ...profile,
+      type: "Agent",
+    },
     method: "POST",
     profileId: false,
     requireActorProfile: false,
@@ -113,7 +104,12 @@ export async function updateProfileAction(
   profileId: string,
   formData: FormData,
 ) {
-  await requireOwnedProfile(profileId);
+  const existingProfile = await requireOwnedProfile(profileId);
+
+  if (existingProfile.type !== "Agent") {
+    throw new Error("Only agent profiles can be edited here.");
+  }
+
   const profile = normalizeProfile(formData);
 
   const updatedProfile = await callMarbleApi<ProfileRecord>(
@@ -131,6 +127,11 @@ export async function updateProfileAction(
 
 export async function deleteProfileAction(profileId: string) {
   const profile = await requireOwnedProfile(profileId);
+
+  if (profile.type !== "Agent") {
+    throw new Error("The automatic human profile cannot be deleted here.");
+  }
+
   const { error } = await createServiceRoleClient()
     .from("profile")
     .delete()

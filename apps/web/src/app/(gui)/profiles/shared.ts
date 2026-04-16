@@ -3,6 +3,20 @@ import type { Database } from "@marble/supabase";
 export const PROFILE_RECORD_SELECT =
   "created_at, external_name, id, name, owner_user_id, type, updated_at";
 
+export const AGENT_PROVIDER_OPTIONS = [
+  "Codex",
+  "Claude Code",
+  "OpenCode",
+  "Cursor",
+  "Windsurf",
+  "Gemini CLI",
+  "GitHub Copilot",
+  "Goose",
+  "Aider",
+  "OpenHands",
+  "Devin",
+] as const;
+
 export type ProfileRecord = Pick<
   Database["public"]["Tables"]["profile"]["Row"],
   | "created_at"
