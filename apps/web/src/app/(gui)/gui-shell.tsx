@@ -15,7 +15,7 @@ import {
 import {
   BookOpenTextIcon,
   BriefcaseMetalIcon,
-  CaretDoubleLeftIcon,
+  type CaretDoubleLeftIcon,
   CaretDoubleRightIcon,
   CaretDownIcon,
   CaretRightIcon,
@@ -27,7 +27,7 @@ import {
   RobotIcon,
   TreeStructureIcon,
 } from "@phosphor-icons/react";
-import { TableIcon } from "@phosphor-icons/react/dist/ssr";
+import { SidebarIcon, TableIcon } from "@phosphor-icons/react/dist/ssr";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -187,7 +187,7 @@ type CommandPaletteSection = {
 
 const sidebarModes = {
   collapsed: {
-    asideClassName: "items-center",
+    asideClassName: "items-center px-0 gap-10",
     brandClassName: "justify-center",
     brandInnerClassName: "justify-center",
     iconOnly: true,
@@ -197,13 +197,13 @@ const sidebarModes = {
     toggleLabel: "Expand sidebar",
   },
   expanded: {
-    asideClassName: "items-start",
+    asideClassName: "items-start px-2 gap-8",
     brandClassName: "justify-between gap-2",
     brandInnerClassName: "gap-2",
     iconOnly: false,
     navClassName: "items-stretch",
     routeClassName: "w-full gap-1",
-    toggleIcon: CaretDoubleLeftIcon,
+    toggleIcon: SidebarIcon,
     toggleLabel: "Collapse sidebar",
   },
 } as const satisfies Record<
@@ -312,7 +312,7 @@ function SidebarNavRow({
 }) {
   const router = useRouter();
   const showDisclosure = expandable && !iconOnly;
-  const showIconSlot = !iconOnly && icon;
+  const showIconSlot = Boolean(icon);
 
   return (
     <div
@@ -1145,7 +1145,7 @@ export function GuiShell({
       <div className="relative">
         <aside
           className={cx(
-            "flex size-full min-h-0 flex-col gap-8 px-2 pt-6 transition-[padding] duration-200 ease-out h-screen overflow-y-scroll",
+            "flex size-full min-h-0 flex-col pt-6 transition-[padding] duration-200 ease-out h-screen overflow-y-scroll",
             sidebar.asideClassName,
           )}
         >
@@ -1161,18 +1161,20 @@ export function GuiShell({
                 sections={workspaceMenuSections}
               />
 
-              <button
-                aria-label={sidebar.toggleLabel}
-                className="flex size-8 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200 hover:text-taupe-800"
-                onClick={toggleSidebar}
-                title={sidebar.toggleLabel}
-                type="button"
-              >
-                <ToggleIcon
-                  size={16}
-                  weight="bold"
-                />
-              </button>
+              {sidebar.iconOnly ? null : (
+                <button
+                  aria-label={sidebar.toggleLabel}
+                  className="flex size-8 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200 hover:text-taupe-800"
+                  onClick={toggleSidebar}
+                  title={sidebar.toggleLabel}
+                  type="button"
+                >
+                  <ToggleIcon
+                    size={16}
+                    weight="bold"
+                  />
+                </button>
+              )}
             </div>
 
             {!sidebar.iconOnly && signOutError ? (
@@ -1250,6 +1252,21 @@ export function GuiShell({
             </div>
           </nav>
         </aside>
+
+        {sidebarMode === "collapsed" ? (
+          <button
+            aria-label={sidebar.toggleLabel}
+            className="absolute top-[4rem] -right-2 z-20 flex size-7 translate-x-1/2 items-center justify-center rounded-full border border-taupe-300/80 bg-white/95 text-taupe-500 shadow-[0_8px_18px_rgba(84,57,26,0.14)] transition-[background-color,color,box-shadow,transform] hover:bg-white hover:text-taupe-900 hover:shadow-[0_12px_24px_rgba(84,57,26,0.18)]"
+            onClick={toggleSidebar}
+            title={sidebar.toggleLabel}
+            type="button"
+          >
+            <ToggleIcon
+              size={14}
+              weight="bold"
+            />
+          </button>
+        ) : null}
 
         {sidebarMode === "collapsed" ? null : (
           <button

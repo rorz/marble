@@ -8,7 +8,7 @@ import {
   PlayIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
-import { cx } from "@marble/ui";
+import { cx, MarblePane } from "@marble/ui";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -41,7 +41,15 @@ const chromeHeaderLabelClassName =
 const primaryButtonClassName =
   "inline-flex items-center justify-center rounded-sm border border-[#f0b47b] bg-[#fff1e2] font-medium text-[#9a4d10] text-[11px] uppercase tracking-[0.18em] transition-colors hover:bg-[#ffe7cf] disabled:cursor-not-allowed disabled:opacity-50";
 const sidebarHeaderLabelClassName =
-  "font-medium text-[11px] text-white/70 uppercase tracking-[0.18em]";
+  "font-medium text-[11px] text-taupe-700 uppercase tracking-[0.18em]";
+const sidebarPanelClassName =
+  "bg-taupe-300 border-taupe-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]";
+const sidebarItemBaseClassName =
+  "flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm transition-colors";
+const sidebarItemIdleClassName =
+  "text-taupe-700 hover:bg-taupe-200/85 hover:text-taupe-950";
+const sidebarItemActiveClassName =
+  "bg-white/85 text-taupe-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]";
 
 const monacoEditorOptions = {
   automaticLayout: true,
@@ -159,18 +167,18 @@ function ProgramRow({
     <button
       aria-pressed={active}
       className={cx(
-        "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
-        active ? "bg-taupe-600 text-white" : "text-white/92 hover:bg-taupe-700",
+        sidebarItemBaseClassName,
+        active ? sidebarItemActiveClassName : sidebarItemIdleClassName,
       )}
       onClick={onSelect}
       type="button"
     >
-      <CodeBracketIcon className="h-4 w-4 shrink-0 text-taupe-200" />
+      <CodeBracketIcon className="h-4 w-4 shrink-0 text-taupe-500" />
       <span className="flex-1 truncate">
         {program.name || "Untitled Program"}
       </span>
       {latestVersion ? (
-        <span className="font-mono text-[11px] text-white/55">
+        <span className="font-mono text-[11px] text-taupe-500">
           v{latestVersion.version}
         </span>
       ) : null}
@@ -191,8 +199,9 @@ function FileRow({
     <button
       aria-pressed={active}
       className={cx(
-        "flex w-full items-center gap-2 px-5 py-1.5 text-left text-sm transition-colors",
-        active ? "bg-taupe-600 text-white" : "text-white/92 hover:bg-taupe-700",
+        sidebarItemBaseClassName,
+        "px-5",
+        active ? sidebarItemActiveClassName : sidebarItemIdleClassName,
       )}
       onClick={onSelect}
       type="button"
@@ -508,28 +517,33 @@ export default function ProgramsPage() {
 
   return (
     <div
-      className="flex size-full min-h-0 overflow-hidden bg-[linear-gradient(180deg,#f8f5ee_0%,#f4efe6_100%)] text-zinc-800"
+      className="flex size-full min-h-0 overflow-hidden bg-[linear-gradient(180deg,#f8f5ee_0%,#f4efe6_100%)] text-zinc-800 border-taupe-400 border-2 overflow-hidden rounded-md shadow-xl"
       style={{
         colorScheme: "light",
       }}
     >
-      <div className="flex w-60 shrink-0 flex-col border-r border-taupe-700 bg-taupe-800">
-        <div className="flex items-center border-b border-taupe-700 px-3 py-2">
+      <div
+        className={cx(
+          "flex w-60 shrink-0 flex-col border-r",
+          sidebarPanelClassName,
+        )}
+      >
+        <div className="flex items-center border-b border-taupe-400 px-3 py-2">
           <span className={sidebarHeaderLabelClassName}>Programs</span>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           <button
             className={cx(
-              "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors",
+              sidebarItemBaseClassName,
               !selectedProgId && files.length > 0
-                ? "bg-taupe-600 text-white"
-                : "text-white/92 hover:bg-taupe-700",
+                ? sidebarItemActiveClassName
+                : sidebarItemIdleClassName,
             )}
             onClick={handleCreateProgram}
             type="button"
           >
-            <PlusIcon className="h-4 w-4 shrink-0 text-taupe-200" />
+            <PlusIcon className="h-4 w-4 shrink-0 text-taupe-500" />
             <span className="truncate">New Program</span>
           </button>
 
@@ -544,7 +558,7 @@ export default function ProgramsPage() {
         </div>
 
         {selectedProgId || files.length > 0 ? (
-          <div className="flex min-h-0 basis-[42%] flex-col border-t border-taupe-700">
+          <div className="flex min-h-0 basis-[42%] flex-col border-t border-taupe-400">
             <div className="flex items-center justify-between px-3 py-2">
               <span
                 className={cx(
@@ -556,7 +570,7 @@ export default function ProgramsPage() {
                 Workspace
               </span>
               <button
-                className="text-white/65 transition-colors hover:text-white"
+                className="text-taupe-600 transition-colors hover:text-taupe-900"
                 onClick={handleAddFile}
                 title="New File"
                 type="button"
@@ -697,15 +711,20 @@ export default function ProgramsPage() {
         </div>
       </div>
 
-      <div className="flex w-80 shrink-0 flex-col border-l border-taupe-700 bg-taupe-800">
-        <div className="flex items-center border-b border-taupe-700 px-3 py-2">
+      <div
+        className={cx(
+          "flex w-80 shrink-0 flex-col border-l",
+          sidebarPanelClassName,
+        )}
+      >
+        <div className="flex items-center border-b border-taupe-400 px-3 py-2">
           <span className={sidebarHeaderLabelClassName}>
             Configuration & Test
           </span>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="border-b border-taupe-700 p-3">
+          <div className="border-b border-taupe-400 p-3">
             <div className="mb-2">
               <span className={sidebarHeaderLabelClassName}>Input Schema</span>
             </div>
@@ -734,7 +753,7 @@ export default function ProgramsPage() {
             </div>
 
             {fields.length === 0 ? (
-              <div className="mb-3 text-white/60 text-xs italic">
+              <div className="mb-3 text-taupe-600 text-xs italic">
                 No inputs required.
               </div>
             ) : null}
@@ -745,7 +764,7 @@ export default function ProgramsPage() {
                 key={field.key}
               >
                 <label
-                  className="mb-1 block text-white/85 text-xs"
+                  className="mb-1 block text-taupe-800 text-xs"
                   htmlFor={`input-${field.key}`}
                 >
                   {field.title}
@@ -791,7 +810,7 @@ export default function ProgramsPage() {
             {hasManualInput ? (
               <div className="mb-3">
                 <label
-                  className="mb-1 block text-white/85 text-xs"
+                  className="mb-1 block text-taupe-800 text-xs"
                   htmlFor="manual-input"
                 >
                   Manual Cell Input

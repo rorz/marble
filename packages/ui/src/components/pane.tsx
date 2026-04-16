@@ -18,6 +18,7 @@ export type MarblePaneProps = {
   description?: string;
   title?: string;
   width?: "Full" | "Narrow";
+  className?: string;
 };
 
 export const marblePaneCrumbClassName =
