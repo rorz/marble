@@ -20,8 +20,12 @@ export type MarblePaneProps = {
   width?: "Full" | "Narrow";
 };
 
-const crumbClassName =
+export const marblePaneCrumbClassName =
   "rounded-sm px-1.5 py-1 font-medium text-sm text-taupe-800 transition-colors";
+export const marblePaneInteractiveCrumbClassName = cx(
+  marblePaneCrumbClassName,
+  "hover:bg-taupe-100",
+);
 
 export function MarblePane({
   actions,
@@ -40,7 +44,7 @@ export function MarblePane({
               typeof crumb.label === "string" ? (
                 crumb.href ? (
                   <a
-                    className={cx(crumbClassName, "hover:bg-taupe-100")}
+                    className={marblePaneInteractiveCrumbClassName}
                     href={crumb.href}
                     key={crumb.id}
                   >
@@ -48,7 +52,7 @@ export function MarblePane({
                   </a>
                 ) : crumb.onClick ? (
                   <button
-                    className={cx(crumbClassName, "hover:bg-taupe-100")}
+                    className={marblePaneInteractiveCrumbClassName}
                     key={crumb.id}
                     onClick={crumb.onClick}
                     type="button"
@@ -57,7 +61,7 @@ export function MarblePane({
                   </button>
                 ) : (
                   <span
-                    className={crumbClassName}
+                    className={marblePaneCrumbClassName}
                     key={crumb.id}
                   >
                     {crumb.label}

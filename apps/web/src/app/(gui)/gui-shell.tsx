@@ -20,7 +20,7 @@ import {
 import { TableIcon } from "@phosphor-icons/react/dist/ssr";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -229,46 +229,97 @@ function getNodeIcon(node: SidebarTreeNode) {
 
 function SidebarNavRow({
   active = false,
+  expandable = false,
+  expanded = false,
   href,
   icon,
   iconOnly,
   label,
   nested = false,
+  onToggle,
   title,
-  toggle,
 }: {
   active?: boolean;
+  expandable?: boolean;
+  expanded?: boolean;
   href: string;
   icon: ReactNode;
   iconOnly: boolean;
   label: string;
   nested?: boolean;
+  onToggle?: () => void;
   title?: string;
-  toggle?: ReactNode;
 }) {
+  const router = useRouter();
+  const showDisclosure = expandable && !iconOnly;
+  const showIconSlot = !iconOnly && icon;
+
   return (
-    <div className="flex min-w-0 items-center gap-1">
+    <div
+      className={cx(
+        "group flex min-w-0 items-center rounded-md text-taupe-700 transition-colors",
+        active
+          ? "bg-taupe-300/80 text-taupe-900"
+          : "hover:bg-taupe-200/80 hover:text-taupe-900",
+        iconOnly ? "w-auto justify-center" : "w-full pr-1",
+      )}
+    >
       <Link
+        aria-current={active ? "page" : undefined}
         className={cx(
-          "flex min-w-0 flex-1 items-center rounded-sm px-2 py-0.5 text-taupe-700 transition-colors hover:bg-taupe-200/80",
-          active && "bg-taupe-300/80 text-taupe-900",
-          iconOnly ? "w-auto justify-center" : "gap-2",
-          nested && !iconOnly && "py-1 text-sm",
+          "flex min-w-0 flex-1 items-center",
+          iconOnly ? "justify-center p-2" : "gap-1.5 px-2 py-0.5 h-7",
         )}
         href={href}
+        onClick={() => {
+          if (expandable && !expanded) {
+            onToggle?.();
+          }
+        }}
         title={title}
       >
-        {icon && (
+        {showIconSlot ? (
           <div className="flex size-5 shrink-0 items-center justify-center">
             {icon}
           </div>
-        )}
+        ) : null}
         {iconOnly ? null : (
-          <span className="truncate font-medium text-sm">{label}</span>
+          <span className="truncate font-medium text-sm tracking-tight">
+            {label}
+          </span>
         )}
       </Link>
 
-      {iconOnly ? null : toggle}
+      {showDisclosure ? (
+        <button
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
+          className="flex size-7 shrink-0 items-center justify-center rounded-sm text-current opacity-60 transition-opacity hover:opacity-100"
+          onClick={(event) => {
+            event.preventDefault();
+            const nextExpanded = !expanded;
+
+            onToggle?.();
+
+            if (!active && nextExpanded) {
+              router.push(href);
+            }
+          }}
+          type="button"
+        >
+          {expanded ? (
+            <CaretDownIcon
+              size={12}
+              weight="bold"
+            />
+          ) : (
+            <CaretRightIcon
+              size={12}
+              weight="bold"
+            />
+          )}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -622,43 +673,24 @@ export function GuiShell({
 
       return (
         <div
-          className="flex w-full flex-col gap-0.5"
+          className="flex w-full flex-col gap-1"
           key={node.id}
         >
           <SidebarNavRow
             active={isNodeActive(node)}
+            expandable={expandable}
+            expanded={isOpen}
             href={node.href}
             icon={getNodeIcon(node)}
             iconOnly={sidebar.iconOnly}
             label={node.label}
             nested
+            onToggle={() => toggleOpen(nodeKey)}
             title={sidebar.iconOnly ? node.label : undefined}
-            toggle={
-              expandable ? (
-                <button
-                  aria-label={`${isOpen ? "Collapse" : "Expand"} ${node.label}`}
-                  className="flex size-7 items-center justify-center rounded-sm text-taupe-500 transition-colors hover:bg-taupe-200 hover:text-taupe-800"
-                  onClick={() => toggleOpen(nodeKey)}
-                  type="button"
-                >
-                  {isOpen ? (
-                    <CaretDownIcon
-                      size={12}
-                      weight="bold"
-                    />
-                  ) : (
-                    <CaretRightIcon
-                      size={12}
-                      weight="bold"
-                    />
-                  )}
-                </button>
-              ) : null
-            }
           />
 
           {expandable && isOpen ? (
-            <div className="ml-3 flex flex-col gap-0.5 border-l border-taupe-200 pl-2">
+            <div className="ml-2 flex flex-col gap-1 border-l border-taupe-200/80 pl-2">
               {renderTree(node.children)}
             </div>
           ) : null}
@@ -732,7 +764,7 @@ export function GuiShell({
           >
             {navigationGroups.map((group) => (
               <div
-                className="flex w-full flex-col gap-0.5"
+                className="flex w-full flex-col gap-1"
                 key={group.name}
               >
                 {sidebar.iconOnly ? null : (
@@ -749,42 +781,23 @@ export function GuiShell({
 
                   return (
                     <div
-                      className="flex w-full flex-col gap-0.5"
+                      className="flex w-full flex-col gap-1"
                       key={route.name}
                     >
                       <SidebarNavRow
                         active={isActive}
+                        expandable={route.isTree && !sidebar.iconOnly}
+                        expanded={isOpen}
                         href={route.path}
                         icon={route.icon}
                         iconOnly={sidebar.iconOnly}
                         label={route.name}
+                        onToggle={() => toggleOpen(sectionKey)}
                         title={sidebar.iconOnly ? route.name : undefined}
-                        toggle={
-                          route.isTree && !sidebar.iconOnly ? (
-                            <button
-                              aria-label={`${isOpen ? "Collapse" : "Expand"} ${route.name}`}
-                              className="flex size-7 items-center justify-center rounded-sm text-taupe-500 transition-colors hover:bg-taupe-200 hover:text-taupe-800"
-                              onClick={() => toggleOpen(sectionKey)}
-                              type="button"
-                            >
-                              {isOpen ? (
-                                <CaretDownIcon
-                                  size={12}
-                                  weight="bold"
-                                />
-                              ) : (
-                                <CaretRightIcon
-                                  size={12}
-                                  weight="bold"
-                                />
-                              )}
-                            </button>
-                          ) : null
-                        }
                       />
 
                       {route.isTree && !sidebar.iconOnly && isOpen ? (
-                        <div className="ml-3 flex flex-col gap-0.5 border-l border-taupe-200 pl-2">
+                        <div className="ml-2 flex flex-col gap-1 border-l border-taupe-200/80 pl-2">
                           {renderTree(nodes)}
                         </div>
                       ) : null}
@@ -794,7 +807,7 @@ export function GuiShell({
               </div>
             ))}
 
-            <div className="mt-auto mb-12 flex w-full flex-col gap-0.5">
+            <div className="mt-auto mb-12 flex w-full flex-col gap-1">
               {utilityRoutes.map((route) => (
                 <SidebarNavRow
                   active={topLevelPath === route.path}

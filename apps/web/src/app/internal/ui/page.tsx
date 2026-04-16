@@ -22,6 +22,7 @@ import {
   MarbleModalHeader,
   MarbleModalTitle,
   MarblePane,
+  MarblePaneEditableCrumb,
   MarbleSelect,
   MarbleTextarea,
 } from "@marble/ui";
@@ -46,6 +47,10 @@ function Section({
 
 export default function UiPage() {
   const [editableValue, setEditableValue] = useState("Untitled Project");
+  const [editableCrumbValue, setEditableCrumbValue] = useState(
+    "Audience Enrichment",
+  );
+  const [isEditingCrumb, setIsEditingCrumb] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -313,8 +318,31 @@ export default function UiPage() {
 
         <Section title="Editable Text">
           <div className="space-y-4">
+            <div className="flex items-center gap-1">
+              <span className="rounded-sm px-1.5 py-1 font-medium text-base text-neutral-800">
+                Projects
+              </span>
+              <span
+                aria-hidden="true"
+                className="text-taupe-300"
+              >
+                &gt;
+              </span>
+              <MarblePaneEditableCrumb
+                disabled={false}
+                editing={isEditingCrumb}
+                onCancel={() => {
+                  setEditableCrumbValue("Audience Enrichment");
+                  setIsEditingCrumb(false);
+                }}
+                onChange={setEditableCrumbValue}
+                onCommit={() => setIsEditingCrumb(false)}
+                onEdit={() => setIsEditingCrumb(true)}
+                value={editableCrumbValue}
+              />
+            </div>
             <MarbleEditableText
-              className="text-left text-3xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
+              className="-mx-1 rounded-sm px-1 text-left text-3xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
               disabled={false}
               editing={isEditingName}
               onCancel={() => {
@@ -327,7 +355,8 @@ export default function UiPage() {
               value={editableValue}
             />
             <p className="text-sm text-zinc-500">
-              Shared inline rename behavior for project and table surfaces.
+              Shared inline rename behavior for breadcrumb and pane title
+              surfaces.
             </p>
           </div>
         </Section>

@@ -67,7 +67,10 @@ export {
   MarblePane,
   type MarblePaneCrumb,
   type MarblePaneProps,
+  marblePaneCrumbClassName,
+  marblePaneInteractiveCrumbClassName,
 } from "./components/pane";
+export { MarblePaneEditableCrumb } from "./components/pane-editable-crumb";
 export {
   MarbleSelect,
   type MarbleSelectProps,

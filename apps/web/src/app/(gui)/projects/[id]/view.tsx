@@ -9,6 +9,7 @@ import {
   MarbleEmptyState,
   MarbleListRow,
   MarblePane,
+  MarblePaneEditableCrumb,
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -245,8 +246,7 @@ export function ProjectPageView({
         {
           id: "project-name",
           label: (
-            <MarbleEditableText
-              className="rounded-sm px-1.5 py-1 font-medium text-base text-neutral-800 transition-colors hover:bg-taupe-100"
+            <MarblePaneEditableCrumb
               disabled={savingName}
               editing={editingSurface === "crumb"}
               onCancel={stopEditing}
@@ -262,7 +262,7 @@ export function ProjectPageView({
       <div className="space-y-6">
         <div className="space-y-3">
           <MarbleEditableText
-            className="text-left text-4xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
+            className="-mx-1 rounded-sm px-1 text-left text-4xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
             disabled={savingName}
             editing={editingSurface === "title"}
             onCancel={stopEditing}

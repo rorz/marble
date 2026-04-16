@@ -13,6 +13,7 @@ import {
   MarbleModalHeader,
   MarbleModalTitle,
   MarblePane,
+  MarblePaneEditableCrumb,
   MarbleSelect,
   MarbleTextarea,
 } from "@marble/ui";
@@ -1822,35 +1823,34 @@ export default function TablePageView({
   // ── Render ────────────────────────────────────────────
 
   const selectedTable = table;
+  const selectedTableName = selectedTable.name;
 
   useEffect(() => {
-    if (!selectedTable || editingSurface !== null) {
+    if (editingSurface !== null) {
       return;
     }
 
-    setNameDraft(selectedTable.name);
+    setNameDraft((current) =>
+      current === selectedTableName ? current : selectedTableName,
+    );
   }, [
     editingSurface,
-    selectedTable,
+    selectedTableName,
   ]);
 
   const stopEditingName = useCallback(() => {
     setEditingSurface(null);
-    setNameDraft(selectedTable?.name ?? "");
+    setNameDraft(selectedTableName);
   }, [
-    selectedTable,
+    selectedTableName,
   ]);
 
   const commitName = useCallback(async () => {
-    if (!selectedTable) {
-      return;
-    }
-
     const nextName = nameDraft.trim() || "Untitled Table";
 
-    if (nextName === selectedTable.name) {
+    if (nextName === selectedTableName) {
       setEditingSurface(null);
-      setNameDraft(selectedTable.name);
+      setNameDraft(selectedTableName);
       return;
     }
 
@@ -1871,6 +1871,7 @@ export default function TablePageView({
     mergeTable,
     nameDraft,
     selectedTable,
+    selectedTableName,
   ]);
 
   return (
@@ -1889,15 +1890,14 @@ export default function TablePageView({
         {
           id: "table",
           label: (
-            <EditableName
-              className="rounded-sm px-1.5 py-1 font-medium text-base text-neutral-800 transition-colors hover:bg-taupe-100"
+            <MarblePaneEditableCrumb
               disabled={savingName}
               editing={editingSurface === "crumb"}
-              name={nameDraft}
               onCancel={stopEditingName}
               onChange={setNameDraft}
               onCommit={() => void commitName()}
               onEdit={() => setEditingSurface("crumb")}
+              value={nameDraft}
             />
           ),
         },
@@ -1907,7 +1907,7 @@ export default function TablePageView({
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-3">
             <EditableName
-              className="text-left text-4xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
+              className="-mx-1 rounded-sm px-1 text-left text-4xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
               disabled={savingName}
               editing={editingSurface === "title"}
               name={nameDraft}
