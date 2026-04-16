@@ -1,7 +1,17 @@
 "use client";
 
 import type { Database } from "@marble/supabase";
-import { cx } from "@marble/ui";
+import {
+  cx,
+  MarbleCommandDialog,
+  MarbleCommandEmpty,
+  MarbleCommandGroup,
+  MarbleCommandInput,
+  MarbleCommandItem,
+  MarbleCommandList,
+  MarbleCommandSeparator,
+  MarbleWorkspacePopover,
+} from "@marble/ui";
 import {
   BookOpenTextIcon,
   BriefcaseMetalIcon,
@@ -46,6 +56,7 @@ import {
   type SidebarTreeNode,
 } from "../../lib/sidebar-tree";
 import { createClient } from "../../lib/supabase/browser";
+import { useSignOut } from "../sign-out-button";
 
 type TreeCollectionKey = "programs" | "projects";
 type SidebarGroup = {
@@ -160,6 +171,19 @@ const utilityRoutes: {
 type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type TableRow = Database["public"]["Tables"]["table"]["Row"];
+type CommandPaletteItem = {
+  detail: string;
+  icon: ReactNode;
+  id: string;
+  keywords: string[];
+  label: string;
+  onSelect: () => void;
+};
+type CommandPaletteSection = {
+  heading: string;
+  id: string;
+  items: CommandPaletteItem[];
+};
 
 const sidebarModes = {
   collapsed: {
@@ -175,7 +199,7 @@ const sidebarModes = {
   expanded: {
     asideClassName: "items-start",
     brandClassName: "justify-between gap-2",
-    brandInnerClassName: "gap-2 px-2",
+    brandInnerClassName: "gap-2",
     iconOnly: false,
     navClassName: "items-stretch",
     routeClassName: "w-full gap-1",
@@ -203,6 +227,42 @@ const nextSidebarMode: Record<SidebarMode, SidebarMode> = {
 
 function isNodePathActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function collectCommandPaletteResources(
+  nodes: SidebarTreeNode[],
+  parents: SidebarTreeNode[] = [],
+): Array<{
+  node: SidebarTreeNode;
+  parents: SidebarTreeNode[];
+}> {
+  return nodes.flatMap((node) => [
+    {
+      node,
+      parents,
+    },
+    ...collectCommandPaletteResources(node.children, [
+      ...parents,
+      node,
+    ]),
+  ]);
+}
+
+function isEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (target.closest("[cmdk-root]")) {
+    return false;
+  }
+
+  return (
+    target.isContentEditable ||
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement
+  );
 }
 
 function getNodeIcon(node: SidebarTreeNode) {
@@ -235,6 +295,7 @@ function SidebarNavRow({
   icon,
   iconOnly,
   label,
+  onSelect,
   onToggle,
   title,
 }: {
@@ -245,6 +306,7 @@ function SidebarNavRow({
   icon: ReactNode;
   iconOnly: boolean;
   label: string;
+  onSelect?: () => void;
   onToggle?: () => void;
   title?: string;
 }) {
@@ -269,7 +331,13 @@ function SidebarNavRow({
           iconOnly ? "justify-center p-2" : "gap-1.5 px-2 py-0.5 h-7",
         )}
         href={href}
-        onClick={() => {
+        onClick={(event) => {
+          if (onSelect) {
+            event.preventDefault();
+            onSelect();
+            return;
+          }
+
           if (expandable && !expanded) {
             onToggle?.();
           }
@@ -337,9 +405,16 @@ export function GuiShell({
     useState<SidebarMode>(initialSidebarMode);
   const [sidebarWidth, setSidebarWidth] = useState(initialSidebarWidth);
   const [sidebarData, setSidebarData] = useState(initialSidebarData);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const sidebar = sidebarModes[sidebarMode];
   const ToggleIcon = sidebar.toggleIcon;
+  const router = useRouter();
+  const {
+    error: signOutError,
+    pending: signOutPending,
+    signOut,
+  } = useSignOut();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const resizeHandleRef = useRef<HTMLButtonElement | null>(null);
@@ -351,6 +426,331 @@ export function GuiShell({
   }>(null);
   const topLevelPath = `/${pathname.split("/").at(1)}`;
   const selectedProgramId = searchParams.get("programId");
+  const openCommandPalette = () => {
+    setIsCommandPaletteOpen(true);
+  };
+  const navigateFromCommandPalette = (path: string) => {
+    setIsCommandPaletteOpen(false);
+    router.push(path);
+  };
+  const workspaceMenuSections = [
+    {
+      id: "workspace-core",
+      items: [
+        {
+          icon: (
+            <IdentificationBadgeIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "workspace-profiles",
+          label: "Profiles",
+          onSelect: () => router.push("/profiles"),
+        },
+        {
+          icon: (
+            <BriefcaseMetalIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "workspace-projects",
+          label: "Projects",
+          onSelect: () => router.push("/projects"),
+        },
+        {
+          icon: (
+            <FileCodeIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "workspace-programs",
+          label: "Programs",
+          onSelect: () => router.push("/programs"),
+        },
+      ],
+    },
+    {
+      id: "workspace-tools",
+      items: [
+        {
+          icon: (
+            <PlugsIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "workspace-sources",
+          label: "Sources",
+          onSelect: () => router.push("/sources"),
+        },
+        {
+          icon: (
+            <RobotIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "workspace-automations",
+          label: "Automations",
+          onSelect: () => router.push("/automations"),
+        },
+        {
+          icon: (
+            <BookOpenTextIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "workspace-events",
+          label: "Events",
+          onSelect: () => router.push("/events"),
+        },
+        {
+          icon: (
+            <LifebuoyIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "workspace-help",
+          label: "Help",
+          onSelect: openCommandPalette,
+        },
+      ],
+    },
+    {
+      id: "workspace-session",
+      items: [
+        {
+          disabled: signOutPending,
+          id: "workspace-sign-out",
+          label: signOutPending ? "Signing out..." : "Sign out",
+          onSelect: () => {
+            void signOut();
+          },
+          tone: "danger" as const,
+        },
+      ],
+    },
+  ];
+  const projectResources = collectCommandPaletteResources(sidebarData.projects);
+  const projectCommandItems = projectResources
+    .filter(({ node }) => node.kind === "project")
+    .map(({ node }) => ({
+      detail: "Project",
+      icon: (
+        <BriefcaseMetalIcon
+          size={16}
+          weight="regular"
+        />
+      ),
+      id: `command-palette-project:${node.id}`,
+      keywords: [
+        "project",
+        "workspace",
+        node.id,
+      ],
+      label: node.label,
+      onSelect: () => navigateFromCommandPalette(node.href),
+    }));
+  const tableCommandItems = projectResources
+    .filter(({ node }) => node.kind === "table")
+    .map(({ node, parents }) => {
+      const parentPath = parents.map((parent) => parent.label);
+      const projectLabel = parentPath.at(-1) ?? "Project";
+
+      return {
+        detail: projectLabel,
+        icon: (
+          <TableIcon
+            className="h-4 w-4"
+            weight="duotone"
+          />
+        ),
+        id: `command-palette-table:${node.id}`,
+        keywords: [
+          "table",
+          node.id,
+          ...parentPath,
+        ],
+        label: node.label,
+        onSelect: () => navigateFromCommandPalette(node.href),
+      };
+    });
+  const programCommandItems = sidebarData.programs.map((node) => ({
+    detail: "Program",
+    icon: (
+      <CodeBlockIcon
+        size={16}
+        weight="duotone"
+      />
+    ),
+    id: `command-palette-program:${node.id}`,
+    keywords: [
+      "program",
+      "code",
+      "runner",
+      node.id,
+    ],
+    label: node.label,
+    onSelect: () => navigateFromCommandPalette(node.href),
+  }));
+  const commandPaletteSections: CommandPaletteSection[] = [
+    {
+      heading: "Jump to",
+      id: "command-palette-navigation",
+      items: [
+        {
+          detail: "/projects",
+          icon: (
+            <BriefcaseMetalIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "command-palette-projects",
+          keywords: [
+            "workspace",
+            "project",
+          ],
+          label: "Open projects",
+          onSelect: () => navigateFromCommandPalette("/projects"),
+        },
+        {
+          detail: "/programs",
+          icon: (
+            <FileCodeIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "command-palette-programs",
+          keywords: [
+            "code",
+            "runner",
+            "program",
+          ],
+          label: "Open programs",
+          onSelect: () => navigateFromCommandPalette("/programs"),
+        },
+        {
+          detail: "/tables",
+          icon: (
+            <TableIcon
+              className="h-4 w-4"
+              weight="duotone"
+            />
+          ),
+          id: "command-palette-tables",
+          keywords: [
+            "rows",
+            "columns",
+            "schema",
+          ],
+          label: "Open tables",
+          onSelect: () => navigateFromCommandPalette("/tables"),
+        },
+      ],
+    },
+    {
+      heading: "Projects",
+      id: "command-palette-project-resources",
+      items: projectCommandItems,
+    },
+    {
+      heading: "Tables",
+      id: "command-palette-table-resources",
+      items: tableCommandItems,
+    },
+    {
+      heading: "Programs",
+      id: "command-palette-program-resources",
+      items: programCommandItems,
+    },
+    {
+      heading: "Agentic use",
+      id: "command-palette-agentic",
+      items: [
+        {
+          detail: "/profiles",
+          icon: (
+            <IdentificationBadgeIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "command-palette-profiles",
+          keywords: [
+            "people",
+            "personas",
+            "agents",
+          ],
+          label: "Open profiles",
+          onSelect: () => navigateFromCommandPalette("/profiles"),
+        },
+        {
+          detail: "/automations",
+          icon: (
+            <RobotIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "command-palette-automations",
+          keywords: [
+            "scheduled",
+            "runs",
+            "automation",
+          ],
+          label: "Open automations",
+          onSelect: () => navigateFromCommandPalette("/automations"),
+        },
+      ],
+    },
+    {
+      heading: "Examples",
+      id: "command-palette-examples",
+      items: [
+        {
+          detail: "/events",
+          icon: (
+            <BookOpenTextIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "command-palette-events",
+          keywords: [
+            "log",
+            "activity",
+            "feed",
+          ],
+          label: "Open events",
+          onSelect: () => navigateFromCommandPalette("/events"),
+        },
+        {
+          detail: "/help",
+          icon: (
+            <LifebuoyIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "command-palette-help",
+          keywords: [
+            "docs",
+            "support",
+            "examples",
+          ],
+          label: "Open help examples",
+          onSelect: () => navigateFromCommandPalette("/help"),
+        },
+      ],
+    },
+  ].filter((section) => section.items.length > 0);
   const [openKeys, setOpenKeys] = useState<Set<string>>(() => {
     const keys = new Set<string>(
       initialSidebarMode === "expanded"
@@ -495,6 +895,36 @@ export function GuiShell({
     setSidebarWidth(nextWidth);
     persistSidebarWidth(nextWidth);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.key.toLowerCase() !== "k" ||
+        !(event.metaKey || event.ctrlKey) ||
+        event.altKey ||
+        event.shiftKey ||
+        event.repeat
+      ) {
+        return;
+      }
+
+      if (!isCommandPaletteOpen && isEditableTarget(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+      setIsCommandPaletteOpen((current) => !current);
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    isCommandPaletteOpen,
+  ]);
 
   useEffect(() => {
     const isNodeActive = (node: SidebarTreeNode) =>
@@ -715,47 +1145,45 @@ export function GuiShell({
       <div className="relative">
         <aside
           className={cx(
-            "flex size-full flex-col gap-8 px-2 pt-6 transition-[padding] duration-200 ease-out h-screen overflow-y-scroll",
+            "flex size-full min-h-0 flex-col gap-8 px-2 pt-6 transition-[padding] duration-200 ease-out h-screen overflow-y-scroll",
             sidebar.asideClassName,
           )}
         >
-          <div
-            className={cx("flex w-full items-center", sidebar.brandClassName)}
-          >
+          <div className="flex w-full flex-col gap-2">
             <div
-              className={cx("flex items-center", sidebar.brandInnerClassName)}
+              className={cx("flex w-full items-center", sidebar.brandClassName)}
             >
-              <div className="size-8 rounded-md bg-taupe-200" />
-              {sidebar.iconOnly ? null : (
-                <>
-                  <span className="font-medium text-taupe-300">Company</span>
-                  <CaretDownIcon
-                    className="text-taupe-300"
-                    size={12}
-                    weight="bold"
-                  />
-                </>
-              )}
+              <MarbleWorkspacePopover
+                className={cx(sidebar.iconOnly ? null : "flex-1")}
+                compact={sidebar.iconOnly}
+                description="Default workspace"
+                name="Verdn"
+                sections={workspaceMenuSections}
+              />
+
+              <button
+                aria-label={sidebar.toggleLabel}
+                className="flex size-8 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200 hover:text-taupe-800"
+                onClick={toggleSidebar}
+                title={sidebar.toggleLabel}
+                type="button"
+              >
+                <ToggleIcon
+                  size={16}
+                  weight="bold"
+                />
+              </button>
             </div>
 
-            <button
-              aria-label={sidebar.toggleLabel}
-              className="flex size-8 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200 hover:text-taupe-800"
-              onClick={toggleSidebar}
-              title={sidebar.toggleLabel}
-              type="button"
-            >
-              <ToggleIcon
-                size={16}
-                weight="bold"
-              />
-            </button>
+            {!sidebar.iconOnly && signOutError ? (
+              <p className="px-2 text-red-600 text-xs">{signOutError}</p>
+            ) : null}
           </div>
 
           <nav
             aria-label="Primary"
             className={cx(
-              "flex size-full flex-col gap-4",
+              "flex min-h-0 w-full flex-1 flex-col gap-4 overflow-y-auto pb-6",
               sidebar.navClassName,
             )}
           >
@@ -813,6 +1241,9 @@ export function GuiShell({
                   iconOnly={sidebar.iconOnly}
                   key={route.name}
                   label={route.name}
+                  onSelect={
+                    route.name === "Help" ? openCommandPalette : undefined
+                  }
                   title={sidebar.iconOnly ? route.name : undefined}
                 />
               ))}
@@ -848,6 +1279,47 @@ export function GuiShell({
           {children}
         </div>
       </main>
+
+      <MarbleCommandDialog
+        label="Global command palette"
+        loop
+        onOpenChange={setIsCommandPaletteOpen}
+        open={isCommandPaletteOpen}
+      >
+        <MarbleCommandInput placeholder="Search projects, programs, profiles, or help..." />
+        <MarbleCommandList>
+          <MarbleCommandEmpty>
+            No matching command. Try `projects`, `rows`, `people`, or `help`.
+          </MarbleCommandEmpty>
+
+          {commandPaletteSections.map((section, sectionIndex) => (
+            <div key={section.id}>
+              {sectionIndex > 0 ? <MarbleCommandSeparator /> : null}
+              <MarbleCommandGroup heading={section.heading}>
+                {section.items.map((item) => (
+                  <MarbleCommandItem
+                    key={item.id}
+                    keywords={item.keywords}
+                    onSelect={item.onSelect}
+                    value={item.label}
+                  >
+                    {item.icon}
+                    <span className="flex-1 truncate">{item.label}</span>
+                    <span className="font-mono text-[10px] text-taupe-400 uppercase tracking-[0.18em]">
+                      {item.detail}
+                    </span>
+                  </MarbleCommandItem>
+                ))}
+              </MarbleCommandGroup>
+            </div>
+          ))}
+        </MarbleCommandList>
+
+        <div className="flex items-center justify-between border-t border-taupe-200 bg-linear-to-r from-taupe-50 via-white to-white px-4 py-2 text-[11px] text-taupe-500 uppercase tracking-[0.18em]">
+          <span>Help now opens this palette</span>
+          <span>Cmd/Ctrl + K</span>
+        </div>
+      </MarbleCommandDialog>
     </div>
   );
 }

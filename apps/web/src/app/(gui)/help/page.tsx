@@ -1,15 +1,13 @@
-import { MarbleEmptyState, MarblePane } from "@marble/ui";
+import { MarblePane } from "@marble/ui";
+import { HelpCommandExamples } from "./help-command-examples";
 
 const HelpPage = () => {
   return (
     <MarblePane
+      description="Temporary interactive command-menu examples while the final help surface is still taking shape."
       title="Help"
-      width="Narrow"
     >
-      <MarbleEmptyState
-        description="Documentation and guided workflows will land here once the shared help surface is ready."
-        title="Work in progress"
-      />
+      <HelpCommandExamples />
     </MarblePane>
   );
 };

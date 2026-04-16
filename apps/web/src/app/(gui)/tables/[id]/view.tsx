@@ -108,7 +108,9 @@ type GridContext = {
 };
 
 const TABLE_CELL_HORIZONTAL_PADDING_PX = 4;
-const TABLE_CELL_LED_CLEARANCE_PX = 14;
+const TABLE_CELL_LED_CLEARANCE_PX = 12;
+const TABLE_CELL_LED_GUTTER_PX =
+  TABLE_CELL_LED_CLEARANCE_PX + TABLE_CELL_HORIZONTAL_PADDING_PX - 2;
 
 // ── Theme ───────────────────────────────────────────────
 
@@ -712,40 +714,39 @@ function CellRunningIndicator() {
       }}
     >
       <style>{`
-        @keyframes motlo-swathe {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(500%); }
-        }
-        @keyframes motlo-climb {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(-8px); }
+        @keyframes motlo-breathe {
+          0%, 100% { opacity: 0.18; }
+          50% { opacity: 0.24; }
         }
       `}</style>
 
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-zinc-200/0 via-zinc-200/80 to-zinc-200/0" />
+      <div
+        className="absolute inset-0"
+        style={{
+          animation: "motlo-breathe 5.6s ease-in-out infinite",
+          background:
+            "linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.2) 48%, rgba(255,255,255,0.1) 100%)",
+        }}
+      />
 
-      <div className="absolute inset-0 overflow-hidden opacity-20 mix-blend-overlay">
+      <div
+        className="absolute inset-0 overflow-hidden opacity-[0.07] mix-blend-overlay"
+        style={{
+          animation: "motlo-breathe 6.8s ease-in-out infinite",
+        }}
+      >
         <div
-          className="h-[200%] w-full"
+          className="h-full w-full"
           style={{
-            animation: "motlo-climb 0.8s linear infinite",
             backgroundImage:
-              "radial-gradient(circle, #000 1px, transparent 1px)",
-            backgroundSize: "4px 4px",
+              "radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px)",
+            backgroundSize: "6px 6px",
           }}
         />
       </div>
 
-      <div
-        className="absolute top-[-50%] bottom-[-50%] flex w-16"
-        style={{
-          animation: "motlo-swathe 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite",
-          transformOrigin: "center",
-        }}
-      >
-        <div className="h-full w-full skew-x-[-20deg] bg-gradient-to-r from-transparent via-orange-400/30 to-orange-500/80 blur-[2px]" />
-        <div className="h-full w-[2px] translate-x-[-2px] skew-x-[-20deg] bg-orange-500 shadow-[0_0_12px_3px_rgba(249,115,22,0.9)]" />
-      </div>
+      <div className="absolute inset-x-0 top-0 h-px bg-white/55" />
+      <div className="absolute inset-x-0 bottom-0 h-px bg-zinc-200/65" />
     </div>
   );
 }
@@ -766,26 +767,30 @@ function CellWithRunButton(props: CustomCellRendererProps) {
     <div className="group/cell relative flex h-full w-full items-center">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-0 z-20 flex -translate-y-1/2 flex-col gap-[2px] overflow-hidden rounded-[4px] border border-zinc-200 bg-white p-px"
+        className="pointer-events-none absolute inset-y-0 left-0 z-20 flex items-center bg-taupe-50"
         style={{
+          // background: "var(--marble-table-cell-background, #fafafa)",
           left: "calc(var(--marble-table-cell-padding-inline, 0px) * -1)",
+          width: "var(--marble-table-cell-led-gutter-width, 0px)",
         }}
       >
-        <span
-          className={cx(
-            "block size-2 rounded-xs bg-amber-200/20 transition-all",
-            isLoading &&
-              "animate-blink duration-75 bg-amber-400 shadow-[0_0_2px_rgba(251,146,60,0.55)]",
-          )}
-        />
-        <span
-          className={cx(
-            "block size-2 rounded-xs bg-zinc-300/20 transition-all",
-            state?.ok === true &&
-              "bg-emerald-400 shadow-[0_0_2px_rgba(16,185,129,0.55)]",
-            isFailed && "bg-red-400 shadow-[0_0_2px_rgba(239,68,68,0.55)]",
-          )}
-        />
+        <div className="flex w-full flex-col items-center gap-[3px]">
+          <span
+            className={cx(
+              "block size-2.5 rounded-[3px] bg-amber-200/20 transition-all",
+              isLoading &&
+                "animate-blink duration-75 bg-amber-400 shadow-[0_0_2px_rgba(251,146,60,0.55)]",
+            )}
+          />
+          <span
+            className={cx(
+              "block size-2.5 rounded-[3px] bg-zinc-300/20 transition-all",
+              state?.ok === true &&
+                "bg-emerald-400 shadow-[0_0_2px_rgba(16,185,129,0.55)]",
+              isFailed && "bg-red-400 shadow-[0_0_2px_rgba(239,68,68,0.55)]",
+            )}
+          />
+        </div>
       </div>
       {isLoading ? <CellRunningIndicator /> : null}
       <div
@@ -1478,14 +1483,17 @@ export default function TablePageView({
           cellRenderer: CellWithRunButton,
           cellStyle: (params) => {
             const hasValue = params.value && String(params.value).trim() !== "";
+            const background = editable
+              ? hasValue
+                ? "#ffffff"
+                : "#f4f4f5"
+              : "#fafafa";
             return {
+              "--marble-table-cell-background": background,
               "--marble-table-cell-content-padding-left": `${TABLE_CELL_LED_CLEARANCE_PX}px`,
+              "--marble-table-cell-led-gutter-width": `${TABLE_CELL_LED_GUTTER_PX}px`,
               "--marble-table-cell-padding-inline": `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
-              background: editable
-                ? hasValue
-                  ? "#ffffff"
-                  : "#f4f4f5"
-                : "transparent",
+              background: editable ? background : "transparent",
               fontFamily: "var(--font-geist-mono)",
               paddingLeft: `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
               paddingRight: `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
@@ -1972,7 +1980,45 @@ export default function TablePageView({
           <div className="flex min-w-0 flex-1 flex-col">
             <div className="flex h-full flex-1 flex-col">
               {selectedTableId ? (
-                <div className="mb-4 min-h-0 flex-1">
+                <div className="marble-table-grid mb-4 min-h-0 flex-1">
+                  <style>{`
+                    .marble-table-grid .ag-cell.ag-cell-inline-editing {
+                      border-radius: 0;
+                      box-shadow: none;
+                      padding-left: 0 !important;
+                      padding-right: 0 !important;
+                    }
+
+                    .marble-table-grid .ag-cell.ag-cell-inline-editing .ag-cell-edit-wrapper,
+                    .marble-table-grid .ag-cell.ag-cell-inline-editing .ag-cell-editor {
+                      height: 100%;
+                      width: 100%;
+                    }
+
+                    .marble-table-grid .ag-cell.ag-cell-inline-editing .ag-input-field-input {
+                      background: transparent;
+                      border: 0 !important;
+                      border-radius: 0;
+                      box-shadow: none !important;
+                      padding-left: var(
+                        --marble-table-cell-padding-inline,
+                        0px
+                      ) !important;
+                      padding-right: var(
+                        --marble-table-cell-padding-inline,
+                        0px
+                      ) !important;
+                    }
+
+                    .marble-table-grid
+                      .ag-cell.ag-cell-inline-editing
+                      .ag-input-field-input:focus {
+                      background: transparent;
+                      border: 0 !important;
+                      box-shadow: none !important;
+                      outline: none;
+                    }
+                  `}</style>
                   <AgGridReact
                     columnDefs={colDefs}
                     context={gridContext}

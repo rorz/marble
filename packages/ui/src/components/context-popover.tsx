@@ -3,28 +3,43 @@
 import {
   type ButtonHTMLAttributes,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { cx } from "../utils/cx";
 
 type MarbleContextPopoverItem = {
+  description?: string;
+  detail?: ReactNode;
   disabled?: boolean;
+  id?: string;
+  icon?: ReactNode;
   label: string;
   onSelect: () => void;
   tone?: "default" | "danger";
 };
 
+type MarbleContextPopoverSection = {
+  id?: string;
+  items: MarbleContextPopoverItem[];
+};
+
 export type MarbleContextPopoverProps = {
   align?: "end" | "start";
   ariaLabel?: string;
+  children?: ReactNode;
   className?: string;
   disabled?: boolean;
-  items: MarbleContextPopoverItem[];
+  header?: ReactNode;
+  items?: MarbleContextPopoverItem[];
   menuClassName?: string;
+  sections?: MarbleContextPopoverSection[];
   triggerClassName?: string;
 } & Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -38,10 +53,13 @@ function getEnabledItemIndexes(items: MarbleContextPopoverItem[]) {
 export function MarbleContextPopover({
   align = "end",
   ariaLabel = "Open menu",
+  children,
   className,
   disabled = false,
-  items,
+  header,
+  items = [],
   menuClassName,
+  sections,
   onKeyDown,
   triggerClassName,
   ...props
@@ -49,19 +67,72 @@ export function MarbleContextPopover({
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [isOpen, setIsOpen] = useState(false);
-  const enabledItemIndexes = getEnabledItemIndexes(items);
+  const [menuPosition, setMenuPosition] = useState<null | {
+    left: number;
+    top: number;
+  }>(null);
+  const hasCustomTrigger = children !== undefined && children !== null;
+  const menuSections = useMemo(() => {
+    if (sections) {
+      return sections.filter((section) => section.items.length > 0);
+    }
+
+    return items.length > 0
+      ? [
+          {
+            items,
+          },
+        ]
+      : [];
+  }, [
+    items,
+    sections,
+  ]);
+  const flattenedItems = useMemo(
+    () => menuSections.flatMap((section) => section.items),
+    [
+      menuSections,
+    ],
+  );
+  const enabledItemIndexes = getEnabledItemIndexes(flattenedItems);
   const isTriggerDisabled = disabled || enabledItemIndexes.length === 0;
+
+  const getItemKey = (item: MarbleContextPopoverItem) =>
+    item.id ??
+    [
+      item.label,
+      item.description,
+    ]
+      .filter(Boolean)
+      .join(":");
+
+  const getSectionKey = (section: MarbleContextPopoverSection) =>
+    section.id ?? section.items.map(getItemKey).join("|");
+
+  const containsTarget = useCallback((target: Node) => {
+    return (
+      rootRef.current?.contains(target) || menuRef.current?.contains(target)
+    );
+  }, []);
 
   const focusItem = (index: number) => {
     itemRefs.current[index]?.focus();
   };
 
-  const closeMenu = useCallback(() => {
+  const dismissMenu = useCallback(() => {
     setIsOpen(false);
-    buttonRef.current?.focus();
+    setMenuPosition(null);
   }, []);
+
+  const closeMenu = useCallback(() => {
+    dismissMenu();
+    buttonRef.current?.focus();
+  }, [
+    dismissMenu,
+  ]);
 
   const openMenu = (targetIndex = 0) => {
     if (isTriggerDisabled) {
@@ -90,8 +161,8 @@ export function MarbleContextPopover({
         return;
       }
 
-      if (!rootRef.current?.contains(target)) {
-        setIsOpen(false);
+      if (!containsTarget(target)) {
+        dismissMenu();
       }
     };
 
@@ -108,8 +179,8 @@ export function MarbleContextPopover({
         return;
       }
 
-      if (!rootRef.current?.contains(target)) {
-        setIsOpen(false);
+      if (!containsTarget(target)) {
+        dismissMenu();
       }
     };
 
@@ -124,6 +195,63 @@ export function MarbleContextPopover({
     };
   }, [
     closeMenu,
+    containsTarget,
+    dismissMenu,
+    isOpen,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const updateMenuPosition = () => {
+      const button = buttonRef.current;
+      const menu = menuRef.current;
+
+      if (!button || !menu) {
+        return;
+      }
+
+      const buttonRect = button.getBoundingClientRect();
+      const menuRect = menu.getBoundingClientRect();
+      const gap = 8;
+      const viewportPadding = 8;
+      const maxLeft = Math.max(
+        viewportPadding,
+        window.innerWidth - viewportPadding - menuRect.width,
+      );
+      let top = buttonRect.bottom + gap;
+
+      if (top + menuRect.height > window.innerHeight - viewportPadding) {
+        top = Math.max(viewportPadding, buttonRect.top - gap - menuRect.height);
+      }
+
+      let left =
+        align === "end" ? buttonRect.right - menuRect.width : buttonRect.left;
+
+      left = Math.min(Math.max(left, viewportPadding), maxLeft);
+
+      setMenuPosition((current) =>
+        current && current.left === left && current.top === top
+          ? current
+          : {
+              left,
+              top,
+            },
+      );
+    };
+
+    updateMenuPosition();
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [
+    align,
     isOpen,
   ]);
 
@@ -200,8 +328,12 @@ export function MarbleContextPopover({
         aria-haspopup="menu"
         aria-label={ariaLabel}
         className={cx(
-          "inline-flex size-7 items-center justify-center rounded-[4px] text-zinc-400 transition-colors",
-          "hover:bg-zinc-100 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50",
+          hasCustomTrigger
+            ? "inline-flex min-w-0 items-center justify-center rounded-[6px] transition-colors"
+            : "inline-flex size-7 items-center justify-center rounded-[4px] text-zinc-400 transition-colors",
+          hasCustomTrigger
+            ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50"
+            : "hover:bg-zinc-100 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50",
           triggerClassName,
         )}
         disabled={isTriggerDisabled}
@@ -213,57 +345,110 @@ export function MarbleContextPopover({
         type="button"
         {...props}
       >
-        <span
-          aria-hidden="true"
-          className="flex flex-col gap-px"
-        >
-          <span className="size-[3px] rounded-full bg-current" />
-          <span className="size-[3px] rounded-full bg-current" />
-          <span className="size-[3px] rounded-full bg-current" />
-        </span>
+        {hasCustomTrigger ? (
+          children
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex flex-col gap-px"
+          >
+            <span className="size-[3px] rounded-full bg-current" />
+            <span className="size-[3px] rounded-full bg-current" />
+            <span className="size-[3px] rounded-full bg-current" />
+          </span>
+        )}
       </button>
 
       {isOpen ? (
         <div
           className={cx(
-            "absolute top-full z-50 mt-2 min-w-36 rounded-xs border border-zinc-200 bg-white p-1 shadow-lg shadow-zinc-950/10",
-            align === "end" ? "right-0" : "left-0",
+            "fixed z-[1000] min-w-36 rounded-xs border border-zinc-200 bg-white p-1 shadow-lg shadow-zinc-950/10",
             menuClassName,
           )}
           id={menuId}
+          ref={menuRef}
           role="menu"
+          style={{
+            left: menuPosition?.left ?? 0,
+            top: menuPosition?.top ?? 0,
+            visibility: menuPosition ? "visible" : "hidden",
+          }}
         >
-          {items.map((item, index) => (
-            <button
-              className={cx(
-                "flex w-full items-center rounded-[3px] px-3 py-2 text-left font-medium text-sm transition-colors",
-                item.disabled
-                  ? "cursor-not-allowed text-zinc-400"
-                  : "cursor-pointer text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 focus-visible:bg-zinc-100 focus-visible:text-zinc-950 focus-visible:outline-none",
-                item.tone === "danger" && !item.disabled
-                  ? "text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50 focus-visible:text-red-700"
-                  : null,
-              )}
-              disabled={item.disabled}
-              key={item.label}
-              onClick={() => {
-                setIsOpen(false);
-                item.onSelect();
-              }}
-              onKeyDown={handleItemKeyDown(index)}
-              ref={(element) => {
-                itemRefs.current[index] = element;
-              }}
-              role="menuitem"
-              type="button"
-            >
-              {item.label}
-            </button>
-          ))}
+          {header ? <div className="px-1 pb-1">{header}</div> : null}
+          {menuSections.map((section, sectionIndex) => {
+            const indexOffset = menuSections
+              .slice(0, sectionIndex)
+              .reduce(
+                (total, currentSection) => total + currentSection.items.length,
+                0,
+              );
+
+            return (
+              <div
+                className={cx(
+                  sectionIndex === 0 && !header
+                    ? null
+                    : "mt-1 border-zinc-200 border-t pt-1",
+                )}
+                key={getSectionKey(section)}
+              >
+                {section.items.map((item, itemIndex) => {
+                  const index = indexOffset + itemIndex;
+
+                  return (
+                    <button
+                      className={cx(
+                        "flex w-full items-start gap-3 rounded-[6px] px-3 py-2 text-left transition-colors",
+                        item.disabled
+                          ? "cursor-not-allowed text-zinc-400"
+                          : "cursor-pointer text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 focus-visible:bg-zinc-100 focus-visible:text-zinc-950 focus-visible:outline-none",
+                        item.tone === "danger" && !item.disabled
+                          ? "text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50 focus-visible:text-red-700"
+                          : null,
+                      )}
+                      disabled={item.disabled}
+                      key={getItemKey(item)}
+                      onClick={() => {
+                        dismissMenu();
+                        item.onSelect();
+                      }}
+                      onKeyDown={handleItemKeyDown(index)}
+                      ref={(element) => {
+                        itemRefs.current[index] = element;
+                      }}
+                      role="menuitem"
+                      type="button"
+                    >
+                      {item.icon ? (
+                        <span className="flex size-4 shrink-0 translate-y-0.5 items-center justify-center">
+                          {item.icon}
+                        </span>
+                      ) : null}
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate font-medium text-sm">
+                          {item.label}
+                        </span>
+                        {item.description ? (
+                          <span className="mt-0.5 text-xs text-zinc-500">
+                            {item.description}
+                          </span>
+                        ) : null}
+                      </span>
+                      {item.detail ? (
+                        <span className="flex shrink-0 items-center justify-center self-center text-xs text-zinc-400">
+                          {item.detail}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       ) : null}
     </div>
   );
 }
 
-export type { MarbleContextPopoverItem };
+export type { MarbleContextPopoverItem, MarbleContextPopoverSection };

@@ -25,9 +25,28 @@ export {
   type MarbleCardTitleProps,
 } from "./components/card";
 export {
+  MarbleCommandDialog,
+  type MarbleCommandDialogProps,
+  MarbleCommandEmpty,
+  type MarbleCommandEmptyProps,
+  MarbleCommandGroup,
+  type MarbleCommandGroupProps,
+  MarbleCommandInput,
+  type MarbleCommandInputProps,
+  MarbleCommandItem,
+  type MarbleCommandItemProps,
+  MarbleCommandList,
+  type MarbleCommandListProps,
+  MarbleCommandMenu,
+  type MarbleCommandMenuProps,
+  MarbleCommandSeparator,
+  type MarbleCommandSeparatorProps,
+} from "./components/command-menu";
+export {
   MarbleContextPopover,
   type MarbleContextPopoverItem,
   type MarbleContextPopoverProps,
+  type MarbleContextPopoverSection,
 } from "./components/context-popover";
 export {
   MarbleEditableText,
@@ -79,4 +98,10 @@ export {
   MarbleTextarea,
   type MarbleTextareaProps,
 } from "./components/textarea";
+export {
+  MarbleWorkspaceMark,
+  type MarbleWorkspaceMarkProps,
+  MarbleWorkspacePopover,
+  type MarbleWorkspacePopoverProps,
+} from "./components/workspace-popover";
 export { cx } from "./utils/cx";

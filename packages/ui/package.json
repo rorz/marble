@@ -1,12 +1,15 @@
 {
   "dependencies": {
+    "@radix-ui/react-dialog": "catalog:base",
     "class-variance-authority": "catalog:base",
     "clsx": "catalog:base",
+    "cmdk": "catalog:base",
     "react": "catalog:base",
     "tailwind-merge": "catalog:base"
   },
   "devDependencies": {
     "@types/react": "catalog:base",
+    "@types/react-dom": "catalog:base",
     "typescript": "catalog:base"
   },
   "exports": {

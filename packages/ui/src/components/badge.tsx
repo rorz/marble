@@ -39,7 +39,6 @@ export function MarbleBadge({
   caps,
   children,
   className,
-  size,
   tone,
   ...props
 }: MarbleBadgeProps) {
@@ -48,7 +47,6 @@ export function MarbleBadge({
       className={cx(
         marbleBadgeVariants({
           caps,
-          size,
           tone,
         }),
         className,
