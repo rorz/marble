@@ -194,6 +194,27 @@ function getProgramInputSchema(
   return schema as Record<string, unknown>;
 }
 
+function mergeRecordsById<
+  T extends {
+    id: string;
+  },
+>(current: T[], incoming: T[]): T[] {
+  const merged = new Map(
+    current.map((record) => [
+      record.id,
+      record,
+    ]),
+  );
+
+  for (const record of incoming) {
+    merged.set(record.id, record);
+  }
+
+  return [
+    ...merged.values(),
+  ];
+}
+
 function isManualInputColumn(column: Column): boolean {
   const config = getProgramOutputConfig(column.program_version) as {
     flags?: {
@@ -1624,14 +1645,18 @@ export default function TablePageView({
       selectedTableId,
       rowCount,
     );
-    setRows((prev) => [
-      ...prev,
-      ...newRows,
-    ]);
-    setCells((prev) => [
-      ...prev,
-      ...(newCells as Cell[]),
-    ]);
+    setRows((prev) => {
+      const next = mergeRecordsById(prev, newRows as Row[]).sort(
+        (a, b) => a.idx - b.idx,
+      );
+      rowsRef.current = next;
+      return next;
+    });
+    setCells((prev) => {
+      const next = mergeRecordsById(prev, newCells as Cell[]);
+      cellsRef.current = next;
+      return next;
+    });
   }, [
     selectedTableId,
     rowCount,
@@ -1666,14 +1691,18 @@ export default function TablePageView({
         table_id: selectedTableId,
         ...input,
       });
-      setColumns((prev) => [
-        ...prev,
-        column as unknown as Column,
-      ]);
-      setCells((prev) => [
-        ...prev,
-        ...(newCells as Cell[]),
-      ]);
+      setColumns((prev) => {
+        const next = mergeRecordsById(prev, [
+          column as unknown as Column,
+        ]).sort((a, b) => a.idx - b.idx);
+        columnsRef.current = next;
+        return next;
+      });
+      setCells((prev) => {
+        const next = mergeRecordsById(prev, newCells as Cell[]);
+        cellsRef.current = next;
+        return next;
+      });
       await refreshReferenceColumns();
     },
     [

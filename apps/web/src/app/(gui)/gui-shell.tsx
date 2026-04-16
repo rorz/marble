@@ -235,7 +235,6 @@ function SidebarNavRow({
   icon,
   iconOnly,
   label,
-  nested = false,
   onToggle,
   title,
 }: {
@@ -246,7 +245,6 @@ function SidebarNavRow({
   icon: ReactNode;
   iconOnly: boolean;
   label: string;
-  nested?: boolean;
   onToggle?: () => void;
   title?: string;
 }) {
@@ -684,7 +682,6 @@ export function GuiShell({
             icon={getNodeIcon(node)}
             iconOnly={sidebar.iconOnly}
             label={node.label}
-            nested
             onToggle={() => toggleOpen(nodeKey)}
             title={sidebar.iconOnly ? node.label : undefined}
           />

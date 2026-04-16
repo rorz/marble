@@ -10,12 +10,10 @@ import {
   MarbleListRow,
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
-import { useEffect, useOptimistic, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   compareByUpdatedAtDesc,
   getErrorMessage,
-  isOptimisticId,
-  makeOptimisticId,
   type RealtimePayload,
   removeRow,
   sortRows,
@@ -70,11 +68,6 @@ export function ProjectsPageView({
 }) {
   const router = useRouter();
   const [projects, setProjects] = useState(() => sortProjects(initialProjects));
-  const [optimisticProjects, addOptimisticProject] = useOptimistic(
-    projects,
-    (current, optimisticProject: ProjectSummary) =>
-      upsertProject(current, optimisticProject),
-  );
   const [createPending, setCreatePending] = useState(false);
   const [deletingId, setDeletingId] = useState<null | string>(null);
   const [error, setError] = useState<null | string>(null);
@@ -172,29 +165,18 @@ export function ProjectsPageView({
     ownerProfileIds,
   ]);
 
-  const handleCreate = async () => {
-    const timestamp = new Date().toISOString();
-
-    addOptimisticProject({
-      created_at: timestamp,
-      folder_path: [],
-      id: makeOptimisticId(),
-      name: "Untitled Project",
-      owner_profile_id: ownerProfileIds[0] ?? "",
-      table_count: 0,
-      updated_at: timestamp,
-    });
+  const handleCreate = async (_formData: FormData) => {
     setCreatePending(true);
     setError(null);
 
     try {
       const project = await createProjectAction();
-      setProjects((current) =>
-        upsertProject(current, {
-          ...project,
-          table_count: 0,
-        }),
-      );
+      const committedProject = {
+        ...project,
+        table_count: 0,
+      };
+
+      setProjects((current) => upsertProject(current, committedProject));
       router.push(`/projects/${project.id}`);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
@@ -227,20 +209,23 @@ export function ProjectsPageView({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-end">
+      <form
+        action={handleCreate}
+        className="flex items-center justify-end"
+      >
         <MarbleButton
           disabled={createPending}
-          onClick={handleCreate}
+          type="submit"
           variant="orange"
         >
           {createPending ? "Creating" : "New project"}
         </MarbleButton>
-      </div>
+      </form>
 
       {error ? <MarbleAlert tone="error">{error}</MarbleAlert> : null}
 
       <MarbleCard>
-        {optimisticProjects.length === 0 ? (
+        {projects.length === 0 ? (
           <MarbleCardContent>
             <MarbleEmptyState
               description="Create an untitled project, then rename it from the project page."
@@ -249,14 +234,12 @@ export function ProjectsPageView({
           </MarbleCardContent>
         ) : (
           <MarbleCardContent className="p-0">
-            {optimisticProjects.map((project) => (
+            {projects.map((project) => (
               <MarbleListRow
                 aside={
                   <MarbleContextPopover
                     align="end"
-                    disabled={
-                      deletingId === project.id || isOptimisticId(project.id)
-                    }
+                    disabled={deletingId === project.id}
                     items={[
                       {
                         label:
@@ -277,7 +260,7 @@ export function ProjectsPageView({
                   </>
                 }
                 descriptionClassName="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500"
-                disabled={isOptimisticId(project.id)}
+                disabled={false}
                 key={project.id}
                 onClick={() => router.push(`/projects/${project.id}`)}
                 title={project.name}
