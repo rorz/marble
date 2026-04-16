@@ -1,20 +1,86 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import type { HTMLAttributes } from "react";
+import type { CSSProperties, HTMLAttributes } from "react";
 import { cx } from "../utils/cx";
 
-const marbleCardVariants = cva("overflow-hidden rounded-xs border", {
-  defaultVariants: {
-    tone: "default",
-  },
-  variants: {
-    tone: {
-      default: "border-taupe-200 bg-white text-taupe-900 rounded-xs",
-      orange:
-        "border-orange-200 bg-linear-to-br from-orange-50 via-white to-white text-zinc-950",
-      subtle: "border-zinc-200 bg-zinc-50 text-zinc-950",
+const marbleCardNoiseTexture =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")";
+
+const marbleCardVariants = cva(
+  "relative isolate overflow-hidden rounded-xs border",
+  {
+    defaultVariants: {
+      tone: "default",
+    },
+    variants: {
+      tone: {
+        default: "border-taupe-200 text-taupe-900",
+        orange: "border-orange-200 text-zinc-950",
+        subtle: "border-zinc-200 text-zinc-950",
+      },
     },
   },
-});
+);
+
+type MarbleCardTone = NonNullable<
+  VariantProps<typeof marbleCardVariants>["tone"]
+>;
+
+const marbleCardSurfaceStyles: Record<MarbleCardTone, CSSProperties> = {
+  default: {
+    backgroundBlendMode: "screen, normal",
+    backgroundColor: "var(--color-white)",
+    backgroundImage: [
+      "radial-gradient(140% 120% at 0% 0%, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0) 52%)",
+      "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(249,245,240,0.97) 100%)",
+    ].join(", "),
+    backgroundRepeat: "no-repeat, no-repeat",
+    backgroundSize: "100% 100%, 100% 100%",
+  },
+  orange: {
+    backgroundBlendMode: "screen, normal",
+    backgroundColor: "rgb(255 247 237)",
+    backgroundImage: [
+      "radial-gradient(120% 120% at 0% 0%, rgba(255,255,255,0.68) 0%, rgba(255,255,255,0) 48%)",
+      "linear-gradient(135deg, rgba(255,247,237,1) 0%, rgba(255,255,255,0.95) 55%, rgba(255,251,245,1) 100%)",
+    ].join(", "),
+    backgroundRepeat: "no-repeat, no-repeat",
+    backgroundSize: "100% 100%, 100% 100%",
+  },
+  subtle: {
+    backgroundBlendMode: "screen, normal",
+    backgroundColor: "rgb(250 250 250)",
+    backgroundImage: [
+      "radial-gradient(140% 120% at 0% 0%, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 52%)",
+      "linear-gradient(180deg, rgba(250,250,250,1) 0%, rgba(242,242,241,0.98) 100%)",
+    ].join(", "),
+    backgroundRepeat: "no-repeat, no-repeat",
+    backgroundSize: "100% 100%, 100% 100%",
+  },
+};
+
+const marbleCardNoiseStyles: Record<MarbleCardTone, CSSProperties> = {
+  default: {
+    backgroundImage: marbleCardNoiseTexture,
+    backgroundRepeat: "repeat",
+    backgroundSize: "160px 160px",
+    mixBlendMode: "multiply",
+    opacity: 0.14,
+  },
+  orange: {
+    backgroundImage: marbleCardNoiseTexture,
+    backgroundRepeat: "repeat",
+    backgroundSize: "160px 160px",
+    mixBlendMode: "multiply",
+    opacity: 0.13,
+  },
+  subtle: {
+    backgroundImage: marbleCardNoiseTexture,
+    backgroundRepeat: "repeat",
+    backgroundSize: "160px 160px",
+    mixBlendMode: "multiply",
+    opacity: 0.16,
+  },
+};
 
 const marbleCardHeaderVariants = cva("flex flex-col gap-1.5 p-5");
 const marbleCardContentVariants = cva("px-5 pb-5");
@@ -29,19 +95,31 @@ export function MarbleCard({
   children,
   className,
   tone,
+  style,
   ...props
 }: MarbleCardProps) {
+  const resolvedTone = tone ?? "default";
+
   return (
     <div
       className={cx(
         marbleCardVariants({
-          tone,
+          tone: resolvedTone,
         }),
         className,
       )}
+      style={{
+        ...marbleCardSurfaceStyles[resolvedTone],
+        ...style,
+      }}
       {...props}
     >
-      {children}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 rounded-[inherit]"
+        style={marbleCardNoiseStyles[resolvedTone]}
+      />
+      <div className="relative z-10">{children}</div>
     </div>
   );
 }
