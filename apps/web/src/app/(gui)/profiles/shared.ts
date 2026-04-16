@@ -13,3 +13,14 @@ export type ProfileRecord = Pick<
   | "type"
   | "updated_at"
 >;
+
+export type ProfileKeyRecord = Pick<
+  Database["public"]["Tables"]["key"]["Row"],
+  "created_at" | "deleted_at" | "id" | "owner_profile_id" | "prefix"
+> & {
+  preview: string;
+};
+
+export type ManagedProfileRecord = ProfileRecord & {
+  keys: ProfileKeyRecord[];
+};

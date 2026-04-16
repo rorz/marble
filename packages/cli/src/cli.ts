@@ -85,6 +85,10 @@ type ProjectCommandOptions = {
   folderPathFile?: string;
   ownerProfileId?: string;
 };
+type KeyCommandOptions = {
+  includeDeleted?: boolean;
+  ownerProfileId?: string;
+};
 
 function resolveFromInvocation(targetPath: string) {
   return path.resolve(invocationCwd, targetPath);
@@ -591,6 +595,74 @@ function registerCrudCommands(resourceName: ApiResourceName, command: Command) {
       }),
     );
   }
+}
+
+function registerProfileCommands() {
+  const profileCommand = rootCommand
+    .command("profile")
+    .description("Human-friendly profile commands");
+
+  profileCommand
+    .command("list")
+    .description("List profiles")
+    .option("--type <type>", "Filter by profile type")
+    .action((options: { type?: string }) =>
+      runAction("listing profiles", async () => {
+        printJson(
+          await client.list(
+            "profiles",
+            compactObject({
+              type: options.type,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  profileCommand
+    .command("get")
+    .description("Get a profile by ID")
+    .argument("<profileId>", "Profile ID")
+    .action((profileId) =>
+      runAction("getting profile", async () => {
+        printJson(await client.get("profiles", profileId));
+      }),
+    );
+}
+
+function registerKeyCommands() {
+  const keyCommand = rootCommand
+    .command("key")
+    .description("Human-friendly API key commands");
+
+  keyCommand
+    .command("list")
+    .description("List API keys")
+    .option("--owner-profile-id <profileId>", "Filter by owner profile ID")
+    .option("--include-deleted", "Include revoked keys")
+    .action((options: KeyCommandOptions) =>
+      runAction("listing API keys", async () => {
+        printJson(
+          await client.list(
+            "keys",
+            compactObject({
+              includeDeleted: options.includeDeleted || undefined,
+              ownerProfileId: options.ownerProfileId,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  keyCommand
+    .command("get")
+    .description("Get an API key by ID")
+    .argument("<keyId>", "API key ID")
+    .action((keyId) =>
+      runAction("getting API key", async () => {
+        printJson(await client.get("keys", keyId));
+      }),
+    );
 }
 
 function registerTableCommands() {
@@ -1219,6 +1291,8 @@ rootCommand
   .showSuggestionAfterError();
 
 registerProjectCommands();
+registerProfileCommands();
+registerKeyCommands();
 registerTableCommands();
 registerColumnCommands();
 registerRowCommands();

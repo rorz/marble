@@ -30,6 +30,7 @@ const resourceMounts = {
   column_dependencies: mountColumnDependencyResource,
   columns: mountColumnResource,
   events: mountEventResource,
+  keys: mountKeyResource,
   profiles: mountProfileResource,
   program_files: mountProgramFileResource,
   program_runs: mountProgramRunResource,
@@ -181,8 +182,6 @@ app.get(
 for (const resourceName of ApiResourceNames) {
   resourceMounts[resourceName](app);
 }
-
-mountKeyResource(app);
 
 app.post(
   "/test",

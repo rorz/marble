@@ -8,7 +8,7 @@ import {
   PlayIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
-import { cx, MarblePane } from "@marble/ui";
+import { cx } from "@marble/ui";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";

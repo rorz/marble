@@ -29,10 +29,16 @@ import {
 import { createClient } from "../../../lib/supabase/browser";
 import {
   createProfileAction,
+  createProfileKeyAction,
   deleteProfileAction,
+  revokeProfileKeyAction,
   updateProfileAction,
 } from "./actions";
-import type { ProfileRecord } from "./shared";
+import type {
+  ManagedProfileRecord,
+  ProfileKeyRecord,
+  ProfileRecord,
+} from "./shared";
 
 const CREATED_AT_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -67,28 +73,58 @@ function compareProfiles(left: ProfileRecord, right: ProfileRecord) {
     : +(right.type === "Human") - +(left.type === "Human");
 }
 
-function upsertProfile(current: ProfileRecord[], profile: ProfileRecord) {
-  return upsertRow(current, profile, compareByCreatedAtDesc);
+function upsertProfile(
+  current: ManagedProfileRecord[],
+  profile: ManagedProfileRecord | ProfileRecord,
+) {
+  const existing = current.find((entry) => entry.id === profile.id);
+
+  return upsertRow(
+    current,
+    "keys" in profile
+      ? profile
+      : {
+          ...profile,
+          keys: existing?.keys ?? [],
+        },
+    compareByCreatedAtDesc,
+  );
+}
+
+function upsertProfileKey(keys: ProfileKeyRecord[], key: ProfileKeyRecord) {
+  return sortRows(
+    upsertRow(keys, key, compareByCreatedAtDesc),
+    compareByCreatedAtDesc,
+  );
 }
 
 export function ProfilesPageView({
   initialProfiles,
   userId,
 }: {
-  initialProfiles: ProfileRecord[];
+  initialProfiles: ManagedProfileRecord[];
   userId: string;
 }) {
   const createFormRef = useRef<HTMLFormElement>(null);
   const [profiles, setProfiles] = useState(initialProfiles);
   const [optimisticProfiles, addOptimisticProfile] = useOptimistic(
     profiles,
-    (current, optimisticProfile: ProfileRecord) =>
+    (current, optimisticProfile: ManagedProfileRecord) =>
       upsertProfile(current, optimisticProfile),
   );
   const [createPending, setCreatePending] = useState(false);
   const [editingId, setEditingId] = useState<null | string>(null);
   const [savingId, setSavingId] = useState<null | string>(null);
   const [deletingId, setDeletingId] = useState<null | string>(null);
+  const [creatingKeyProfileId, setCreatingKeyProfileId] = useState<
+    null | string
+  >(null);
+  const [revokingKeyId, setRevokingKeyId] = useState<null | string>(null);
+  const [lastCreatedKey, setLastCreatedKey] = useState<null | {
+    profileName: string;
+    token: string;
+  }>(null);
+  const [copiedLastCreatedKey, setCopiedLastCreatedKey] = useState(false);
   const [error, setError] = useState<null | string>(null);
 
   useEffect(() => {
@@ -145,6 +181,7 @@ export function ProfilesPageView({
       created_at: new Date().toISOString(),
       external_name: draft.external_name,
       id: makeOptimisticId(),
+      keys: [],
       name: draft.name,
       owner_user_id: userId,
       type: draft.type,
@@ -184,7 +221,7 @@ export function ProfilesPageView({
     }
   };
 
-  const handleDelete = async (profile: ProfileRecord) => {
+  const handleDelete = async (profile: ManagedProfileRecord) => {
     if (
       !window.confirm(
         `Delete ${profile.name}? This only succeeds if nothing else still belongs to it.`,
@@ -207,6 +244,86 @@ export function ProfilesPageView({
     }
   };
 
+  const handleCreateKey = async (profile: ManagedProfileRecord) => {
+    setCreatingKeyProfileId(profile.id);
+    setError(null);
+
+    try {
+      const created = await createProfileKeyAction(profile.id);
+      setProfiles((current) =>
+        current.map((entry) =>
+          entry.id === created.profileId
+            ? {
+                ...entry,
+                keys: upsertProfileKey(entry.keys, created.key),
+              }
+            : entry,
+        ),
+      );
+      setCopiedLastCreatedKey(false);
+      setLastCreatedKey({
+        profileName: created.profileName,
+        token: created.token,
+      });
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setCreatingKeyProfileId(null);
+    }
+  };
+
+  const handleCopyLastCreatedKey = async () => {
+    if (!lastCreatedKey) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(lastCreatedKey.token);
+      setCopiedLastCreatedKey(true);
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    }
+  };
+
+  const handleRevokeKey = async (
+    profile: ManagedProfileRecord,
+    key: ProfileKeyRecord,
+  ) => {
+    if (
+      !window.confirm(`Revoke ${key.preview}? Existing CLI sessions will fail.`)
+    ) {
+      return;
+    }
+
+    setRevokingKeyId(key.id);
+    setError(null);
+
+    try {
+      const revoked = await revokeProfileKeyAction(key.id);
+      setProfiles((current) =>
+        current.map((entry) =>
+          entry.id === profile.id
+            ? {
+                ...entry,
+                keys: entry.keys.map((entryKey) =>
+                  entryKey.id === key.id
+                    ? {
+                        ...entryKey,
+                        deleted_at: revoked.revokedAt,
+                      }
+                    : entryKey,
+                ),
+              }
+            : entry,
+        ),
+      );
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    } finally {
+      setRevokingKeyId(null);
+    }
+  };
+
   const visibleProfiles = sortRows(optimisticProfiles, compareProfiles);
 
   return (
@@ -220,6 +337,34 @@ export function ProfilesPageView({
         </MarbleCardHeader>
         <MarbleCardContent className="space-y-4 pt-5">
           {error ? <MarbleAlert tone="error">{error}</MarbleAlert> : null}
+
+          {lastCreatedKey ? (
+            <MarbleAlert tone="success">
+              <div className="space-y-3">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="space-y-1">
+                    <p className="font-semibold text-sm text-emerald-950">
+                      New key for {lastCreatedKey.profileName}
+                    </p>
+                    <p className="text-sm text-emerald-900/80">
+                      Copy it now. The full token is only shown once.
+                    </p>
+                  </div>
+                  <MarbleButton
+                    onClick={() => void handleCopyLastCreatedKey()}
+                    size="sm"
+                    type="button"
+                    variant="dark"
+                  >
+                    {copiedLastCreatedKey ? "Copied" : "Copy key"}
+                  </MarbleButton>
+                </div>
+                <pre className="overflow-x-auto rounded-md bg-emerald-950 px-3 py-3 font-mono text-emerald-100 text-xs">
+                  {lastCreatedKey.token}
+                </pre>
+              </div>
+            </MarbleAlert>
+          ) : null}
 
           <form
             action={handleCreate}
@@ -275,7 +420,7 @@ export function ProfilesPageView({
           </MarbleCardContent>
         </MarbleCard>
       ) : (
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid gap-2 xl:grid-cols-2">
           {visibleProfiles.map((profile) => {
             const isEditing = editingId === profile.id;
             const isSaving = savingId === profile.id;
@@ -334,7 +479,11 @@ export function ProfilesPageView({
                             ),
                         },
                         {
-                          disabled: isDeleting || isSaving || isTemporary,
+                          disabled:
+                            isDeleting ||
+                            isSaving ||
+                            creatingKeyProfileId === profile.id ||
+                            isTemporary,
                           label: isDeleting ? "Deleting" : "Delete",
                           onSelect: () => void handleDelete(profile),
                           tone: "danger",
@@ -345,8 +494,87 @@ export function ProfilesPageView({
                   </div>
                 </MarbleCardHeader>
 
+                <MarbleCardContent className="space-y-4 pt-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <MarbleFieldLabel className="mb-0">
+                        API keys
+                      </MarbleFieldLabel>
+                      <p className="text-sm text-zinc-600">
+                        Mint a key for CLI and skill demos. Revoked keys stay
+                        visible for auditability.
+                      </p>
+                    </div>
+                    <MarbleButton
+                      disabled={Boolean(
+                        creatingKeyProfileId || isDeleting || isTemporary,
+                      )}
+                      onClick={() => void handleCreateKey(profile)}
+                      size="sm"
+                      type="button"
+                    >
+                      {creatingKeyProfileId === profile.id
+                        ? "Creating"
+                        : "Create key"}
+                    </MarbleButton>
+                  </div>
+
+                  {profile.keys.length === 0 ? (
+                    <MarbleAlert tone="neutral">No keys yet.</MarbleAlert>
+                  ) : (
+                    <div className="overflow-hidden rounded-md border border-zinc-200">
+                      {profile.keys.map((key) => (
+                        <div
+                          className="flex flex-col gap-3 border-b border-zinc-200 px-4 py-4 last:border-b-0 md:flex-row md:items-center md:justify-between"
+                          key={key.id}
+                        >
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-mono text-sm text-zinc-900">
+                                {key.preview}
+                              </p>
+                              <MarbleBadge
+                                caps
+                                tone={key.deleted_at ? "warning" : "success"}
+                              >
+                                {key.deleted_at ? "Revoked" : "Active"}
+                              </MarbleBadge>
+                            </div>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-zinc-500">
+                              <span>{key.id}</span>
+                              <span>
+                                Created{" "}
+                                {CREATED_AT_FORMATTER.format(
+                                  new Date(key.created_at),
+                                )}
+                              </span>
+                              {key.deleted_at ? (
+                                <span>
+                                  Revoked{" "}
+                                  {CREATED_AT_FORMATTER.format(
+                                    new Date(key.deleted_at),
+                                  )}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                          <MarbleButton
+                            disabled={Boolean(key.deleted_at || revokingKeyId)}
+                            onClick={() => void handleRevokeKey(profile, key)}
+                            size="sm"
+                            type="button"
+                            variant="red"
+                          >
+                            {revokingKeyId === key.id ? "Revoking" : "Revoke"}
+                          </MarbleButton>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </MarbleCardContent>
+
                 {isEditing ? (
-                  <MarbleCardContent className="pt-5">
+                  <MarbleCardContent className="border-t border-zinc-100 pt-5">
                     <form
                       action={(formData) => handleUpdate(profile.id, formData)}
                       className="space-y-4"

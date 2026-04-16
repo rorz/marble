@@ -19,7 +19,7 @@ Use the Marble CLI for Marble operator work. This skill is for provisioning and 
 
 - The CLI reads `.env` from the current working directory.
 - `MARBLE_API_URL` defaults to `https://marble.kenobi.tech/api`.
-- `MARBLE_API_KEY` is optional, but protected environments may require it.
+- `MARBLE_API_KEY` is optional, but protected environments may require it. Mint one from the Marble web app's Profiles page, then export it into the shell or `.env`.
 - Prefer `bunx marble-cli@latest ...` unless `marble` is already installed or linked in the shell.
 - Marble program runs receive provider credentials on `system.providers`.
 
@@ -91,6 +91,8 @@ Important rules:
 
 Human-facing commands:
 
+- `profile`: `list`, `get`
+- `key`: `list`, `get`
 - `table`: `create`, `list`, `get`, `update`, `delete`
 - `column`: `create`, `list`, `get`, `update`, `delete`
 - `row`: `create`, `list`, `get`, `update`, `delete`
@@ -101,6 +103,7 @@ Raw plural commands:
 
 - `profiles`: `list`, `get`, `create`, `update`
 - `events`: `list`, `get`
+- `keys`: `list`, `get`, `create`, `delete`
 - `tables`: `list`, `get`, `create`, `update`, `delete`
 - `columns`: `list`, `get`, `create`, `update`, `delete`
 - `column-dependencies`: `list`, `get`
@@ -128,6 +131,21 @@ bunx marble-cli@latest table list
 bunx marble-cli@latest table get <tableId>
 bunx marble-cli@latest table update <tableId> --name "Apollo Email Enrichment v2"
 bunx marble-cli@latest table delete <tableId>
+```
+
+### Profile
+
+```sh
+bunx marble-cli@latest profile list
+bunx marble-cli@latest profile get <profileId>
+```
+
+### Key
+
+```sh
+bunx marble-cli@latest key list
+bunx marble-cli@latest key list --include-deleted
+bunx marble-cli@latest key get <keyId>
 ```
 
 ### Column
