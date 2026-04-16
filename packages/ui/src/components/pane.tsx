@@ -21,7 +21,7 @@ export type MarblePaneProps = {
 };
 
 const crumbClassName =
-  "rounded-sm px-1.5 py-1 font-medium text-base text-neutral-800 transition-colors";
+  "rounded-sm px-1.5 py-1 font-medium text-sm text-taupe-800 transition-colors";
 
 export function MarblePane({
   actions,

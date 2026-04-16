@@ -251,7 +251,7 @@ CREATE TABLE
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     owner_user_id UUID NOT NULL REFERENCES auth.users (id),
-    NAME TEXT NOT NULL CHECK (NAME ~ '^[A-Za-z_][A-Za-z0-9_]*$'),
+    NAME TEXT NOT NULL CHECK (NAME~'^[A-Za-z_][A-Za-z0-9_]*$'),
     category secret_category NOT NULL DEFAULT 'UserDefined',
     vault_secret_id UUID NOT NULL UNIQUE REFERENCES vault.secrets (id) ON DELETE CASCADE,
     UNIQUE (owner_user_id, category, NAME)
@@ -263,16 +263,15 @@ EXECUTE FUNCTION set_updated_at ();
 
 ALTER TABLE "secret" ENABLE ROW LEVEL SECURITY;
 
-CREATE OR REPLACE FUNCTION public.secret_store_create(
+CREATE
+OR REPLACE FUNCTION public.secret_store_create (
   p_owner_user_id UUID,
   p_name TEXT,
   p_category public.secret_category,
   p_plaintext_value TEXT
-) RETURNS public.secret
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO ''
-AS $function$
+) RETURNS public.secret LANGUAGE plpgsql SECURITY DEFINER
+SET
+  search_path TO '' AS $function$
 DECLARE
   created_secret public.secret;
   created_vault_secret_id UUID;
@@ -295,15 +294,14 @@ EXCEPTION
 END
 $function$;
 
-CREATE OR REPLACE FUNCTION public.secret_store_update(
+CREATE
+OR REPLACE FUNCTION public.secret_store_update (
   p_secret_id UUID,
   p_name TEXT DEFAULT NULL,
   p_plaintext_value TEXT DEFAULT NULL
-) RETURNS public.secret
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO ''
-AS $function$
+) RETURNS public.secret LANGUAGE plpgsql SECURITY DEFINER
+SET
+  search_path TO '' AS $function$
 DECLARE
   existing_secret public.secret;
   updated_secret public.secret;
@@ -335,13 +333,10 @@ BEGIN
 END
 $function$;
 
-CREATE OR REPLACE FUNCTION public.secret_store_delete(
-  p_secret_id UUID
-) RETURNS VOID
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO ''
-AS $function$
+CREATE
+OR REPLACE FUNCTION public.secret_store_delete (p_secret_id UUID) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER
+SET
+  search_path TO '' AS $function$
 DECLARE
   existing_secret public.secret;
 BEGIN
@@ -361,17 +356,14 @@ BEGIN
 END
 $function$;
 
-CREATE OR REPLACE FUNCTION public.secret_store_resolve(
-  p_owner_user_id UUID
-) RETURNS TABLE (
+CREATE
+OR REPLACE FUNCTION public.secret_store_resolve (p_owner_user_id UUID) RETURNS TABLE (
   category public.secret_category,
-  name TEXT,
-  value TEXT
-)
-LANGUAGE sql
-SECURITY DEFINER
-SET search_path TO ''
-AS $function$
+  NAME TEXT,
+  VALUE TEXT
+) LANGUAGE SQL SECURITY DEFINER
+SET
+  search_path TO '' AS $function$
   SELECT
     secret.category,
     secret.name,
@@ -403,102 +395,174 @@ CREATE INDEX table_project_created_at_idx ON "table" (project_id, created_at DES
 --
 -- REALTIME
 --
-ALTER PUBLICATION supabase_realtime ADD TABLE public.project;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.profile;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.table;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.row;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.column;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.cell;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.event;
+ALTER PUBLICATION supabase_realtime
+ADD TABLE public.program;
+
+ALTER PUBLICATION supabase_realtime
+ADD TABLE public.project;
+
+ALTER PUBLICATION supabase_realtime
+ADD TABLE public.profile;
+
+ALTER PUBLICATION supabase_realtime
+ADD TABLE public.table;
+
+ALTER PUBLICATION supabase_realtime
+ADD TABLE public.row;
+
+ALTER PUBLICATION supabase_realtime
+ADD TABLE public.column;
+
+ALTER PUBLICATION supabase_realtime
+ADD TABLE public.cell;
+
+ALTER PUBLICATION supabase_realtime
+ADD TABLE public.event;
 
 --
 -- POLICIES
 --
-CREATE POLICY "Users can view their own profiles" ON public.profile FOR SELECT USING (
-  profile.owner_user_id = auth.uid()
-);
+CREATE POLICY "Users can view their own profiles" ON public.profile FOR
+SELECT
+  USING (profile.owner_user_id=auth.uid ());
 
-CREATE POLICY "Users can view their own projects" ON public."project" FOR SELECT USING (
-  EXISTS (
-    SELECT 1
-    FROM public.profile
-    WHERE profile.id = "project".owner_profile_id
-      AND profile.owner_user_id = auth.uid()
-  )
-);
+CREATE POLICY "Users can view their own projects" ON public."project" FOR
+SELECT
+  USING (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        public.profile
+      WHERE
+        profile.id="project".owner_profile_id
+        AND profile.owner_user_id=auth.uid ()
+    )
+  );
 
-CREATE POLICY "Users can view tables in their own projects" ON public."table" FOR SELECT USING (
-  EXISTS (
-    SELECT 1
-    FROM public."project"
-    JOIN public.profile ON profile.id = "project".owner_profile_id
-    WHERE "project".id = "table".project_id
-      AND profile.owner_user_id = auth.uid()
-  )
-);
+CREATE POLICY "Users can view tables in their own projects" ON public."table" FOR
+SELECT
+  USING (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        public."project"
+        JOIN public.profile ON profile.id="project".owner_profile_id
+      WHERE
+        "project".id="table".project_id
+        AND profile.owner_user_id=auth.uid ()
+    )
+  );
 
-CREATE POLICY "Users can view rows in their own tables" ON public."row" FOR SELECT USING (
-  EXISTS (
-    SELECT 1
-    FROM public."table"
-    JOIN public."project" ON "project".id = "table".project_id
-    JOIN public.profile ON profile.id = "project".owner_profile_id
-    WHERE "table".id = "row".table_id
-      AND profile.owner_user_id = auth.uid()
-  )
-);
+CREATE POLICY "Users can view rows in their own tables" ON public."row" FOR
+SELECT
+  USING (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        public."table"
+        JOIN public."project" ON "project".id="table".project_id
+        JOIN public.profile ON profile.id="project".owner_profile_id
+      WHERE
+        "table".id="row".table_id
+        AND profile.owner_user_id=auth.uid ()
+    )
+  );
 
-CREATE POLICY "Users can view columns in their own tables" ON public."column" FOR SELECT USING (
-  EXISTS (
-    SELECT 1
-    FROM public."table"
-    JOIN public."project" ON "project".id = "table".project_id
-    JOIN public.profile ON profile.id = "project".owner_profile_id
-    WHERE "table".id = "column".table_id
-      AND profile.owner_user_id = auth.uid()
-  )
-);
+CREATE POLICY "Users can view columns in their own tables" ON public."column" FOR
+SELECT
+  USING (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        public."table"
+        JOIN public."project" ON "project".id="table".project_id
+        JOIN public.profile ON profile.id="project".owner_profile_id
+      WHERE
+        "table".id="column".table_id
+        AND profile.owner_user_id=auth.uid ()
+    )
+  );
 
-CREATE POLICY "Users can view cells in their own tables" ON public.cell FOR SELECT USING (
-  EXISTS (
-    SELECT 1
-    FROM public."row"
-    JOIN public."table" ON "table".id = "row".table_id
-    JOIN public."project" ON "project".id = "table".project_id
-    JOIN public.profile ON profile.id = "project".owner_profile_id
-    WHERE "row".id = cell.row_id
-      AND profile.owner_user_id = auth.uid()
-  )
-);
+CREATE POLICY "Users can view cells in their own tables" ON public.cell FOR
+SELECT
+  USING (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        public."row"
+        JOIN public."table" ON "table".id="row".table_id
+        JOIN public."project" ON "project".id="table".project_id
+        JOIN public.profile ON profile.id="project".owner_profile_id
+      WHERE
+        "row".id=cell.row_id
+        AND profile.owner_user_id=auth.uid ()
+    )
+  );
 
-CREATE POLICY "Users can view their own events" ON public.event FOR SELECT USING (
-  EXISTS (
-    SELECT 1
-    FROM public.profile
-    WHERE profile.id = event.actor_profile_id
-      AND profile.owner_user_id = auth.uid()
-  )
-);
+CREATE POLICY "Users can view their own events" ON public.event FOR
+SELECT
+  USING (
+    EXISTS (
+      SELECT
+        1
+      FROM
+        public.profile
+      WHERE
+        profile.id=EVENT.actor_profile_id
+        AND profile.owner_user_id=auth.uid ()
+    )
+  );
 
-CREATE POLICY "Users can view their own secrets" ON public.secret FOR SELECT USING (
-  secret.owner_user_id = auth.uid()
-);
+CREATE POLICY "Users can view their own secrets" ON public.secret FOR
+SELECT
+  USING (secret.owner_user_id=auth.uid ());
 
-REVOKE ALL ON FUNCTION public.secret_store_create(UUID, TEXT, public.secret_category, TEXT) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.secret_store_update(UUID, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.secret_store_delete(UUID) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.secret_store_resolve(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.secret_store_create (UUID, TEXT, public.secret_category, TEXT)
+FROM
+  PUBLIC,
+  anon,
+  authenticated;
 
-GRANT EXECUTE ON FUNCTION public.secret_store_create(UUID, TEXT, public.secret_category, TEXT) TO service_role;
-GRANT EXECUTE ON FUNCTION public.secret_store_update(UUID, TEXT, TEXT) TO service_role;
-GRANT EXECUTE ON FUNCTION public.secret_store_delete(UUID) TO service_role;
-GRANT EXECUTE ON FUNCTION public.secret_store_resolve(UUID) TO service_role;
+REVOKE ALL ON FUNCTION public.secret_store_update (UUID, TEXT, TEXT)
+FROM
+  PUBLIC,
+  anon,
+  authenticated;
+
+REVOKE ALL ON FUNCTION public.secret_store_delete (UUID)
+FROM
+  PUBLIC,
+  anon,
+  authenticated;
+
+REVOKE ALL ON FUNCTION public.secret_store_resolve (UUID)
+FROM
+  PUBLIC,
+  anon,
+  authenticated;
+
+GRANT
+EXECUTE ON FUNCTION public.secret_store_create (UUID, TEXT, public.secret_category, TEXT) TO service_role;
+
+GRANT
+EXECUTE ON FUNCTION public.secret_store_update (UUID, TEXT, TEXT) TO service_role;
+
+GRANT
+EXECUTE ON FUNCTION public.secret_store_delete (UUID) TO service_role;
+
+GRANT
+EXECUTE ON FUNCTION public.secret_store_resolve (UUID) TO service_role;
 
 --
 -- TRIGGER ON USER CREATION
 --
-CREATE OR REPLACE FUNCTION public.handle_new_user() 
-RETURNS trigger AS $$
+CREATE
+OR REPLACE FUNCTION public.handle_new_user () RETURNS TRIGGER AS $$
 BEGIN
   INSERT INTO public.profile (owner_user_id, name, type)
   VALUES (new.id, 'Me', 'Human');
@@ -507,5 +571,5 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+AFTER INSERT ON auth.users FOR EACH ROW
+EXECUTE PROCEDURE public.handle_new_user ();

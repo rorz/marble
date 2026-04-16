@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  cx,
   MarbleAlert,
   MarbleButton,
   MarbleEditableText,
@@ -104,6 +105,9 @@ type GridContext = {
   openCreateColumn: () => void;
   activeColumnId: string | null;
 };
+
+const TABLE_CELL_HORIZONTAL_PADDING_PX = 4;
+const TABLE_CELL_LED_CLEARANCE_PX = 14;
 
 // ── Theme ───────────────────────────────────────────────
 
@@ -681,8 +685,8 @@ function CellRunningIndicator() {
     <div
       className="pointer-events-none absolute top-0 bottom-0 z-0 overflow-hidden bg-zinc-100/80 shadow-[inset_0_0_8px_rgba(0,0,0,0.05)]"
       style={{
-        left: "calc(var(--ag-cell-horizontal-padding, 16px) * -1)",
-        right: "calc(var(--ag-cell-horizontal-padding, 16px) * -1)",
+        left: "calc(var(--marble-table-cell-padding-inline, 0px) * -1)",
+        right: "calc(var(--marble-table-cell-padding-inline, 0px) * -1)",
       }}
     >
       <style>{`
@@ -738,25 +742,54 @@ function CellWithRunButton(props: CustomCellRendererProps) {
 
   return (
     <div className="group/cell relative flex h-full w-full items-center">
-      {isLoading ? (
-        <CellRunningIndicator />
-      ) : isFailed ? (
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 left-0 z-20 flex -translate-y-1/2 flex-col gap-[2px] overflow-hidden rounded-[4px] border border-zinc-200 bg-white p-px"
+        style={{
+          left: "calc(var(--marble-table-cell-padding-inline, 0px) * -1)",
+        }}
+      >
         <span
-          className="flex-1 overflow-hidden text-ellipsis text-red-500 text-xs"
-          title={state.message}
-        >
-          ⚠ {state.message}
-        </span>
-      ) : isNull ? (
-        <span className="flex-1 text-xs text-zinc-300">—</span>
-      ) : (
-        <span className="flex-1 overflow-hidden text-ellipsis">
-          {props.valueFormatted ?? props.value}
-        </span>
-      )}
+          className={cx(
+            "block size-2 rounded-xs bg-amber-200/20 transition-all",
+            isLoading &&
+              "animate-blink duration-75 bg-amber-400 shadow-[0_0_2px_rgba(251,146,60,0.55)]",
+          )}
+        />
+        <span
+          className={cx(
+            "block size-2 rounded-xs bg-zinc-300/20 transition-all",
+            state?.ok === true &&
+              "bg-emerald-400 shadow-[0_0_2px_rgba(16,185,129,0.55)]",
+            isFailed && "bg-red-400 shadow-[0_0_2px_rgba(239,68,68,0.55)]",
+          )}
+        />
+      </div>
+      {isLoading ? <CellRunningIndicator /> : null}
+      <div
+        className="relative z-10 flex min-w-0 flex-1 items-center"
+        style={{
+          paddingLeft: "var(--marble-table-cell-content-padding-left, 0px)",
+        }}
+      >
+        {isFailed ? (
+          <span
+            className="block min-w-0 overflow-hidden text-ellipsis text-red-500 text-xs"
+            title={state.message}
+          >
+            ⚠ {state.message}
+          </span>
+        ) : isNull ? (
+          <span className="text-xs text-zinc-300">—</span>
+        ) : isLoading ? null : (
+          <span className="block min-w-0 overflow-hidden text-ellipsis">
+            {props.valueFormatted ?? props.value}
+          </span>
+        )}
+      </div>
       {columnId && rowId && !isLoading && (
         <button
-          className="absolute top-1/2 right-0.5 hidden h-[18px] w-[18px] -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm border border-zinc-200 bg-white text-[8px] text-orange-600 leading-none group-hover/cell:flex"
+          className="absolute top-1/2 right-0.5 z-30 hidden h-[18px] w-[18px] -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm border border-zinc-200 bg-white text-[8px] text-orange-600 leading-none group-hover/cell:flex"
           onClick={(e) => {
             e.stopPropagation();
             ctx.runCell?.(columnId, rowId);
@@ -1404,8 +1437,11 @@ export default function TablePageView({
     return [
       {
         cellStyle: {
+          "--marble-table-cell-padding-inline": `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
           color: "#666",
           fontFamily: "var(--font-geist-mono)",
+          paddingLeft: `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
+          paddingRight: `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
         },
         headerName: "#",
         pinned: "left" as const,
@@ -1421,12 +1457,16 @@ export default function TablePageView({
           cellStyle: (params) => {
             const hasValue = params.value && String(params.value).trim() !== "";
             return {
+              "--marble-table-cell-content-padding-left": `${TABLE_CELL_LED_CLEARANCE_PX}px`,
+              "--marble-table-cell-padding-inline": `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
               background: editable
                 ? hasValue
                   ? "#ffffff"
                   : "#f4f4f5"
                 : "transparent",
               fontFamily: "var(--font-geist-mono)",
+              paddingLeft: `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
+              paddingRight: `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
             };
           },
           editable,

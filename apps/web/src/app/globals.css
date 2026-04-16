@@ -6,11 +6,22 @@
   --foreground: #171717;
 }
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --animate-blink: blink 0.05s infinite;
+  @keyframes blink {
+    0%,
+    100% {
+      opacity: 100%;
+    }
+    50% {
+      opacity: 10%;
+    }
+  }
 }
 
 @media (prefers-color-scheme: dark) {

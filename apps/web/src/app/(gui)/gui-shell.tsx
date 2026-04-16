@@ -1,10 +1,5 @@
 "use client";
 
-import {
-  CodeBracketIcon,
-  FolderIcon,
-  TableCellsIcon,
-} from "@heroicons/react/24/outline";
 import type { Database } from "@marble/supabase";
 import { cx } from "@marble/ui";
 import {
@@ -14,6 +9,7 @@ import {
   CaretDoubleRightIcon,
   CaretDownIcon,
   CaretRightIcon,
+  CodeBlockIcon,
   FileCodeIcon,
   IdentificationBadgeIcon,
   LifebuoyIcon,
@@ -21,6 +17,8 @@ import {
   RobotIcon,
   TreeStructureIcon,
 } from "@phosphor-icons/react";
+import { TableIcon } from "@phosphor-icons/react/dist/ssr";
+
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -209,14 +207,24 @@ function isNodePathActive(pathname: string, href: string) {
 
 function getNodeIcon(node: SidebarTreeNode) {
   if (node.kind === "project") {
-    return <FolderIcon className="h-4 w-4" />;
+    return null;
   }
 
   if (node.kind === "table") {
-    return <TableCellsIcon className="h-4 w-4" />;
+    return (
+      <TableIcon
+        className="h-4 w-4"
+        weight="duotone"
+      />
+    );
   }
 
-  return <CodeBracketIcon className="h-4 w-4" />;
+  return (
+    <CodeBlockIcon
+      className="h-4 w-4"
+      weight="duotone"
+    />
+  );
 }
 
 function SidebarNavRow({
@@ -250,9 +258,11 @@ function SidebarNavRow({
         href={href}
         title={title}
       >
-        <div className="flex size-5 shrink-0 items-center justify-center">
-          {icon}
-        </div>
+        {icon && (
+          <div className="flex size-5 shrink-0 items-center justify-center">
+            {icon}
+          </div>
+        )}
         {iconOnly ? null : (
           <span className="truncate font-medium text-sm">{label}</span>
         )}
@@ -478,8 +488,9 @@ export function GuiShell({
     topLevelPath,
   ]);
 
+  const supabase = createClient();
+
   useEffect(() => {
-    const supabase = createClient();
     const applyMutation = (mutation: SidebarMutation) => {
       setSidebarData((current) => applySidebarMutation(current, mutation));
     };
@@ -570,16 +581,19 @@ export function GuiShell({
           });
         },
       )
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR") {
+      .subscribe((status, error) => {
+        if (status === "CHANNEL_ERROR" || error) {
           console.error("GUI sidebar realtime channel failed");
+          console.log(status, error);
         }
       });
 
     return () => {
-      void supabase.removeChannel(channel);
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [
+    supabase,
+  ]);
 
   useEffect(
     () => () => {

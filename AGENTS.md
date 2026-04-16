@@ -108,3 +108,8 @@ If you add or reshape a top-level resource, you are not done when the migration 
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
+
+
+## Database quirks
+
+- Supabase `postgres_changes` realtime listeners must ensure the tables they are set to listen to are established and set up for realtime PUBLICATION in the database schema otherwise they, or any linked `.on()` calls will silently fail!
