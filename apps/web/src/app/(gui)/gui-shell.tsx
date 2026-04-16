@@ -715,7 +715,7 @@ export function GuiShell({
       <div className="relative">
         <aside
           className={cx(
-            "flex size-full flex-col gap-8 px-2 pt-6 transition-[padding] duration-200 ease-out",
+            "flex size-full flex-col gap-8 px-2 pt-6 transition-[padding] duration-200 ease-out h-screen overflow-y-scroll",
             sidebar.asideClassName,
           )}
         >
