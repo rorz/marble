@@ -3,7 +3,7 @@ import type { HTMLAttributes } from "react";
 import { cx } from "../utils/cx";
 
 const marbleBadgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2 py-1 font-medium",
+  "place-self-start inline-flex items-center rounded-xs border px-1.5 py-0.5 font-semibold",
   {
     compoundVariants: [
       {
@@ -13,25 +13,20 @@ const marbleBadgeVariants = cva(
     ],
     defaultVariants: {
       caps: false,
-      size: "sm",
       tone: "neutral",
     },
     variants: {
       caps: {
-        false: "tracking-normal",
-        true: "",
-      },
-      size: {
-        sm: "text-[11px]",
-        xs: "text-[10px]",
+        false: "tracking-wide text-[11px]",
+        true: "tracking-tighter text-[10px]",
       },
       tone: {
-        error: "border-red-200 bg-red-50 text-red-700",
-        info: "border-sky-200 bg-sky-50 text-sky-700",
-        neutral: "border-zinc-200 bg-zinc-50 text-zinc-600",
-        solid: "border-zinc-200 bg-white text-zinc-600",
-        success: "border-emerald-200 bg-emerald-50 text-emerald-700",
-        warning: "border-orange-200 bg-orange-50 text-orange-700",
+        error: "border-red-100 bg-red-100/50 text-red-500",
+        info: "border-cyan-100 bg-cyan-100/50 text-cyan-600",
+        neutral: "border-taupe-200 bg-taupe-200/50 text-taupe-500",
+        solid: "border-taupe-700 bg-taupe-700 text-taupe-50",
+        success: "border-green-200 bg-green-50 text-green-700",
+        warning: "border-amber-200 bg-amber-50 text-amber-700",
       },
     },
   },
@@ -60,7 +55,7 @@ export function MarbleBadge({
       )}
       {...props}
     >
-      {children}
+      <span>{children}</span>
     </span>
   );
 }

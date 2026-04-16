@@ -70,43 +70,57 @@ export default function UiPage() {
         </header>
 
         <Section title="Buttons">
-          <div className="flex flex-wrap items-center gap-3">
-            <MarbleButton variant="orange">Run All</MarbleButton>
-            <MarbleButton>Add</MarbleButton>
-            <MarbleButton variant="dark">Inspect</MarbleButton>
-            <MarbleButton variant="red">Delete</MarbleButton>
-            <MarbleButton
-              disabled
-              variant="orange"
-            >
-              Running...
-            </MarbleButton>
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <MarbleButton variant="orange">Run All</MarbleButton>
+              <MarbleButton>Add</MarbleButton>
+              <MarbleButton variant="dark">Inspect</MarbleButton>
+              <MarbleButton variant="red">Delete</MarbleButton>
+              <MarbleButton
+                disabled
+                variant="orange"
+              >
+                Running...
+              </MarbleButton>
+            </div>
+            <p className="max-w-2xl text-sm text-zinc-500">
+              Hover each button to inspect the new cursor dot: a fast 0.2s fade
+              with a slight positional lag and a feathered, slightly noisy blob.
+              Light buttons get a muted shadow spot, while saturated buttons
+              lift with a softer desaturated highlight. Press and hold to
+              inspect the inverted border bevel.
+            </p>
           </div>
         </Section>
 
         <Section title="Badges">
-          <div className="flex flex-wrap items-center gap-2">
-            <MarbleBadge
-              caps
-              tone="neutral"
-            >
-              Agent
-            </MarbleBadge>
-            <MarbleBadge
-              caps
-              tone="warning"
-            >
-              claude-code
-            </MarbleBadge>
-            <MarbleBadge
-              caps
-              tone="info"
-            >
-              creating
-            </MarbleBadge>
-            <MarbleBadge tone="solid">12 total</MarbleBadge>
-            <MarbleBadge tone="success">Realtime live</MarbleBadge>
-            <MarbleBadge tone="error">Realtime error</MarbleBadge>
+          <div className="grid grid-rows-2 gap-2">
+            {(
+              [
+                "neutral",
+                "warning",
+                "info",
+                "error",
+                "solid",
+                "success",
+              ] as const
+            ).flatMap((keyword) => [
+              <MarbleBadge
+                caps
+                className="row-1"
+                key={`caps--${keyword}`}
+                tone={keyword}
+              >
+                {keyword} caps
+              </MarbleBadge>,
+              <MarbleBadge
+                className="row-2"
+                key={`nocaps--${keyword}`}
+                tone={keyword}
+              >
+                {keyword}
+              </MarbleBadge>,
+            ])}
           </div>
         </Section>
 
