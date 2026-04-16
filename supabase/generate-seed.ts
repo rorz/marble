@@ -1,79 +1,135 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 
 /**
  * Reads program fixtures from seed-fixtures/programs/ and generates seed.sql.
  *
  * Each program directory contains:
- *   package.json        → name
- *   input-schema.json   → input_schema          (JSON Schema)
- *   output-config.json  → output_config         (ProgramOutputConfig)
- *   index.ts            → code
+ *   package.json        -> name
+ *   input-schema.json   -> input_schema          (JSON Schema)
+ *   output-config.json  -> output_config         (ProgramOutputConfig)
+ *   index.ts            -> code
  *
- * Run:  node supabase/generate-seed.mjs
+ * Run: bun run supabase/generate-seed.ts
  */
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const FIXTURES_DIR = resolve(import.meta.dirname, "seed-fixtures/programs");
-const OUTPUT_FILE = resolve(import.meta.dirname, "seed.sql");
+type JsonObject = Record<string, unknown>;
+type ProgramFileType = "Json" | "Markdown" | "TypeScript";
 
-function readJson(path) {
+interface ProgramFile {
+  content: string;
+  filename: string;
+  filetype: ProgramFileType;
+}
+
+interface ProgramSeed {
+  files: ProgramFile[];
+  firstParty: boolean;
+  inputSchema: string;
+  name: string;
+  outputConfig: string;
+  slug: string;
+}
+
+const THIS_DIR = dirname(fileURLToPath(import.meta.url));
+const FIXTURES_DIR = resolve(THIS_DIR, "seed-fixtures/programs");
+const OUTPUT_FILE = resolve(THIS_DIR, "seed.sql");
+
+function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readOptionalJson(path: string): unknown | null {
   try {
     return JSON.parse(readFileSync(path, "utf-8"));
-  } catch (err) {
-    if (err.code === "ENOENT") return null;
-    throw err;
+  } catch (error) {
+    if (isErrnoException(error) && error.code === "ENOENT") {
+      return null;
+    }
+
+    throw error;
   }
 }
 
-function readText(path) {
+function readJsonObject(path: string): JsonObject {
+  const value = readOptionalJson(path);
+  return isJsonObject(value) ? value : {};
+}
+
+function readOptionalText(path: string): string | null {
   try {
     return readFileSync(path, "utf-8").trim();
-  } catch (err) {
-    if (err.code === "ENOENT") return null;
-    throw err;
+  } catch (error) {
+    if (isErrnoException(error) && error.code === "ENOENT") {
+      return null;
+    }
+
+    throw error;
   }
 }
 
-function sqlEscape(str) {
-  return str.replaceAll("'", "''");
+function readRequiredText(path: string): string {
+  return readOptionalText(path) ?? "";
 }
 
-function getFileType(filename) {
-  if (filename.endsWith(".ts")) return "TypeScript";
-  if (filename.endsWith(".json")) return "Json";
-  if (filename.endsWith(".md")) return "Markdown";
-  return "TypeScript"; // fallback
+function sqlEscape(value: string): string {
+  return value.replaceAll("'", "''");
 }
 
-function buildProgramValues(dirName) {
+function getFileType(filename: string): ProgramFileType {
+  if (filename.endsWith(".ts")) {
+    return "TypeScript";
+  }
+
+  if (filename.endsWith(".json")) {
+    return "Json";
+  }
+
+  if (filename.endsWith(".md")) {
+    return "Markdown";
+  }
+
+  return "TypeScript";
+}
+
+function getProgramName(dirName: string, dir: string): string {
+  const packageJson = readOptionalJson(join(dir, "package.json"));
+
+  if (isJsonObject(packageJson) && typeof packageJson.name === "string") {
+    return packageJson.name;
+  }
+
+  return dirName;
+}
+
+function buildProgramSeed(dirName: string): ProgramSeed {
   const dir = join(FIXTURES_DIR, dirName);
-
-  const pkg = readJson(join(dir, "package.json")) || {
-    name: dirName,
-  };
-  const inputSchema = readJson(join(dir, "input-schema.json")) || {};
-  const outputConfig = readJson(join(dir, "output-config.json")) || {};
+  const inputSchema = readJsonObject(join(dir, "input-schema.json"));
+  const outputConfig = readJsonObject(join(dir, "output-config.json"));
 
   const files = readdirSync(dir, {
     withFileTypes: true,
   })
-    .filter((d) => d.isFile())
-    .map((d) => {
-      const content = readText(join(dir, d.name));
-      return {
-        content,
-        filename: d.name,
-        filetype: getFileType(d.name),
-      };
-    });
+    .filter((entry) => entry.isFile())
+    .sort((left, right) => left.name.localeCompare(right.name))
+    .map((entry) => ({
+      content: readRequiredText(join(dir, entry.name)),
+      filename: entry.name,
+      filetype: getFileType(entry.name),
+    }));
 
   return {
     files,
-    firstParty: true, // all seeded are first party
+    firstParty: true,
     inputSchema: JSON.stringify(inputSchema),
-    name: pkg.name,
+    name: getProgramName(dirName, dir),
     outputConfig: JSON.stringify(outputConfig),
     slug: dirName,
   };
@@ -82,20 +138,20 @@ function buildProgramValues(dirName) {
 const programDirs = readdirSync(FIXTURES_DIR, {
   withFileTypes: true,
 })
-  .filter((d) => d.isDirectory())
-  .map((d) => d.name)
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
   .sort();
 
-const programs = programDirs.map(buildProgramValues);
+const programs = programDirs.map(buildProgramSeed);
 
 const programInserts = programs
-  .map((p) => {
-    const slug = p.slug.replaceAll("-", "_");
+  .map((program) => {
+    const slug = program.slug.replaceAll("-", "_");
 
-    const fileInserts = p.files
+    const fileInserts = program.files
       .map(
-        (file, i) => `
-inserted_file_${slug}_${i} AS (
+        (file, index) => `
+inserted_file_${slug}_${index} AS (
   INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, '${file.filename}', '${file.filetype}', '${sqlEscape(file.content)}'
   FROM system_profile p, inserted_version_${slug} v
@@ -105,30 +161,30 @@ inserted_file_${slug}_${i} AS (
       .join(",");
 
     return `
--- ${p.name}
+-- ${program.name}
 inserted_program_${slug} AS (
   INSERT INTO "program" (owner_profile_id, name, first_party)
-  SELECT id, '${sqlEscape(p.name)}', ${p.firstParty} FROM system_profile
+  SELECT id, '${sqlEscape(program.name)}', ${program.firstParty} FROM system_profile
   RETURNING id
 ),
 inserted_version_${slug} AS (
   INSERT INTO "program_version" (program_id, "version", input_schema, output_config)
-  SELECT id, 1, '${sqlEscape(p.inputSchema)}', '${sqlEscape(p.outputConfig)}' FROM inserted_program_${slug}
+  SELECT id, 1, '${sqlEscape(program.inputSchema)}', '${sqlEscape(program.outputConfig)}' FROM inserted_program_${slug}
   RETURNING id
 ),${fileInserts}`;
   })
   .join(",\n");
 
-const programVersionCTEs = programs
+const programVersionCtes = programs
   .map(
-    (p) =>
-      `program_version_${p.slug.replaceAll("-", "_")} AS (
-  SELECT id FROM inserted_version_${p.slug.replaceAll("-", "_")} LIMIT 1
+    (program) =>
+      `program_version_${program.slug.replaceAll("-", "_")} AS (
+  SELECT id FROM inserted_version_${program.slug.replaceAll("-", "_")} LIMIT 1
 )`,
   )
   .join(",\n\n");
 
-const seed = `-- Auto-generated by generate-seed.mjs — do not edit by hand.
+const seed = `-- Auto-generated by generate-seed.ts - do not edit by hand.
 -- Source of truth: seed-fixtures/programs/
 
 -- 1. Create a dummy user in auth.users
@@ -148,7 +204,7 @@ system_profile AS (
 -- Programs (from fixtures)
 ${programInserts},
 
-${programVersionCTEs},
+${programVersionCtes},
 
 -- Demo project + table
 
@@ -226,7 +282,8 @@ SELECT 1;
 `;
 
 writeFileSync(OUTPUT_FILE, seed, "utf-8");
-console.log(`✔ Generated ${OUTPUT_FILE}`);
+
+console.log(`Generated ${OUTPUT_FILE}`);
 console.log(
-  `  ${programs.length} programs: ${programs.map((p) => p.slug).join(", ")}`,
+  `  ${programs.length} programs: ${programs.map((program) => program.slug).join(", ")}`,
 );

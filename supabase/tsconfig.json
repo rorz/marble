@@ -1,9 +1,8 @@
 {
   "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": "./src"
+    "outDir": "./dist"
   },
   "exclude": ["node_modules", "dist"],
   "extends": "../tsconfig.json",
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "generate-seed.ts"]
 }

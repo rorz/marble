@@ -67,7 +67,7 @@ If you add or reshape a top-level resource, you are not done when the migration 
 2. Update the database model fully.
    Add the migration, backfill existing data, fix or replace RLS policies, update indexes, and regenerate any generated database types.
 3. Update seeds and reset flow.
-   Update `supabase/generate-seed.mjs`, regenerate `supabase/seed.sql`, and if the schema changed enough to require a clean local reset, explicitly ask for permission before running `bun run dangerously-splat`.
+   Update `supabase/generate-seed.ts`, regenerate `supabase/seed.sql`, and if the schema changed enough to require a clean local reset, explicitly ask for permission before running `bun run dangerously-splat`.
 4. Update resource registries.
    Audit `packages/core/src/api-resources.ts`, `packages/api/src/index.ts`, and `packages/api/src/data.ts` so the new resource is actually first-class everywhere IDs, labels, and route mounting are derived.
 5. Update API authorization explicitly.
@@ -87,7 +87,7 @@ If you add or reshape a top-level resource, you are not done when the migration 
 
 ### Minimum Files To Inspect For Resource Work
 - `supabase/migrations/*`
-- `supabase/generate-seed.mjs`
+- `supabase/generate-seed.ts`
 - `supabase/seed.sql`
 - `supabase/src/types.ts`
 - `packages/core/src/api-resources.ts`

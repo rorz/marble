@@ -31,6 +31,11 @@
     "typescript": "catalog:base"
   },
   "name": "@marble/web",
+  "postcss": {
+    "plugins": {
+      "@tailwindcss/postcss": {}
+    }
+  },
   "private": true,
   "scripts": {
     "build": "next build",
