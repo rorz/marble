@@ -119,7 +119,9 @@ export function MarbleCard({
         className="pointer-events-none absolute inset-0 rounded-[inherit]"
         style={marbleCardNoiseStyles[resolvedTone]}
       />
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col">
+        {children}
+      </div>
     </div>
   );
 }
