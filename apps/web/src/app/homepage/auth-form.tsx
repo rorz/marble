@@ -9,7 +9,7 @@ import {
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { createClient } from "../lib/supabase/browser";
+import { createClient } from "../../lib/supabase/browser";
 
 export default function AuthForm() {
   const router = useRouter();
