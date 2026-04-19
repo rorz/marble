@@ -50,6 +50,7 @@ Our development stack:
 4. If you catch yourself thinking "I'll abstract it later", stop. Abstract it now. Two uses is already enough evidence here.
 5. Every new or materially changed shared UI primitive must be represented in `apps/web/src/app/internal/ui/page.tsx` so there is always a living visual catalog.
 6. Only keep JSX local to a route when it is obviously domain-specific and would be nonsense anywhere else. If it reads like a component that could have a generic name, it belongs in `packages/ui`.
+7. **Marketing surfaces are an exception.** Components for marketing / landing routes (e.g. `apps/web/src/app/homepage/**`) are domain-specific by definition and MUST NOT be placed in `packages/ui`. They belong in a local `ui/` folder within the route (e.g. `apps/web/src/app/homepage/ui/`). `packages/ui` is for the product's design system — marketing primitives carry branding, copy framing, and tonal choices that do not belong there.
 
 ## Turborepo
 
