@@ -28,6 +28,7 @@ import {
   MarbleCommandMenu,
   MarbleCommandSeparator,
   MarbleContextPopover,
+  MarbleDropzone,
   MarbleEditableText,
   MarbleEmptyState,
   MarbleFieldLabel,
@@ -42,6 +43,12 @@ import {
   MarblePaneEditableCrumb,
   MarbleSearchSelect,
   MarbleSelect,
+  MarbleSheet,
+  MarbleSheetContent,
+  MarbleSheetDescription,
+  MarbleSheetFooter,
+  MarbleSheetHeader,
+  MarbleSheetTitle,
   MarbleTextarea,
   MarbleWorkspacePopover,
 } from "@marble/ui";
@@ -72,7 +79,11 @@ export default function UiPage() {
   const [isEditingCrumb, setIsEditingCrumb] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [isCommandDialogOpen, setIsCommandDialogOpen] = useState(false);
+  const [dropzoneSummary, setDropzoneSummary] = useState(
+    "No files selected yet",
+  );
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [selectedCommandExample, setSelectedCommandExample] =
     useState("Open projects");
   const handleDemoSelect = (label: string) => {
@@ -275,6 +286,45 @@ export default function UiPage() {
             <span className="text-sm text-zinc-200 p-0.5 ml-1 bg-neutral-500/90 rounded-sm px-2">
               Rows
             </span>
+          </div>
+        </Section>
+
+        <Section title="Dropzones">
+          <div className="grid gap-4 md:grid-cols-2">
+            <MarbleCard>
+              <MarbleCardContent className="pt-5">
+                <MarbleDropzone
+                  accept=".ts,.json,.md"
+                  description="Backed by a hidden file input so click and drag both hit the same shared control."
+                  hint={dropzoneSummary}
+                  icon={<CodeBracketIcon className="h-5 w-5" />}
+                  multiple
+                  onFilesChange={(files) => {
+                    setDropzoneSummary(
+                      files.length === 0
+                        ? "No files selected yet"
+                        : files.length === 1
+                          ? `Selected ${files[0]?.name}`
+                          : `Selected ${files.length} files`,
+                    );
+                  }}
+                  title="Import program files"
+                  tone="orange"
+                />
+              </MarbleCardContent>
+            </MarbleCard>
+
+            <MarbleCard tone="subtle">
+              <MarbleCardContent className="pt-5">
+                <MarbleDropzone
+                  description="Use the disabled state while uploads or local file access are unavailable."
+                  disabled
+                  hint="Connect a workspace or enable uploads to activate."
+                  icon={<FolderOpenIcon className="h-5 w-5" />}
+                  title="Uploads unavailable"
+                />
+              </MarbleCardContent>
+            </MarbleCard>
           </div>
         </Section>
 
@@ -674,6 +724,80 @@ export default function UiPage() {
               Shared inline rename behavior for breadcrumb and pane title
               surfaces.
             </p>
+          </div>
+        </Section>
+
+        <Section title="Sheet">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <MarbleButton
+                onClick={() => setIsSheetOpen(true)}
+                variant="dark"
+              >
+                Open sheet
+              </MarbleButton>
+              <span className="text-sm text-zinc-500">
+                Shared slide-over panel for inline inspectors, docs, and command
+                menu companions.
+              </span>
+            </div>
+
+            <div className="relative h-80 overflow-hidden rounded-xs border border-taupe-200 bg-white">
+              <div className="flex h-full flex-col gap-3 bg-linear-to-br from-white via-taupe-50 to-taupe-100 p-4">
+                <MarbleBadge
+                  caps
+                  tone="info"
+                >
+                  Inline
+                </MarbleBadge>
+                <div className="space-y-2">
+                  <h3 className="font-semibold text-lg text-taupe-900">
+                    Host surface
+                  </h3>
+                  <p className="max-w-sm text-sm text-zinc-600">
+                    The sheet is absolutely positioned inside a relative
+                    container, which makes it useful for workspaces like the
+                    command palette.
+                  </p>
+                </div>
+              </div>
+
+              <MarbleSheet
+                onOpenChange={setIsSheetOpen}
+                open={isSheetOpen}
+              >
+                <MarbleSheetContent className="w-[min(22rem,100%)]">
+                  <MarbleSheetHeader>
+                    <MarbleSheetTitle>Shared sheet shell</MarbleSheetTitle>
+                    <MarbleSheetDescription>
+                      Slide-over content that stays scoped to the current
+                      surface instead of taking over the whole app.
+                    </MarbleSheetDescription>
+                  </MarbleSheetHeader>
+
+                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+                    <MarbleAlert
+                      size="sm"
+                      tone="warning"
+                    >
+                      This is a local container-backed sheet, not a global route
+                      transition.
+                    </MarbleAlert>
+                    <p className="text-sm text-zinc-600">
+                      It works well for help panels, inspectors, and secondary
+                      flows that should stay visually attached to the current
+                      UI.
+                    </p>
+                  </div>
+
+                  <MarbleSheetFooter>
+                    <MarbleButton onClick={() => setIsSheetOpen(false)}>
+                      Close
+                    </MarbleButton>
+                  </MarbleSheetFooter>
+                </MarbleSheetContent>
+              </MarbleSheet>
+            </div>
           </div>
         </Section>
 

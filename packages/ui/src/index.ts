@@ -49,6 +49,10 @@ export {
   type MarbleContextPopoverSection,
 } from "./components/context-popover";
 export {
+  MarbleDropzone,
+  type MarbleDropzoneProps,
+} from "./components/dropzone";
+export {
   MarbleEditableText,
   type MarbleEditableTextProps,
 } from "./components/editable-text";
@@ -99,6 +103,21 @@ export {
   MarbleSelect,
   type MarbleSelectProps,
 } from "./components/select";
+export {
+  MarbleSheet,
+  MarbleSheetClose,
+  MarbleSheetContent,
+  type MarbleSheetContentProps,
+  MarbleSheetDescription,
+  type MarbleSheetDescriptionProps,
+  MarbleSheetFooter,
+  type MarbleSheetFooterProps,
+  MarbleSheetHeader,
+  type MarbleSheetHeaderProps,
+  type MarbleSheetProps,
+  MarbleSheetTitle,
+  type MarbleSheetTitleProps,
+} from "./components/sheet";
 export {
   MarbleTextarea,
   type MarbleTextareaProps,

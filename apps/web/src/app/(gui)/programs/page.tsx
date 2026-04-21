@@ -8,20 +8,43 @@ import {
   PlayIcon,
   PlusIcon,
 } from "@heroicons/react/24/outline";
-import { cx } from "@marble/ui";
+import {
+  cx,
+  MarbleBadge,
+  MarbleButton,
+  MarbleDropzone,
+  MarbleFieldLabel,
+  MarbleInput,
+  MarbleListRow,
+  MarbleModal,
+  MarbleModalContent,
+  MarbleModalDescription,
+  MarbleModalFooter,
+  MarbleModalHeader,
+  MarbleModalTitle,
+  MarblePane,
+  MarbleSelect,
+  MarbleTextarea,
+} from "@marble/ui";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import {
+  type DragEvent as ReactDragEvent,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import * as actions from "./actions";
 
 type FullProgram = Awaited<ReturnType<typeof actions.listPrograms>>[number];
 type ProgramFile = {
-  filename: string;
   content: string;
+  filename: string;
   filetype: "TypeScript" | "Json" | "Markdown";
 };
 type MonacoLanguage = "typescript" | "json" | "markdown";
+type EditorMode = "blank" | "draft" | "saved";
 
 const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   loading: () => (
@@ -32,24 +55,15 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   ssr: false,
 });
 
-const chromeButtonClassName =
-  "inline-flex h-7 items-center justify-center rounded-sm border border-[#d8cfbf] bg-[#fffdf8] px-2.5 font-medium text-[#5f5348] text-[11px] uppercase tracking-[0.18em] transition-colors hover:bg-[#fff4e7] hover:text-[#9a4d10] disabled:cursor-not-allowed disabled:opacity-50";
-const chromeFieldClassName =
-  "w-full rounded-sm border border-taupe-300 bg-taupe-100 px-2 py-1.5 text-taupe-900 text-xs outline-none transition-colors placeholder:text-taupe-500 focus:border-taupe-500 focus:bg-white";
-const chromeHeaderLabelClassName =
-  "font-medium text-taupe-600 text-[11px] uppercase tracking-[0.18em]";
-const primaryButtonClassName =
-  "inline-flex items-center justify-center rounded-sm border border-[#f0b47b] bg-[#fff1e2] font-medium text-[#9a4d10] text-[11px] uppercase tracking-[0.18em] transition-colors hover:bg-[#ffe7cf] disabled:cursor-not-allowed disabled:opacity-50";
-const sidebarHeaderLabelClassName =
-  "font-medium text-[11px] text-taupe-700 uppercase tracking-[0.18em]";
 const sidebarPanelClassName =
   "bg-taupe-300 border-taupe-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]";
-const sidebarItemBaseClassName =
-  "flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm transition-colors";
-const sidebarItemIdleClassName =
-  "text-taupe-700 hover:bg-taupe-200/85 hover:text-taupe-950";
-const sidebarItemActiveClassName =
-  "bg-white/85 text-taupe-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]";
+const editorTabButtonClassName =
+  "flex shrink-0 items-center gap-2 rounded-sm border px-3 py-1.5 text-xs transition-colors";
+const editorTabActiveClassName =
+  "border-orange-300 bg-white text-taupe-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]";
+const editorTabIdleClassName =
+  "border-transparent text-taupe-600 hover:border-taupe-200 hover:bg-taupe-50 hover:text-taupe-900";
+const importAccept = ".ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.md,.markdown,.txt";
 
 const monacoEditorOptions = {
   automaticLayout: true,
@@ -111,12 +125,51 @@ function getFileAccent(filename: string) {
   return "text-sky-600";
 }
 
+function getProgramFiletype(filename: string): ProgramFile["filetype"] {
+  if (filename.endsWith(".json")) {
+    return "Json";
+  }
+
+  if (filename.endsWith(".md")) {
+    return "Markdown";
+  }
+
+  return "TypeScript";
+}
+
+function isFileDrag(dataTransfer: DataTransfer | null | undefined) {
+  return Array.from(dataTransfer?.types ?? []).includes("Files");
+}
+
+function getSuggestedFileName(files: ProgramFile[]) {
+  const preferredFilenames = [
+    "utils.ts",
+    "helpers.ts",
+    "config.json",
+    "notes.md",
+  ];
+
+  for (const candidate of preferredFilenames) {
+    if (!files.some((file) => file.filename === candidate)) {
+      return candidate;
+    }
+  }
+
+  let suffix = 2;
+
+  while (files.some((file) => file.filename === `file-${suffix}.ts`)) {
+    suffix += 1;
+  }
+
+  return `file-${suffix}.ts`;
+}
+
 function buildFieldsFromSchema(schema: Record<string, unknown>): {
-  key: string;
-  type: string;
-  title: string;
-  enumValues?: string[];
   defaultValue?: string;
+  enumValues?: string[];
+  key: string;
+  title: string;
+  type: string;
 }[] {
   const properties = (schema?.properties ?? {}) as Record<
     string,
@@ -132,26 +185,6 @@ function buildFieldsFromSchema(schema: Record<string, unknown>): {
   }));
 }
 
-function CompactBadge({
-  children,
-  tone = "neutral",
-}: Readonly<{
-  children: React.ReactNode;
-  tone?: "neutral" | "orange";
-}>) {
-  return (
-    <span
-      className={cx(
-        "inline-flex items-center rounded-full border px-2 py-0.5 font-medium text-[10px] uppercase tracking-[0.18em]",
-        tone === "neutral" && "border-taupe-300 bg-taupe-100 text-taupe-700",
-        tone === "orange" && "border-taupe-500 bg-taupe-200 text-taupe-900",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
 function ProgramRow({
   active,
   onSelect,
@@ -164,25 +197,23 @@ function ProgramRow({
   const latestVersion = getLatestVersion(program);
 
   return (
-    <button
-      aria-pressed={active}
-      className={cx(
-        sidebarItemBaseClassName,
-        active ? sidebarItemActiveClassName : sidebarItemIdleClassName,
-      )}
+    <MarbleListRow
+      active={active}
+      icon={<CodeBracketIcon className="h-4 w-4 text-taupe-500" />}
+      meta={
+        latestVersion ? (
+          <span className="font-mono text-[11px] text-taupe-500">
+            v{latestVersion.version}
+          </span>
+        ) : null
+      }
       onClick={onSelect}
-      type="button"
-    >
-      <CodeBracketIcon className="h-4 w-4 shrink-0 text-taupe-500" />
-      <span className="flex-1 truncate">
-        {program.name || "Untitled Program"}
-      </span>
-      {latestVersion ? (
-        <span className="font-mono text-[11px] text-taupe-500">
-          v{latestVersion.version}
-        </span>
-      ) : null}
-    </button>
+      size="sm"
+      title={program.name || "Untitled Program"}
+      titleClassName="text-sm text-taupe-900"
+      tone="orange"
+      wrapperClassName="border-taupe-400/70"
+    />
   );
 }
 
@@ -196,21 +227,20 @@ function FileRow({
   onSelect: () => void;
 }>) {
   return (
-    <button
-      aria-pressed={active}
-      className={cx(
-        sidebarItemBaseClassName,
-        "px-5",
-        active ? sidebarItemActiveClassName : sidebarItemIdleClassName,
-      )}
+    <MarbleListRow
+      active={active}
+      icon={
+        <DocumentTextIcon
+          className={cx("h-4 w-4", getFileAccent(file.filename))}
+        />
+      }
       onClick={onSelect}
-      type="button"
-    >
-      <DocumentTextIcon
-        className={cx("h-4 w-4 shrink-0", getFileAccent(file.filename))}
-      />
-      <span className="flex-1 truncate">{file.filename}</span>
-    </button>
+      size="sm"
+      title={file.filename}
+      titleClassName="text-sm text-taupe-900"
+      tone="orange"
+      wrapperClassName="border-taupe-400/70"
+    />
   );
 }
 
@@ -219,31 +249,54 @@ export default function ProgramsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [programs, setPrograms] = useState<FullProgram[]>([]);
+  const [editorMode, setEditorMode] = useState<EditorMode>("blank");
 
-  // Editor state
   const [files, setFiles] = useState<ProgramFile[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [progName, setProgName] = useState("");
   const [inputSchemaStr, setInputSchemaStr] = useState("{}");
   const [outputConfigStr, setOutputConfigStr] = useState("{}");
 
-  // Runner state
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [manualInput, setManualInput] = useState("");
   const [result, setResult] = useState<{
+    error?: string;
     ok: boolean;
     output: unknown;
-    error?: string;
   } | null>(null);
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [log, setLog] = useState<string[]>([]);
+
+  const [importingFiles, setImportingFiles] = useState(false);
+  const [workspaceDragDepth, setWorkspaceDragDepth] = useState(0);
+  const [isNewFileModalOpen, setIsNewFileModalOpen] = useState(false);
+  const [newFileName, setNewFileName] = useState("");
+  const [newFileError, setNewFileError] = useState<string | null>(null);
 
   const selectedProgId = searchParams.get("programId");
   const selectedProgram = programs.find(
     (program) => program.id === selectedProgId,
   );
   const latestVersion = getLatestVersion(selectedProgram);
+  const isDraftProgram = editorMode === "draft" && !selectedProgId;
+  const hasProgramContext = Boolean(
+    selectedProgId || isDraftProgram || files.length > 0,
+  );
+  const isWorkspaceDropzoneVisible = workspaceDragDepth > 0;
+
+  const resetEditor = useCallback(() => {
+    setProgName("");
+    setFiles([]);
+    setActiveFile(null);
+    setInputSchemaStr("{}");
+    setOutputConfigStr("{}");
+    setInputValues({});
+    setManualInput("");
+    setResult(null);
+    setLog([]);
+    setWorkspaceDragDepth(0);
+  }, []);
 
   const loadPrograms = useCallback(async () => {
     const nextPrograms = await actions.listPrograms();
@@ -280,6 +333,7 @@ export default function ProgramsPage() {
 
   useEffect(() => {
     if (selectedProgram) {
+      setEditorMode("saved");
       setProgName(selectedProgram.name);
 
       if (latestVersion) {
@@ -299,13 +353,16 @@ export default function ProgramsPage() {
       return;
     }
 
-    setProgName("");
-    setFiles([]);
-    setActiveFile(null);
-    setInputSchemaStr("{}");
-    setOutputConfigStr("{}");
+    if (editorMode === "draft") {
+      return;
+    }
+
+    setEditorMode("blank");
+    resetEditor();
   }, [
+    editorMode,
     latestVersion,
+    resetEditor,
     selectedProgram,
   ]);
 
@@ -333,6 +390,7 @@ export default function ProgramsPage() {
   ]);
 
   const handleCreateProgram = () => {
+    setEditorMode("draft");
     selectProgram(null);
     setProgName("Untitled Program");
     setFiles([
@@ -369,35 +427,170 @@ export default function ProgramsPage() {
         2,
       ),
     );
-    setLog([]);
+    setInputValues({});
+    setManualInput("");
     setResult(null);
+    setLog([]);
+    setImportingFiles(false);
+    setWorkspaceDragDepth(0);
+    setIsNewFileModalOpen(false);
+    setNewFileError(null);
   };
 
-  const handleAddFile = () => {
-    const filename = window.prompt(
-      "Enter filename (e.g. utils.ts, data.json):",
-      "utils.ts",
-    );
+  const openNewFileModal = () => {
+    setNewFileName(getSuggestedFileName(files));
+    setNewFileError(null);
+    setIsNewFileModalOpen(true);
+  };
 
-    if (!filename) {
+  const closeNewFileModal = () => {
+    setIsNewFileModalOpen(false);
+    setNewFileError(null);
+  };
+
+  const handleCreateFile = () => {
+    const nextFilename = newFileName.trim();
+
+    if (!nextFilename) {
+      setNewFileError("Filename is required.");
       return;
     }
 
-    const filetype = filename.endsWith(".json")
-      ? "Json"
-      : filename.endsWith(".md")
-        ? "Markdown"
-        : "TypeScript";
+    if (files.some((file) => file.filename === nextFilename)) {
+      setNewFileError(`"${nextFilename}" already exists in this program.`);
+      return;
+    }
 
     setFiles((current) => [
       ...current,
       {
         content: "",
-        filename,
-        filetype,
+        filename: nextFilename,
+        filetype: getProgramFiletype(nextFilename),
       },
     ]);
-    setActiveFile(filename);
+    setActiveFile(nextFilename);
+    closeNewFileModal();
+  };
+
+  const handleImportFiles = async (
+    incomingFiles: File[],
+    options?: {
+      closeModalAfterImport?: boolean;
+    },
+  ) => {
+    if (incomingFiles.length === 0) {
+      return;
+    }
+
+    setImportingFiles(true);
+    addLog(`Importing ${countLabel(incomingFiles.length, "file")}...`);
+
+    try {
+      const importedFiles = await Promise.all(
+        incomingFiles.map(async (file) => ({
+          content: await file.text(),
+          filename: file.name,
+          filetype: getProgramFiletype(file.name),
+        })),
+      );
+
+      const duplicateNames: string[] = [];
+      let firstAcceptedFilename: null | string = null;
+      let importedCount = 0;
+
+      setFiles((current) => {
+        const existingNames = new Set(current.map((file) => file.filename));
+        const acceptedFiles: ProgramFile[] = [];
+
+        for (const file of importedFiles) {
+          if (existingNames.has(file.filename)) {
+            duplicateNames.push(file.filename);
+            continue;
+          }
+
+          existingNames.add(file.filename);
+          acceptedFiles.push(file);
+        }
+
+        importedCount = acceptedFiles.length;
+        firstAcceptedFilename = acceptedFiles[0]?.filename ?? null;
+
+        return acceptedFiles.length > 0
+          ? [
+              ...current,
+              ...acceptedFiles,
+            ]
+          : current;
+      });
+
+      if (firstAcceptedFilename) {
+        setActiveFile((current) => current ?? firstAcceptedFilename);
+      }
+
+      if (importedCount > 0) {
+        addLog(`✓ Imported ${countLabel(importedCount, "file")}.`);
+
+        if (options?.closeModalAfterImport) {
+          closeNewFileModal();
+        }
+      }
+
+      if (duplicateNames.length > 0) {
+        addLog(
+          `✗ Skipped duplicate ${countLabel(duplicateNames.length, "file")}: ${duplicateNames.join(", ")}`,
+        );
+      }
+    } catch (error) {
+      addLog(
+        `✗ File import failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      setImportingFiles(false);
+      setWorkspaceDragDepth(0);
+    }
+  };
+
+  const handleWorkspaceDragEnter = (
+    event: ReactDragEvent<HTMLFieldSetElement>,
+  ) => {
+    if (importingFiles || !isFileDrag(event.dataTransfer)) {
+      return;
+    }
+
+    event.preventDefault();
+    setWorkspaceDragDepth((current) => current + 1);
+  };
+
+  const handleWorkspaceDragLeave = (
+    event: ReactDragEvent<HTMLFieldSetElement>,
+  ) => {
+    if (!isFileDrag(event.dataTransfer)) {
+      return;
+    }
+
+    event.preventDefault();
+    setWorkspaceDragDepth((current) => Math.max(0, current - 1));
+  };
+
+  const handleWorkspaceDragOver = (
+    event: ReactDragEvent<HTMLFieldSetElement>,
+  ) => {
+    if (importingFiles || !isFileDrag(event.dataTransfer)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleWorkspaceDrop = (event: ReactDragEvent<HTMLFieldSetElement>) => {
+    if (!isFileDrag(event.dataTransfer)) {
+      return;
+    }
+
+    event.preventDefault();
+    setWorkspaceDragDepth(0);
   };
 
   const activeFileObj = files.find((file) => file.filename === activeFile);
@@ -421,7 +614,7 @@ export default function ProgramsPage() {
 
   const handleSave = async () => {
     if (!progName.trim()) {
-      window.alert("Program name is required");
+      addLog("✗ Program name is required before saving.");
       return;
     }
 
@@ -466,12 +659,12 @@ export default function ProgramsPage() {
 
   const handleRun = async () => {
     if (!selectedProgId) {
-      window.alert("You must save the program first.");
+      addLog("✗ Save this program before running it.");
       return;
     }
 
     if (!latestVersion) {
-      window.alert("No version to run. Please save first.");
+      addLog("✗ No saved version is available to run.");
       return;
     }
 
@@ -508,354 +701,545 @@ export default function ProgramsPage() {
       )
     : [];
   const hasManualInput =
-    latestVersion &&
     (
-      (latestVersion.output_config as Record<string, unknown>)?.flags as
-        | Record<string, unknown>
-        | undefined
+      (latestVersion?.output_config as Record<string, unknown> | undefined)
+        ?.flags as Record<string, unknown> | undefined
     )?.allowManualInput === true;
 
   return (
-    <div
-      className="flex size-full min-h-0 overflow-hidden bg-[linear-gradient(180deg,#f8f5ee_0%,#f4efe6_100%)] text-zinc-800 border-taupe-400 border-2 overflow-hidden rounded-md shadow-xl"
-      style={{
-        colorScheme: "light",
-      }}
+    <MarblePane
+      crumbs={[
+        {
+          id: "home",
+          label: "Programs",
+        },
+      ]}
     >
-      <div
-        className={cx(
-          "flex w-60 shrink-0 flex-col border-r",
-          sidebarPanelClassName,
-        )}
-      >
-        <div className="flex items-center border-b border-taupe-400 px-3 py-2">
-          <span className={sidebarHeaderLabelClassName}>Programs</span>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          <button
-            className={cx(
-              sidebarItemBaseClassName,
-              !selectedProgId && files.length > 0
-                ? sidebarItemActiveClassName
-                : sidebarItemIdleClassName,
-            )}
-            onClick={handleCreateProgram}
-            type="button"
-          >
-            <PlusIcon className="h-4 w-4 shrink-0 text-taupe-500" />
-            <span className="truncate">New Program</span>
-          </button>
-
-          {programs.map((program) => (
-            <ProgramRow
-              active={selectedProgId === program.id}
-              key={program.id}
-              onSelect={() => selectProgram(program.id)}
-              program={program}
-            />
-          ))}
-        </div>
-
-        {selectedProgId || files.length > 0 ? (
-          <div className="flex min-h-0 basis-[42%] flex-col border-t border-taupe-400">
-            <div className="flex items-center justify-between px-3 py-2">
-              <span
-                className={cx(
-                  sidebarHeaderLabelClassName,
-                  "flex items-center gap-1.5",
-                )}
-              >
-                <FolderOpenIcon className="h-4 w-4" />
-                Workspace
+      <div className="flex size-full min-h-0 overflow-hidden rounded-md border-2 border-taupe-400 bg-[linear-gradient(180deg,#f8f5ee_0%,#f4efe6_100%)] text-zinc-800 shadow-xl">
+        <div
+          className={cx(
+            "flex w-60 shrink-0 flex-col border-r",
+            sidebarPanelClassName,
+          )}
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-taupe-400 px-3 py-2">
+            <MarbleFieldLabel className="mb-0 text-taupe-700">
+              Programs
+            </MarbleFieldLabel>
+            <MarbleButton
+              onClick={handleCreateProgram}
+              size="sm"
+              variant="dark"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <PlusIcon className="h-4 w-4" />
+                Create
               </span>
-              <button
-                className="text-taupe-600 transition-colors hover:text-taupe-900"
-                onClick={handleAddFile}
-                title="New File"
-                type="button"
-              >
-                <DocumentPlusIcon className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto pb-2">
-              {files.map((file) => (
-                <FileRow
-                  active={activeFile === file.filename}
-                  file={file}
-                  key={file.filename}
-                  onSelect={() => setActiveFile(file.filename)}
-                />
-              ))}
-            </div>
+            </MarbleButton>
           </div>
-        ) : null}
-      </div>
 
-      <div className="flex min-w-0 flex-1 flex-col bg-taupe-50">
-        <div className="flex h-9 items-center gap-2 border-b border-taupe-200 bg-taupe-100 px-3">
-          <input
-            className="h-7 min-w-0 flex-1 rounded-sm border border-taupe-300 bg-taupe-50 px-2 font-medium text-sm text-taupe-900 outline-none transition-colors placeholder:text-taupe-500 focus:border-taupe-500 focus:bg-white"
-            onChange={(event) => setProgName(event.target.value)}
-            placeholder="Program Name..."
-            type="text"
-            value={progName}
-          />
+          <div className="flex-1 overflow-y-auto">
+            {isDraftProgram ? (
+              <MarbleListRow
+                active
+                icon={<PlusIcon className="h-4 w-4 text-orange-600" />}
+                meta={
+                  <MarbleBadge
+                    caps
+                    tone="warning"
+                  >
+                    Draft
+                  </MarbleBadge>
+                }
+                onClick={() => setActiveFile((current) => current ?? "main.ts")}
+                size="sm"
+                title={progName.trim() || "Untitled Program"}
+                titleClassName="text-sm text-taupe-900"
+                tone="orange"
+                wrapperClassName="border-taupe-400/70"
+              />
+            ) : null}
 
-          {selectedProgram?.first_party ? (
-            <CompactBadge tone="orange">Built-in</CompactBadge>
-          ) : null}
-          {latestVersion ? (
-            <CompactBadge>v{latestVersion.version}</CompactBadge>
-          ) : null}
-          {files.length > 0 ? (
-            <CompactBadge>{countLabel(files.length, "file")}</CompactBadge>
-          ) : null}
-
-          <button
-            className={chromeButtonClassName}
-            disabled={saving || !progName.trim() || files.length === 0}
-            onClick={handleSave}
-            type="button"
-          >
-            {saving ? "Saving..." : "Save Version"}
-          </button>
-        </div>
-
-        {files.length > 0 ? (
-          <div className="flex h-8 overflow-x-auto border-b border-taupe-200 bg-taupe-100">
-            {files.map((file) => (
-              <button
-                className={cx(
-                  "flex items-center gap-2 border-r border-taupe-200 px-3 text-xs transition-colors",
-                  activeFile === file.filename
-                    ? "border-t-2 border-t-taupe-500 bg-white text-taupe-900"
-                    : "text-taupe-600 hover:bg-taupe-200",
-                )}
-                key={file.filename}
-                onClick={() => setActiveFile(file.filename)}
-                type="button"
-              >
-                <DocumentTextIcon
-                  className={cx("h-4 w-4", getFileAccent(file.filename))}
-                />
-                <span className="max-w-40 truncate">{file.filename}</span>
-              </button>
+            {programs.map((program) => (
+              <ProgramRow
+                active={selectedProgId === program.id}
+                key={program.id}
+                onSelect={() => selectProgram(program.id)}
+                program={program}
+              />
             ))}
 
-            <button
-              className="flex items-center px-3 text-taupe-600 text-xs transition-colors hover:bg-taupe-200 hover:text-taupe-900"
-              onClick={handleAddFile}
-              type="button"
-            >
-              <PlusIcon className="h-4 w-4" />
-            </button>
-          </div>
-        ) : null}
-
-        <div className="relative flex-1 overflow-hidden bg-white">
-          {activeFileObj ? (
-            <div className="absolute inset-0">
-              <MonacoEditor
-                height="100%"
-                language={getMonacoLanguage(activeFileObj)}
-                loading={
-                  <div className="flex h-full items-center justify-center text-taupe-500 text-xs">
-                    Loading Monaco...
-                  </div>
-                }
-                onChange={(value) => handleCodeChange(value ?? "")}
-                options={monacoEditorOptions}
-                path={getMonacoModelPath(
-                  selectedProgId,
-                  activeFileObj.filename,
-                )}
-                theme="vs"
-                value={activeFileObj.content}
-              />
-            </div>
-          ) : (
-            <div className="flex h-full items-center justify-center text-taupe-500 text-xs">
-              Select or create a file to edit.
-            </div>
-          )}
-        </div>
-
-        <div className="flex h-36 shrink-0 flex-col border-t border-taupe-200 bg-taupe-50">
-          <div className="border-b border-taupe-200 px-3 py-2">
-            <span className={chromeHeaderLabelClassName}>Output Log</span>
+            {!isDraftProgram && programs.length === 0 ? (
+              <div className="px-3 py-4 text-taupe-600 text-xs italic">
+                No programs yet.
+              </div>
+            ) : null}
           </div>
 
-          <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-5">
-            {log.length === 0 ? (
-              <span className="text-taupe-500">No output yet...</span>
-            ) : (
-              log.map((entry, index) => (
-                <div
-                  className={cx(
-                    entry.includes("✗")
-                      ? "text-red-600"
-                      : entry.includes("✓")
-                        ? "text-emerald-700"
-                        : "text-taupe-800",
-                  )}
-                  // biome-ignore lint/suspicious/noArrayIndexKey: log entries are append-only UI state
-                  key={`${index}-${entry.slice(0, 16)}`}
-                >
-                  {entry}
+          {hasProgramContext ? (
+            <div className="flex min-h-0 basis-[42%] flex-col border-t border-taupe-400">
+              <div className="flex items-center justify-between gap-2 px-3 py-2">
+                <div className="flex items-center gap-1.5">
+                  <FolderOpenIcon className="h-4 w-4 text-taupe-500" />
+                  <MarbleFieldLabel className="mb-0 text-taupe-700">
+                    Workspace
+                  </MarbleFieldLabel>
                 </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
+                <MarbleButton
+                  onClick={openNewFileModal}
+                  size="sm"
+                  type="button"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <DocumentPlusIcon className="h-4 w-4" />
+                    Add File
+                  </span>
+                </MarbleButton>
+              </div>
 
-      <div
-        className={cx(
-          "flex w-80 shrink-0 flex-col border-l",
-          sidebarPanelClassName,
-        )}
-      >
-        <div className="flex items-center border-b border-taupe-400 px-3 py-2">
-          <span className={sidebarHeaderLabelClassName}>
-            Configuration & Test
-          </span>
-        </div>
+              <fieldset
+                aria-label="Program workspace files"
+                className="relative flex-1 overflow-hidden border-0 p-0"
+                onDragEnter={handleWorkspaceDragEnter}
+                onDragLeave={handleWorkspaceDragLeave}
+                onDragOver={handleWorkspaceDragOver}
+                onDrop={handleWorkspaceDrop}
+              >
+                <div className="h-full overflow-y-auto pb-2">
+                  {files.length > 0 ? (
+                    files.map((file) => (
+                      <FileRow
+                        active={activeFile === file.filename}
+                        file={file}
+                        key={file.filename}
+                        onSelect={() => setActiveFile(file.filename)}
+                      />
+                    ))
+                  ) : (
+                    <div className="px-3 py-4 text-taupe-600 text-xs italic">
+                      No files in this version.
+                    </div>
+                  )}
+                </div>
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="border-b border-taupe-400 p-3">
-            <div className="mb-2">
-              <span className={sidebarHeaderLabelClassName}>Input Schema</span>
+                {isWorkspaceDropzoneVisible ? (
+                  <div className="absolute inset-0 z-10 border-t border-taupe-400 bg-taupe-300/88 p-3 backdrop-blur-[1px]">
+                    <MarbleDropzone
+                      accept={importAccept}
+                      className="h-full min-h-0"
+                      description="Import code or config files into this workspace."
+                      disabled={importingFiles}
+                      hint="Release to add files to the current program."
+                      icon={<DocumentPlusIcon className="h-5 w-5" />}
+                      multiple
+                      onFilesChange={(incomingFiles) => {
+                        void handleImportFiles(incomingFiles);
+                      }}
+                      title={
+                        importingFiles
+                          ? "Importing files..."
+                          : "Drop files to import"
+                      }
+                      tone="orange"
+                    />
+                  </div>
+                ) : null}
+              </fieldset>
             </div>
-            <textarea
-              className={cx(chromeFieldClassName, "h-28 resize-y font-mono")}
-              onChange={(event) => setInputSchemaStr(event.target.value)}
-              value={inputSchemaStr}
+          ) : null}
+        </div>
+
+        <div className="flex min-w-0 flex-1 flex-col bg-taupe-50">
+          <div className="flex items-center gap-3 border-b border-taupe-200 bg-linear-to-r from-taupe-100 via-taupe-50 to-white px-3 py-2">
+            <MarbleInput
+              className="font-medium text-sm text-taupe-900"
+              onChange={(event) => setProgName(event.target.value)}
+              placeholder="Program Name..."
+              size="sm"
+              type="text"
+              value={progName}
+              wrapperClassName="min-w-0 flex-1"
             />
 
-            <div className="mt-4 mb-2">
-              <span className={sidebarHeaderLabelClassName}>Output Config</span>
-            </div>
-            <textarea
-              className={cx(chromeFieldClassName, "h-28 resize-y font-mono")}
-              onChange={(event) => setOutputConfigStr(event.target.value)}
-              value={outputConfigStr}
-            />
-          </div>
-
-          <div className="p-3">
-            <div className="mb-3 flex items-center gap-2">
-              <span className={sidebarHeaderLabelClassName}>Test Inputs</span>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {isDraftProgram ? (
+                <MarbleBadge
+                  caps
+                  tone="warning"
+                >
+                  Draft
+                </MarbleBadge>
+              ) : null}
               {selectedProgram?.first_party ? (
-                <CompactBadge tone="orange">Built-in</CompactBadge>
+                <MarbleBadge
+                  caps
+                  tone="info"
+                >
+                  First Party
+                </MarbleBadge>
+              ) : null}
+              {latestVersion ? (
+                <MarbleBadge className="font-mono">
+                  v{latestVersion.version}
+                </MarbleBadge>
+              ) : null}
+              {files.length > 0 ? (
+                <MarbleBadge>{countLabel(files.length, "file")}</MarbleBadge>
               ) : null}
             </div>
 
-            {fields.length === 0 ? (
-              <div className="mb-3 text-taupe-600 text-xs italic">
-                No inputs required.
-              </div>
-            ) : null}
+            <MarbleButton
+              disabled={saving || !progName.trim() || files.length === 0}
+              onClick={handleSave}
+              size="sm"
+              type="button"
+              variant="orange"
+            >
+              {saving ? "Saving..." : "Save Version"}
+            </MarbleButton>
+          </div>
 
-            {fields.map((field) => (
-              <div
-                className="mb-3"
-                key={field.key}
-              >
-                <label
-                  className="mb-1 block text-taupe-800 text-xs"
-                  htmlFor={`input-${field.key}`}
+          {files.length > 0 ? (
+            <div className="flex items-center gap-2 overflow-x-auto border-b border-taupe-200 bg-taupe-100/80 px-2 py-1.5">
+              {files.map((file) => (
+                <button
+                  className={cx(
+                    editorTabButtonClassName,
+                    activeFile === file.filename
+                      ? editorTabActiveClassName
+                      : editorTabIdleClassName,
+                  )}
+                  key={file.filename}
+                  onClick={() => setActiveFile(file.filename)}
+                  type="button"
                 >
-                  {field.title}
-                </label>
-                {field.enumValues ? (
-                  <select
-                    className={chromeFieldClassName}
-                    id={`input-${field.key}`}
-                    onChange={(event) =>
-                      setInputValues((current) => ({
-                        ...current,
-                        [field.key]: event.target.value,
-                      }))
-                    }
-                    value={inputValues[field.key] ?? ""}
-                  >
-                    {field.enumValues.map((value) => (
-                      <option
-                        key={value}
-                        value={value}
-                      >
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    className={chromeFieldClassName}
-                    id={`input-${field.key}`}
-                    onChange={(event) =>
-                      setInputValues((current) => ({
-                        ...current,
-                        [field.key]: event.target.value,
-                      }))
-                    }
-                    type={field.type === "number" ? "number" : "text"}
-                    value={inputValues[field.key] ?? ""}
+                  <DocumentTextIcon
+                    className={cx("h-4 w-4", getFileAccent(file.filename))}
                   />
-                )}
-              </div>
-            ))}
+                  <span className="max-w-40 truncate">{file.filename}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
 
-            {hasManualInput ? (
-              <div className="mb-3">
-                <label
-                  className="mb-1 block text-taupe-800 text-xs"
-                  htmlFor="manual-input"
-                >
-                  Manual Cell Input
-                </label>
-                <input
-                  className={chromeFieldClassName}
-                  id="manual-input"
-                  onChange={(event) => setManualInput(event.target.value)}
-                  placeholder="Cell value..."
-                  type="text"
-                  value={manualInput}
+          <div className="relative flex-1 overflow-hidden bg-white">
+            {activeFileObj ? (
+              <div className="absolute inset-0">
+                <MonacoEditor
+                  height="100%"
+                  language={getMonacoLanguage(activeFileObj)}
+                  loading={
+                    <div className="flex h-full items-center justify-center text-taupe-500 text-xs">
+                      Loading Monaco...
+                    </div>
+                  }
+                  onChange={(value) => handleCodeChange(value ?? "")}
+                  options={monacoEditorOptions}
+                  path={getMonacoModelPath(
+                    selectedProgId,
+                    activeFileObj.filename,
+                  )}
+                  theme="vs"
+                  value={activeFileObj.content}
                 />
               </div>
-            ) : null}
-
-            <button
-              className={cx(primaryButtonClassName, "mt-1 h-8 w-full gap-2")}
-              disabled={running || !latestVersion}
-              onClick={handleRun}
-              type="button"
-            >
-              <PlayIcon className="h-4 w-4" />
-              {running ? "Running..." : "Run Program"}
-            </button>
-
-            {result ? (
-              <div className="mt-4 overflow-hidden rounded-sm border border-taupe-300 bg-taupe-50">
-                <div
-                  className={cx(
-                    "border-b border-taupe-200 px-3 py-1.5 font-medium text-[11px] uppercase tracking-[0.18em]",
-                    result.ok ? "text-emerald-700" : "text-red-600",
-                  )}
-                >
-                  {result.ok ? "Success" : "Error"}
-                </div>
-                <div className="max-h-48 overflow-auto break-words px-3 py-2 font-mono text-[11px] leading-5 text-taupe-800">
-                  {result.ok
-                    ? JSON.stringify(result.output, null, 2)
-                    : result.error}
-                </div>
+            ) : (
+              <div className="flex h-full items-center justify-center text-taupe-500 text-xs">
+                Select or create a file to edit.
               </div>
-            ) : null}
+            )}
+          </div>
+
+          <div className="flex h-36 shrink-0 flex-col border-t border-taupe-200 bg-linear-to-b from-taupe-50 to-white">
+            <div className="flex items-center justify-between border-b border-taupe-200 px-3 py-2">
+              <MarbleFieldLabel className="mb-0 text-taupe-600">
+                Output Log
+              </MarbleFieldLabel>
+              {log.length > 0 ? (
+                <MarbleBadge>
+                  {countLabel(log.length, "entry", "entries")}
+                </MarbleBadge>
+              ) : null}
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-5">
+              {log.length === 0 ? (
+                <span className="text-taupe-500">No output yet...</span>
+              ) : (
+                log.map((entry, index) => (
+                  <div
+                    className={cx(
+                      entry.includes("✗")
+                        ? "text-red-600"
+                        : entry.includes("✓")
+                          ? "text-emerald-700"
+                          : "text-taupe-800",
+                    )}
+                    // biome-ignore lint/suspicious/noArrayIndexKey: log entries are append-only UI state
+                    key={`${index}-${entry.slice(0, 16)}`}
+                  >
+                    {entry}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={cx(
+            "flex w-80 shrink-0 flex-col border-l",
+            sidebarPanelClassName,
+          )}
+        >
+          <div className="flex items-center border-b border-taupe-400 px-3 py-2">
+            <MarbleFieldLabel className="mb-0 text-taupe-700">
+              Configuration & Test
+            </MarbleFieldLabel>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-4 border-b border-taupe-400 p-3">
+              <div className="space-y-1.5">
+                <MarbleFieldLabel className="text-taupe-700">
+                  Input Schema
+                </MarbleFieldLabel>
+                <MarbleTextarea
+                  className="min-h-28"
+                  monospace
+                  onChange={(event) => setInputSchemaStr(event.target.value)}
+                  size="xs"
+                  value={inputSchemaStr}
+                  wrapperClassName="w-full"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <MarbleFieldLabel className="text-taupe-700">
+                  Output Config
+                </MarbleFieldLabel>
+                <MarbleTextarea
+                  className="min-h-28"
+                  monospace
+                  onChange={(event) => setOutputConfigStr(event.target.value)}
+                  size="xs"
+                  value={outputConfigStr}
+                  wrapperClassName="w-full"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4 p-3">
+              <div className="flex items-center gap-2">
+                <MarbleFieldLabel className="mb-0 text-taupe-700">
+                  Test Inputs
+                </MarbleFieldLabel>
+                {selectedProgram?.first_party ? (
+                  <MarbleBadge
+                    caps
+                    tone="warning"
+                  >
+                    Built-in
+                  </MarbleBadge>
+                ) : null}
+              </div>
+
+              {fields.length === 0 ? (
+                <p className="text-taupe-600 text-xs italic">
+                  No inputs required.
+                </p>
+              ) : null}
+
+              {fields.map((field) => (
+                <div
+                  className="space-y-1.5"
+                  key={field.key}
+                >
+                  <MarbleFieldLabel className="text-taupe-800">
+                    {field.title}
+                  </MarbleFieldLabel>
+                  {field.enumValues ? (
+                    <MarbleSelect
+                      aria-label={field.title}
+                      onChange={(event) =>
+                        setInputValues((current) => ({
+                          ...current,
+                          [field.key]: event.target.value,
+                        }))
+                      }
+                      size="sm"
+                      value={inputValues[field.key] ?? ""}
+                      wrapperClassName="w-full"
+                    >
+                      {field.enumValues.map((value) => (
+                        <option
+                          key={value}
+                          value={value}
+                        >
+                          {value}
+                        </option>
+                      ))}
+                    </MarbleSelect>
+                  ) : (
+                    <MarbleInput
+                      aria-label={field.title}
+                      onChange={(event) =>
+                        setInputValues((current) => ({
+                          ...current,
+                          [field.key]: event.target.value,
+                        }))
+                      }
+                      size="sm"
+                      type={field.type === "number" ? "number" : "text"}
+                      value={inputValues[field.key] ?? ""}
+                      wrapperClassName="w-full"
+                    />
+                  )}
+                </div>
+              ))}
+
+              {hasManualInput ? (
+                <div className="space-y-1.5">
+                  <MarbleFieldLabel className="text-taupe-800">
+                    Manual Cell Input
+                  </MarbleFieldLabel>
+                  <MarbleInput
+                    aria-label="Manual Cell Input"
+                    onChange={(event) => setManualInput(event.target.value)}
+                    placeholder="Cell value..."
+                    size="sm"
+                    type="text"
+                    value={manualInput}
+                    wrapperClassName="w-full"
+                  />
+                </div>
+              ) : null}
+
+              <MarbleButton
+                className="w-full"
+                disabled={running || !latestVersion}
+                onClick={handleRun}
+                size="sm"
+                type="button"
+                variant="orange"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <PlayIcon className="h-4 w-4" />
+                  {running ? "Running..." : "Run Program"}
+                </span>
+              </MarbleButton>
+
+              {result ? (
+                <div className="overflow-hidden rounded-sm border border-taupe-300 bg-white/85 shadow-sm">
+                  <div className="flex items-center gap-2 border-b border-taupe-200 px-3 py-2">
+                    <MarbleFieldLabel className="mb-0 text-taupe-600">
+                      Last Run
+                    </MarbleFieldLabel>
+                    <MarbleBadge
+                      caps
+                      tone={result.ok ? "success" : "error"}
+                    >
+                      {result.ok ? "Success" : "Error"}
+                    </MarbleBadge>
+                  </div>
+                  <div className="max-h-48 overflow-auto break-words px-3 py-2 font-mono text-[11px] leading-5 text-taupe-800">
+                    {result.ok
+                      ? JSON.stringify(result.output, null, 2)
+                      : result.error}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {isNewFileModalOpen ? (
+        <MarbleModal
+          ariaLabel="Create a new program file"
+          onClose={closeNewFileModal}
+          size="sm"
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleCreateFile();
+            }}
+          >
+            <MarbleModalHeader>
+              <MarbleModalTitle>New file</MarbleModalTitle>
+            </MarbleModalHeader>
+            <MarbleModalContent className="space-y-4">
+              <MarbleModalDescription>
+                Add another source file to the current program version.
+              </MarbleModalDescription>
+
+              <div className="space-y-1.5">
+                <MarbleFieldLabel>Import existing files</MarbleFieldLabel>
+                <MarbleDropzone
+                  accept={importAccept}
+                  description="Drop code or config files here to add them directly to this program."
+                  disabled={importingFiles}
+                  hint="Supports .ts, .json, .md, and plain-text helpers."
+                  icon={<DocumentPlusIcon className="h-5 w-5" />}
+                  multiple
+                  onFilesChange={(incomingFiles) => {
+                    void handleImportFiles(incomingFiles, {
+                      closeModalAfterImport: true,
+                    });
+                  }}
+                  size="sm"
+                  title={
+                    importingFiles
+                      ? "Importing files..."
+                      : "Drop files here or click to browse"
+                  }
+                  tone="orange"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <MarbleFieldLabel>Filename</MarbleFieldLabel>
+                <MarbleInput
+                  aria-label="Filename"
+                  autoFocus
+                  onChange={(event) => {
+                    setNewFileName(event.target.value);
+                    if (newFileError) {
+                      setNewFileError(null);
+                    }
+                  }}
+                  placeholder="utils.ts"
+                  size="sm"
+                  type="text"
+                  value={newFileName}
+                  wrapperClassName="w-full"
+                />
+              </div>
+
+              {newFileError ? (
+                <p className="text-red-600 text-sm">{newFileError}</p>
+              ) : null}
+            </MarbleModalContent>
+            <MarbleModalFooter>
+              <MarbleButton
+                onClick={closeNewFileModal}
+                size="sm"
+                type="button"
+              >
+                Cancel
+              </MarbleButton>
+              <MarbleButton
+                size="sm"
+                type="submit"
+                variant="orange"
+              >
+                Create File
+              </MarbleButton>
+            </MarbleModalFooter>
+          </form>
+        </MarbleModal>
+      ) : null}
+    </MarblePane>
   );
 }

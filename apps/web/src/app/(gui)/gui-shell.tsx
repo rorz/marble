@@ -3,6 +3,8 @@
 import type { Database } from "@marble/supabase";
 import {
   cx,
+  MarbleBadge,
+  MarbleButton,
   MarbleCommandDialog,
   MarbleCommandEmpty,
   MarbleCommandGroup,
@@ -10,6 +12,12 @@ import {
   MarbleCommandItem,
   MarbleCommandList,
   MarbleCommandSeparator,
+  MarbleSheet,
+  MarbleSheetContent,
+  MarbleSheetDescription,
+  MarbleSheetFooter,
+  MarbleSheetHeader,
+  MarbleSheetTitle,
   MarbleWorkspacePopover,
 } from "@marble/ui";
 import {
@@ -184,6 +192,9 @@ type CommandPaletteSection = {
   id: string;
   items: CommandPaletteItem[];
 };
+type SupportSheetView = "contact" | "handbook";
+
+const supportSheetWidthClassName = "w-[min(32rem,calc(100vw-1rem))]";
 
 const sidebarModes = {
   collapsed: {
@@ -390,6 +401,117 @@ function SidebarNavRow({
   );
 }
 
+function SupportPanelSection({
+  children,
+  title,
+}: Readonly<{
+  children: ReactNode;
+  title: string;
+}>) {
+  return (
+    <section className="space-y-2">
+      <h3 className="font-medium text-sm text-taupe-900">{title}</h3>
+      <div className="space-y-2 text-sm text-taupe-700">{children}</div>
+    </section>
+  );
+}
+
+function CommandPaletteSupportSheet({
+  onClose,
+  view,
+}: Readonly<{
+  onClose: () => void;
+  view: SupportSheetView;
+}>) {
+  if (view === "contact") {
+    return (
+      <>
+        <MarbleSheetHeader>
+          <MarbleSheetTitle>Contact Us</MarbleSheetTitle>
+          <MarbleSheetDescription>
+            Placeholder support surface while the real contact flow is still
+            being wired up.
+          </MarbleSheetDescription>
+        </MarbleSheetHeader>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          <MarbleBadge
+            caps
+            tone="warning"
+          >
+            Placeholder
+          </MarbleBadge>
+
+          <SupportPanelSection title="What this will become">
+            <p>
+              This slot is reserved for direct support routing, escalation
+              instructions, and whatever contact mechanism we settle on next.
+            </p>
+          </SupportPanelSection>
+
+          <SupportPanelSection title="For now">
+            <p>
+              Use the Marble Handbook for product navigation and keep this item
+              around as the obvious support-shaped follow-up in the menu.
+            </p>
+          </SupportPanelSection>
+        </div>
+
+        <MarbleSheetFooter>
+          <MarbleButton onClick={onClose}>Close</MarbleButton>
+        </MarbleSheetFooter>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <MarbleSheetHeader>
+        <MarbleSheetTitle>Marble Handbook</MarbleSheetTitle>
+        <MarbleSheetDescription>
+          A command-menu-native guide for the core Marble surfaces.
+        </MarbleSheetDescription>
+      </MarbleSheetHeader>
+
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+        <MarbleBadge
+          caps
+          tone="info"
+        >
+          Inside cmdk
+        </MarbleBadge>
+
+        <SupportPanelSection title="Jump anywhere">
+          <p>
+            Open the palette with Cmd/Ctrl+K, then search for projects, tables,
+            programs, profiles, automations, or events to move without touching
+            the sidebar.
+          </p>
+        </SupportPanelSection>
+
+        <SupportPanelSection title="Search behavior">
+          <p>
+            Command items already carry keywords, so typing terms like `help`,
+            `docs`, `rows`, `people`, or resource names is enough to surface the
+            right target.
+          </p>
+        </SupportPanelSection>
+
+        <SupportPanelSection title="Support entry points">
+          <p>
+            Search `help` to reopen this handbook. The adjacent contact entry is
+            intentionally a placeholder until the real support path lands.
+          </p>
+        </SupportPanelSection>
+      </div>
+
+      <MarbleSheetFooter>
+        <MarbleButton onClick={onClose}>Close</MarbleButton>
+      </MarbleSheetFooter>
+    </>
+  );
+}
+
 export function GuiShell({
   children,
   initialSidebarData,
@@ -405,6 +527,9 @@ export function GuiShell({
     useState<SidebarMode>(initialSidebarMode);
   const [sidebarWidth, setSidebarWidth] = useState(initialSidebarWidth);
   const [sidebarData, setSidebarData] = useState(initialSidebarData);
+  const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
+  const [commandPaletteSupportSheet, setCommandPaletteSupportSheet] =
+    useState<SupportSheetView | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const sidebar = sidebarModes[sidebarMode];
@@ -426,11 +551,30 @@ export function GuiShell({
   }>(null);
   const topLevelPath = `/${pathname.split("/").at(1)}`;
   const selectedProgramId = searchParams.get("programId");
-  const openCommandPalette = () => {
+  const resetCommandPalette = () => {
+    setCommandPaletteQuery("");
+    setCommandPaletteSupportSheet(null);
+  };
+  const handleCommandPaletteOpenChange = (nextOpen: boolean) => {
+    setIsCommandPaletteOpen(nextOpen);
+
+    if (!nextOpen) {
+      resetCommandPalette();
+    }
+  };
+  const openCommandPalette = (query = "") => {
+    setCommandPaletteQuery(query);
+    setCommandPaletteSupportSheet(null);
     setIsCommandPaletteOpen(true);
   };
+  const openHelpCommandPalette = () => {
+    openCommandPalette("help");
+  };
+  const closeCommandPalette = () => {
+    handleCommandPaletteOpenChange(false);
+  };
   const navigateFromCommandPalette = (path: string) => {
-    setIsCommandPaletteOpen(false);
+    closeCommandPalette();
     router.push(path);
   };
   const workspaceMenuSections = [
@@ -517,7 +661,7 @@ export function GuiShell({
           ),
           id: "workspace-help",
           label: "Help",
-          onSelect: openCommandPalette,
+          onSelect: openHelpCommandPalette,
         },
       ],
     },
@@ -598,7 +742,57 @@ export function GuiShell({
     label: node.label,
     onSelect: () => navigateFromCommandPalette(node.href),
   }));
-  const commandPaletteSections: CommandPaletteSection[] = [
+  const supportCommandSection: CommandPaletteSection = {
+    heading: "Support",
+    id: "command-palette-support",
+    items: [
+      {
+        detail: "Guide",
+        icon: (
+          <BookOpenTextIcon
+            size={16}
+            weight="regular"
+          />
+        ),
+        id: "command-palette-marble-handbook",
+        keywords: [
+          "docs",
+          "documentation",
+          "guide",
+          "handbook",
+          "help",
+          "support",
+        ],
+        label: "Marble Handbook",
+        onSelect: () => {
+          closeCommandPalette();
+          setCommandPaletteSupportSheet("handbook");
+        },
+      },
+      {
+        detail: "Soon",
+        icon: (
+          <LifebuoyIcon
+            size={16}
+            weight="regular"
+          />
+        ),
+        id: "command-palette-contact-us",
+        keywords: [
+          "contact",
+          "email",
+          "help",
+          "support",
+        ],
+        label: "Contact us",
+        onSelect: () => {
+          closeCommandPalette();
+          setCommandPaletteSupportSheet("contact");
+        },
+      },
+    ],
+  };
+  const commandPaletteCoreSections: CommandPaletteSection[] = [
     {
       heading: "Jump to",
       id: "command-palette-navigation",
@@ -731,26 +925,27 @@ export function GuiShell({
           label: "Open events",
           onSelect: () => navigateFromCommandPalette("/events"),
         },
-        {
-          detail: "/help",
-          icon: (
-            <LifebuoyIcon
-              size={16}
-              weight="regular"
-            />
-          ),
-          id: "command-palette-help",
-          keywords: [
-            "docs",
-            "support",
-            "examples",
-          ],
-          label: "Open help examples",
-          onSelect: () => navigateFromCommandPalette("/help"),
-        },
       ],
     },
-  ].filter((section) => section.items.length > 0);
+  ];
+  const isSupportQuery = [
+    "contact",
+    "docs",
+    "handbook",
+    "help",
+    "support",
+  ].some((term) => commandPaletteQuery.toLowerCase().includes(term));
+  const commandPaletteSections: CommandPaletteSection[] = (
+    isSupportQuery
+      ? [
+          supportCommandSection,
+          ...commandPaletteCoreSections,
+        ]
+      : [
+          ...commandPaletteCoreSections,
+          supportCommandSection,
+        ]
+  ).filter((section) => section.items.length > 0);
   const [openKeys, setOpenKeys] = useState<Set<string>>(() => {
     const keys = new Set<string>(
       initialSidebarMode === "expanded"
@@ -917,7 +1112,17 @@ export function GuiShell({
       }
 
       event.preventDefault();
-      setIsCommandPaletteOpen((current) => !current);
+
+      if (isCommandPaletteOpen) {
+        setIsCommandPaletteOpen(false);
+        setCommandPaletteQuery("");
+        setCommandPaletteSupportSheet(null);
+        return;
+      }
+
+      setCommandPaletteQuery("");
+      setCommandPaletteSupportSheet(null);
+      setIsCommandPaletteOpen(true);
     };
 
     document.addEventListener("keydown", handleKeyDown);
@@ -927,6 +1132,29 @@ export function GuiShell({
     };
   }, [
     isCommandPaletteOpen,
+  ]);
+
+  useEffect(() => {
+    if (commandPaletteSupportSheet === null) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      setCommandPaletteSupportSheet(null);
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [
+    commandPaletteSupportSheet,
   ]);
 
   useEffect(() => {
@@ -1247,7 +1475,7 @@ export function GuiShell({
                   key={route.name}
                   label={route.name}
                   onSelect={
-                    route.name === "Help" ? openCommandPalette : undefined
+                    route.name === "Help" ? openHelpCommandPalette : undefined
                   }
                   title={sidebar.iconOnly ? route.name : undefined}
                 />
@@ -1303,10 +1531,14 @@ export function GuiShell({
       <MarbleCommandDialog
         label="Global command palette"
         loop
-        onOpenChange={setIsCommandPaletteOpen}
+        onOpenChange={handleCommandPaletteOpenChange}
         open={isCommandPaletteOpen}
       >
-        <MarbleCommandInput placeholder="Search projects, programs, profiles, or help..." />
+        <MarbleCommandInput
+          onValueChange={setCommandPaletteQuery}
+          placeholder="Search projects, programs, profiles, or help..."
+          value={commandPaletteQuery}
+        />
         <MarbleCommandList>
           <MarbleCommandEmpty>
             No matching command. Try `projects`, `rows`, `people`, or `help`.
@@ -1335,8 +1567,41 @@ export function GuiShell({
           ))}
         </MarbleCommandList>
 
-        <div className="flex items-center justify-between border-t border-taupe-200 bg-linear-to-t from-taupe-200 via-white to-white px-4 py-2 text-[11px] text-taupe-500 uppercase tracking-[0.18em]"></div>
+        <div className="flex items-center justify-between border-t border-taupe-200 bg-linear-to-t from-taupe-200 via-white to-white px-4 py-2 text-[11px] text-taupe-500 uppercase tracking-[0.18em]">
+          <span>Enter opens the selected item</span>
+          <span>
+            {commandPaletteSupportSheet !== null
+              ? "Esc closes the side panel first"
+              : "Cmd/Ctrl+K toggles this menu"}
+          </span>
+        </div>
       </MarbleCommandDialog>
+
+      {commandPaletteSupportSheet ? (
+        <div className="fixed inset-0 z-[60]">
+          <MarbleSheet
+            onOpenChange={(open) => {
+              if (!open) {
+                setCommandPaletteSupportSheet(null);
+              }
+            }}
+            open
+          >
+            <MarbleSheetContent
+              className={cx(
+                supportSheetWidthClassName,
+                "border-y-0 border-r-0",
+              )}
+              side="right"
+            >
+              <CommandPaletteSupportSheet
+                onClose={() => setCommandPaletteSupportSheet(null)}
+                view={commandPaletteSupportSheet}
+              />
+            </MarbleSheetContent>
+          </MarbleSheet>
+        </div>
+      ) : null}
     </div>
   );
 }

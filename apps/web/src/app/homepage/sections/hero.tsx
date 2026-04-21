@@ -1,5 +1,4 @@
 import Image from "next/image";
-import AuthForm from "../auth-form";
 import { Section } from "../ui/section";
 
 export function HeroSection() {
