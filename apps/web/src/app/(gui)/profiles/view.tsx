@@ -49,6 +49,7 @@ import {
   upsertRow,
 } from "../../../lib/realtime-crud";
 import { createClient } from "../../../lib/supabase/browser";
+import { changeTargetKey, getChangeTargetProps } from "../change-spotlight";
 import {
   createProfileAction,
   createProfileKeyAction,
@@ -936,7 +937,10 @@ export function ProfilesPageView({
       ) : null}
 
       <section className="space-y-3">
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div
+          className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"
+          {...getChangeTargetProps(changeTargetKey.profiles())}
+        >
           <div className="space-y-1">
             <h2 className="font-medium text-base text-zinc-950">
               Agent profiles

@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import type { RealtimePayload } from "../../lib/realtime-crud";
 import type { SidebarTreeData } from "../../lib/sidebar-tree";
 import { createClient } from "../../lib/supabase/browser";
+import { changeTargetKey, queueChangeSpotlight } from "./change-spotlight";
 
 type ChangeRadarProps = {
   className?: string;
@@ -40,6 +41,7 @@ type RadarScope = {
   href: string;
   key: string;
   label: string;
+  targetKeys: string[];
 };
 type RadarBatchRecord = {
   burstCount: number;
@@ -49,11 +51,13 @@ type RadarBatchRecord = {
   label: string;
   latestAt: string;
   segments: MarbleActivityRadarSegment[];
+  targetKeys: string[];
   unread: boolean;
 };
 
 const CHANGE_RADAR_BUCKET_MS = 20_000;
 const CHANGE_RADAR_EVENT_LIMIT = 72;
+const CHANGE_RADAR_TARGET_LIMIT = 24;
 const CHANGE_RADAR_STORAGE_KEY = "marble:change-radar:last-reviewed-at";
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -174,6 +178,189 @@ function buildProgramHref(programId?: string) {
   return programId ? `/programs/${programId}` : "/programs";
 }
 
+function resolveEventTargetKeys(
+  event: EventRow,
+  resolutionMaps: ResolutionMaps,
+) {
+  const snapshot = getEventSnapshot(event);
+
+  if (event.resource === "project") {
+    return [
+      changeTargetKey.project(event.entity_id),
+    ];
+  }
+
+  if (event.resource === "table") {
+    return [
+      changeTargetKey.table(event.entity_id),
+    ];
+  }
+
+  if (event.resource === "row") {
+    const tableId = getStringField(snapshot, "table_id");
+
+    return [
+      changeTargetKey.row(event.entity_id),
+      ...(tableId
+        ? [
+            changeTargetKey.table(tableId),
+          ]
+        : []),
+    ];
+  }
+
+  if (event.resource === "column") {
+    const tableId = getStringField(snapshot, "table_id");
+
+    return [
+      changeTargetKey.column(event.entity_id),
+      ...(tableId
+        ? [
+            changeTargetKey.table(tableId),
+          ]
+        : []),
+    ];
+  }
+
+  if (event.resource === "cell") {
+    const rowId = getStringField(snapshot, "row_id");
+    const columnId = getStringField(snapshot, "column_id");
+    const tableId =
+      (rowId ? resolutionMaps.rowTableIds[rowId] : undefined) ??
+      (columnId ? resolutionMaps.columnTableIds[columnId] : undefined);
+
+    return [
+      ...(rowId && columnId
+        ? [
+            changeTargetKey.cell(rowId, columnId),
+          ]
+        : []),
+      ...(rowId
+        ? [
+            changeTargetKey.row(rowId),
+          ]
+        : []),
+      ...(columnId
+        ? [
+            changeTargetKey.column(columnId),
+          ]
+        : []),
+      ...(tableId
+        ? [
+            changeTargetKey.table(tableId),
+          ]
+        : []),
+    ];
+  }
+
+  if (event.resource === "column_dependency") {
+    const sourceColumnId = getStringField(snapshot, "source_column_id");
+    const targetColumnId = getStringField(snapshot, "target_column_id");
+    const tableId =
+      (targetColumnId
+        ? resolutionMaps.columnTableIds[targetColumnId]
+        : undefined) ??
+      (sourceColumnId
+        ? resolutionMaps.columnTableIds[sourceColumnId]
+        : undefined);
+
+    return [
+      ...(targetColumnId
+        ? [
+            changeTargetKey.column(targetColumnId),
+          ]
+        : []),
+      ...(sourceColumnId
+        ? [
+            changeTargetKey.column(sourceColumnId),
+          ]
+        : []),
+      ...(tableId
+        ? [
+            changeTargetKey.table(tableId),
+          ]
+        : []),
+    ];
+  }
+
+  if (event.resource === "program") {
+    return [
+      changeTargetKey.program(event.entity_id),
+    ];
+  }
+
+  if (event.resource === "program_version") {
+    const programId = getStringField(snapshot, "program_id");
+
+    return [
+      changeTargetKey.programVersion(event.entity_id),
+      ...(programId
+        ? [
+            changeTargetKey.program(programId),
+          ]
+        : []),
+    ];
+  }
+
+  if (event.resource === "program_file") {
+    const versionId = getStringField(snapshot, "version_id");
+    const programId = versionId
+      ? resolutionMaps.versionProgramIds[versionId]
+      : undefined;
+    const filename = getStringField(snapshot, "filename");
+
+    return [
+      ...(programId && filename
+        ? [
+            changeTargetKey.programFile(programId, filename),
+          ]
+        : []),
+      ...(versionId
+        ? [
+            changeTargetKey.programVersion(versionId),
+          ]
+        : []),
+      ...(programId
+        ? [
+            changeTargetKey.program(programId),
+          ]
+        : []),
+    ];
+  }
+
+  if (event.resource === "program_run") {
+    const versionId = getStringField(snapshot, "program_version_id");
+    const programId = versionId
+      ? resolutionMaps.versionProgramIds[versionId]
+      : undefined;
+
+    return [
+      ...(versionId
+        ? [
+            changeTargetKey.programVersion(versionId),
+          ]
+        : []),
+      ...(programId
+        ? [
+            changeTargetKey.program(programId),
+          ]
+        : []),
+    ];
+  }
+
+  if (
+    event.resource === "profile" ||
+    event.resource === "key" ||
+    event.resource === "secret"
+  ) {
+    return [
+      changeTargetKey.profiles(),
+    ];
+  }
+
+  return [];
+}
+
 function resolveRadarScope(
   event: EventRow,
   indexes: RadarIndexes,
@@ -191,6 +378,7 @@ function resolveRadarScope(
       href: `/projects/${event.entity_id}`,
       key: `project:${event.entity_id}`,
       label,
+      targetKeys: resolveEventTargetKeys(event, resolutionMaps),
     };
   }
 
@@ -204,6 +392,7 @@ function resolveRadarScope(
         indexes.tables.get(event.entity_id)?.label ??
         getStringField(snapshot, "name") ??
         `Table ${shortId(event.entity_id)}`,
+      targetKeys: resolveEventTargetKeys(event, resolutionMaps),
     };
   }
 
@@ -215,6 +404,7 @@ function resolveRadarScope(
         href: buildTableHref(indexes, tableId),
         key: `table:${tableId}`,
         label: buildTableLabel(indexes, tableId),
+        targetKeys: resolveEventTargetKeys(event, resolutionMaps),
       };
     }
   }
@@ -231,6 +421,7 @@ function resolveRadarScope(
         href: buildTableHref(indexes, tableId),
         key: `table:${tableId}`,
         label: buildTableLabel(indexes, tableId),
+        targetKeys: resolveEventTargetKeys(event, resolutionMaps),
       };
     }
   }
@@ -251,6 +442,7 @@ function resolveRadarScope(
         href: buildTableHref(indexes, tableId),
         key: `table:${tableId}`,
         label: buildTableLabel(indexes, tableId),
+        targetKeys: resolveEventTargetKeys(event, resolutionMaps),
       };
     }
   }
@@ -265,6 +457,7 @@ function resolveRadarScope(
       href: buildProgramHref(event.entity_id),
       key: `program:${event.entity_id}`,
       label,
+      targetKeys: resolveEventTargetKeys(event, resolutionMaps),
     };
   }
 
@@ -276,6 +469,7 @@ function resolveRadarScope(
       key: `program:${programId ?? event.entity_id}`,
       label:
         (programId ? indexes.programs.get(programId) : undefined) ?? "Program",
+      targetKeys: resolveEventTargetKeys(event, resolutionMaps),
     };
   }
 
@@ -292,6 +486,7 @@ function resolveRadarScope(
       key: `program:${programId ?? versionId ?? event.entity_id}`,
       label:
         (programId ? indexes.programs.get(programId) : undefined) ?? "Program",
+      targetKeys: resolveEventTargetKeys(event, resolutionMaps),
     };
   }
 
@@ -304,6 +499,7 @@ function resolveRadarScope(
       href: "/profiles",
       key: "profiles",
       label: "Profiles",
+      targetKeys: resolveEventTargetKeys(event, resolutionMaps),
     };
   }
 
@@ -311,6 +507,7 @@ function resolveRadarScope(
     href: "/events",
     key: `events:${event.resource}:${event.entity_id}`,
     label: titleCase(event.resource),
+    targetKeys: resolveEventTargetKeys(event, resolutionMaps),
   };
 }
 
@@ -402,6 +599,7 @@ function buildRadarBatches(
       label: string;
       latestAt: string;
       operations: Record<EventOperation, number>;
+      targetKeys: string[];
       unread: boolean;
     }
   >();
@@ -432,6 +630,9 @@ function buildRadarBatches(
           Read: 0,
           Update: 0,
         },
+        targetKeys: [
+          ...scope.targetKeys,
+        ].slice(0, CHANGE_RADAR_TARGET_LIMIT),
         unread:
           lastReviewedAt === null ||
           event.created_at.localeCompare(lastReviewedAt) > 0,
@@ -451,6 +652,16 @@ function buildRadarBatches(
       current.unread ||
       lastReviewedAt === null ||
       event.created_at.localeCompare(lastReviewedAt) > 0;
+    for (const targetKey of scope.targetKeys) {
+      if (
+        current.targetKeys.length >= CHANGE_RADAR_TARGET_LIMIT ||
+        current.targetKeys.includes(targetKey)
+      ) {
+        continue;
+      }
+
+      current.targetKeys.push(targetKey);
+    }
 
     if (event.created_at.localeCompare(current.latestAt) > 0) {
       current.latestAt = event.created_at;
@@ -473,6 +684,7 @@ function buildRadarBatches(
         label: batch.label,
         latestAt: batch.latestAt,
         segments: buildRadarSegments(batch.operations),
+        targetKeys: batch.targetKeys,
         unread: batch.unread,
       }),
     );
@@ -796,6 +1008,7 @@ export function ChangeRadar({
     label: batch.label,
     onSelect: () => {
       markReviewedThrough(batch.latestAt);
+      queueChangeSpotlight(batch.targetKeys);
       router.push(batch.href);
     },
     segments: batch.segments,

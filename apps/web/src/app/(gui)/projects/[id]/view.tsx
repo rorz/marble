@@ -22,6 +22,7 @@ import {
   upsertRow,
 } from "../../../../lib/realtime-crud";
 import { createClient } from "../../../../lib/supabase/browser";
+import { changeTargetKey, getChangeTargetProps } from "../../change-spotlight";
 import {
   createTableAction,
   deleteProjectAction,
@@ -260,7 +261,10 @@ export function ProjectPageView({
       ]}
     >
       <div className="space-y-6">
-        <div className="space-y-3">
+        <div
+          className="space-y-3"
+          {...getChangeTargetProps(changeTargetKey.project(project.id))}
+        >
           <MarbleEditableText
             className="-mx-1 rounded-sm px-1 text-left text-4xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
             disabled={savingName}
@@ -307,6 +311,7 @@ export function ProjectPageView({
                     router.push(`/projects/${project.id}/tables/${table.id}`)
                   }
                   title={table.name || "Untitled Table"}
+                  {...getChangeTargetProps(changeTargetKey.table(table.id))}
                 />
               ))}
             </MarbleCardContent>

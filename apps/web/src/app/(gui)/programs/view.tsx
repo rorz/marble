@@ -51,6 +51,7 @@ import {
   useEffect,
   useState,
 } from "react";
+import { changeTargetKey, getChangeTargetProps } from "../change-spotlight";
 import * as actions from "./actions";
 
 type FullProgram = Awaited<ReturnType<typeof actions.listPrograms>>[number];
@@ -289,9 +290,11 @@ function getDefaultDraftOutputConfig() {
 
 function VersionHistoryRow({
   active,
+  targetKey,
   version,
 }: Readonly<{
   active: boolean;
+  targetKey?: string;
   version: ProgramVersionRow & {
     program_file: ProgramFileRow[];
   };
@@ -302,6 +305,7 @@ function VersionHistoryRow({
         "border-b border-taupe-400/80 px-3 py-2 last:border-b-0",
         active ? "bg-white/80" : "bg-transparent",
       )}
+      {...(targetKey ? getChangeTargetProps(targetKey) : {})}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -380,11 +384,13 @@ function WorkspaceFileTreeRow({
   dirty,
   file,
   onSelect,
+  targetKey,
 }: Readonly<{
   active: boolean;
   dirty: boolean;
   file: EditableProgramFile;
   onSelect: () => void;
+  targetKey?: string;
 }>) {
   return (
     <button
@@ -396,6 +402,7 @@ function WorkspaceFileTreeRow({
       )}
       onClick={onSelect}
       type="button"
+      {...(targetKey ? getChangeTargetProps(targetKey) : {})}
     >
       <DocumentTextIcon
         className={cx("h-3.5 w-3.5 shrink-0", getFileAccent(file.filename))}
@@ -464,6 +471,8 @@ export function ProgramsPageView({
     : undefined;
   const latestVersion = getLatestVersion(selectedProgram);
   const activeFileObj = files.find((file) => file.filename === activeFile);
+  const activeProgramTargetId =
+    selectedProgram?.id ?? initialProgramId ?? "__draft__";
   const isDraftProgram = initialMode === "draft";
   const isEditorRoute = isDraftProgram || Boolean(initialProgramId);
   const firstPartyPrograms = programs.filter((program) => program.first_party);
@@ -1115,6 +1124,9 @@ export function ProgramsPageView({
                         onClick={() => router.push(`/programs/${program.id}`)}
                         title={program.name || "Untitled Program"}
                         titleClassName="text-sm text-taupe-900"
+                        {...getChangeTargetProps(
+                          changeTargetKey.program(program.id),
+                        )}
                       />
                     );
                   })}
@@ -1212,6 +1224,10 @@ export function ProgramsPageView({
                           file={file}
                           key={file.filename}
                           onSelect={() => setActiveFile(file.filename)}
+                          targetKey={changeTargetKey.programFile(
+                            activeProgramTargetId,
+                            file.filename,
+                          )}
                         />
                       ))}
                     </div>
@@ -1261,6 +1277,7 @@ export function ProgramsPageView({
                     <VersionHistoryRow
                       active={version.id === latestVersion?.id}
                       key={version.id}
+                      targetKey={changeTargetKey.programVersion(version.id)}
                       version={version}
                     />
                   ))
@@ -1277,7 +1294,12 @@ export function ProgramsPageView({
 
           <div className="flex min-w-0 flex-1 flex-col bg-taupe-50">
             <div className="border-b border-taupe-200 bg-linear-to-r from-taupe-100 via-taupe-50 to-white px-4 py-3">
-              <div className="flex items-start justify-between gap-4">
+              <div
+                className="flex items-start justify-between gap-4"
+                {...getChangeTargetProps(
+                  changeTargetKey.program(activeProgramTargetId),
+                )}
+              >
                 <div className="min-w-0 flex-1 space-y-2">
                   <MarbleEditableText
                     className="-mx-1 rounded-sm px-1 text-left text-3xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"

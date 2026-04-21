@@ -66,6 +66,7 @@ import {
 import { createClient } from "../../lib/supabase/browser";
 import { useSignOut } from "../sign-out-button";
 import { ChangeRadar } from "./change-radar";
+import { ChangeSpotlight } from "./change-spotlight";
 import { createDefaultProfileAction } from "./profiles/actions";
 import { createProgram } from "./programs/actions";
 import { createProjectAction, createTableAction } from "./projects/actions";
@@ -1701,6 +1702,8 @@ export function GuiShell({
           {children}
         </div>
       </main>
+
+      <ChangeSpotlight />
 
       <MarbleCommandDialog
         label="Global command palette"

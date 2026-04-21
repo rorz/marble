@@ -49,6 +49,12 @@ import {
 import Editor from "react-simple-code-editor";
 import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 import {
+  type ChangeTargetDescriptor,
+  changeTargetKey,
+  getChangeTargetProps,
+  useChangeSpotlightResolver,
+} from "../../change-spotlight";
+import {
   createColumn,
   createRows,
   deleteColumn,
@@ -762,6 +768,7 @@ function ColumnHeader(props: IHeaderParams) {
         ctx.onHeaderContextMenu(columnId, e.clientX, e.clientY);
       }}
       type="button"
+      {...getChangeTargetProps(changeTargetKey.column(columnId))}
     >
       <span className="truncate">{props.displayName}</span>
     </button>
@@ -787,6 +794,19 @@ function AddColumnButton(props: IHeaderParams) {
 }
 
 // ── Cell Renderer ───────────────────────────────────────
+
+function RowNumberCell(props: CustomCellRendererProps) {
+  const rowId = props.data?._rowId as string | undefined;
+
+  return (
+    <div
+      className="flex h-full items-center"
+      {...(rowId ? getChangeTargetProps(changeTargetKey.row(rowId)) : {})}
+    >
+      {props.valueFormatted ?? props.value}
+    </div>
+  );
+}
 
 function CellRunningIndicator() {
   return (
@@ -848,7 +868,12 @@ function CellWithRunButton(props: CustomCellRendererProps) {
   const isNull = !state;
 
   return (
-    <div className="group/cell relative flex h-full w-full items-center">
+    <div
+      className="group/cell relative flex h-full w-full items-center"
+      {...(columnId && rowId
+        ? getChangeTargetProps(changeTargetKey.cell(rowId, columnId))
+        : {})}
+    >
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-0 left-0 z-20 flex items-center bg-taupe-50"
@@ -1548,6 +1573,7 @@ export default function TablePageView({
   const colDefs = useMemo<ColDef[]>(() => {
     return [
       {
+        cellRenderer: RowNumberCell,
         cellStyle: {
           "--marble-table-cell-padding-inline": `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
           color: "#666",
@@ -1996,6 +2022,147 @@ export default function TablePageView({
     selectedTableName,
   ]);
 
+  const matchChangeTarget = useCallback(
+    (descriptor: ChangeTargetDescriptor) => {
+      if (
+        descriptor.kind === "table" &&
+        descriptor.tableId === selectedTableId
+      ) {
+        return true;
+      }
+
+      if (descriptor.kind === "row") {
+        return rowsRef.current.some((row) => row.id === descriptor.rowId);
+      }
+
+      if (descriptor.kind === "column") {
+        return columnsRef.current.some(
+          (column) => column.id === descriptor.columnId,
+        );
+      }
+
+      if (descriptor.kind === "cell") {
+        return (
+          rowsRef.current.some((row) => row.id === descriptor.rowId) &&
+          columnsRef.current.some((column) => column.id === descriptor.columnId)
+        );
+      }
+
+      return false;
+    },
+    [
+      selectedTableId,
+    ],
+  );
+
+  const revealChangeTarget = useCallback(
+    (descriptor: ChangeTargetDescriptor) => {
+      const api = gridRef.current?.api;
+
+      if (!api || descriptor.kind === "table") {
+        return descriptor.kind === "table";
+      }
+
+      const flashAfterReveal = (columnsToFlash: string[], rowId?: string) => {
+        window.requestAnimationFrame(() => {
+          const nextApi = gridRef.current?.api;
+
+          if (!nextApi || columnsToFlash.length === 0) {
+            return;
+          }
+
+          nextApi.flashCells({
+            columns: columnsToFlash,
+            rowNodes: rowId
+              ? [
+                  nextApi.getRowNode(rowId),
+                ].filter(
+                  (rowNode): rowNode is NonNullable<typeof rowNode> =>
+                    rowNode !== undefined && rowNode !== null,
+                )
+              : undefined,
+          });
+        });
+      };
+
+      if (descriptor.kind === "row") {
+        const rowIndex = rowsRef.current.findIndex(
+          (row) => row.id === descriptor.rowId,
+        );
+
+        if (rowIndex < 0) {
+          return false;
+        }
+
+        api.ensureIndexVisible(rowIndex);
+        flashAfterReveal(
+          columnsRef.current
+            .slice(0, Math.min(6, columnsRef.current.length))
+            .map((column) => column.id),
+          descriptor.rowId,
+        );
+        return true;
+      }
+
+      if (descriptor.kind === "column") {
+        if (
+          !columnsRef.current.some(
+            (column) => column.id === descriptor.columnId,
+          )
+        ) {
+          return false;
+        }
+
+        api.ensureColumnVisible(descriptor.columnId);
+        flashAfterReveal([
+          descriptor.columnId,
+        ]);
+        return true;
+      }
+
+      if (descriptor.kind === "cell") {
+        const rowIndex = rowsRef.current.findIndex(
+          (row) => row.id === descriptor.rowId,
+        );
+
+        if (
+          rowIndex < 0 ||
+          !columnsRef.current.some(
+            (column) => column.id === descriptor.columnId,
+          )
+        ) {
+          return false;
+        }
+
+        api.ensureIndexVisible(rowIndex);
+        api.ensureColumnVisible(descriptor.columnId);
+        flashAfterReveal(
+          [
+            descriptor.columnId,
+          ],
+          descriptor.rowId,
+        );
+        return true;
+      }
+
+      return false;
+    },
+    [],
+  );
+
+  const changeSpotlightResolver = useMemo(
+    () => ({
+      match: matchChangeTarget,
+      reveal: revealChangeTarget,
+    }),
+    [
+      matchChangeTarget,
+      revealChangeTarget,
+    ],
+  );
+
+  useChangeSpotlightResolver(changeSpotlightResolver);
+
   return (
     <MarblePane
       crumbs={[
@@ -2028,7 +2195,10 @@ export default function TablePageView({
     >
       <div className="relative flex w-full h-full min-h-0 flex overflow-hidden bg-zinc-50 font-sans text-zinc-900">
         <div className={cx("flex min-h-0 flex-1 flex-col w-full p-4")}>
-          <div className="mb-3 w-full flex flex-wrap items-center justify-between gap-3 border-zinc-200">
+          <div
+            className="mb-3 w-full flex flex-wrap items-center justify-between gap-3 border-zinc-200"
+            {...getChangeTargetProps(changeTargetKey.table(selectedTable.id))}
+          >
             <div className="min-w-0 flex w-full flex-wrap items-center justify-between">
               <div className="flex flex-col items-start gap-1">
                 <EditableName
