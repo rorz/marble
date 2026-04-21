@@ -31,7 +31,7 @@ export function HeroSection() {
         <p className="text-taupe-800 text-5xl max-w-3xl leading-snug">
           <span className="text-orange-400 font-medium">Fast,</span> reliable,
           and open GTM tooling built by{" "}
-          <span className="inline-block px-2 py-1 bg-taupe-100/10 rounded-lg -rotate-3 border-dotted border-4 border-taupe-400/10 text-taupe-500 hover:rotate-0 transition-transform">
+          <span className="inline-block -rotate-3 -translate-y-1 text-taupe-500 hover:rotate-0 hover:translate-y-0 transition-transform">
             and for!
           </span>{" "}
           <strong className="underline decoration-orange-300">the best</strong>{" "}
