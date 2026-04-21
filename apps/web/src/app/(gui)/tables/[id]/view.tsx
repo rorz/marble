@@ -1662,7 +1662,6 @@ export default function TablePageView({
         const result = await executeRun({
           cellId: cell.id,
           cellValue: manualInput,
-          programId: col.program_version_id,
         });
         applyRunOutputToCell(cell.id, result.output, manualInput);
         addLog(`✓ "${col.name}" → ${JSON.stringify(result.output)}`);
@@ -1704,7 +1703,6 @@ export default function TablePageView({
       try {
         const result = await executeRun({
           cellId: cell.id,
-          programId: col.program_version_id,
         });
         applyRunOutputToCell(cell.id, result.output);
         addLog(`✓ "${col.name}" → ${JSON.stringify(result.output)}`);

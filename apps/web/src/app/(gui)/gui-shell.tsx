@@ -53,7 +53,7 @@ import {
   clampSidebarWidth,
   type SidebarMode,
 } from "../../lib/gui-sidebar";
-import type { RealtimePayload } from "../../lib/realtime-crud";
+import { getErrorMessage, type RealtimePayload } from "../../lib/realtime-crud";
 import {
   applySidebarMutation,
   type SidebarMutation,
@@ -66,6 +66,9 @@ import {
 import { createClient } from "../../lib/supabase/browser";
 import { useSignOut } from "../sign-out-button";
 import { ChangeRadar } from "./change-radar";
+import { createDefaultProfileAction } from "./profiles/actions";
+import { createProgram } from "./programs/actions";
+import { createProjectAction, createTableAction } from "./projects/actions";
 
 type TreeCollectionKey = "programs" | "projects";
 type SidebarGroup = {
@@ -196,6 +199,18 @@ type CommandPaletteSection = {
 type SupportSheetView = "contact" | "handbook";
 
 const supportSheetWidthClassName = "w-[min(32rem,calc(100vw-1rem))]";
+
+function getProjectIdFromPathname(pathname: string) {
+  const segments = pathname.split("/");
+
+  if (segments.at(1) !== "projects") {
+    return null;
+  }
+
+  const projectId = segments.at(2);
+
+  return projectId && projectId !== "new" ? projectId : null;
+}
 
 const sidebarModes = {
   collapsed: {
@@ -579,6 +594,9 @@ export function GuiShell({
     closeCommandPalette();
     router.push(path);
   };
+  const handleCommandPaletteError = (error: unknown) => {
+    window.alert(getErrorMessage(error));
+  };
   const workspaceMenuSections = [
     {
       id: "workspace-core",
@@ -683,6 +701,66 @@ export function GuiShell({
     },
   ];
   const projectResources = collectCommandPaletteResources(sidebarData.projects);
+  const projectNodes = projectResources.filter(
+    ({ node }) => node.kind === "project",
+  );
+  const selectedProjectId = getProjectIdFromPathname(pathname);
+  const selectedProjectNode =
+    selectedProjectId === null
+      ? null
+      : (projectNodes.find(({ node }) => node.id === selectedProjectId)?.node ??
+        null);
+  const defaultTableProjectNode =
+    selectedProjectNode ??
+    (projectNodes.length === 1 ? (projectNodes[0]?.node ?? null) : null);
+  const createTableDetail =
+    defaultTableProjectNode?.label ??
+    (projectNodes.length === 0 ? "Create a project first" : "Choose project");
+  const handleCreateProjectFromCommandPalette = async () => {
+    closeCommandPalette();
+
+    try {
+      const project = await createProjectAction();
+      router.push(`/projects/${project.id}`);
+    } catch (error) {
+      handleCommandPaletteError(error);
+    }
+  };
+  const handleCreateTableFromCommandPalette = async () => {
+    closeCommandPalette();
+
+    if (!defaultTableProjectNode) {
+      router.push("/projects");
+      return;
+    }
+
+    try {
+      const table = await createTableAction(defaultTableProjectNode.id);
+      router.push(`/projects/${defaultTableProjectNode.id}/tables/${table.id}`);
+    } catch (error) {
+      handleCommandPaletteError(error);
+    }
+  };
+  const handleCreateProgramFromCommandPalette = async () => {
+    closeCommandPalette();
+
+    try {
+      const { programId } = await createProgram();
+      router.push(`/programs/${programId}`);
+    } catch (error) {
+      handleCommandPaletteError(error);
+    }
+  };
+  const handleCreateProfileFromCommandPalette = async () => {
+    closeCommandPalette();
+
+    try {
+      const profile = await createDefaultProfileAction();
+      router.push(`/profiles?edit=${profile.id}`);
+    } catch (error) {
+      handleCommandPaletteError(error);
+    }
+  };
   const projectCommandItems = projectResources
     .filter(({ node }) => node.kind === "project")
     .map(({ node }) => ({
@@ -795,6 +873,96 @@ export function GuiShell({
     ],
   };
   const commandPaletteCoreSections: CommandPaletteSection[] = [
+    {
+      heading: "New",
+      id: "command-palette-create",
+      items: [
+        {
+          detail: "Create",
+          icon: (
+            <BriefcaseMetalIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "command-palette-new-project",
+          keywords: [
+            "create",
+            "new",
+            "project",
+            "workspace",
+          ],
+          label: "New project",
+          onSelect: () => {
+            void handleCreateProjectFromCommandPalette();
+          },
+        },
+        {
+          detail: createTableDetail,
+          icon: (
+            <TableIcon
+              className="h-4 w-4"
+              weight="duotone"
+            />
+          ),
+          id: "command-palette-new-table",
+          keywords: [
+            "create",
+            "new",
+            "table",
+            "rows",
+            "columns",
+            "schema",
+          ],
+          label: "New table",
+          onSelect: () => {
+            void handleCreateTableFromCommandPalette();
+          },
+        },
+        {
+          detail: "Create",
+          icon: (
+            <FileCodeIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "command-palette-new-program",
+          keywords: [
+            "create",
+            "new",
+            "program",
+            "code",
+            "runner",
+          ],
+          label: "New program",
+          onSelect: () => {
+            void handleCreateProgramFromCommandPalette();
+          },
+        },
+        {
+          detail: "Create",
+          icon: (
+            <IdentificationBadgeIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "command-palette-new-profile",
+          keywords: [
+            "create",
+            "new",
+            "profile",
+            "agent",
+            "persona",
+          ],
+          label: "New profile",
+          onSelect: () => {
+            void handleCreateProfileFromCommandPalette();
+          },
+        },
+      ],
+    },
     {
       heading: "Jump to",
       id: "command-palette-navigation",

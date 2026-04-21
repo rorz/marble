@@ -1,7 +1,6 @@
 "use server";
 
 import type { Database } from "@marble/supabase";
-import { env } from "@/env";
 import { requireUser } from "../../../lib/auth";
 import { callMarbleApi } from "../../../lib/marble-api";
 import {
@@ -12,7 +11,6 @@ import {
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type Program = Database["public"]["Tables"]["program"]["Row"];
-type ProgramRunRow = Database["public"]["Tables"]["program_run"]["Row"];
 type ProgramVersion = Database["public"]["Tables"]["program_version"]["Row"];
 type ProgramFile = Database["public"]["Tables"]["program_file"]["Row"];
 type RowRow = Database["public"]["Tables"]["row"]["Row"];
@@ -23,6 +21,13 @@ type EditableProgramFile = {
   content: string;
   filename: string;
   filetype: "TypeScript" | "Json" | "Markdown";
+};
+type RunExecutionResult = {
+  error?: boolean;
+  message?: string;
+  output?: unknown;
+  runId: string;
+  success: boolean;
 };
 
 export type FullProgram = Program & {
@@ -282,58 +287,31 @@ export async function testProgram(
     throw new Error("Failed to resolve test cell");
   }
 
-  if (manualInput !== undefined) {
-    await callMarbleApi<CellRow>(`/cells/${cell.id}`, {
+  const result = await callMarbleApi<RunExecutionResult>(
+    `/cells/${cell.id}/run`,
+    {
       body: {
-        manualInput,
-      },
-      method: "PATCH",
-      requestId,
-    });
-  }
-
-  const run = await callMarbleApi<ProgramRunRow>("/program-runs", {
-    body: {
-      programVersionId,
-      targetCellId: cell.id,
-    },
-    method: "POST",
-    requestId,
-  });
-  const executorUrl = env.EXECUTOR_URL;
-
-  try {
-    const res = await fetch(`${executorUrl}/run?run_id=${run.id}`, {
-      body: "{}",
-      headers: {
-        "Content-Type": "application/json",
+        ...(manualInput === undefined
+          ? {}
+          : {
+              manualInput,
+            }),
       },
       method: "POST",
-    });
-    const result = (await res.json()) as {
-      error?: boolean;
-      message?: string;
-      output?: unknown;
-      success?: boolean;
-    };
+      requestId,
+    },
+  );
 
-    if (result.error) {
-      return {
-        error: result.message,
-        ok: false,
-        output: null,
-      };
-    }
-
+  if (result.error) {
     return {
-      ok: true,
-      output: result.output,
-    };
-  } catch (err) {
-    return {
-      error: `Executor unreachable at ${executorUrl}: ${err instanceof Error ? err.message : String(err)}`,
+      error: result.message,
       ok: false,
       output: null,
     };
   }
+
+  return {
+    ok: result.success,
+    output: result.output,
+  };
 }

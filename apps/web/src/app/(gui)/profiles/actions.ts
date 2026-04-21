@@ -12,6 +12,8 @@ import {
   type ProfileRecord,
 } from "./shared";
 
+const DEFAULT_AGENT_PROFILE_NAME = "Untitled Agent";
+
 function readFormValue(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
@@ -90,6 +92,24 @@ export async function createProfileAction(formData: FormData) {
   const createdProfile = await callMarbleApi<ProfileRecord>("/profiles", {
     body: {
       ...profile,
+      type: "Agent",
+    },
+    method: "POST",
+    profileId: false,
+    requireActorProfile: false,
+  });
+
+  revalidatePath("/profiles");
+
+  return createdProfile;
+}
+
+export async function createDefaultProfileAction() {
+  const createdProfile = await callMarbleApi<ProfileRecord>("/profiles", {
+    body: {
+      externalName: null,
+      icon: DEFAULT_AGENT_PROFILE_ICON,
+      name: DEFAULT_AGENT_PROFILE_NAME,
       type: "Agent",
     },
     method: "POST",

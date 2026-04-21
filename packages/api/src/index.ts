@@ -4,11 +4,24 @@ import {
   apiResourcePath,
 } from "@marble/core";
 import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
-import { createClient } from "@marble/supabase";
+import { createClient, type Json } from "@marble/supabase";
 import { Hono } from "hono";
-import { type ApiEnv, readJsonBody, route } from "./core";
+import { z } from "zod";
+import {
+  type ApiContext,
+  type ApiEnv,
+  parseJsonBody,
+  readJsonBody,
+  requiredParam,
+  route,
+} from "./core";
+import { createRecord, getRecord, updateRecord } from "./data";
 import { getEnv } from "./env";
 import { attachEventContext, type EventSource } from "./event-driver";
+import {
+  requireAccessibleCell,
+  requireAccessibleProgramRun,
+} from "./resources/access";
 import { mountCellResource } from "./resources/cell";
 import { mountColumnResource } from "./resources/column";
 import { mountColumnDependencyResource } from "./resources/column_dependency";
@@ -47,6 +60,130 @@ function executorEndpointUrl(baseUrl: string, path: string, search: string) {
   endpoint.pathname = `${endpoint.pathname.replace(/\/$/, "")}${path}`;
   endpoint.search = search;
   return endpoint;
+}
+
+const cellRunBodySchema = z.object({
+  manualInput: z.string().nullable().optional(),
+});
+
+function forwardExecutorHeaders(c: ApiContext) {
+  return Object.fromEntries(
+    [
+      [
+        "Authorization",
+        c.req.header("Authorization"),
+      ],
+      [
+        "Content-Type",
+        "application/json",
+      ],
+      [
+        "x-marble-actor-source",
+        c.req.header("x-marble-actor-source"),
+      ],
+      [
+        "x-marble-auth-key-id",
+        c.req.header("x-marble-auth-key-id"),
+      ],
+      [
+        "x-marble-auth-profile-id",
+        c.req.header("x-marble-auth-profile-id"),
+      ],
+      [
+        "x-marble-auth-user-id",
+        c.req.header("x-marble-auth-user-id"),
+      ],
+      [
+        "x-marble-request-id",
+        c.req.header("x-marble-request-id"),
+      ],
+    ].filter(
+      (
+        entry,
+      ): entry is [
+        string,
+        string,
+      ] => entry[1] !== undefined,
+    ),
+  );
+}
+
+async function proxyExecutorRequest(
+  c: ApiContext,
+  options: {
+    body: unknown;
+    path: string;
+    search: string;
+  },
+) {
+  const env = getEnv(c.env);
+  const response = await fetch(
+    executorEndpointUrl(
+      env.MARBLE_EXECUTOR_URL || "http://localhost:8787",
+      options.path,
+      options.search,
+    ),
+    {
+      body: JSON.stringify(options.body),
+      headers: forwardExecutorHeaders(c),
+      method: "POST",
+    },
+  );
+  const text = await response.text();
+
+  try {
+    return {
+      payload: JSON.parse(text) as Record<string, unknown>,
+      status: response.status as 200 | 400 | 401 | 404 | 500,
+    };
+  } catch {
+    return {
+      payload: {
+        error: true,
+        message: text || "Executor returned a non-JSON response.",
+        output: null,
+        success: false,
+      },
+      status: response.status as 200 | 400 | 401 | 404 | 500,
+    };
+  }
+}
+
+async function executeStoredRun(
+  c: ApiContext,
+  options: {
+    cellId: string;
+    runId: string;
+    setPendingState?: boolean;
+  },
+) {
+  if (options.setPendingState !== false) {
+    await updateRecord(c.var.supabase, "cell", options.cellId, {
+      state: {
+        ok: null,
+      } as Json,
+    });
+  }
+
+  const { payload, status } = await proxyExecutorRequest(c, {
+    body: {},
+    path: "/run",
+    search: new URLSearchParams({
+      run_id: options.runId,
+    }).toString(),
+  });
+  const responseStatus =
+    status === 500 && payload.success === false ? 200 : status;
+
+  return c.json(
+    {
+      ...payload,
+      runId: options.runId,
+    },
+    {
+      status: responseStatus,
+    },
+  );
 }
 
 function normalizeEventSource(
@@ -186,70 +323,69 @@ for (const resourceName of ApiResourceNames) {
 app.post(
   "/test",
   route(async (c) => {
-    const env = getEnv(c.env);
     const requestUrl = new URL(c.req.url);
-    const response = await fetch(
-      executorEndpointUrl(
-        env.MARBLE_EXECUTOR_URL || "http://localhost:8787",
-        "/test",
-        requestUrl.search,
-      ),
-      {
-        body: JSON.stringify(await readJsonBody(c)),
-        headers: Object.fromEntries(
-          [
-            [
-              "Authorization",
-              c.req.header("Authorization"),
-            ],
-            [
-              "Content-Type",
-              "application/json",
-            ],
-            [
-              "x-marble-actor-source",
-              c.req.header("x-marble-actor-source"),
-            ],
-            [
-              "x-marble-auth-key-id",
-              c.req.header("x-marble-auth-key-id"),
-            ],
-            [
-              "x-marble-auth-profile-id",
-              c.req.header("x-marble-auth-profile-id"),
-            ],
-            [
-              "x-marble-auth-user-id",
-              c.req.header("x-marble-auth-user-id"),
-            ],
-            [
-              "x-marble-request-id",
-              c.req.header("x-marble-request-id"),
-            ],
-          ].filter(
-            (
-              entry,
-            ): entry is [
-              string,
-              string,
-            ] => entry[1] !== undefined,
-          ),
-        ),
-        method: "POST",
-      },
-    );
+    const { payload, status } = await proxyExecutorRequest(c, {
+      body: await readJsonBody(c),
+      path: "/test",
+      search: requestUrl.search,
+    });
 
-    const text = await response.text();
+    return c.json(payload, {
+      status,
+    });
+  }),
+);
 
-    try {
-      return c.json(JSON.parse(text) as unknown, {
-        status: response.status as 200 | 400 | 401 | 404 | 500,
-      });
-    } catch {
-      return c.json(text, {
-        status: response.status as 200 | 400 | 401 | 404 | 500,
-      });
-    }
+app.post(
+  "/program-runs/:runId/execute",
+  route(async (c) => {
+    const runId = requiredParam(c, "runId");
+    const run = await requireAccessibleProgramRun(c.var.supabase, {
+      authenticatedProfileId: c.var.auth?.profileId,
+      runId,
+      userId: c.var.auth?.userId,
+    });
+
+    return executeStoredRun(c, {
+      cellId: run.target_cell_id,
+      runId,
+    });
+  }),
+);
+
+app.post(
+  "/cells/:cellId/run",
+  route(async (c) => {
+    const cellId = requiredParam(c, "cellId");
+    const body = await parseJsonBody(c, cellRunBodySchema);
+    const cell = await requireAccessibleCell(c.var.supabase, {
+      authenticatedProfileId: c.var.auth?.profileId,
+      cellId,
+      userId: c.var.auth?.userId,
+    });
+    const column = await getRecord(c.var.supabase, "column", cell.column_id);
+
+    await updateRecord(c.var.supabase, "cell", cellId, {
+      ...(body.manualInput === undefined
+        ? {}
+        : {
+            manual_input: body.manualInput,
+          }),
+      state: {
+        ok: null,
+      } as Json,
+    });
+
+    const run = await createRecord(c.var.supabase, "program_run", {
+      program_version_id: column.program_version_id,
+      target_cell_id: cellId,
+    });
+
+    return executeStoredRun(c, {
+      cellId,
+      runId: run.id,
+      setPendingState: false,
+    });
   }),
 );
 

@@ -2,7 +2,6 @@
 
 import type { Database } from "@marble/supabase";
 import { revalidatePath } from "next/cache";
-import { env } from "@/env";
 import { requireUser } from "../../../../lib/auth";
 import { callMarbleApi } from "../../../../lib/marble-api";
 import {
@@ -17,7 +16,6 @@ import {
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
 type DependencyRow = Database["public"]["Tables"]["column_dependency"]["Row"];
-type ProgramRunRow = Database["public"]["Tables"]["program_run"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type ProgramVersionRow = Database["public"]["Tables"]["program_version"]["Row"];
 type RowRow = Database["public"]["Tables"]["row"]["Row"];
@@ -27,6 +25,11 @@ type FullProgram = ProgramRow & {
     ProgramVersionRow,
     "id" | "input_schema" | "output_config" | "version"
   >[];
+};
+type RunExecutionResult = {
+  output: unknown;
+  runId: string;
+  success: boolean;
 };
 
 const SUPABASE_SELECT_PAGE_SIZE = 1000;
@@ -374,69 +377,17 @@ export async function updateCellManualInput(cellId: string, value: string) {
 // ── Execution ───────────────────────────────────────────
 
 export async function executeRun(input: {
-  programId: string;
   cellId: string;
   cellValue?: string;
-}): Promise<{
-  success: boolean;
-  output: unknown;
-  runId: string;
-}> {
-  const requestId = crypto.randomUUID();
-
-  await callMarbleApi<CellRow>(`/cells/${input.cellId}`, {
+}): Promise<RunExecutionResult> {
+  return callMarbleApi<RunExecutionResult>(`/cells/${input.cellId}/run`, {
     body: {
       ...(input.cellValue === undefined
         ? {}
         : {
             manualInput: input.cellValue,
           }),
-      state: {
-        ok: null,
-      },
-    },
-    method: "PATCH",
-    requestId,
-  });
-
-  const run = await callMarbleApi<ProgramRunRow>("/program-runs", {
-    body: {
-      programVersionId: input.programId,
-      targetCellId: input.cellId,
     },
     method: "POST",
-    requestId,
   });
-  const executorUrl = env.EXECUTOR_URL;
-
-  let result: {
-    error?: boolean;
-    message?: string;
-    output?: unknown;
-    success?: boolean;
-  };
-  try {
-    const response = await fetch(`${executorUrl}/run?run_id=${run.id}`, {
-      body: "{}",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      method: "POST",
-    });
-    result = (await response.json()) as typeof result;
-  } catch (err) {
-    throw new Error(
-      `Could not reach executor at ${executorUrl} — is it running? (${err instanceof Error ? err.message : String(err)})`,
-    );
-  }
-
-  if (result.error) {
-    throw new Error(result.message ?? "Executor returned an error");
-  }
-
-  return {
-    output: result.output,
-    runId: run.id,
-    success: result.success ?? false,
-  };
 }

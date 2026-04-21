@@ -30,6 +30,13 @@ type ProgramUpsertResult = {
   programId: string;
   versionId: string;
 };
+type RunExecutionResult = {
+  error?: boolean;
+  message?: string;
+  output: unknown;
+  runId: string;
+  success: boolean;
+};
 
 type QueryValue = boolean | number | string | null | undefined;
 type ApiErrorPayload = {
@@ -185,6 +192,25 @@ export class MarbleClient {
     this.assertSupported(resource, "delete");
     return this.fetchAPI(apiResourceItemPath(resource, id), {
       method: "DELETE",
+    });
+  }
+
+  public startCellRun(
+    cellId: string,
+    payload: {
+      manualInput?: string | null;
+    } = {},
+  ) {
+    return this.fetchAPI<RunExecutionResult>(`/cells/${cellId}/run`, {
+      body: JSON.stringify(payload),
+      method: "POST",
+    });
+  }
+
+  public executeProgramRun(runId: string) {
+    return this.fetchAPI<RunExecutionResult>(`/program-runs/${runId}/execute`, {
+      body: JSON.stringify({}),
+      method: "POST",
     });
   }
 

@@ -59,6 +59,7 @@ bunx marble-cli@latest table create "Apollo Email Enrichment"
 bunx marble-cli@latest column create "Person Name" --table <tableId> --program <programId> --output-schema '{"type":"string"}'
 bunx marble-cli@latest row create --table <tableId> --count 3
 bunx marble-cli@latest cell set <cellId> "Ada Lovelace"
+bunx marble-cli@latest run start <cellId>
 bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
 ```
 
@@ -82,7 +83,7 @@ bunx marble-cli@latest column create --help
 Important rules:
 
 - There are no nested `tables <id> columns add` commands in the CLI.
-- Prefer singular commands such as `table create`, `column create`, `row create`, `cell set`, and `program test`.
+- Prefer singular commands such as `table create`, `column create`, `row create`, `cell set`, `run start`, and `program test`.
 - Use plural resource commands when you need direct raw JSON control.
 - `list` takes one optional JSON object of flat scalar query params. It becomes query-string parameters.
 - `create` takes one JSON object payload.
@@ -101,6 +102,7 @@ Human-facing commands:
 - `column`: `create`, `list`, `get`, `update`, `delete`
 - `row`: `create`, `list`, `get`, `update`, `delete`
 - `cell`: `list`, `get`, `set`, `update`
+- `run`: `start`, `list`, `get`, `execute`
 - `program`: `list`, `get`, `delete`, `upsert`, `test`
 
 Raw plural commands:
@@ -179,7 +181,18 @@ bunx marble-cli@latest cell list --table <tableId>
 bunx marble-cli@latest cell get <cellId>
 bunx marble-cli@latest cell set <cellId> "Ada Lovelace"
 bunx marble-cli@latest cell update <cellId> --clear-manual-input
-bunx marble-cli@latest cell update <cellId> --state '{"ok":true,"value":"ada@example.com"}'
+```
+
+`cell set` and `cell update --manual-input` only change the cell's manual input. They do not execute the column or produce final output state.
+
+### Run
+
+```sh
+bunx marble-cli@latest run start <cellId>
+bunx marble-cli@latest run start <cellId> --manual-input "Ada Lovelace"
+bunx marble-cli@latest run list --cell <cellId>
+bunx marble-cli@latest run get <runId>
+bunx marble-cli@latest run execute <runId>
 ```
 
 ### Program
@@ -287,7 +300,7 @@ Critical details:
 
 If `count > 1`, do not send `idx`. For a single row, omit `idx` unless you need to place it at a specific index.
 
-### Cell update payload
+### Cell manual-input payload
 
 ```json
 {
@@ -295,33 +308,22 @@ If `count > 1`, do not send `idx`. For a single row, omit `idx` unless you need 
 }
 ```
 
-Or:
-
-```json
-{
-  "state": {
-    "ok": true,
-    "value": "ada@example.com"
-  }
-}
-```
+For normal operator workflows, stop there and use `run start` to execute the cell. Do not force `state` unless you are doing low-level debugging or recovery work.
 
 ### Program run payload
 
 ```json
 {
   "targetCellId": "<cell-id>",
-  "programId": "<program-id>",
-  "programVersionId": "<optional-version-id>",
-  "input": {
-    "example": true
-  },
-  "output": {
-    "ok": true,
-    "value": "example"
-  }
+  "programVersionId": "<program-version-id>"
 }
 ```
+
+For ordinary runs:
+
+- Prefer `run start <cellId>` instead of raw `program-runs create`.
+- Let Marble create the stored run and let the executor populate `input`, `output`, and the final `cell.state`.
+- Treat direct `output` or `cell.state` writes as low-level escape hatches, not the default execution path.
 
 ### Program file payload
 
@@ -532,12 +534,15 @@ bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual
 6. Create starter rows with `row create`.
 7. Resolve the created cell IDs from the row and column IDs.
 8. Update cells with manual input as needed.
+9. Start runs in dependency order so each column's output is produced by a stored run, not by a forced cell state.
 
 Important:
 
 - There is no `cell create` command or API route. Cells are materialized automatically when you create rows or columns.
 - When you create a single row, the API returns the row object, not the cells for that row. Fetch the row's cells next and identify the target cells by `column_id`.
 - Prefer `cell list --row <rowId>` or raw `cells list '{"rowId":"<rowId>"}'` when populating test data. `cell list --table <tableId>` is fine for inspection, but less precise for selecting a specific cell to update.
+- `cell set` updates `manualInput` only. It does not execute the cell's program or write the final `state`.
+- The executor should own final `cell.state` writes. In normal table workflows, use `run start` so realtime activity and stored run history line up with what the UI expects.
 
 Example:
 
@@ -555,6 +560,9 @@ bunx marble-cli@latest row list --table <tableId>
 bunx marble-cli@latest cell list --row <rowId>
 bunx marble-cli@latest cell set <personCellId> "Ada"
 bunx marble-cli@latest cell set <companyCellId> "Analytical Engines"
+bunx marble-cli@latest run start <personCellId>
+bunx marble-cli@latest run start <companyCellId>
+bunx marble-cli@latest run start <enrichedEmailCellId>
 ```
 
 If you prefer raw commands for the cell lookup step:
@@ -590,9 +598,11 @@ When asked to create a table or workflow, break the task into composable steps.
 - If raw `columns create` or `columns update` fails, check whether `inputTemplate` was passed as a string and `outputSchema` as real JSON.
 - If the CLI prints `Invalid request`, read the structured `Details:` block. Marble now returns the underlying validation issues instead of just the top-line error.
 - If `row create` fails with `idx cannot be used when count is greater than 1`, drop `--idx` or set `--count` back to `1`.
-- If you need to seed a few test values, do not try to create cells directly. Create rows first, then fetch the row's cells and patch the target cell with `cell set` or `cell update --manual-input`.
+- If you need to seed a few test values, do not try to create cells directly. Create rows first, fetch the row's cells, set `manualInput`, then use `run start` for each cell you actually want to execute.
+- If a value seems to "magically appear," check whether you forced `cell.state` somewhere. In the normal flow, visible output should be traceable to a stored run.
 - If `program test` fails, fix the runtime code, `input-schema.json`, or `output-config.json`, then rerun it.
 - If a dependent column is blank, confirm the `inputTemplate` references the correct column IDs.
+- If a downstream cell is blank after you set manual input on its sources, make sure you ran the source cells first. Dependencies read prior cell output state, not raw manual input.
 - If the repo becomes dirty during CLI-only work, move temp artifacts to `/tmp` and clean up anything you created in the workspace.
 
 # Agentic Blitz Guide
@@ -616,5 +626,6 @@ Since we haven't got much time for chit-chat, here's the lowdown:
   - List that row's cells
   - Match the target cell by `column_id`
   - Set manual input on the resolved `cell.id`
+  - Start a stored run for that cell with `run start`
 
 That's it!

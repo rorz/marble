@@ -73,6 +73,12 @@ type CellCommandOptions = {
   stateFile?: string;
   table?: string;
 };
+type RunCommandOptions = {
+  cell?: string;
+  clearManualInput?: boolean;
+  manualInput?: string;
+  programVersion?: string;
+};
 type ProgramTestOptions = {
   fullInput?: string;
   fullInputFile?: string;
@@ -1152,7 +1158,7 @@ function registerCellCommands() {
 
   cellCommand
     .command("set")
-    .description("Set manual input on a cell")
+    .description("Set manual input on a cell without executing it")
     .argument("<cellId>", "Cell ID")
     .argument("<manualInput>", "Manual input string")
     .action((cellId, manualInput) =>
@@ -1167,12 +1173,15 @@ function registerCellCommands() {
 
   cellCommand
     .command("update")
-    .description("Update a cell")
+    .description("Low-level cell updates. Prefer run start for execution")
     .argument("<cellId>", "Cell ID")
     .option("--manual-input <value>", "Set manual input")
     .option("--clear-manual-input", "Set manual input to null")
-    .option("--state <json>", "Cell state JSON")
-    .option("--state-file <path>", "Path to cell state JSON file")
+    .option("--state <json>", "Force cell state JSON (low-level/internal)")
+    .option(
+      "--state-file <path>",
+      "Path to forced cell state JSON file (low-level/internal)",
+    )
     .action((cellId, options: CellCommandOptions) =>
       runAction("updating cell", async () => {
         if (options.manualInput !== undefined && options.clearManualInput) {
@@ -1196,6 +1205,93 @@ function registerCellCommands() {
           "--state-file",
         ]);
         printJson(await client.update("cells", cellId, payload));
+      }),
+    );
+}
+
+function registerRunCommands() {
+  const runCommand = rootCommand
+    .command("run")
+    .description("Human-friendly stored run commands");
+
+  runCommand
+    .command("start")
+    .description("Create and execute the column-bound run for a cell")
+    .argument("<cellId>", "Cell ID")
+    .option(
+      "--manual-input <value>",
+      "Set manual input before starting the run",
+    )
+    .option(
+      "--clear-manual-input",
+      "Clear manual input before starting the run",
+    )
+    .action((cellId, options: RunCommandOptions) =>
+      runAction("starting run", async () => {
+        if (options.manualInput !== undefined && options.clearManualInput) {
+          throw new Error(
+            "run start accepts only one of --manual-input or --clear-manual-input",
+          );
+        }
+
+        const result = await client.startCellRun(
+          cellId,
+          compactObject({
+            manualInput: options.clearManualInput ? null : options.manualInput,
+          }),
+        );
+
+        printJson(result);
+        if (!result.success) {
+          process.exitCode = 1;
+        }
+      }),
+    );
+
+  runCommand
+    .command("list")
+    .description("List stored runs")
+    .option("--cell <cellId>", "Filter by target cell ID")
+    .option(
+      "--program-version <programVersionId>",
+      "Filter by program version ID",
+    )
+    .action((options: RunCommandOptions) =>
+      runAction("listing runs", async () => {
+        printJson(
+          await client.list(
+            "program_runs",
+            compactObject({
+              programVersionId: options.programVersion,
+              targetCellId: options.cell,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  runCommand
+    .command("get")
+    .description("Get a stored run by ID")
+    .argument("<runId>", "Run ID")
+    .action((runId) =>
+      runAction("getting run", async () => {
+        printJson(await client.get("program_runs", runId));
+      }),
+    );
+
+  runCommand
+    .command("execute")
+    .description("Execute an existing stored run")
+    .argument("<runId>", "Run ID")
+    .action((runId) =>
+      runAction("executing run", async () => {
+        const result = await client.executeProgramRun(runId);
+
+        printJson(result);
+        if (!result.success) {
+          process.exitCode = 1;
+        }
       }),
     );
 }
@@ -1284,7 +1380,7 @@ function registerProgramCommands() {
 rootCommand
   .name("marble")
   .description(
-    "CLI to manage Marble resources. Prefer singular commands; plural resource names expose raw JSON mode.",
+    "CLI to manage Marble resources. Prefer singular commands; use run start for table execution and plural resource names for raw JSON mode.",
   )
   .version("1.0.0")
   .showHelpAfterError()
@@ -1297,6 +1393,7 @@ registerTableCommands();
 registerColumnCommands();
 registerRowCommands();
 registerCellCommands();
+registerRunCommands();
 registerProgramCommands();
 
 const resourceCommands = new Map<ApiResourceName, Command>();

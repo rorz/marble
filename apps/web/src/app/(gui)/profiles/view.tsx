@@ -30,6 +30,7 @@ import {
   TrashIcon,
   UserIcon,
 } from "@phosphor-icons/react/dist/ssr";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type ReactNode,
   useEffect,
@@ -561,6 +562,9 @@ export function ProfilesPageView({
   initialProfiles: ManagedProfileRecord[];
   userId: string;
 }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const createFormRef = useRef<HTMLFormElement>(null);
   const [profiles, setProfiles] = useState(initialProfiles);
   const [optimisticProfiles, addOptimisticProfile] = useOptimistic(
@@ -851,6 +855,32 @@ export function ProfilesPageView({
   }, [
     editingId,
     editingProfile,
+  ]);
+
+  useEffect(() => {
+    const editProfileId = searchParams.get("edit");
+
+    if (!editProfileId) {
+      return;
+    }
+
+    const profile = agentProfiles.find(
+      (candidate) => candidate.id === editProfileId,
+    );
+
+    if (!profile) {
+      return;
+    }
+
+    setEditingDraftIcon(resolveAgentProfileIcon(profile));
+    setEditingId(profile.id);
+    setError(null);
+    router.replace(pathname);
+  }, [
+    agentProfiles,
+    pathname,
+    router,
+    searchParams,
   ]);
 
   return (
