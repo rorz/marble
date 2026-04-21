@@ -44,6 +44,9 @@ Our development stack:
 > For web UI work, `packages/ui` is the first stop. Do not casually create bespoke components in `apps/web` because it is "faster" or "only for this page". That is how a second design system starts.
 
 ### UI Rules
+
+IMPORTANT!! You **must** read `/docs/internal/design-guide.md` before making any UI changes.
+
 1. Before writing any new UI component, search `packages/ui/src` and inspect `apps/web/src/app/internal/ui/page.tsx`.
 2. If the thing you are building is not deeply route-specific, you MUST add or extend the primitive in `packages/ui` first and consume it from `@marble/ui`.
 3. Do not create reusable UI wrappers in `apps/web/src/components`. Shared layout chrome, cards, notices, badges, empty states, controls, and similar primitives belong in `packages/ui`.
@@ -51,6 +54,8 @@ Our development stack:
 5. Every new or materially changed shared UI primitive must be represented in `apps/web/src/app/internal/ui/page.tsx` so there is always a living visual catalog.
 6. Only keep JSX local to a route when it is obviously domain-specific and would be nonsense anywhere else. If it reads like a component that could have a generic name, it belongs in `packages/ui`.
 7. **Marketing surfaces are an exception.** Components for marketing / landing routes (e.g. `apps/web/src/app/homepage/**`) are domain-specific by definition and MUST NOT be placed in `packages/ui`. They belong in a local `ui/` folder within the route (e.g. `apps/web/src/app/homepage/ui/`). `packages/ui` is for the product's design system — marketing primitives carry branding, copy framing, and tonal choices that do not belong there.
+8. **EXTREME UI WARNING:** NEVER add explanatory chrome, ornamental meta cards, or redundant labels that merely narrate what the interface already visually communicates. If a panel is obviously a modal, do not add surrounding status boxes that say "Modal". If a grouped control surface is obviously form controls, do not add decorative dashboard copy that restates that fact. Do not label the roof "roof." Do not label the windows "windows." The UI itself should carry meaning through structure, spacing, and hierarchy.
+9. When in doubt on product UI, bias aggressively toward subtraction. Fewer containers, fewer captions, fewer badges, fewer callouts, fewer "status" summaries, fewer "helpful" labels. Only add text or chrome when it changes a decision, clarifies an ambiguous interaction, or is a durable part of the product's information architecture.
 
 ## Turborepo
 

@@ -19,6 +19,11 @@ type RowRow = Database["public"]["Tables"]["row"]["Row"];
 type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
 type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
+type EditableProgramFile = {
+  content: string;
+  filename: string;
+  filetype: "TypeScript" | "Json" | "Markdown";
+};
 
 export type FullProgram = Program & {
   program_version: (ProgramVersion & {
@@ -30,6 +35,48 @@ const PROGRAM_SELECT =
 
 function db() {
   return createServiceRoleClient();
+}
+
+const DEFAULT_PROGRAM_NAME = "Untitled Program";
+const DEFAULT_PROGRAM_INPUT_SCHEMA = {
+  additionalProperties: true,
+  properties: {},
+  type: "object",
+} satisfies Record<string, unknown>;
+const DEFAULT_PROGRAM_OUTPUT_CONFIG = {
+  flags: {
+    allowInference: true,
+  },
+  schema: {
+    additionalProperties: true,
+    description: "Program result",
+    type: "object",
+  },
+} satisfies Record<string, unknown>;
+const DEFAULT_PROGRAM_MAIN_FILE = `export default async function ({ input, cell, system }) {
+  void cell;
+  void system;
+
+  return input;
+}
+`;
+
+function createDefaultProgramFiles(name: string): EditableProgramFile[] {
+  return [
+    {
+      content: `{
+  "name": ${JSON.stringify(name)}
+}
+`,
+      filename: "package.json",
+      filetype: "Json",
+    },
+    {
+      content: DEFAULT_PROGRAM_MAIN_FILE,
+      filename: "main.ts",
+      filetype: "TypeScript",
+    },
+  ];
 }
 
 export async function listPrograms(): Promise<FullProgram[]> {
@@ -77,11 +124,7 @@ export async function saveProgramVersion(
   name: string,
   inputSchema: unknown,
   outputConfig: unknown,
-  files: {
-    filename: string;
-    content: string;
-    filetype: "TypeScript" | "Json" | "Markdown";
-  }[],
+  files: EditableProgramFile[],
 ) {
   const requestId = crypto.randomUUID();
 
@@ -130,6 +173,16 @@ export async function saveProgramVersion(
     programId: program.id,
     versionId: program.initialVersion.id,
   };
+}
+
+export async function createProgram() {
+  return saveProgramVersion(
+    null,
+    DEFAULT_PROGRAM_NAME,
+    DEFAULT_PROGRAM_INPUT_SCHEMA,
+    DEFAULT_PROGRAM_OUTPUT_CONFIG,
+    createDefaultProgramFiles(DEFAULT_PROGRAM_NAME),
+  );
 }
 
 export async function renameProgram(programId: string, name: string) {

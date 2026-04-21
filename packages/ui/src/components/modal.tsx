@@ -2,7 +2,8 @@
 
 import { cva, type VariantProps } from "class-variance-authority";
 import type { HTMLAttributes, ReactNode } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cx } from "../utils/cx";
 
 const marbleModalPanelVariants = cva(
@@ -52,8 +53,17 @@ export function MarbleModal({
   size,
 }: MarbleModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
+    setPortalTarget(document.body);
+  }, []);
+
+  useEffect(() => {
+    if (!portalTarget) {
+      return;
+    }
+
     panelRef.current?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -69,18 +79,23 @@ export function MarbleModal({
     };
   }, [
     onClose,
+    portalTarget,
   ]);
 
-  return (
+  if (!portalTarget) {
+    return null;
+  }
+
+  return createPortal(
     <div
       className={cx(
-        "fixed inset-0 z-50 flex items-center justify-center p-4",
+        "fixed inset-0 z-[1200] flex items-center justify-center p-4",
         className,
       )}
     >
       <button
         aria-label="Close dialog"
-        className="absolute inset-0 bg-black/30"
+        className="absolute inset-0 bg-black/30 backdrop-blur-[1px]"
         onClick={onClose}
         type="button"
       />
@@ -93,7 +108,7 @@ export function MarbleModal({
           marbleModalPanelVariants({
             size,
           }),
-          "relative",
+          "relative z-10",
           panelClassName,
         )}
         ref={panelRef}
@@ -102,7 +117,8 @@ export function MarbleModal({
       >
         {children}
       </div>
-    </div>
+    </div>,
+    portalTarget,
   );
 }
 

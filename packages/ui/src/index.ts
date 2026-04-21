@@ -1,4 +1,10 @@
 export {
+  MarbleActivityRadar,
+  type MarbleActivityRadarBatch,
+  type MarbleActivityRadarProps,
+  type MarbleActivityRadarSegment,
+} from "./components/activity-radar";
+export {
   MarbleAlert,
   type MarbleAlertProps,
 } from "./components/alert";

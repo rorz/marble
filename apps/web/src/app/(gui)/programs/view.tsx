@@ -419,6 +419,8 @@ export function ProgramsPageView({
 }: ProgramsPageViewProps) {
   const router = useRouter();
   const [programs, setPrograms] = useState(() => sortPrograms(initialPrograms));
+  const [createError, setCreateError] = useState<null | string>(null);
+  const [createPending, setCreatePending] = useState(false);
   const [librarySurface, setLibrarySurface] = useState<LibrarySurface>(() =>
     initialPrograms.some((program) => program.first_party) ? "marble" : "mine",
   );
@@ -925,14 +927,30 @@ export function ProgramsPageView({
     }
   };
 
+  const handleCreateProgram = useCallback(async () => {
+    setCreatePending(true);
+    setCreateError(null);
+
+    try {
+      const { programId } = await actions.createProgram();
+      router.push(`/programs/${programId}`);
+    } catch (error) {
+      setCreateError(error instanceof Error ? error.message : String(error));
+      setCreatePending(false);
+    }
+  }, [
+    router,
+  ]);
+
   if (!isEditorRoute) {
     return (
       <MarblePane
         actions={[
           {
-            children: "New program",
+            children: createPending ? "Creating..." : "New program",
+            disabled: createPending,
             id: "new-program",
-            onClick: () => router.push("/programs/new"),
+            onClick: () => void handleCreateProgram(),
             variant: "orange",
           },
         ]}
@@ -945,6 +963,10 @@ export function ProgramsPageView({
         width="Narrow"
       >
         <div className="space-y-4">
+          {createError ? (
+            <MarbleAlert tone="error">{createError}</MarbleAlert>
+          ) : null}
+
           <MarbleCard tone="subtle">
             <MarbleCardHeader>
               <MarbleCardTitle>Program libraries</MarbleCardTitle>

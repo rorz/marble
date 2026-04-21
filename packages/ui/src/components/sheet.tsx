@@ -15,11 +15,11 @@ const MarbleSheetContext = createContext<MarbleSheetContextValue | null>(null);
 
 const marbleSheetContentSideClassNames = {
   bottom:
-    "inset-x-0 bottom-0 max-h-[80%] rounded-t-md data-[state=closed]:translate-y-full data-[state=open]:translate-y-0",
-  left: "inset-y-0 left-0 h-full w-[min(30rem,100%)] rounded-r-md data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0",
+    "inset-x-1 bottom-1 max-h-[80%] rounded-t-md data-[state=closed]:translate-y-full data-[state=open]:translate-y-0",
+  left: "inset-y-1 left-1 w-[min(30rem,calc(100%-0.5rem))] rounded-r-md data-[state=closed]:-translate-x-full data-[state=open]:translate-x-0",
   right:
-    "inset-y-0 right-0 h-full w-[min(30rem,100%)] rounded-l-md data-[state=closed]:translate-x-full data-[state=open]:translate-x-0",
-  top: "inset-x-0 top-0 max-h-[80%] rounded-b-md data-[state=closed]:-translate-y-full data-[state=open]:translate-y-0",
+    "inset-y-1 right-1 w-[min(30rem,calc(100%-0.5rem))] rounded-l-md data-[state=closed]:translate-x-full data-[state=open]:translate-x-0",
+  top: "inset-x-1 top-1 max-h-[80%] rounded-b-md data-[state=closed]:-translate-y-full data-[state=open]:translate-y-0",
 } as const;
 
 function useMarbleSheetContext() {
@@ -149,7 +149,7 @@ export function MarbleSheetContent({
         aria-labelledby={titleId}
         aria-modal={showBackdrop || undefined}
         className={cx(
-          "pointer-events-auto absolute z-10 top-1 bottom-1 right-1 rounded-sm flex flex-col overflow-hidden border border-taupe-200 bg-linear-to-b from-white via-white to-taupe-50 shadow-[0_18px_48px_rgba(84,57,26,0.16)] outline-none transition-[transform,opacity] duration-200 ease-out data-[state=closed]:opacity-0 data-[state=open]:opacity-100",
+          "pointer-events-auto absolute z-10 flex min-h-0 flex-col overflow-hidden border border-taupe-200 bg-linear-to-b from-white via-white to-taupe-50 shadow-[0_18px_48px_rgba(84,57,26,0.16)] outline-none transition-[transform,opacity] duration-200 ease-out data-[state=closed]:opacity-0 data-[state=open]:opacity-100",
           marbleSheetContentSideClassNames[side],
           className,
         )}
