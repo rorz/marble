@@ -2,7 +2,7 @@
 
 import { cva, type VariantProps } from "class-variance-authority";
 import type { HTMLAttributes, ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cx } from "../utils/cx";
 
@@ -54,6 +54,9 @@ export function MarbleModal({
 }: MarbleModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const handleClose = useEffectEvent(() => {
+    onClose();
+  });
 
   useEffect(() => {
     setPortalTarget(document.body);
@@ -68,7 +71,7 @@ export function MarbleModal({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        handleClose();
       }
     };
 
@@ -78,7 +81,6 @@ export function MarbleModal({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [
-    onClose,
     portalTarget,
   ]);
 

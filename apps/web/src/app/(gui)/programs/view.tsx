@@ -1157,7 +1157,7 @@ export function ProgramsPageView({
         },
       ]}
     >
-      <div className="space-y-4">
+      <div className="space-y-4 size-full">
         {renameError ? (
           <MarbleAlert tone="error">{renameError}</MarbleAlert>
         ) : null}

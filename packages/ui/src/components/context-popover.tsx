@@ -2,7 +2,11 @@
 
 import {
   type ButtonHTMLAttributes,
+  cloneElement,
+  isValidElement,
+  type ReactElement,
   type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -33,6 +37,7 @@ type MarbleContextPopoverSection = {
 export type MarbleContextPopoverProps = {
   align?: "end" | "start";
   ariaLabel?: string;
+  asChild?: boolean;
   children?: ReactNode;
   className?: string;
   disabled?: boolean;
@@ -53,6 +58,7 @@ function getEnabledItemIndexes(items: MarbleContextPopoverItem[]) {
 export function MarbleContextPopover({
   align = "end",
   ariaLabel = "Open menu",
+  asChild = false,
   children,
   className,
   disabled = false,
@@ -66,7 +72,7 @@ export function MarbleContextPopover({
 }: MarbleContextPopoverProps) {
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const buttonRef = useRef<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -255,10 +261,9 @@ export function MarbleContextPopover({
     isOpen,
   ]);
 
-  const handleTriggerKeyDown = (
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-  ) => {
-    onKeyDown?.(event);
+  const handleTriggerKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    buttonRef.current = event.currentTarget;
+    onKeyDown?.(event as unknown as ReactKeyboardEvent<HTMLButtonElement>);
 
     if (event.defaultPrevented || isTriggerDisabled) {
       return;
@@ -274,6 +279,105 @@ export function MarbleContextPopover({
       event.preventDefault();
       openMenu(enabledItemIndexes.length - 1);
     }
+  };
+
+  const handleTriggerClick = (event: ReactMouseEvent<HTMLElement>) => {
+    buttonRef.current = event.currentTarget;
+    setIsOpen((current) => !current);
+  };
+
+  const renderTrigger = () => {
+    if (asChild && isValidElement(children)) {
+      const child = children as ReactElement<{
+        "aria-controls"?: string;
+        "aria-expanded"?: boolean;
+        "aria-haspopup"?: "menu";
+        "aria-label"?: string;
+        className?: string;
+        disabled?: boolean;
+        onClick?: (event: ReactMouseEvent<HTMLElement>) => void;
+        onKeyDown?: (event: ReactKeyboardEvent<HTMLElement>) => void;
+      }>;
+      const disabledTriggerProps =
+        typeof child.type === "string"
+          ? child.type === "button"
+            ? {
+                disabled: isTriggerDisabled,
+              }
+            : {
+                "aria-disabled": isTriggerDisabled || undefined,
+              }
+          : {
+              disabled: isTriggerDisabled,
+            };
+
+      return cloneElement(child, {
+        ...disabledTriggerProps,
+        ...props,
+        "aria-controls": menuId,
+        "aria-expanded": isOpen,
+        "aria-haspopup": "menu",
+        "aria-label": ariaLabel,
+        className: cx(
+          "inline-flex min-w-0 items-center justify-center rounded-[6px] transition-colors",
+          triggerClassName,
+          child.props.className,
+        ),
+        onClick: (event: ReactMouseEvent<HTMLElement>) => {
+          child.props.onClick?.(event);
+
+          if (!event.defaultPrevented && !isTriggerDisabled) {
+            handleTriggerClick(event);
+          }
+        },
+        onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => {
+          child.props.onKeyDown?.(event);
+
+          if (!event.defaultPrevented) {
+            handleTriggerKeyDown(event);
+          }
+        },
+      });
+    }
+
+    return (
+      <button
+        aria-controls={menuId}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-label={ariaLabel}
+        className={cx(
+          hasCustomTrigger
+            ? "inline-flex min-w-0 items-center justify-center rounded-[6px] transition-colors"
+            : "inline-flex size-7 items-center justify-center rounded-[4px] text-zinc-400 transition-colors",
+          hasCustomTrigger
+            ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50"
+            : "hover:bg-zinc-100 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50",
+          triggerClassName,
+        )}
+        disabled={isTriggerDisabled}
+        onClick={handleTriggerClick}
+        onKeyDown={handleTriggerKeyDown}
+        ref={(element) => {
+          buttonRef.current = element;
+        }}
+        type="button"
+        {...props}
+      >
+        {hasCustomTrigger ? (
+          children
+        ) : (
+          <span
+            aria-hidden="true"
+            className="flex flex-col gap-px"
+          >
+            <span className="size-[3px] rounded-full bg-current" />
+            <span className="size-[3px] rounded-full bg-current" />
+            <span className="size-[3px] rounded-full bg-current" />
+          </span>
+        )}
+      </button>
+    );
   };
 
   const handleItemKeyDown =
@@ -322,42 +426,7 @@ export function MarbleContextPopover({
       className={cx("relative inline-flex", className)}
       ref={rootRef}
     >
-      <button
-        aria-controls={menuId}
-        aria-expanded={isOpen}
-        aria-haspopup="menu"
-        aria-label={ariaLabel}
-        className={cx(
-          hasCustomTrigger
-            ? "inline-flex min-w-0 items-center justify-center rounded-[6px] transition-colors"
-            : "inline-flex size-7 items-center justify-center rounded-[4px] text-zinc-400 transition-colors",
-          hasCustomTrigger
-            ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50"
-            : "hover:bg-zinc-100 hover:text-zinc-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50",
-          triggerClassName,
-        )}
-        disabled={isTriggerDisabled}
-        onClick={() => {
-          setIsOpen((current) => !current);
-        }}
-        onKeyDown={handleTriggerKeyDown}
-        ref={buttonRef}
-        type="button"
-        {...props}
-      >
-        {hasCustomTrigger ? (
-          children
-        ) : (
-          <span
-            aria-hidden="true"
-            className="flex flex-col gap-px"
-          >
-            <span className="size-[3px] rounded-full bg-current" />
-            <span className="size-[3px] rounded-full bg-current" />
-            <span className="size-[3px] rounded-full bg-current" />
-          </span>
-        )}
-      </button>
+      {renderTrigger()}
 
       {isOpen ? (
         <div

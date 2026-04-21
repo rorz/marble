@@ -1063,6 +1063,7 @@ export default function UiPage() {
                   <MarbleContextPopover
                     align="start"
                     ariaLabel="Open project menu"
+                    asChild
                     header={
                       <div className="rounded-xs border border-orange-200 bg-orange-50/80 px-3 py-2">
                         <div className="font-medium text-sm text-taupe-950">

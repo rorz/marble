@@ -45,7 +45,7 @@ Our development stack:
 
 ### UI Rules
 
-IMPORTANT!! You **must** read `/docs/internal/design-guide.md` before making any UI changes.
+IMPORTANT!! You **must** read [Internal Design Guide](./docs/internal/design-guide.md) before making any UI changes.
 
 1. Before writing any new UI component, search `packages/ui/src` and inspect `apps/web/src/app/internal/ui/page.tsx`.
 2. If the thing you are building is not deeply route-specific, you MUST add or extend the primitive in `packages/ui` first and consume it from `@marble/ui`.
