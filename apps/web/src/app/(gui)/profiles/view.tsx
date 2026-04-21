@@ -10,6 +10,7 @@ import {
   MarbleCardContent,
   MarbleCardDescription,
   MarbleCardHeader,
+  type MarbleCardHeaderProps,
   MarbleCardTitle,
   MarbleEmptyState,
   MarbleFieldLabel,
@@ -239,9 +240,9 @@ function ProfileAvatar({
 }) {
   if (profile.type === "Human") {
     return (
-      <div className="flex aspect-square w-20 shrink-0 items-center justify-center rounded-xs border-4 border-taupe-900 bg-taupe-600 sm:w-24">
+      <div className="flex size-11 shrink-0 items-center justify-center rounded-xs border border-taupe-700 bg-taupe-700">
         <UserIcon
-          className="size-14 fill-white sm:size-16"
+          className="size-6 fill-white"
           weight="duotone"
         />
       </div>
@@ -249,10 +250,10 @@ function ProfileAvatar({
   }
 
   return (
-    <div className="flex aspect-square w-20 shrink-0 items-center justify-center rounded-xs border border-taupe-200 bg-linear-to-br from-white via-taupe-50 to-orange-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] sm:w-24">
+    <div className="flex size-11 shrink-0 items-center justify-center rounded-xs border border-taupe-200 bg-linear-to-br from-white via-taupe-50 to-orange-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
       <span
         aria-hidden="true"
-        className="text-[2.25rem] leading-none"
+        className="text-2xl leading-none"
       >
         {resolveAgentProfileIcon(profile)}
       </span>
@@ -268,63 +269,48 @@ function ProfileSummary({
   profile: ManagedProfileRecord;
 }) {
   return (
-    <>
-      <div className="flex flex-wrap items-center gap-2">
-        <MarbleCardTitle className="text-lg text-taupe-950">
-          {profile.name}
-        </MarbleCardTitle>
-        <MarbleBadge
-          caps
-          tone={profile.type === "Human" ? "solid" : "neutral"}
-        >
-          {profile.type}
-        </MarbleBadge>
-        {profile.external_name ? (
+    <div className="flex min-w-0 items-start gap-3">
+      <ProfileAvatar profile={profile} />
+      <div className="min-w-0 space-y-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <MarbleCardTitle className="text-base leading-tight text-taupe-950">
+            {profile.name}
+          </MarbleCardTitle>
           <MarbleBadge
             caps
-            tone="warning"
+            tone={profile.type === "Human" ? "solid" : "neutral"}
           >
-            {profile.external_name}
+            {profile.type}
           </MarbleBadge>
-        ) : null}
-        {extraBadges}
+          {profile.external_name ? (
+            <MarbleBadge
+              caps
+              tone="warning"
+            >
+              {profile.external_name}
+            </MarbleBadge>
+          ) : null}
+          {extraBadges}
+        </div>
+        <MarbleCardDescription className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          <span>
+            Created {CREATED_AT_FORMATTER.format(new Date(profile.created_at))}
+          </span>
+          <span>
+            {profile.keys.length} key{profile.keys.length === 1 ? "" : "s"}
+          </span>
+        </MarbleCardDescription>
       </div>
-      <MarbleCardDescription>
-        Created {CREATED_AT_FORMATTER.format(new Date(profile.created_at))}
-      </MarbleCardDescription>
-    </>
-  );
-}
-
-function ProfileRow({
-  children,
-  profile,
-}: {
-  children: ReactNode;
-  profile: ManagedProfileRecord;
-}) {
-  return (
-    <div className="grid gap-3 md:grid-cols-[6rem_minmax(0,1fr)] md:items-start">
-      <ProfileAvatar profile={profile} />
-      {children}
     </div>
   );
 }
 
 function KeyList({
-  createDisabled,
-  createLabel,
-  createVariant = "light",
   keys,
-  onCreateKey,
   onRevokeKey,
   revokingKeyId,
 }: {
-  createDisabled: boolean;
-  createLabel: string;
-  createVariant?: MarbleButtonProps["variant"];
   keys: ProfileKeyRecord[];
-  onCreateKey: () => void;
   onRevokeKey: (key: ProfileKeyRecord) => void;
   revokingKeyId: null | string;
 }) {
@@ -335,21 +321,11 @@ function KeyList({
     : keys.slice(0, VISIBLE_KEY_COUNT);
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
-        <MarbleButton
-          disabled={createDisabled}
-          onClick={onCreateKey}
-          size="sm"
-          type="button"
-          variant={createVariant}
-        >
-          {createLabel}
-        </MarbleButton>
-      </div>
-
+    <div className="space-y-3">
       {keys.length === 0 ? (
-        <MarbleAlert tone="neutral">No keys yet for this profile.</MarbleAlert>
+        <div className="rounded-xs border border-dashed border-zinc-200 bg-white/70 px-3 py-2 text-xs text-zinc-500">
+          No keys yet for this profile.
+        </div>
       ) : (
         <div className="overflow-hidden rounded-sm border border-zinc-200 bg-white/80">
           {visibleKeys.map((key) => (
@@ -360,7 +336,7 @@ function KeyList({
                   <MarbleButton
                     disabled={Boolean(key.deleted_at || revokingKeyId)}
                     onClick={() => onRevokeKey(key)}
-                    size="sm"
+                    size="xs"
                     type="button"
                     variant="red"
                   >
@@ -369,7 +345,7 @@ function KeyList({
                 )
               }
               description={
-                <div className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] text-zinc-500">
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
                   <span>
                     Created{" "}
                     {CREATED_AT_FORMATTER.format(new Date(key.created_at))}
@@ -382,6 +358,7 @@ function KeyList({
                   ) : null}
                 </div>
               }
+              descriptionClassName="mt-1 flex flex-wrap gap-x-3 gap-y-1 font-mono text-[11px] text-zinc-500"
               key={key.id}
               meta={
                 <MarbleBadge
@@ -391,8 +368,9 @@ function KeyList({
                   {key.deleted_at ? "Revoked" : "Active"}
                 </MarbleBadge>
               }
-              size="compact"
-              title={<span className="font-mono text-sm">{key.preview}</span>}
+              size="sm"
+              title={key.preview}
+              titleClassName="font-mono text-[11px] text-taupe-900"
               tone="neutral"
             />
           ))}
@@ -400,7 +378,7 @@ function KeyList({
             <div className="border-zinc-200 border-t px-3 py-2">
               <MarbleButton
                 onClick={() => setIsShowingAllKeys((current) => !current)}
-                size="sm"
+                size="xs"
                 type="button"
               >
                 {isShowingAllKeys
@@ -412,6 +390,70 @@ function KeyList({
         </div>
       )}
     </div>
+  );
+}
+
+function ManagedProfileCard({
+  createDisabled,
+  createLabel,
+  createVariant = "light",
+  disclosureActions,
+  disclosureAriaLabel,
+  extraBadges,
+  onCreateKey,
+  onRevokeKey,
+  profile,
+  revokingKeyId,
+  tone = "default",
+}: {
+  createDisabled: boolean;
+  createLabel: string;
+  createVariant?: MarbleButtonProps["variant"];
+  disclosureActions?: MarbleCardHeaderProps["disclosureActions"];
+  disclosureAriaLabel: string;
+  extraBadges?: ReactNode;
+  onCreateKey: () => void;
+  onRevokeKey: (key: ProfileKeyRecord) => void;
+  profile: ManagedProfileRecord;
+  revokingKeyId: null | string;
+  tone?: "default" | "orange" | "subtle";
+}) {
+  return (
+    <MarbleCard
+      className="min-w-0"
+      tone={tone}
+    >
+      <MarbleCardHeader
+        actions={[
+          {
+            children: createLabel,
+            disabled: createDisabled,
+            iconLeft: PlusIcon,
+            id: `${profile.id}-create-key`,
+            onClick: onCreateKey,
+            size: "sm",
+            type: "button",
+            variant: createVariant,
+          },
+        ]}
+        className="border-zinc-100 border-b px-4 py-3"
+        disclosureActions={disclosureActions}
+        disclosureAriaLabel={disclosureAriaLabel}
+      >
+        <ProfileSummary
+          extraBadges={extraBadges}
+          profile={profile}
+        />
+      </MarbleCardHeader>
+
+      <MarbleCardContent className="px-4 pb-4 pt-3">
+        <KeyList
+          keys={profile.keys}
+          onRevokeKey={onRevokeKey}
+          revokingKeyId={revokingKeyId}
+        />
+      </MarbleCardContent>
+    </MarbleCard>
   );
 }
 
@@ -528,7 +570,7 @@ function NewKeyModal({
             <MarbleCardDescription>{profileName}</MarbleCardDescription>
           </MarbleCardHeader>
           <MarbleCardContent className="px-4 py-4">
-            <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-xs border border-zinc-200 bg-white px-3 py-3 font-mono text-sm text-zinc-950">
+            <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-xs border border-zinc-200 bg-white px-3 py-3 font-mono text-[12px] leading-5 text-zinc-950">
               {token}
             </pre>
           </MarbleCardContent>
@@ -963,8 +1005,9 @@ export function ProfilesPageView({
 
         {agentProfiles.length === 0 ? (
           <MarbleCard>
-            <MarbleCardContent className="px-5 py-5">
+            <MarbleCardContent className="px-4 py-4">
               <MarbleEmptyState
+                className="py-6"
                 description="Create your first agent profile, then mint keys inside the profile card itself."
                 title="No agent profiles yet"
               />
@@ -978,74 +1021,56 @@ export function ProfilesPageView({
               const isTemporary = isOptimisticId(profile.id);
 
               return (
-                <ProfileRow
+                <ManagedProfileCard
+                  createDisabled={Boolean(
+                    creatingKeyProfileId || isDeleting || isTemporary,
+                  )}
+                  createLabel={
+                    creatingKeyProfileId === profile.id
+                      ? "Creating key"
+                      : "Create key"
+                  }
+                  disclosureActions={[
+                    {
+                      description:
+                        "Rename it, relabel its provider, or swap the icon.",
+                      disabled: isDeleting || isSaving || isTemporary,
+                      icon: (
+                        <PencilSimpleIcon
+                          size={14}
+                          weight="bold"
+                        />
+                      ),
+                      label: "Edit name",
+                      onSelect: () => openEditModal(profile),
+                    },
+                    {
+                      description:
+                        "Only works when nothing else still belongs to it.",
+                      disabled:
+                        isDeleting ||
+                        isSaving ||
+                        creatingKeyProfileId === profile.id ||
+                        isTemporary,
+                      icon: (
+                        <TrashIcon
+                          size={14}
+                          weight="bold"
+                        />
+                      ),
+                      label: isDeleting ? "Deleting" : "Delete profile",
+                      onSelect: () => void handleDelete(profile),
+                      tone: "danger",
+                    },
+                  ]}
+                  disclosureAriaLabel={`Open actions for ${profile.name}`}
                   key={profile.id}
+                  onCreateKey={() => void handleCreateKey(profile)}
+                  onRevokeKey={(key) => void handleRevokeKey(profile, key)}
                   profile={profile}
-                >
-                  <MarbleCard
-                    className="min-w-0 overflow-visible"
-                    tone={isTemporary ? "subtle" : "default"}
-                  >
-                    <MarbleCardHeader
-                      className="border-zinc-100 border-b px-5 py-4"
-                      disclosureActions={[
-                        {
-                          description:
-                            "Rename it, relabel its provider, or swap the icon.",
-                          disabled: isDeleting || isSaving || isTemporary,
-                          icon: (
-                            <PencilSimpleIcon
-                              size={14}
-                              weight="bold"
-                            />
-                          ),
-                          label: "Edit name",
-                          onSelect: () => openEditModal(profile),
-                        },
-                        {
-                          description:
-                            "Only works when nothing else still belongs to it.",
-                          disabled:
-                            isDeleting ||
-                            isSaving ||
-                            creatingKeyProfileId === profile.id ||
-                            isTemporary,
-                          icon: (
-                            <TrashIcon
-                              size={14}
-                              weight="bold"
-                            />
-                          ),
-                          label: isDeleting ? "Deleting" : "Delete profile",
-                          onSelect: () => void handleDelete(profile),
-                          tone: "danger",
-                        },
-                      ]}
-                      disclosureAriaLabel={`Open actions for ${profile.name}`}
-                    >
-                      <ProfileSummary profile={profile} />
-                    </MarbleCardHeader>
-
-                    <MarbleCardContent className="px-5 pb-5 pt-4">
-                      <KeyList
-                        createDisabled={Boolean(
-                          creatingKeyProfileId || isDeleting || isTemporary,
-                        )}
-                        createLabel={
-                          creatingKeyProfileId === profile.id
-                            ? "Creating key"
-                            : "Create key"
-                        }
-                        keys={profile.keys}
-                        onCreateKey={() => void handleCreateKey(profile)}
-                        onRevokeKey={(key) =>
-                          void handleRevokeKey(profile, key)
-                        }
-                        revokingKeyId={revokingKeyId}
-                      />
-                    </MarbleCardContent>
-                  </MarbleCard>
-                </ProfileRow>
+                  revokingKeyId={revokingKeyId}
+                  tone={isTemporary ? "subtle" : "default"}
+                />
               );
             })}
           </div>
@@ -1064,72 +1089,57 @@ export function ProfilesPageView({
         </div>
 
         {primaryHumanProfile ? (
-          <ProfileRow profile={primaryHumanProfile}>
-            <MarbleCard
-              className="min-w-0 overflow-visible"
-              tone="subtle"
-            >
-              <MarbleCardHeader
-                className="border-zinc-100 border-b px-5 py-4"
-                disclosureActions={[
-                  {
-                    description:
-                      "The automatic human profile is fixed to your account.",
-                    disabled: true,
-                    icon: (
-                      <PencilSimpleIcon
-                        size={14}
-                        weight="bold"
-                      />
-                    ),
-                    label: "Edit name",
-                    onSelect: () => undefined,
-                  },
-                  {
-                    description:
-                      "Human profiles are created automatically and cannot be deleted here.",
-                    disabled: true,
-                    icon: (
-                      <TrashIcon
-                        size={14}
-                        weight="bold"
-                      />
-                    ),
-                    label: "Delete profile",
-                    onSelect: () => undefined,
-                    tone: "danger",
-                  },
-                ]}
-                disclosureAriaLabel="Open human profile actions"
-              >
-                <ProfileSummary profile={primaryHumanProfile} />
-              </MarbleCardHeader>
-
-              <MarbleCardContent className="px-5 pb-5 pt-4">
-                <KeyList
-                  createDisabled={Boolean(
-                    creatingKeyProfileId ||
-                      isOptimisticId(primaryHumanProfile.id),
-                  )}
-                  createLabel={
-                    creatingKeyProfileId === primaryHumanProfile.id
-                      ? "Creating key"
-                      : "Create key"
-                  }
-                  createVariant="dark"
-                  keys={primaryHumanProfile.keys}
-                  onCreateKey={() => void handleCreateKey(primaryHumanProfile)}
-                  onRevokeKey={(key) =>
-                    void handleRevokeKey(primaryHumanProfile, key)
-                  }
-                  revokingKeyId={revokingKeyId}
-                />
-              </MarbleCardContent>
-            </MarbleCard>
-          </ProfileRow>
+          <ManagedProfileCard
+            createDisabled={Boolean(
+              creatingKeyProfileId || isOptimisticId(primaryHumanProfile.id),
+            )}
+            createLabel={
+              creatingKeyProfileId === primaryHumanProfile.id
+                ? "Creating key"
+                : "Create key"
+            }
+            createVariant="dark"
+            disclosureActions={[
+              {
+                description:
+                  "The automatic human profile is fixed to your account.",
+                disabled: true,
+                icon: (
+                  <PencilSimpleIcon
+                    size={14}
+                    weight="bold"
+                  />
+                ),
+                label: "Edit name",
+                onSelect: () => undefined,
+              },
+              {
+                description:
+                  "Human profiles are created automatically and cannot be deleted here.",
+                disabled: true,
+                icon: (
+                  <TrashIcon
+                    size={14}
+                    weight="bold"
+                  />
+                ),
+                label: "Delete profile",
+                onSelect: () => undefined,
+                tone: "danger",
+              },
+            ]}
+            disclosureAriaLabel="Open human profile actions"
+            onCreateKey={() => void handleCreateKey(primaryHumanProfile)}
+            onRevokeKey={(key) =>
+              void handleRevokeKey(primaryHumanProfile, key)
+            }
+            profile={primaryHumanProfile}
+            revokingKeyId={revokingKeyId}
+            tone="subtle"
+          />
         ) : (
           <MarbleCard tone="subtle">
-            <MarbleCardContent className="px-5 py-5">
+            <MarbleCardContent className="px-4 py-4">
               <MarbleAlert tone="warning">
                 Marble expected an automatic human profile here, but none was
                 found for this account.
@@ -1148,81 +1158,61 @@ export function ProfilesPageView({
 
             <div className="space-y-3">
               {additionalHumanProfiles.map((profile) => (
-                <ProfileRow
-                  key={profile.id}
-                  profile={profile}
-                >
-                  <MarbleCard
-                    className="min-w-0 overflow-visible"
-                    tone="subtle"
-                  >
-                    <MarbleCardHeader
-                      className="border-zinc-100 border-b px-5 py-4"
-                      disclosureActions={[
-                        {
-                          description:
-                            "This extra human profile remains read-only here.",
-                          disabled: true,
-                          icon: (
-                            <PencilSimpleIcon
-                              size={14}
-                              weight="bold"
-                            />
-                          ),
-                          label: "Edit name",
-                          onSelect: () => undefined,
-                        },
-                        {
-                          description:
-                            "Human profiles are not removable from this screen.",
-                          disabled: true,
-                          icon: (
-                            <TrashIcon
-                              size={14}
-                              weight="bold"
-                            />
-                          ),
-                          label: "Delete profile",
-                          onSelect: () => undefined,
-                          tone: "danger",
-                        },
-                      ]}
-                      disclosureAriaLabel={`Open actions for ${profile.name}`}
+                <ManagedProfileCard
+                  createDisabled={Boolean(
+                    creatingKeyProfileId || isOptimisticId(profile.id),
+                  )}
+                  createLabel={
+                    creatingKeyProfileId === profile.id
+                      ? "Creating key"
+                      : "Create key"
+                  }
+                  createVariant="dark"
+                  disclosureActions={[
+                    {
+                      description:
+                        "This extra human profile remains read-only here.",
+                      disabled: true,
+                      icon: (
+                        <PencilSimpleIcon
+                          size={14}
+                          weight="bold"
+                        />
+                      ),
+                      label: "Edit name",
+                      onSelect: () => undefined,
+                    },
+                    {
+                      description:
+                        "Human profiles are not removable from this screen.",
+                      disabled: true,
+                      icon: (
+                        <TrashIcon
+                          size={14}
+                          weight="bold"
+                        />
+                      ),
+                      label: "Delete profile",
+                      onSelect: () => undefined,
+                      tone: "danger",
+                    },
+                  ]}
+                  disclosureAriaLabel={`Open actions for ${profile.name}`}
+                  extraBadges={
+                    <MarbleBadge
+                      caps
+                      tone="warning"
                     >
-                      <ProfileSummary
-                        extraBadges={
-                          <MarbleBadge
-                            caps
-                            tone="warning"
-                          >
-                            Unexpected
-                          </MarbleBadge>
-                        }
-                        profile={profile}
-                      />
-                    </MarbleCardHeader>
-
-                    <MarbleCardContent className="px-5 pb-5 pt-4">
-                      <KeyList
-                        createDisabled={Boolean(
-                          creatingKeyProfileId || isOptimisticId(profile.id),
-                        )}
-                        createLabel={
-                          creatingKeyProfileId === profile.id
-                            ? "Creating key"
-                            : "Create key"
-                        }
-                        createVariant="dark"
-                        keys={profile.keys}
-                        onCreateKey={() => void handleCreateKey(profile)}
-                        onRevokeKey={(key) =>
-                          void handleRevokeKey(profile, key)
-                        }
-                        revokingKeyId={revokingKeyId}
-                      />
-                    </MarbleCardContent>
-                  </MarbleCard>
-                </ProfileRow>
+                      Unexpected
+                    </MarbleBadge>
+                  }
+                  key={profile.id}
+                  onCreateKey={() => void handleCreateKey(profile)}
+                  onRevokeKey={(key) => void handleRevokeKey(profile, key)}
+                  profile={profile}
+                  revokingKeyId={revokingKeyId}
+                  tone="subtle"
+                />
               ))}
             </div>
           </>

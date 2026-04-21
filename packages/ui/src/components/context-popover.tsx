@@ -19,12 +19,16 @@ import {
 import { cx } from "../utils/cx";
 
 type MarbleContextPopoverItem = {
-  description?: string;
+  description?: ReactNode;
   detail?: ReactNode;
   disabled?: boolean;
   id?: string;
   icon?: ReactNode;
   label: string;
+  onBlur?: () => void;
+  onFocus?: () => void;
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
   onSelect: () => void;
   tone?: "default" | "danger";
 };
@@ -45,6 +49,7 @@ export type MarbleContextPopoverProps = {
   header?: ReactNode;
   items?: MarbleContextPopoverItem[];
   menuClassName?: string;
+  onOpenChange?: (isOpen: boolean) => void;
   sections?: MarbleContextPopoverSection[];
   triggerClassName?: string;
 } & Omit<
@@ -66,6 +71,7 @@ export function MarbleContextPopover({
   header,
   items = [],
   menuClassName,
+  onOpenChange,
   sections,
   onKeyDown,
   triggerClassName,
@@ -162,6 +168,13 @@ export function MarbleContextPopover({
       menuRef.current?.focus();
     });
   };
+
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [
+    isOpen,
+    onOpenChange,
+  ]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -491,11 +504,17 @@ export function MarbleContextPopover({
                       )}
                       disabled={item.disabled}
                       key={getItemKey(item)}
+                      onBlur={() => item.onBlur?.()}
                       onClick={() => {
+                        item.onBlur?.();
+                        item.onPointerLeave?.();
                         dismissMenu();
                         item.onSelect();
                       }}
+                      onFocus={() => item.onFocus?.()}
                       onKeyDown={handleItemKeyDown(index)}
+                      onPointerEnter={() => item.onPointerEnter?.()}
+                      onPointerLeave={() => item.onPointerLeave?.()}
                       ref={(element) => {
                         itemRefs.current[index] = element;
                       }}
@@ -512,9 +531,9 @@ export function MarbleContextPopover({
                           {item.label}
                         </span>
                         {item.description ? (
-                          <span className="mt-0.5 text-xs text-zinc-500">
+                          <div className="mt-0.5 text-xs text-zinc-500">
                             {item.description}
-                          </span>
+                          </div>
                         ) : null}
                       </span>
                       {item.detail ? (

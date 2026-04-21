@@ -48,6 +48,8 @@ import {
   MarbleModalTitle,
   MarblePane,
   MarblePaneEditableCrumb,
+  MarbleProfileAttribution,
+  MarbleReviewNavigator,
   MarbleSearchSelect,
   type MarbleSearchSelectOption,
   MarbleSelect,
@@ -285,6 +287,7 @@ export default function UiPage() {
   const [selectedCommandExample, setSelectedCommandExample] =
     useState("Open projects");
   const [lastInteraction, setLastInteraction] = useState("Waiting for input");
+  const [reviewNavigatorIndex, setReviewNavigatorIndex] = useState(1);
 
   const handleMenuSelect = (label: string) => {
     setLastInteraction(label);
@@ -391,10 +394,19 @@ export default function UiPage() {
   ];
   const activityRadarBatches = [
     {
+      actors: [
+        {
+          externalName: "Claude Code",
+          icon: "🛠️",
+          id: "profile-claude",
+          name: "Schema Agent",
+          type: "Agent" as const,
+        },
+      ],
       description: "+1 ~14 · 1 Table · 14 Cells",
       id: "activity-radar-prospects",
       label: "Prospects",
-      onSelect: () => handleMenuSelect("Change radar: Prospects"),
+      onSelect: () => handleMenuSelect("Agent changesets: Prospects"),
       segments: [
         {
           tone: "create" as const,
@@ -409,10 +421,26 @@ export default function UiPage() {
       unread: true,
     },
     {
+      actors: [
+        {
+          externalName: "Codex",
+          icon: "🤖",
+          id: "profile-codex",
+          name: "Build Agent",
+          type: "Agent" as const,
+        },
+        {
+          externalName: "Cursor",
+          icon: "🔍",
+          id: "profile-cursor",
+          name: "Review Agent",
+          type: "Agent" as const,
+        },
+      ],
       description: "~4 -1 · 4 Columns · 1 Row",
       id: "activity-radar-pipeline",
       label: "Pipeline",
-      onSelect: () => handleMenuSelect("Change radar: Pipeline"),
+      onSelect: () => handleMenuSelect("Agent changesets: Pipeline"),
       segments: [
         {
           tone: "update" as const,
@@ -1292,7 +1320,7 @@ export default function UiPage() {
                 <div className="flex items-center justify-between rounded-xs border border-taupe-200 bg-white p-3">
                   <div className="space-y-1">
                     <div className="font-medium text-sm text-taupe-950">
-                      Activity radar
+                      Agent changesets
                     </div>
                     <div className="text-sm text-taupe-600">
                       Compact agentic burst inbox for shell chrome.
@@ -1303,13 +1331,147 @@ export default function UiPage() {
                     batches={activityRadarBatches}
                     compact
                     onMarkAllRead={() =>
-                      handleMenuSelect("Change radar: Mark all reviewed")
+                      handleMenuSelect("Agent changesets: Mark all reviewed")
                     }
                     onOpenFeed={() =>
-                      handleMenuSelect("Change radar: Open events")
+                      handleMenuSelect("Agent changesets: Open events")
                     }
                     unreadCount={1}
                   />
+                </div>
+
+                <div className="rounded-xs border border-taupe-200 bg-white p-3">
+                  <div className="mb-3 space-y-1">
+                    <div className="font-medium text-sm text-taupe-950">
+                      Review navigator
+                    </div>
+                    <div className="text-sm text-taupe-600">
+                      Compact review tray for stepping through grouped changes.
+                    </div>
+                  </div>
+
+                  <MarbleReviewNavigator
+                    currentIndex={reviewNavigatorIndex}
+                    detailItems={[
+                      {
+                        label: "12 waves",
+                        targetKeys: [
+                          "table:demo-review",
+                        ],
+                      },
+                      {
+                        diffs: [
+                          {
+                            count: 24,
+                            targetKeys: [
+                              "cell:row-a:col-subject",
+                              "cell:row-b:col-subject",
+                            ],
+                            tone: "update",
+                          },
+                        ],
+                        label: "24 cells",
+                        targetKeys: [
+                          "cell:row-a:col-subject",
+                          "cell:row-b:col-subject",
+                          "cell:row-c:col-subject",
+                        ],
+                      },
+                      {
+                        diffs: [
+                          {
+                            count: 3,
+                            targetKeys: [
+                              "column:col-chaos",
+                            ],
+                            tone: "update",
+                          },
+                          {
+                            count: 1,
+                            targetKeys: [
+                              "column:col-chaos",
+                            ],
+                            tone: "delete",
+                          },
+                        ],
+                        label: "4 column dependencies",
+                        targetKeys: [
+                          "column:col-chaos",
+                          "column:col-vibe",
+                        ],
+                      },
+                    ]}
+                    onClose={() => handleMenuSelect("Review navigator: Close")}
+                    onNext={() =>
+                      setReviewNavigatorIndex((current) => (current + 1) % 6)
+                    }
+                    onPreviewTargetsEnd={() =>
+                      setLastInteraction("Review navigator: Preview cleared")
+                    }
+                    onPreviewTargetsStart={(targetKeys) =>
+                      setLastInteraction(
+                        `Review navigator: Preview ${targetKeys.length} target${targetKeys.length === 1 ? "" : "s"}`,
+                      )
+                    }
+                    onPrevious={() =>
+                      setReviewNavigatorIndex(
+                        (current) => (current - 1 + 6) % 6,
+                      )
+                    }
+                    onSelectIndex={setReviewNavigatorIndex}
+                    summary="Snack Vibe Matrix"
+                    totalCount={6}
+                  />
+                </div>
+
+                <div className="rounded-xs border border-taupe-200 bg-white p-3">
+                  <div className="mb-3 space-y-1">
+                    <div className="font-medium text-sm text-taupe-950">
+                      Profile attribution
+                    </div>
+                    <div className="text-sm text-taupe-600">
+                      Tight ownership marks for one agent or a small mixed
+                      group.
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <MarbleProfileAttribution
+                      profiles={[
+                        {
+                          externalName: "Claude Code",
+                          icon: "🛠️",
+                          id: "profile-demo-single",
+                          name: "Schema Agent",
+                          type: "Agent",
+                        },
+                      ]}
+                    />
+                    <MarbleProfileAttribution
+                      profiles={[
+                        {
+                          externalName: "Codex",
+                          icon: "🤖",
+                          id: "profile-demo-multi-a",
+                          name: "Build Agent",
+                          type: "Agent",
+                        },
+                        {
+                          externalName: "Cursor",
+                          icon: "🔍",
+                          id: "profile-demo-multi-b",
+                          name: "Review Agent",
+                          type: "Agent",
+                        },
+                        {
+                          externalName: "Human",
+                          id: "profile-demo-multi-c",
+                          name: "Rory",
+                          type: "Human",
+                        },
+                      ]}
+                    />
+                  </div>
                 </div>
 
                 <div className="rounded-xs border border-taupe-200 bg-white px-3 py-2">

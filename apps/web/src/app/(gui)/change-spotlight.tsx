@@ -1,25 +1,55 @@
 "use client";
 
-import { usePathname, useSearchParams } from "next/navigation";
+import {
+  MarbleReviewNavigator,
+  type MarbleReviewNavigatorDetailItem,
+} from "@marble/ui";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const CHANGE_SPOTLIGHT_ATTRIBUTE = "data-change-target";
 const CHANGE_SPOTLIGHT_EVENT = "marble:change-spotlight";
-const CHANGE_SPOTLIGHT_GROUP_THRESHOLD = 4;
-const CHANGE_SPOTLIGHT_MARGIN_PX = 10;
+const CHANGE_SPOTLIGHT_PREVIEW_CLEAR_EVENT =
+  "marble:change-spotlight-preview-clear";
+const CHANGE_SPOTLIGHT_PREVIEW_EVENT = "marble:change-spotlight-preview";
 const CHANGE_SPOTLIGHT_SEARCH_TIMEOUT_MS = 2_500;
 const CHANGE_SPOTLIGHT_STORAGE_KEY = "marble:change-spotlight:pending";
+const CHANGE_SPOTLIGHT_VISIBLE_PREVIEW_LIMIT = 10;
 const CHANGE_SPOTLIGHT_VISIBLE_MS = 4_500;
 const CHANGE_SPOTLIGHT_VISIBLE_SECONDARY_LIMIT = 6;
 
+export type ChangeSpotlightQueueGroup = {
+  description?: string;
+  detailItems?: MarbleReviewNavigatorDetailItem[];
+  href: string;
+  id: string;
+  label: string;
+  targetKeys: string[];
+};
+
+type ChangeSpotlightGroup = {
+  description: string;
+  detailItems: MarbleReviewNavigatorDetailItem[];
+  href: string;
+  id: string;
+  label: string;
+  targetKeys: string[];
+};
+
 type PendingChangeSpotlight = {
+  activeGroupId: string;
   createdAt: number;
+  groups: ChangeSpotlightGroup[];
+};
+
+type PreviewChangeSpotlight = {
   targetKeys: string[];
 };
 
 type SpotlightRect = {
   height: number;
   left: number;
+  radius: number;
   top: number;
   width: number;
 };
@@ -30,10 +60,16 @@ type SpotlightVisibleTarget = {
 };
 
 type SpotlightSession = {
-  activeIndex: number;
-  activeRect: SpotlightRect;
+  activeGroupIndex: number;
+  detail: string;
+  detailItems: MarbleReviewNavigatorDetailItem[];
+  groups: ChangeSpotlightGroup[];
   summary: string;
   targetKeys: string[];
+  visibleTargets: SpotlightVisibleTarget[];
+};
+
+type SpotlightPreview = {
   visibleTargets: SpotlightVisibleTarget[];
 };
 
@@ -283,6 +319,28 @@ function formatReviewSummary(targetKeys: string[]) {
   return `${parts[0]} + ${parts.length - 1} more`;
 }
 
+function normalizeQueuedGroups(groups: ChangeSpotlightQueueGroup[]) {
+  return groups
+    .map((group) => {
+      const reviewTargetKeys = buildReviewTargetKeys(group.targetKeys);
+
+      if (reviewTargetKeys.length === 0) {
+        return null;
+      }
+
+      return {
+        description:
+          group.description?.trim() || formatReviewSummary(reviewTargetKeys),
+        detailItems: Array.isArray(group.detailItems) ? group.detailItems : [],
+        href: group.href,
+        id: group.id,
+        label: group.label,
+        targetKeys: reviewTargetKeys,
+      } satisfies ChangeSpotlightGroup;
+    })
+    .filter((group): group is ChangeSpotlightGroup => group !== null);
+}
+
 function readPendingChangeSpotlight() {
   if (typeof window === "undefined") {
     return null;
@@ -295,19 +353,63 @@ function readPendingChangeSpotlight() {
   }
 
   try {
-    const parsed = JSON.parse(rawValue) as PendingChangeSpotlight;
+    const parsed = JSON.parse(rawValue) as
+      | PendingChangeSpotlight
+      | {
+          createdAt: number;
+          targetKeys: string[];
+        };
 
-    if (
-      typeof parsed?.createdAt !== "number" ||
-      !Array.isArray(parsed?.targetKeys)
-    ) {
+    if (typeof parsed?.createdAt !== "number") {
+      return null;
+    }
+
+    if ("groups" in parsed && Array.isArray(parsed.groups)) {
+      const groups = normalizeQueuedGroups(parsed.groups);
+
+      if (groups.length === 0) {
+        return null;
+      }
+
+      return {
+        activeGroupId:
+          typeof parsed.activeGroupId === "string" &&
+          groups.some((group) => group.id === parsed.activeGroupId)
+            ? parsed.activeGroupId
+            : groups[0].id,
+        createdAt: parsed.createdAt,
+        groups,
+      } satisfies PendingChangeSpotlight;
+    }
+
+    const legacyTargetKeys =
+      "targetKeys" in parsed && Array.isArray(parsed.targetKeys)
+        ? parsed.targetKeys
+        : null;
+
+    if (!legacyTargetKeys) {
+      return null;
+    }
+
+    const groups = normalizeQueuedGroups([
+      {
+        description: formatReviewSummary(legacyTargetKeys),
+        href: "",
+        id: "legacy",
+        label: "Recent change",
+        targetKeys: legacyTargetKeys,
+      },
+    ]);
+
+    if (groups.length === 0) {
       return null;
     }
 
     return {
+      activeGroupId: groups[0].id,
       createdAt: parsed.createdAt,
-      targetKeys: dedupeTargetKeys(parsed.targetKeys),
-    };
+      groups,
+    } satisfies PendingChangeSpotlight;
   } catch {
     return null;
   }
@@ -320,7 +422,7 @@ function persistPendingChangeSpotlight(
     return;
   }
 
-  if (!spotlight || spotlight.targetKeys.length === 0) {
+  if (!spotlight || spotlight.groups.length === 0) {
     window.sessionStorage.removeItem(CHANGE_SPOTLIGHT_STORAGE_KEY);
     return;
   }
@@ -353,29 +455,21 @@ function findChangeTargetElement(
   targetKey: string,
   descriptor: ChangeTargetDescriptor | null,
 ) {
-  const directMatch = queryChangeTargetElement(targetKey);
+  if (descriptor) {
+    for (const resolver of spotlightResolvers) {
+      if (!resolver.match(descriptor)) {
+        continue;
+      }
 
-  if (directMatch) {
-    return directMatch;
-  }
+      const candidate = resolver.findElement?.(descriptor);
 
-  if (!descriptor) {
-    return null;
-  }
-
-  for (const resolver of spotlightResolvers) {
-    if (!resolver.match(descriptor)) {
-      continue;
-    }
-
-    const candidate = resolver.findElement?.(descriptor);
-
-    if (candidate) {
-      return candidate;
+      if (candidate) {
+        return candidate;
+      }
     }
   }
 
-  return null;
+  return queryChangeTargetElement(targetKey);
 }
 
 async function revealChangeTarget(descriptor: ChangeTargetDescriptor) {
@@ -392,20 +486,35 @@ async function revealChangeTarget(descriptor: ChangeTargetDescriptor) {
   }
 }
 
-function buildSpotlightRect(rect: DOMRect): SpotlightRect {
-  const margin = CHANGE_SPOTLIGHT_MARGIN_PX;
+function parseBorderRadius(value: string) {
+  const numericValue = Number.parseFloat(value);
+
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function buildSpotlightRect(element: HTMLElement, margin = 0): SpotlightRect {
+  const rect = element.getBoundingClientRect();
+  const computedStyle = window.getComputedStyle(element);
   const maxHeight =
-    typeof window === "undefined" ? rect.height : window.innerHeight;
+    typeof window === "undefined" ? rect.bottom : window.innerHeight;
   const maxWidth =
-    typeof window === "undefined" ? rect.width : window.innerWidth;
-  const top = Math.max(8, rect.top - margin);
-  const left = Math.max(8, rect.left - margin);
-  const bottom = Math.min(maxHeight - 8, rect.bottom + margin);
-  const right = Math.min(maxWidth - 8, rect.right + margin);
+    typeof window === "undefined" ? rect.right : window.innerWidth;
+  const top = Math.max(0, rect.top - margin);
+  const left = Math.max(0, rect.left - margin);
+  const bottom = Math.min(maxHeight, rect.bottom + margin);
+  const right = Math.min(maxWidth, rect.right + margin);
+  const radius =
+    Math.max(
+      parseBorderRadius(computedStyle.borderTopLeftRadius),
+      parseBorderRadius(computedStyle.borderTopRightRadius),
+      parseBorderRadius(computedStyle.borderBottomRightRadius),
+      parseBorderRadius(computedStyle.borderBottomLeftRadius),
+    ) + margin;
 
   return {
     height: Math.max(0, bottom - top),
     left,
+    radius: Math.max(0, radius),
     top,
     width: Math.max(0, right - left),
   };
@@ -440,7 +549,7 @@ function collectTargetElements(targetKeys: string[]) {
         return null;
       }
 
-      const rect = buildSpotlightRect(element.getBoundingClientRect());
+      const rect = buildSpotlightRect(element);
 
       if (rect.height <= 0 || rect.width <= 0) {
         return null;
@@ -452,6 +561,142 @@ function collectTargetElements(targetKeys: string[]) {
       } satisfies SpotlightVisibleTarget;
     })
     .filter((target): target is SpotlightVisibleTarget => target !== null);
+}
+
+function rectsTouchOrOverlap(
+  startA: number,
+  endA: number,
+  startB: number,
+  endB: number,
+  tolerance = 1,
+) {
+  return endA + tolerance >= startB && endB + tolerance >= startA;
+}
+
+function canMergeSpotlightTargets(
+  left: SpotlightVisibleTarget,
+  right: SpotlightVisibleTarget,
+) {
+  const horizontallyAligned =
+    Math.abs(left.rect.top - right.rect.top) <= 1 &&
+    Math.abs(left.rect.height - right.rect.height) <= 1 &&
+    rectsTouchOrOverlap(
+      left.rect.left,
+      left.rect.left + left.rect.width,
+      right.rect.left,
+      right.rect.left + right.rect.width,
+    );
+  const verticallyAligned =
+    Math.abs(left.rect.left - right.rect.left) <= 1 &&
+    Math.abs(left.rect.width - right.rect.width) <= 1 &&
+    rectsTouchOrOverlap(
+      left.rect.top,
+      left.rect.top + left.rect.height,
+      right.rect.top,
+      right.rect.top + right.rect.height,
+    );
+  const overlapping =
+    rectsTouchOrOverlap(
+      left.rect.left,
+      left.rect.left + left.rect.width,
+      right.rect.left,
+      right.rect.left + right.rect.width,
+    ) &&
+    rectsTouchOrOverlap(
+      left.rect.top,
+      left.rect.top + left.rect.height,
+      right.rect.top,
+      right.rect.top + right.rect.height,
+    );
+
+  return horizontallyAligned || verticallyAligned || overlapping;
+}
+
+function mergeSpotlightTargets(targets: SpotlightVisibleTarget[]) {
+  const pending = [
+    ...targets,
+  ].sort(
+    (left, right) =>
+      left.rect.top - right.rect.top || left.rect.left - right.rect.left,
+  );
+  const merged: SpotlightVisibleTarget[] = [];
+
+  while (pending.length > 0) {
+    const candidate = pending.shift();
+
+    if (!candidate) {
+      break;
+    }
+
+    let current = candidate;
+    let mergedAgain = true;
+
+    while (mergedAgain) {
+      mergedAgain = false;
+
+      for (let index = 0; index < pending.length; index += 1) {
+        const next = pending[index];
+
+        if (!next || !canMergeSpotlightTargets(current, next)) {
+          continue;
+        }
+
+        pending.splice(index, 1);
+        const top = Math.min(current.rect.top, next.rect.top);
+        const left = Math.min(current.rect.left, next.rect.left);
+        const bottom = Math.max(
+          current.rect.top + current.rect.height,
+          next.rect.top + next.rect.height,
+        );
+        const right = Math.max(
+          current.rect.left + current.rect.width,
+          next.rect.left + next.rect.width,
+        );
+
+        current = {
+          rect: {
+            height: bottom - top,
+            left,
+            radius: Math.max(current.rect.radius, next.rect.radius),
+            top,
+            width: right - left,
+          },
+          targetKey: `${current.targetKey}|${next.targetKey}`,
+        };
+        mergedAgain = true;
+        break;
+      }
+    }
+
+    merged.push(current);
+  }
+
+  return merged;
+}
+
+function collectMergedTargetElements(targetKeys: string[]) {
+  return mergeSpotlightTargets(collectTargetElements(targetKeys));
+}
+
+function isBroadPreviewDescriptor(descriptor: ChangeTargetDescriptor | null) {
+  return (
+    descriptor?.kind === "profiles" ||
+    descriptor?.kind === "program" ||
+    descriptor?.kind === "project" ||
+    descriptor?.kind === "table"
+  );
+}
+
+function hasSpecificPreviewDescriptor(
+  descriptor: ChangeTargetDescriptor | null,
+) {
+  return (
+    descriptor?.kind === "cell" ||
+    descriptor?.kind === "column" ||
+    descriptor?.kind === "program-file" ||
+    descriptor?.kind === "program-version" ||
+    descriptor?.kind === "row"
+  );
 }
 
 function compactTableReviewTargets(targets: ParsedTarget[]) {
@@ -504,141 +749,15 @@ function compactTableReviewTargets(targets: ParsedTarget[]) {
     } => target.descriptor.kind === "table",
   );
 
-  const orderByKey = new Map(
-    targets.map((target, index) => [
-      target.key,
-      index,
-    ]),
-  );
+  if (cellTargets.length > 0) {
+    return dedupeTargetKeys(cellTargets.map((target) => target.key));
+  }
 
-  const buildGroupedCells = (axis: "column" | "row") => {
-    const grouped = new Map<
-      string,
-      Array<
-        ParsedTarget & {
-          descriptor: Extract<
-            ChangeTargetDescriptor,
-            {
-              kind: "cell";
-            }
-          >;
-        }
-      >
-    >();
-
-    for (const target of cellTargets) {
-      const groupId =
-        axis === "column"
-          ? target.descriptor.columnId
-          : target.descriptor.rowId;
-
-      if (!grouped.has(groupId)) {
-        grouped.set(groupId, []);
-      }
-
-      grouped.get(groupId)?.push(target);
-    }
-
-    const items: Array<{
-      key: string;
-      order: number;
-    }> = [];
-    const coveredCellKeys = new Set<string>();
-
-    for (const [groupId, groupedTargets] of grouped.entries()) {
-      if (groupedTargets.length < CHANGE_SPOTLIGHT_GROUP_THRESHOLD) {
-        continue;
-      }
-
-      const groupKey =
-        axis === "column"
-          ? changeTargetKey.column(groupId)
-          : changeTargetKey.row(groupId);
-      const explicitGroupTarget = targets.find(
-        (target) => target.key === groupKey,
-      );
-
-      items.push({
-        key: groupKey,
-        order: Math.min(
-          explicitGroupTarget
-            ? (orderByKey.get(explicitGroupTarget.key) ??
-                Number.MAX_SAFE_INTEGER)
-            : Number.MAX_SAFE_INTEGER,
-          ...groupedTargets.map(
-            (target) => orderByKey.get(target.key) ?? Number.MAX_SAFE_INTEGER,
-          ),
-        ),
-      });
-
-      for (const groupedTarget of groupedTargets) {
-        coveredCellKeys.add(groupedTarget.key);
-      }
-    }
-
-    for (const cellTarget of cellTargets) {
-      if (coveredCellKeys.has(cellTarget.key)) {
-        continue;
-      }
-
-      items.push({
-        key: cellTarget.key,
-        order: orderByKey.get(cellTarget.key) ?? Number.MAX_SAFE_INTEGER,
-      });
-    }
-
-    return items.sort((left, right) => left.order - right.order);
-  };
-
-  const groupedByColumn = buildGroupedCells("column");
-  const groupedByRow = buildGroupedCells("row");
-  const cellRowIds = new Set(
-    cellTargets.map((target) => target.descriptor.rowId),
-  );
-  const cellColumnIds = new Set(
-    cellTargets.map((target) => target.descriptor.columnId),
-  );
-
-  const baseItems =
-    groupedByColumn.length > 0 || groupedByRow.length > 0
-      ? groupedByColumn.length < groupedByRow.length
-        ? groupedByColumn
-        : groupedByRow.length < groupedByColumn.length
-          ? groupedByRow
-          : groupedByColumn.length <= cellTargets.length
-            ? groupedByColumn
-            : groupedByRow
-      : cellTargets.map((target) => ({
-          key: target.key,
-          order: orderByKey.get(target.key) ?? Number.MAX_SAFE_INTEGER,
-        }));
-
-  const additionalItems = [
-    ...rowTargets
-      .filter((target) => !cellRowIds.has(target.descriptor.rowId))
-      .map((target) => ({
-        key: target.key,
-        order: orderByKey.get(target.key) ?? Number.MAX_SAFE_INTEGER,
-      })),
-    ...columnTargets
-      .filter((target) => !cellColumnIds.has(target.descriptor.columnId))
-      .map((target) => ({
-        key: target.key,
-        order: orderByKey.get(target.key) ?? Number.MAX_SAFE_INTEGER,
-      })),
-  ];
-
-  const compactedKeys = dedupeTargetKeys(
-    [
-      ...baseItems,
-      ...additionalItems,
-    ]
-      .sort((left, right) => left.order - right.order)
-      .map((item) => item.key),
-  );
-
-  if (compactedKeys.length > 0) {
-    return compactedKeys;
+  if (rowTargets.length > 0 || columnTargets.length > 0) {
+    return dedupeTargetKeys([
+      ...rowTargets.map((target) => target.key),
+      ...columnTargets.map((target) => target.key),
+    ]);
   }
 
   return tableTargets.length > 0
@@ -714,16 +833,52 @@ function buildReviewTargetKeys(targetKeys: string[]) {
   return dedupeTargetKeys(results);
 }
 
-export function queueChangeSpotlight(targetKeys: string[]) {
-  const nextTargetKeys = dedupeTargetKeys(targetKeys);
+function buildPreviewTargetKeys(targetKeys: string[]) {
+  const parsedTargets = parseTargetKeys(targetKeys);
+  const anchorTargetKeys = [
+    parsedTargets.find((target) => target.descriptor.kind === "table")?.key,
+    parsedTargets.find((target) => target.descriptor.kind === "program")?.key,
+    parsedTargets.find((target) => target.descriptor.kind === "project")?.key,
+    parsedTargets.find((target) => target.descriptor.kind === "profiles")?.key,
+  ].filter((targetKey): targetKey is string => Boolean(targetKey));
 
-  if (typeof window === "undefined" || nextTargetKeys.length === 0) {
+  return dedupeTargetKeys([
+    ...buildReviewTargetKeys(targetKeys),
+    ...anchorTargetKeys,
+  ]);
+}
+
+export function queueChangeSpotlight(targetKeys: string[]) {
+  queueChangeSpotlightDeck([
+    {
+      href: "",
+      id: "queued-change",
+      label: "Recent change",
+      targetKeys,
+    },
+  ]);
+}
+
+export function queueChangeSpotlightDeck(
+  groups: ChangeSpotlightQueueGroup[],
+  activeGroupId = groups[0]?.id,
+) {
+  const normalizedGroups = normalizeQueuedGroups(groups);
+
+  if (
+    typeof window === "undefined" ||
+    normalizedGroups.length === 0 ||
+    typeof activeGroupId !== "string"
+  ) {
     return;
   }
 
   const spotlight = {
+    activeGroupId:
+      normalizedGroups.find((group) => group.id === activeGroupId)?.id ??
+      normalizedGroups[0].id,
     createdAt: Date.now(),
-    targetKeys: nextTargetKeys,
+    groups: normalizedGroups,
   } satisfies PendingChangeSpotlight;
 
   persistPendingChangeSpotlight(spotlight);
@@ -734,15 +889,77 @@ export function queueChangeSpotlight(targetKeys: string[]) {
   );
 }
 
+export function previewChangeSpotlight(targetKeys: string[]) {
+  const nextTargetKeys = dedupeTargetKeys(targetKeys);
+
+  if (typeof window === "undefined" || nextTargetKeys.length === 0) {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<PreviewChangeSpotlight>(CHANGE_SPOTLIGHT_PREVIEW_EVENT, {
+      detail: {
+        targetKeys: nextTargetKeys,
+      },
+    }),
+  );
+}
+
+export function clearPreviewChangeSpotlight() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event(CHANGE_SPOTLIGHT_PREVIEW_CLEAR_EVENT));
+}
+
+export function useChangeSpotlightPreviewTargetKeys() {
+  const [previewTargetKeys, setPreviewTargetKeys] = useState<string[]>([]);
+
+  useEffect(() => {
+    const handlePreview = (event: Event) => {
+      const detail = (event as CustomEvent<PreviewChangeSpotlight>).detail;
+
+      setPreviewTargetKeys(buildPreviewTargetKeys(detail?.targetKeys ?? []));
+    };
+    const handlePreviewClear = () => {
+      setPreviewTargetKeys([]);
+    };
+
+    window.addEventListener(CHANGE_SPOTLIGHT_PREVIEW_EVENT, handlePreview);
+    window.addEventListener(
+      CHANGE_SPOTLIGHT_PREVIEW_CLEAR_EVENT,
+      handlePreviewClear,
+    );
+
+    return () => {
+      window.removeEventListener(CHANGE_SPOTLIGHT_PREVIEW_EVENT, handlePreview);
+      window.removeEventListener(
+        CHANGE_SPOTLIGHT_PREVIEW_CLEAR_EVENT,
+        handlePreviewClear,
+      );
+    };
+  }, []);
+
+  return previewTargetKeys;
+}
+
 export function ChangeSpotlight() {
+  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [inspectedTargetKeys, setInspectedTargetKeys] = useState<
+    null | string[]
+  >(null);
+  const [preview, setPreview] = useState<SpotlightPreview | null>(null);
   const [session, setSession] = useState<SpotlightSession | null>(null);
   const activationTokenRef = useRef(0);
   const dismissTimeoutRef = useRef<number | null>(null);
   const searchFrameRef = useRef<number | null>(null);
   const activeElementRef = useRef<HTMLElement | null>(null);
   const activeTargetKeyRef = useRef<string | null>(null);
+  const inspectedTargetKeysRef = useRef<null | string[]>(null);
+  const previewTargetKeysRef = useRef<string[]>([]);
   const targetKeysRef = useRef<string[]>([]);
   const routeKey = useMemo(
     () => `${pathname}?${searchParams.toString()}`,
@@ -766,40 +983,61 @@ export function ChangeSpotlight() {
     }
   }, []);
 
-  const clearSpotlight = useCallback(() => {
+  const resetActiveSpotlight = useCallback(() => {
     activationTokenRef.current += 1;
     clearDismissTimeout();
     clearSearchFrame();
-    persistPendingChangeSpotlight(null);
     activeElementRef.current = null;
     activeTargetKeyRef.current = null;
+    inspectedTargetKeysRef.current = null;
     targetKeysRef.current = [];
+    setInspectedTargetKeys(null);
     setSession(null);
   }, [
     clearDismissTimeout,
     clearSearchFrame,
   ]);
 
+  const clearSpotlight = useCallback(() => {
+    persistPendingChangeSpotlight(null);
+    resetActiveSpotlight();
+  }, [
+    resetActiveSpotlight,
+  ]);
+
+  const clearPreview = useCallback(() => {
+    previewTargetKeysRef.current = [];
+    setPreview(null);
+  }, []);
+
+  const dismissSpotlightFromBackdrop = useCallback(() => {
+    clearSpotlight();
+  }, [
+    clearSpotlight,
+  ]);
+
   const measureSessionTargets = useCallback(() => {
-    const targetKeys = targetKeysRef.current;
-    const activeTargetKey = activeTargetKeyRef.current;
+    const inspectedTargetKeys = inspectedTargetKeysRef.current;
+    const targetKeys =
+      inspectedTargetKeys && inspectedTargetKeys.length > 0
+        ? inspectedTargetKeys
+        : targetKeysRef.current;
     const activeElement = activeElementRef.current;
 
-    if (!activeTargetKey || !activeElement || targetKeys.length === 0) {
+    if (!activeElement || targetKeys.length === 0) {
       return;
     }
-
-    const activeRect = buildSpotlightRect(
-      activeElement.getBoundingClientRect(),
+    const visibleTargets = collectMergedTargetElements(targetKeys).slice(
+      0,
+      CHANGE_SPOTLIGHT_VISIBLE_SECONDARY_LIMIT + 1,
     );
-
-    if (activeRect.height <= 0 || activeRect.width <= 0) {
-      return;
-    }
-
-    const visibleTargets = collectTargetElements(targetKeys)
-      .filter((target) => target.targetKey !== activeTargetKey)
-      .slice(0, CHANGE_SPOTLIGHT_VISIBLE_SECONDARY_LIMIT);
+    const resolvedVisibleTargets =
+      visibleTargets.length === 0 && inspectedTargetKeys
+        ? collectMergedTargetElements(targetKeysRef.current).slice(
+            0,
+            CHANGE_SPOTLIGHT_VISIBLE_SECONDARY_LIMIT + 1,
+          )
+        : visibleTargets;
 
     setSession((current) => {
       if (!current) {
@@ -808,33 +1046,101 @@ export function ChangeSpotlight() {
 
       return {
         ...current,
-        activeRect,
-        visibleTargets,
+        visibleTargets: resolvedVisibleTargets,
       };
     });
   }, []);
 
+  const setSessionInspectionTargetKeys = useCallback(
+    (targetKeys: null | string[]) => {
+      const nextTargetKeys =
+        targetKeys && targetKeys.length > 0
+          ? dedupeTargetKeys(targetKeys)
+          : null;
+
+      inspectedTargetKeysRef.current = nextTargetKeys;
+      setInspectedTargetKeys(nextTargetKeys);
+
+      if (activeElementRef.current) {
+        measureSessionTargets();
+      }
+    },
+    [
+      measureSessionTargets,
+    ],
+  );
+
+  const measurePreviewTargets = useCallback(() => {
+    if (session) {
+      return;
+    }
+
+    const targetKeys = previewTargetKeysRef.current;
+
+    if (targetKeys.length === 0) {
+      clearPreview();
+      return;
+    }
+
+    const rawTargets = collectTargetElements(targetKeys);
+    const hasSpecificVisibleTarget = rawTargets.some((target) =>
+      hasSpecificPreviewDescriptor(parseChangeTargetKey(target.targetKey)),
+    );
+    const visibleTargets = mergeSpotlightTargets(
+      rawTargets.filter((target) => {
+        if (!hasSpecificVisibleTarget) {
+          return true;
+        }
+
+        return !isBroadPreviewDescriptor(
+          parseChangeTargetKey(target.targetKey),
+        );
+      }),
+    ).slice(0, CHANGE_SPOTLIGHT_VISIBLE_PREVIEW_LIMIT);
+
+    if (visibleTargets.length === 0) {
+      clearPreview();
+      return;
+    }
+
+    setPreview({
+      visibleTargets,
+    });
+  }, [
+    clearPreview,
+    session,
+  ]);
+
   const applyFocusedTarget = useCallback(
     (
-      targetKeys: string[],
-      activeIndex: number,
+      groups: ChangeSpotlightGroup[],
+      activeGroupIndex: number,
       foundTarget: HTMLElement,
       targetKey: string,
     ) => {
-      const activeRect = buildSpotlightRect(
-        foundTarget.getBoundingClientRect(),
-      );
+      const activeGroup = groups[activeGroupIndex];
+      const targetKeys = activeGroup?.targetKeys ?? [];
+      const initialRect = buildSpotlightRect(foundTarget);
 
       activeElementRef.current = foundTarget;
       activeTargetKeyRef.current = targetKey;
       targetKeysRef.current = targetKeys;
+      setSessionInspectionTargetKeys(null);
+      clearPreview();
 
       setSession({
-        activeIndex,
-        activeRect,
-        summary: formatReviewSummary(targetKeys),
+        activeGroupIndex,
+        detail: activeGroup?.description ?? formatReviewSummary(targetKeys),
+        detailItems: activeGroup?.detailItems ?? [],
+        groups,
+        summary: activeGroup?.label ?? "Recent change",
         targetKeys,
-        visibleTargets: [],
+        visibleTargets: mergeSpotlightTargets([
+          {
+            rect: initialRect,
+            targetKey,
+          },
+        ]),
       });
 
       foundTarget.scrollIntoView({
@@ -848,7 +1154,7 @@ export function ChangeSpotlight() {
           measureSessionTargets();
           clearDismissTimeout();
 
-          if (targetKeys.length === 1) {
+          if (groups.length === 1 && targetKeys.length === 1) {
             dismissTimeoutRef.current = window.setTimeout(() => {
               clearSpotlight();
             }, CHANGE_SPOTLIGHT_VISIBLE_MS);
@@ -857,23 +1163,28 @@ export function ChangeSpotlight() {
       });
     },
     [
+      clearPreview,
       clearDismissTimeout,
       clearSpotlight,
       measureSessionTargets,
+      setSessionInspectionTargetKeys,
     ],
   );
 
   const focusTargetIndex = useCallback(
     async (
-      targetKeys: string[],
-      requestedIndex: number,
+      groups: ChangeSpotlightGroup[],
+      requestedGroupIndex: number,
       activationToken: number,
     ) => {
-      if (targetKeys.length === 0) {
+      const activeGroup = groups[requestedGroupIndex];
+      const targetKeys = activeGroup?.targetKeys ?? [];
+
+      if (!activeGroup || targetKeys.length === 0) {
         return;
       }
 
-      const searchOrder = buildSearchOrder(requestedIndex, targetKeys.length);
+      const searchOrder = buildSearchOrder(0, targetKeys.length);
       const revealedKeys = new Set<string>();
       const startedAt = performance.now();
 
@@ -906,8 +1217,17 @@ export function ChangeSpotlight() {
               continue;
             }
 
-            persistPendingChangeSpotlight(null);
-            applyFocusedTarget(targetKeys, targetIndex, foundTarget, targetKey);
+            persistPendingChangeSpotlight({
+              activeGroupId: activeGroup.id,
+              createdAt: Date.now(),
+              groups,
+            });
+            applyFocusedTarget(
+              groups,
+              requestedGroupIndex,
+              foundTarget,
+              targetKey,
+            );
             return;
           }
 
@@ -936,65 +1256,118 @@ export function ChangeSpotlight() {
     ],
   );
 
-  const activateSpotlight = useCallback(
-    (pendingSpotlight: PendingChangeSpotlight | null) => {
-      const reviewTargetKeys = buildReviewTargetKeys(
-        pendingSpotlight?.targetKeys ?? [],
-      );
+  const goToReviewGroup = useCallback(
+    async (groups: ChangeSpotlightGroup[], nextIndex: number) => {
+      const nextGroup = groups[nextIndex];
 
-      if (reviewTargetKeys.length === 0) {
-        clearSpotlight();
+      if (!nextGroup) {
+        return;
+      }
+
+      const pendingSpotlight = {
+        activeGroupId: nextGroup.id,
+        createdAt: Date.now(),
+        groups,
+      } satisfies PendingChangeSpotlight;
+
+      persistPendingChangeSpotlight(pendingSpotlight);
+      clearPreview();
+
+      if (nextGroup.href && nextGroup.href !== pathname) {
+        resetActiveSpotlight();
+        router.push(nextGroup.href);
         return;
       }
 
       activationTokenRef.current += 1;
-      void focusTargetIndex(reviewTargetKeys, 0, activationTokenRef.current);
+      void focusTargetIndex(groups, nextIndex, activationTokenRef.current);
     },
     [
+      clearPreview,
+      focusTargetIndex,
+      pathname,
+      resetActiveSpotlight,
+      router,
+    ],
+  );
+
+  const activateSpotlight = useCallback(
+    (pendingSpotlight: PendingChangeSpotlight | null) => {
+      const groups = normalizeQueuedGroups(pendingSpotlight?.groups ?? []);
+
+      if (groups.length === 0) {
+        clearSpotlight();
+        return;
+      }
+
+      const activeGroupIndex = Math.max(
+        0,
+        groups.findIndex(
+          (group) => group.id === pendingSpotlight?.activeGroupId,
+        ),
+      );
+      const activeGroup = groups[activeGroupIndex] ?? groups[0];
+
+      persistPendingChangeSpotlight({
+        activeGroupId: activeGroup.id,
+        createdAt: pendingSpotlight?.createdAt ?? Date.now(),
+        groups,
+      });
+      clearPreview();
+      if (activeGroup.href && activeGroup.href !== pathname) {
+        resetActiveSpotlight();
+        return;
+      }
+
+      activationTokenRef.current += 1;
+      void focusTargetIndex(
+        groups,
+        activeGroupIndex,
+        activationTokenRef.current,
+      );
+    },
+    [
+      clearPreview,
       clearSpotlight,
       focusTargetIndex,
+      pathname,
+      resetActiveSpotlight,
     ],
   );
 
   const stepReview = useCallback(
     (direction: -1 | 1) => {
-      const targetKeys = targetKeysRef.current;
-
-      if (targetKeys.length <= 1 || !session) {
+      if (!session || session.groups.length <= 1) {
         return;
       }
 
-      activationTokenRef.current += 1;
       const nextIndex =
-        (session.activeIndex + direction + targetKeys.length) %
-        targetKeys.length;
+        (session.activeGroupIndex + direction + session.groups.length) %
+        session.groups.length;
 
-      void focusTargetIndex(targetKeys, nextIndex, activationTokenRef.current);
+      void goToReviewGroup(session.groups, nextIndex);
     },
     [
-      focusTargetIndex,
+      goToReviewGroup,
       session,
     ],
   );
 
   const jumpToReviewIndex = useCallback(
     (index: number) => {
-      const targetKeys = targetKeysRef.current;
-
       if (
-        index < 0 ||
-        index >= targetKeys.length ||
         !session ||
-        index === session.activeIndex
+        index < 0 ||
+        index >= session.groups.length ||
+        index === session.activeGroupIndex
       ) {
         return;
       }
 
-      activationTokenRef.current += 1;
-      void focusTargetIndex(targetKeys, index, activationTokenRef.current);
+      void goToReviewGroup(session.groups, index);
     },
     [
-      focusTargetIndex,
+      goToReviewGroup,
       session,
     ],
   );
@@ -1004,9 +1377,11 @@ export function ChangeSpotlight() {
       return;
     }
 
+    clearPreview();
     activateSpotlight(readPendingChangeSpotlight());
   }, [
     activateSpotlight,
+    clearPreview,
     routeKey,
   ]);
 
@@ -1026,6 +1401,50 @@ export function ChangeSpotlight() {
   ]);
 
   useEffect(() => {
+    const handlePreview = (event: Event) => {
+      if (session) {
+        return;
+      }
+
+      const detail = (event as CustomEvent<PreviewChangeSpotlight>).detail;
+      const targetKeys = buildPreviewTargetKeys(detail?.targetKeys ?? []);
+
+      if (targetKeys.length === 0) {
+        clearPreview();
+        return;
+      }
+
+      previewTargetKeysRef.current = targetKeys;
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          measurePreviewTargets();
+        });
+      });
+    };
+    const handlePreviewClear = () => {
+      clearPreview();
+    };
+
+    window.addEventListener(CHANGE_SPOTLIGHT_PREVIEW_EVENT, handlePreview);
+    window.addEventListener(
+      CHANGE_SPOTLIGHT_PREVIEW_CLEAR_EVENT,
+      handlePreviewClear,
+    );
+
+    return () => {
+      window.removeEventListener(CHANGE_SPOTLIGHT_PREVIEW_EVENT, handlePreview);
+      window.removeEventListener(
+        CHANGE_SPOTLIGHT_PREVIEW_CLEAR_EVENT,
+        handlePreviewClear,
+      );
+    };
+  }, [
+    clearPreview,
+    measurePreviewTargets,
+    session,
+  ]);
+
+  useEffect(() => {
     if (!session) {
       return;
     }
@@ -1040,7 +1459,7 @@ export function ChangeSpotlight() {
       }
 
       if (
-        session.targetKeys.length > 1 &&
+        session.groups.length > 1 &&
         (event.key === "ArrowRight" ||
           event.key === "ArrowDown" ||
           event.key === "]")
@@ -1051,7 +1470,7 @@ export function ChangeSpotlight() {
       }
 
       if (
-        session.targetKeys.length > 1 &&
+        session.groups.length > 1 &&
         (event.key === "ArrowLeft" ||
           event.key === "ArrowUp" ||
           event.key === "[")
@@ -1087,27 +1506,80 @@ export function ChangeSpotlight() {
     stepReview,
   ]);
 
+  useEffect(() => {
+    if (session || !preview) {
+      return;
+    }
+
+    const handleReflow = () => {
+      measurePreviewTargets();
+    };
+
+    window.addEventListener("resize", handleReflow);
+    window.addEventListener("scroll", handleReflow, true);
+
+    return () => {
+      window.removeEventListener("resize", handleReflow);
+      window.removeEventListener("scroll", handleReflow, true);
+    };
+  }, [
+    measurePreviewTargets,
+    preview,
+    session,
+  ]);
+
   useEffect(
     () => () => {
+      clearPreview();
       clearSpotlight();
     },
     [
+      clearPreview,
       clearSpotlight,
     ],
   );
 
-  if (!session) {
+  if (!session && !preview) {
     return null;
   }
 
-  const activeTargetKey = session.targetKeys[session.activeIndex];
-  const hasMultipleTargets = session.targetKeys.length > 1;
+  const hasMultipleGroups = Boolean(session && session.groups.length > 1);
+  const isInspectingSubset = Boolean(
+    session && inspectedTargetKeys && inspectedTargetKeys.length > 0,
+  );
   const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight;
   const viewportWidth = typeof window === "undefined" ? 0 : window.innerWidth;
-  const top = session.activeRect.top;
-  const left = session.activeRect.left;
-  const height = session.activeRect.height;
-  const width = session.activeRect.width;
+  const sessionBounds = session?.visibleTargets.reduce<null | SpotlightRect>(
+    (current, target) => {
+      if (!current) {
+        return target.rect;
+      }
+
+      const top = Math.min(current.top, target.rect.top);
+      const left = Math.min(current.left, target.rect.left);
+      const bottom = Math.max(
+        current.top + current.height,
+        target.rect.top + target.rect.height,
+      );
+      const right = Math.max(
+        current.left + current.width,
+        target.rect.left + target.rect.width,
+      );
+
+      return {
+        height: bottom - top,
+        left,
+        radius: Math.max(current.radius, target.rect.radius),
+        top,
+        width: right - left,
+      };
+    },
+    null,
+  );
+  const top = sessionBounds?.top ?? 0;
+  const left = sessionBounds?.left ?? 0;
+  const height = sessionBounds?.height ?? 0;
+  const width = sessionBounds?.width ?? 0;
   const bottom = top + height;
   const right = left + width;
 
@@ -1116,113 +1588,97 @@ export function ChangeSpotlight() {
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-[140]"
     >
-      <div
-        className="absolute inset-x-0 top-0 bg-taupe-950/10 backdrop-blur-[1px]"
-        style={{
-          height: top,
-        }}
-      />
-      <div
-        className="absolute left-0 bg-taupe-950/10 backdrop-blur-[1px]"
-        style={{
-          height,
-          top,
-          width: left,
-        }}
-      />
-      <div
-        className="absolute bg-taupe-950/10 backdrop-blur-[1px]"
-        style={{
-          height,
-          left: right,
-          top,
-          width: Math.max(0, viewportWidth - right),
-        }}
-      />
-      <div
-        className="absolute inset-x-0 bg-taupe-950/10 backdrop-blur-[1px]"
-        style={{
-          height: Math.max(0, viewportHeight - bottom),
-          top: bottom,
-        }}
-      />
+      {session ? (
+        <>
+          <div
+            className="pointer-events-auto absolute inset-x-0 top-0 bg-taupe-950/10 backdrop-blur-[1px]"
+            onPointerDown={dismissSpotlightFromBackdrop}
+            style={{
+              height: top,
+            }}
+          />
+          <div
+            className="pointer-events-auto absolute left-0 bg-taupe-950/10 backdrop-blur-[1px]"
+            onPointerDown={dismissSpotlightFromBackdrop}
+            style={{
+              height,
+              top,
+              width: left,
+            }}
+          />
+          <div
+            className="pointer-events-auto absolute bg-taupe-950/10 backdrop-blur-[1px]"
+            onPointerDown={dismissSpotlightFromBackdrop}
+            style={{
+              height,
+              left: right,
+              top,
+              width: Math.max(0, viewportWidth - right),
+            }}
+          />
+          <div
+            className="pointer-events-auto absolute inset-x-0 bg-taupe-950/10 backdrop-blur-[1px]"
+            onPointerDown={dismissSpotlightFromBackdrop}
+            style={{
+              height: Math.max(0, viewportHeight - bottom),
+              top: bottom,
+            }}
+          />
 
-      {session.visibleTargets.map((target) => (
-        <div
-          className="absolute rounded-[10px] border border-orange-200/95 bg-orange-50/30 shadow-[0_0_0_1px_rgba(255,255,255,0.78)] transition-[top,left,width,height] duration-200 ease-out"
-          key={target.targetKey}
-          style={{
-            height: target.rect.height,
-            left: target.rect.left,
-            top: target.rect.top,
-            width: target.rect.width,
-          }}
-        />
-      ))}
+          {session.visibleTargets.map((target) => (
+            <div
+              className={
+                isInspectingSubset
+                  ? "absolute border border-orange-400/95 bg-white/34 shadow-[0_0_0_1px_rgba(255,255,255,0.92),0_18px_36px_rgba(249,115,22,0.14)] transition-[top,left,width,height,border-radius] duration-150 ease-out"
+                  : "absolute border border-orange-200/95 bg-orange-50/18 shadow-[0_0_0_1px_rgba(255,255,255,0.78)] transition-[top,left,width,height,border-radius] duration-200 ease-out"
+              }
+              key={target.targetKey}
+              style={{
+                borderRadius: target.rect.radius,
+                height: target.rect.height,
+                left: target.rect.left,
+                top: target.rect.top,
+                width: target.rect.width,
+              }}
+            />
+          ))}
+        </>
+      ) : null}
 
-      <div
-        className="absolute rounded-[12px] border-2 border-orange-400/95 bg-white/14 shadow-[0_0_0_1px_rgba(255,255,255,0.96),0_12px_28px_rgba(249,115,22,0.16)] transition-[top,left,width,height] duration-300 ease-out"
-        style={{
-          height,
-          left,
-          top,
-          width,
-        }}
-      />
+      {!session && preview ? (
+        <>
+          <div className="absolute inset-0 bg-taupe-950/8 backdrop-blur-[1px]" />
+          {preview.visibleTargets.map((target) => (
+            <div
+              className="absolute border border-orange-400/95 bg-white/38 shadow-[0_0_0_1px_rgba(255,255,255,0.96),0_18px_36px_rgba(249,115,22,0.16)] transition-[top,left,width,height,border-radius,opacity] duration-150 ease-out"
+              key={target.targetKey}
+              style={{
+                borderRadius: target.rect.radius,
+                height: target.rect.height,
+                left: target.rect.left,
+                top: target.rect.top,
+                width: target.rect.width,
+              }}
+            />
+          ))}
+        </>
+      ) : null}
 
-      {hasMultipleTargets ? (
+      {session && hasMultipleGroups ? (
         <div className="pointer-events-auto fixed inset-x-0 bottom-5 flex justify-center px-4">
-          <div className="flex max-w-[32rem] items-center gap-3 rounded-full border border-orange-200/90 bg-white/95 px-3 py-2 shadow-[0_16px_38px_rgba(84,57,26,0.16)] backdrop-blur-sm">
-            <div className="min-w-0">
-              <div className="truncate font-medium text-[12px] text-zinc-900">
-                {session.summary}
-              </div>
-              <div className="text-[11px] text-taupe-600">
-                {session.activeIndex + 1} of {session.targetKeys.length}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1">
-              {session.targetKeys.slice(0, 8).map((targetKey, index) => (
-                <button
-                  className={`h-2.5 rounded-full transition-all ${
-                    index === session.activeIndex
-                      ? "w-6 bg-orange-500"
-                      : targetKey === activeTargetKey
-                        ? "w-3 bg-orange-300"
-                        : "w-3 bg-taupe-200 hover:bg-taupe-300"
-                  }`}
-                  key={targetKey}
-                  onClick={() => jumpToReviewIndex(index)}
-                  type="button"
-                />
-              ))}
-            </div>
-
-            <div className="flex items-center gap-1">
-              <button
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-taupe-200 bg-white text-sm text-zinc-700 transition-colors hover:border-orange-200 hover:text-orange-700"
-                onClick={() => stepReview(-1)}
-                type="button"
-              >
-                {"<"}
-              </button>
-              <button
-                className="flex h-8 w-8 items-center justify-center rounded-full border border-taupe-200 bg-white text-sm text-zinc-700 transition-colors hover:border-orange-200 hover:text-orange-700"
-                onClick={() => stepReview(1)}
-                type="button"
-              >
-                {">"}
-              </button>
-              <button
-                className="ml-1 flex h-8 w-8 items-center justify-center rounded-full border border-taupe-200 bg-white text-sm text-zinc-500 transition-colors hover:border-orange-200 hover:text-zinc-900"
-                onClick={clearSpotlight}
-                type="button"
-              >
-                x
-              </button>
-            </div>
-          </div>
+          <MarbleReviewNavigator
+            currentIndex={session.activeGroupIndex}
+            detail={session.detail}
+            detailItems={session.detailItems}
+            onClose={clearSpotlight}
+            onNext={() => stepReview(1)}
+            onPreviewTargetsEnd={() => setSessionInspectionTargetKeys(null)}
+            onPreviewTargetsStart={setSessionInspectionTargetKeys}
+            onPrevious={() => stepReview(-1)}
+            onSelectIndex={jumpToReviewIndex}
+            summary={session.summary}
+            totalCount={session.groups.length}
+          />
         </div>
       ) : null}
     </div>

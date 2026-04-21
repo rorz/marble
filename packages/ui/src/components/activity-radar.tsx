@@ -1,11 +1,14 @@
 "use client";
-
-import type { ReactNode } from "react";
 import { cx } from "../utils/cx";
+import { MarbleBadge } from "./badge";
 import {
   MarbleContextPopover,
   type MarbleContextPopoverSection,
 } from "./context-popover";
+import {
+  MarbleProfileAttribution,
+  type MarbleProfileAttributionProfile,
+} from "./profile-attribution";
 
 type MarbleActivityRadarSegmentTone =
   | "create"
@@ -19,9 +22,12 @@ export type MarbleActivityRadarSegment = {
 };
 
 export type MarbleActivityRadarBatch = {
+  actors?: MarbleProfileAttributionProfile[];
   description: string;
   id: string;
   label: string;
+  onPreviewEnd?: () => void;
+  onPreviewStart?: () => void;
   onSelect: () => void;
   segments: MarbleActivityRadarSegment[];
   timestampLabel?: string;
@@ -34,6 +40,7 @@ export type MarbleActivityRadarProps = {
   compact?: boolean;
   emptyDescription?: string;
   onMarkAllRead?: () => void;
+  onOpenChange?: (isOpen: boolean) => void;
   onOpenFeed?: () => void;
   triggerClassName?: string;
   unreadCount?: number;
@@ -168,6 +175,25 @@ function ActivityGlyph({
   );
 }
 
+function formatUnreadCount(value: number) {
+  if (value > 99) {
+    return "99+";
+  }
+
+  return String(value);
+}
+
+function ActivityUnreadBadge({ count }: { count: number }) {
+  return (
+    <MarbleBadge
+      aria-label={`${count} unread changesets`}
+      className="pointer-events-none absolute -right-1.5 -top-1.5 min-h-5 min-w-5 items-center justify-center rounded-full border-white bg-orange-500 px-1.5 py-0 text-center font-mono text-[10px] leading-[18px] text-white shadow-[0_6px_16px_rgba(84,57,26,0.18)]"
+    >
+      {formatUnreadCount(count)}
+    </MarbleBadge>
+  );
+}
+
 function CaretDownGlyph({ className }: { className?: string }) {
   return (
     <svg
@@ -189,33 +215,13 @@ function CaretDownGlyph({ className }: { className?: string }) {
   );
 }
 
-function UnreadPill({
-  children,
-  tone = "neutral",
-}: {
-  children: ReactNode;
-  tone?: "neutral" | "warning";
-}) {
-  return (
-    <span
-      className={cx(
-        "inline-flex items-center justify-center rounded-full border px-2 py-0.5 font-medium text-[10px] uppercase tracking-[0.18em]",
-        tone === "warning"
-          ? "border-orange-200 bg-orange-50 text-orange-700"
-          : "border-taupe-200 bg-taupe-100 text-taupe-700",
-      )}
-    >
-      {children}
-    </span>
-  );
-}
-
 export function MarbleActivityRadar({
   batches,
   className,
   compact = false,
-  emptyDescription = "No recent agentic changes.",
+  emptyDescription = "No recent agent changes.",
   onMarkAllRead,
+  onOpenChange,
   onOpenFeed,
   triggerClassName,
   unreadCount = 0,
@@ -238,7 +244,17 @@ export function MarbleActivityRadar({
   const changedPlaceLabel = pluralize("place", unreadCount || batches.length);
 
   const buildBatchItem = (batch: MarbleActivityRadarBatch) => ({
-    description: batch.description,
+    description:
+      batch.actors && batch.actors.length > 0 ? (
+        <div className="space-y-1">
+          <MarbleProfileAttribution profiles={batch.actors} />
+          <div className="truncate text-xs text-zinc-500">
+            {batch.description}
+          </div>
+        </div>
+      ) : (
+        batch.description
+      ),
     detail: (
       <div className="flex min-w-[3.5rem] flex-col items-end gap-1">
         <span
@@ -259,6 +275,10 @@ export function MarbleActivityRadar({
     ),
     id: batch.id,
     label: batch.label,
+    onBlur: batch.onPreviewEnd,
+    onFocus: batch.onPreviewStart,
+    onPointerEnter: batch.onPreviewStart,
+    onPointerLeave: batch.onPreviewEnd,
     onSelect: batch.onSelect,
   });
 
@@ -306,7 +326,7 @@ export function MarbleActivityRadar({
   return (
     <MarbleContextPopover
       align="start"
-      ariaLabel="Open change radar"
+      ariaLabel="Open agent changesets"
       className={className}
       header={
         <div className="flex items-center gap-3 px-2 py-1.5">
@@ -315,13 +335,8 @@ export function MarbleActivityRadar({
             segments={headerSegments}
           />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="font-semibold text-sm text-taupe-950">
-                Change radar
-              </span>
-              <UnreadPill tone={hasUnread ? "warning" : "neutral"}>
-                {hasUnread ? `${unreadCount} new` : "Quiet"}
-              </UnreadPill>
+            <div className="font-semibold text-sm text-taupe-950">
+              Agent changesets
             </div>
             <span className="text-xs text-taupe-600">
               {batches.length > 0
@@ -342,6 +357,7 @@ export function MarbleActivityRadar({
         </div>
       }
       menuClassName="min-w-[22rem] max-w-[26rem] rounded-xs border border-orange-200/80 bg-white p-2 shadow-[0_18px_40px_rgba(84,57,26,0.12)]"
+      onOpenChange={onOpenChange}
       sections={sections}
       triggerClassName={cx(
         compact
@@ -361,22 +377,16 @@ export function MarbleActivityRadar({
             pulse={hasUnread}
             segments={headerSegments}
           />
-          {hasUnread ? (
-            <span className="absolute -top-1 -right-1 flex min-w-[1.1rem] items-center justify-center rounded-full border border-white bg-orange-500 px-1 text-[9px] leading-4 text-white shadow-sm">
-              {unreadCount > 9 ? "9+" : unreadCount}
-            </span>
-          ) : null}
+          {hasUnread ? <ActivityUnreadBadge count={unreadCount} /> : null}
         </div>
         {compact ? null : (
           <>
             <div className="flex min-w-0 flex-1 flex-col text-left">
               <span className="truncate font-medium text-sm text-taupe-900 tracking-tight">
-                Change radar
+                Agent changesets
               </span>
-              <span className="truncate text-[11px] text-taupe-500 uppercase tracking-[0.18em]">
-                {hasUnread
-                  ? `${unreadCount} unread bursts`
-                  : "Listening quietly"}
+              <span className="truncate text-[11px] text-taupe-500">
+                {hasUnread ? `${unreadCount} unreviewed` : "No pending review"}
               </span>
             </div>
             <CaretDownGlyph className="ml-auto size-4 shrink-0 text-taupe-400" />

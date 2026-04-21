@@ -15,6 +15,11 @@ export type SidebarTableRow = Pick<
   "id" | "name" | "project_id" | "updated_at"
 >;
 
+export type SidebarProfileRecord = Pick<
+  Database["public"]["Tables"]["profile"]["Row"],
+  "external_name" | "icon" | "id" | "name" | "type"
+>;
+
 export type SidebarTreeNode = {
   children: SidebarTreeNode[];
   href: string;
@@ -26,6 +31,7 @@ export type SidebarTreeNode = {
 
 export type SidebarTreeData = {
   ownerProfileIds: string[];
+  profiles: SidebarProfileRecord[];
   programs: SidebarTreeNode[];
   projects: SidebarTreeNode[];
 };

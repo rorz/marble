@@ -45,13 +45,17 @@ import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import {
+  applySidebarTreeState,
   COLLAPSED_SIDEBAR_WIDTH,
   clampSidebarWidth,
   type SidebarMode,
+  type SidebarTreeState,
+  updateSidebarTreeStateForKey,
 } from "../../lib/gui-sidebar";
 import { getErrorMessage, type RealtimePayload } from "../../lib/realtime-crud";
 import {
@@ -66,7 +70,13 @@ import {
 import { createClient } from "../../lib/supabase/browser";
 import { useSignOut } from "../sign-out-button";
 import { ChangeRadar } from "./change-radar";
-import { ChangeSpotlight } from "./change-spotlight";
+import {
+  ChangeSpotlight,
+  changeTargetKey,
+  getChangeTargetProps,
+  parseChangeTargetKey,
+  useChangeSpotlightPreviewTargetKeys,
+} from "./change-spotlight";
 import { createDefaultProfileAction } from "./profiles/actions";
 import { createProgram } from "./programs/actions";
 import { createProjectAction, createTableAction } from "./projects/actions";
@@ -197,6 +207,7 @@ type CommandPaletteSection = {
   id: string;
   items: CommandPaletteItem[];
 };
+type CommandPalettePage = "create-table-project";
 type SupportSheetView = "contact" | "handbook";
 
 const supportSheetWidthClassName = "w-[min(32rem,calc(100vw-1rem))]";
@@ -315,6 +326,68 @@ function getNodeIcon(node: SidebarTreeNode) {
   );
 }
 
+function getNodeTargetKey(node: SidebarTreeNode) {
+  if (node.kind === "project") {
+    return changeTargetKey.project(node.id);
+  }
+
+  if (node.kind === "table") {
+    return changeTargetKey.table(node.id);
+  }
+
+  return changeTargetKey.program(node.id);
+}
+
+function buildDefaultSidebarOpenKeys({
+  pathname,
+  selectedProgramId,
+  sidebarData,
+  sidebarMode,
+}: {
+  pathname: string;
+  selectedProgramId: null | string;
+  sidebarData: SidebarTreeData;
+  sidebarMode: SidebarMode;
+}) {
+  const keys = new Set<string>(
+    sidebarMode === "expanded"
+      ? [
+          "section:programs",
+          "section:projects",
+        ]
+      : [],
+  );
+  const topLevelPath = `/${pathname.split("/").at(1)}`;
+  const isNodeActive = (node: SidebarTreeNode) =>
+    node.kind === "program"
+      ? pathname === "/programs" && selectedProgramId === node.id
+      : isNodePathActive(pathname, node.href);
+
+  if (topLevelPath === "/projects") {
+    keys.add("section:projects");
+  }
+
+  if (topLevelPath === "/programs") {
+    keys.add("section:programs");
+  }
+
+  for (const key of collectActiveSidebarKeys(
+    sidebarData.projects,
+    isNodeActive,
+  )) {
+    keys.add(key);
+  }
+
+  for (const key of collectActiveSidebarKeys(
+    sidebarData.programs,
+    isNodeActive,
+  )) {
+    keys.add(key);
+  }
+
+  return keys;
+}
+
 function SidebarNavRow({
   active = false,
   expandable = false,
@@ -325,6 +398,8 @@ function SidebarNavRow({
   label,
   onSelect,
   onToggle,
+  previewTone = null,
+  targetKey,
   title,
 }: {
   active?: boolean;
@@ -336,6 +411,8 @@ function SidebarNavRow({
   label: string;
   onSelect?: () => void;
   onToggle?: () => void;
+  previewTone?: "ancestor" | "direct" | null;
+  targetKey?: string;
   title?: string;
 }) {
   const router = useRouter();
@@ -348,9 +425,14 @@ function SidebarNavRow({
         "group flex min-w-0 items-center rounded-md text-taupe-700 transition-colors",
         active
           ? "bg-taupe-300/80 text-taupe-900"
-          : "hover:bg-taupe-200/80 hover:text-taupe-900",
+          : previewTone === "direct"
+            ? "bg-white text-taupe-900 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.4),0_1px_0_rgba(255,255,255,0.78)]"
+            : previewTone === "ancestor"
+              ? "bg-orange-50/80 text-taupe-900"
+              : "hover:bg-taupe-200/80 hover:text-taupe-900",
         iconOnly ? "w-auto justify-center" : "w-full pr-1",
       )}
+      {...(targetKey ? getChangeTargetProps(targetKey) : {})}
     >
       <Link
         aria-current={active ? "page" : undefined}
@@ -533,18 +615,26 @@ export function GuiShell({
   children,
   initialSidebarData,
   initialSidebarMode,
+  initialSidebarTreeState,
   initialSidebarWidth,
 }: {
   children: ReactNode;
   initialSidebarData: SidebarTreeData;
   initialSidebarMode: SidebarMode;
+  initialSidebarTreeState: SidebarTreeState;
   initialSidebarWidth: number;
 }) {
   const [sidebarMode, setSidebarMode] =
     useState<SidebarMode>(initialSidebarMode);
   const [sidebarWidth, setSidebarWidth] = useState(initialSidebarWidth);
   const [sidebarData, setSidebarData] = useState(initialSidebarData);
+  const [sidebarTreeState, setSidebarTreeState] = useState<SidebarTreeState>(
+    initialSidebarTreeState,
+  );
   const [commandPaletteQuery, setCommandPaletteQuery] = useState("");
+  const [commandPalettePages, setCommandPalettePages] = useState<
+    CommandPalettePage[]
+  >([]);
   const [commandPaletteSupportSheet, setCommandPaletteSupportSheet] =
     useState<SupportSheetView | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -560,6 +650,7 @@ export function GuiShell({
   } = useSignOut();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const previewTargetKeys = useChangeSpotlightPreviewTargetKeys();
   const resizeHandleRef = useRef<HTMLButtonElement | null>(null);
   const sidebarWidthRef = useRef(sidebarWidth);
   const resizeStateRef = useRef<null | {
@@ -569,8 +660,27 @@ export function GuiShell({
   }>(null);
   const topLevelPath = `/${pathname.split("/").at(1)}`;
   const selectedProgramId = searchParams.get("programId");
+  const previewTargetKeySet = useMemo(
+    () => new Set(previewTargetKeys),
+    [
+      previewTargetKeys,
+    ],
+  );
+  const previewDescriptors = useMemo(
+    () =>
+      previewTargetKeys
+        .map((targetKey) => parseChangeTargetKey(targetKey))
+        .filter((descriptor): descriptor is NonNullable<typeof descriptor> =>
+          Boolean(descriptor),
+        ),
+    [
+      previewTargetKeys,
+    ],
+  );
+  const currentCommandPalettePage = commandPalettePages.at(-1) ?? null;
   const resetCommandPalette = () => {
     setCommandPaletteQuery("");
+    setCommandPalettePages([]);
     setCommandPaletteSupportSheet(null);
   };
   const handleCommandPaletteOpenChange = (nextOpen: boolean) => {
@@ -597,6 +707,34 @@ export function GuiShell({
   };
   const handleCommandPaletteError = (error: unknown) => {
     window.alert(getErrorMessage(error));
+  };
+  const pushCommandPalettePage = (page: CommandPalettePage) => {
+    setCommandPalettePages((current) => [
+      ...current,
+      page,
+    ]);
+    setCommandPaletteQuery("");
+  };
+  const popCommandPalettePage = () => {
+    setCommandPalettePages((current) => current.slice(0, -1));
+    setCommandPaletteQuery("");
+  };
+  const handleCommandPaletteKeyDown = (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (
+      currentCommandPalettePage === null ||
+      !(
+        event.key === "Escape" ||
+        (event.key === "Backspace" && commandPaletteQuery.length === 0)
+      )
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    popCommandPalettePage();
   };
   const workspaceMenuSections = [
     {
@@ -714,9 +852,8 @@ export function GuiShell({
   const defaultTableProjectNode =
     selectedProjectNode ??
     (projectNodes.length === 1 ? (projectNodes[0]?.node ?? null) : null);
-  const createTableDetail =
-    defaultTableProjectNode?.label ??
-    (projectNodes.length === 0 ? "Create a project first" : "Choose project");
+  const hasProjectTargetsForNewTable = projectNodes.length > 0;
+  const createTableDetail = defaultTableProjectNode?.label ?? "Choose project";
   const handleCreateProjectFromCommandPalette = async () => {
     closeCommandPalette();
 
@@ -727,20 +864,31 @@ export function GuiShell({
       handleCommandPaletteError(error);
     }
   };
-  const handleCreateTableFromCommandPalette = async () => {
+  const handleCreateTableForProjectFromCommandPalette = async (
+    projectId: string,
+  ) => {
     closeCommandPalette();
 
-    if (!defaultTableProjectNode) {
-      router.push("/projects");
-      return;
-    }
-
     try {
-      const table = await createTableAction(defaultTableProjectNode.id);
-      router.push(`/projects/${defaultTableProjectNode.id}/tables/${table.id}`);
+      const table = await createTableAction(projectId);
+      router.push(`/projects/${projectId}/tables/${table.id}`);
     } catch (error) {
       handleCommandPaletteError(error);
     }
+  };
+  const handleCreateTableFromCommandPalette = async () => {
+    if (!hasProjectTargetsForNewTable) {
+      return;
+    }
+
+    if (!defaultTableProjectNode) {
+      pushCommandPalettePage("create-table-project");
+      return;
+    }
+
+    await handleCreateTableForProjectFromCommandPalette(
+      defaultTableProjectNode.id,
+    );
   };
   const handleCreateProgramFromCommandPalette = async () => {
     closeCommandPalette();
@@ -873,7 +1021,7 @@ export function GuiShell({
       },
     ],
   };
-  const commandPaletteCoreSections: CommandPaletteSection[] = [
+  const rootCommandPaletteSections: CommandPaletteSection[] = [
     {
       heading: "New",
       id: "command-palette-create",
@@ -898,28 +1046,32 @@ export function GuiShell({
             void handleCreateProjectFromCommandPalette();
           },
         },
-        {
-          detail: createTableDetail,
-          icon: (
-            <TableIcon
-              className="h-4 w-4"
-              weight="duotone"
-            />
-          ),
-          id: "command-palette-new-table",
-          keywords: [
-            "create",
-            "new",
-            "table",
-            "rows",
-            "columns",
-            "schema",
-          ],
-          label: "New table",
-          onSelect: () => {
-            void handleCreateTableFromCommandPalette();
-          },
-        },
+        ...(hasProjectTargetsForNewTable
+          ? [
+              {
+                detail: createTableDetail,
+                icon: (
+                  <TableIcon
+                    className="h-4 w-4"
+                    weight="duotone"
+                  />
+                ),
+                id: "command-palette-new-table",
+                keywords: [
+                  "create",
+                  "new",
+                  "table",
+                  "rows",
+                  "columns",
+                  "schema",
+                ],
+                label: defaultTableProjectNode ? "New table" : "New table...",
+                onSelect: () => {
+                  void handleCreateTableFromCommandPalette();
+                },
+              },
+            ]
+          : []),
         {
           detail: "Create",
           icon: (
@@ -1099,55 +1251,152 @@ export function GuiShell({
       ],
     },
   ];
-  const isSupportQuery = [
-    "contact",
-    "docs",
-    "handbook",
-    "help",
-    "support",
-  ].some((term) => commandPaletteQuery.toLowerCase().includes(term));
+  const createTableProjectSections: CommandPaletteSection[] = [
+    {
+      heading: "Choose project",
+      id: "command-palette-create-table-project",
+      items: projectNodes.map(({ node }) => ({
+        detail: "Project",
+        icon: (
+          <BriefcaseMetalIcon
+            size={16}
+            weight="regular"
+          />
+        ),
+        id: `command-palette-new-table-project:${node.id}`,
+        keywords: [
+          "create",
+          "new",
+          "project",
+          "table",
+          node.id,
+        ],
+        label: node.label,
+        onSelect: () => {
+          void handleCreateTableForProjectFromCommandPalette(node.id);
+        },
+      })),
+    },
+  ];
+  const normalizedCommandPaletteQuery = commandPaletteQuery.toLowerCase();
+  const isSupportQuery =
+    currentCommandPalettePage === null &&
+    [
+      "contact",
+      "docs",
+      "handbook",
+      "help",
+      "support",
+    ].some((term) => normalizedCommandPaletteQuery.includes(term));
   const commandPaletteSections: CommandPaletteSection[] = (
-    isSupportQuery
-      ? [
-          supportCommandSection,
-          ...commandPaletteCoreSections,
-        ]
-      : [
-          ...commandPaletteCoreSections,
-          supportCommandSection,
-        ]
-  ).filter((section) => section.items.length > 0);
-  const [openKeys, setOpenKeys] = useState<Set<string>>(() => {
-    const keys = new Set<string>(
-      initialSidebarMode === "expanded"
+    currentCommandPalettePage === "create-table-project"
+      ? createTableProjectSections
+      : isSupportQuery
         ? [
-            "section:programs",
-            "section:projects",
+            supportCommandSection,
+            ...rootCommandPaletteSections,
           ]
-        : [],
-    );
+        : [
+            ...rootCommandPaletteSections,
+            supportCommandSection,
+          ]
+  ).filter((section) => section.items.length > 0);
+  const commandPaletteEmptyMessage =
+    currentCommandPalettePage === "create-table-project"
+      ? "No matching project for a new table."
+      : "No matching command. Try `projects`, `rows`, `people`, or `help`.";
+  const commandPaletteFooterPrimaryText =
+    currentCommandPalettePage === "create-table-project"
+      ? "Enter creates in the selected project"
+      : "Enter opens the selected item";
+  const commandPaletteFooterSecondaryText =
+    commandPaletteSupportSheet !== null
+      ? "Esc closes the side panel first"
+      : currentCommandPalettePage === "create-table-project"
+        ? "Esc or Backspace returns to actions"
+        : "Cmd/Ctrl+K toggles this menu";
+  const projectIdByTableId = useMemo(() => {
+    const next = new Map<string, string>();
 
-    const isNodeActive = (node: SidebarTreeNode) =>
-      node.kind === "program"
-        ? pathname === "/programs" && selectedProgramId === node.id
-        : isNodePathActive(pathname, node.href);
-
-    for (const key of collectActiveSidebarKeys(
-      initialSidebarData.projects,
-      isNodeActive,
-    )) {
-      keys.add(key);
+    for (const project of sidebarData.projects) {
+      for (const child of project.children) {
+        if (child.kind === "table") {
+          next.set(child.id, project.id);
+        }
+      }
     }
 
-    for (const key of collectActiveSidebarKeys(
-      initialSidebarData.programs,
-      isNodeActive,
-    )) {
-      keys.add(key);
+    return next;
+  }, [
+    sidebarData.projects,
+  ]);
+  const defaultOpenKeys = useMemo(
+    () =>
+      buildDefaultSidebarOpenKeys({
+        pathname,
+        selectedProgramId,
+        sidebarData,
+        sidebarMode,
+      }),
+    [
+      pathname,
+      selectedProgramId,
+      sidebarData,
+      sidebarMode,
+    ],
+  );
+  const previewOpenKeys = useMemo(() => {
+    const next = new Set<string>();
+
+    for (const descriptor of previewDescriptors) {
+      if (
+        descriptor.kind === "project" ||
+        descriptor.kind === "table" ||
+        descriptor.kind === "row" ||
+        descriptor.kind === "column" ||
+        descriptor.kind === "cell"
+      ) {
+        next.add("section:projects");
+      }
+
+      if (
+        descriptor.kind === "program" ||
+        descriptor.kind === "program-file" ||
+        descriptor.kind === "program-version"
+      ) {
+        next.add("section:programs");
+      }
+
+      if (descriptor.kind === "project") {
+        next.add(`node:${descriptor.projectId}`);
+      }
+
+      if (descriptor.kind === "table") {
+        const projectId = projectIdByTableId.get(descriptor.tableId);
+
+        if (projectId) {
+          next.add(`node:${projectId}`);
+        }
+      }
     }
 
-    return keys;
-  });
+    return next;
+  }, [
+    previewDescriptors,
+    projectIdByTableId,
+  ]);
+  const effectiveOpenKeys = useMemo(
+    () =>
+      new Set([
+        ...applySidebarTreeState(defaultOpenKeys, sidebarTreeState),
+        ...previewOpenKeys,
+      ]),
+    [
+      defaultOpenKeys,
+      previewOpenKeys,
+      sidebarTreeState,
+    ],
+  );
   const expandedGridColumns = `${sidebarWidth}px minmax(0, 1fr)`;
 
   const toggleSidebar = () => {
@@ -1177,17 +1426,30 @@ export function GuiShell({
     });
   };
 
+  const persistSidebarTreeState = (nextState: SidebarTreeState) => {
+    void fetch("/api/gui/sidebar-mode", {
+      body: JSON.stringify({
+        treeState: nextState,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+  };
+
   const toggleOpen = (key: string) => {
-    setOpenKeys((current) => {
-      const next = new Set(current);
+    setSidebarTreeState((current) => {
+      const nextState = updateSidebarTreeStateForKey(
+        current,
+        key,
+        !applySidebarTreeState(defaultOpenKeys, current).has(key),
+        defaultOpenKeys,
+      );
 
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
+      persistSidebarTreeState(nextState);
 
-      return next;
+      return nextState;
     });
   };
 
@@ -1329,47 +1591,6 @@ export function GuiShell({
   ]);
 
   useEffect(() => {
-    const isNodeActive = (node: SidebarTreeNode) =>
-      node.kind === "program"
-        ? pathname === "/programs" && selectedProgramId === node.id
-        : isNodePathActive(pathname, node.href);
-
-    setOpenKeys((current) => {
-      const next = new Set(current);
-
-      if (topLevelPath === "/projects") {
-        next.add("section:projects");
-      }
-
-      if (topLevelPath === "/programs") {
-        next.add("section:programs");
-      }
-
-      for (const key of collectActiveSidebarKeys(
-        sidebarData.projects,
-        isNodeActive,
-      )) {
-        next.add(key);
-      }
-
-      for (const key of collectActiveSidebarKeys(
-        sidebarData.programs,
-        isNodeActive,
-      )) {
-        next.add(key);
-      }
-
-      return next;
-    });
-  }, [
-    pathname,
-    sidebarData.programs,
-    sidebarData.projects,
-    selectedProgramId,
-    topLevelPath,
-  ]);
-
-  useEffect(() => {
     const applyMutation = (mutation: SidebarMutation) => {
       setSidebarData((current) => applySidebarMutation(current, mutation));
     };
@@ -1492,11 +1713,54 @@ export function GuiShell({
     node.kind === "program"
       ? pathname === "/programs" && selectedProgramId === node.id
       : isNodePathActive(pathname, node.href);
+  const getNodePreviewTone = (
+    node: SidebarTreeNode,
+  ): "ancestor" | "direct" | null => {
+    if (previewTargetKeySet.has(getNodeTargetKey(node))) {
+      return "direct";
+    }
+
+    if (node.children.some((child) => getNodePreviewTone(child) !== null)) {
+      return "ancestor";
+    }
+
+    return null;
+  };
+  const getSectionPreviewTone = (
+    sectionId: "profiles" | TreeCollectionKey,
+  ): "ancestor" | "direct" | null => {
+    if (sectionId === "profiles") {
+      return previewTargetKeySet.has(changeTargetKey.profiles())
+        ? "direct"
+        : null;
+    }
+
+    const kinds =
+      sectionId === "projects"
+        ? [
+            "cell",
+            "column",
+            "project",
+            "row",
+            "table",
+          ]
+        : [
+            "program",
+            "program-file",
+            "program-version",
+          ];
+
+    return previewDescriptors.some((descriptor) =>
+      kinds.includes(descriptor.kind),
+    )
+      ? "ancestor"
+      : null;
+  };
 
   const renderTree = (nodes: SidebarTreeNode[]) =>
     nodes.map((node) => {
       const nodeKey = `node:${node.id}`;
-      const isOpen = openKeys.has(nodeKey);
+      const isOpen = effectiveOpenKeys.has(nodeKey);
       const expandable = !sidebar.iconOnly && node.children.length > 0;
 
       return (
@@ -1513,6 +1777,8 @@ export function GuiShell({
             iconOnly={sidebar.iconOnly}
             label={node.label}
             onToggle={() => toggleOpen(nodeKey)}
+            previewTone={getNodePreviewTone(node)}
+            targetKey={getNodeTargetKey(node)}
             title={sidebar.iconOnly ? node.label : undefined}
           />
 
@@ -1610,7 +1876,14 @@ export function GuiShell({
                   const sectionKey = `section:${route.id}`;
                   const treeKey = route.id as TreeCollectionKey;
                   const nodes = route.isTree ? sidebarData[treeKey] : [];
-                  const isOpen = openKeys.has(sectionKey);
+                  const isOpen = effectiveOpenKeys.has(sectionKey);
+
+                  const previewTone =
+                    route.id === "projects" ||
+                    route.id === "programs" ||
+                    route.id === "profiles"
+                      ? getSectionPreviewTone(route.id)
+                      : null;
 
                   return (
                     <div
@@ -1626,6 +1899,12 @@ export function GuiShell({
                         iconOnly={sidebar.iconOnly}
                         label={route.name}
                         onToggle={() => toggleOpen(sectionKey)}
+                        previewTone={previewTone}
+                        targetKey={
+                          route.id === "profiles"
+                            ? changeTargetKey.profiles()
+                            : undefined
+                        }
                         title={sidebar.iconOnly ? route.name : undefined}
                       />
 
@@ -1708,6 +1987,7 @@ export function GuiShell({
       <MarbleCommandDialog
         label="Global command palette"
         loop
+        onKeyDown={handleCommandPaletteKeyDown}
         onOpenChange={handleCommandPaletteOpenChange}
         open={isCommandPaletteOpen}
       >
@@ -1717,9 +1997,7 @@ export function GuiShell({
           value={commandPaletteQuery}
         />
         <MarbleCommandList>
-          <MarbleCommandEmpty>
-            No matching command. Try `projects`, `rows`, `people`, or `help`.
-          </MarbleCommandEmpty>
+          <MarbleCommandEmpty>{commandPaletteEmptyMessage}</MarbleCommandEmpty>
 
           {commandPaletteSections.map((section, sectionIndex) => (
             <div key={section.id}>
@@ -1745,12 +2023,8 @@ export function GuiShell({
         </MarbleCommandList>
 
         <div className="flex items-center justify-between border-t border-taupe-200 bg-linear-to-t from-taupe-200 via-white to-white px-4 py-2 text-[11px] text-taupe-500 uppercase tracking-[0.18em]">
-          <span>Enter opens the selected item</span>
-          <span>
-            {commandPaletteSupportSheet !== null
-              ? "Esc closes the side panel first"
-              : "Cmd/Ctrl+K toggles this menu"}
-          </span>
+          <span>{commandPaletteFooterPrimaryText}</span>
+          <span>{commandPaletteFooterSecondaryText}</span>
         </div>
       </MarbleCommandDialog>
 

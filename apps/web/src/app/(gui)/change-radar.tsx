@@ -5,13 +5,20 @@ import {
   MarbleActivityRadar,
   type MarbleActivityRadarBatch,
   type MarbleActivityRadarSegment,
+  type MarbleProfileAttributionProfile,
+  type MarbleReviewNavigatorDetailItem,
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { RealtimePayload } from "../../lib/realtime-crud";
 import type { SidebarTreeData } from "../../lib/sidebar-tree";
 import { createClient } from "../../lib/supabase/browser";
-import { changeTargetKey, queueChangeSpotlight } from "./change-spotlight";
+import {
+  changeTargetKey,
+  clearPreviewChangeSpotlight,
+  previewChangeSpotlight,
+  queueChangeSpotlightDeck,
+} from "./change-spotlight";
 
 type ChangeRadarProps = {
   className?: string;
@@ -27,6 +34,7 @@ type ResolutionMaps = {
   versionProgramIds: Record<string, null | string>;
 };
 type RadarIndexes = {
+  profiles: Map<string, MarbleProfileAttributionProfile>;
   programs: Map<string, string>;
   projects: Map<string, string>;
   tables: Map<
@@ -44,8 +52,10 @@ type RadarScope = {
   targetKeys: string[];
 };
 type RadarBatchRecord = {
+  actors: MarbleProfileAttributionProfile[];
   burstCount: number;
   description: string;
+  detailItems: MarbleReviewNavigatorDetailItem[];
   href: string;
   id: string;
   label: string;
@@ -75,26 +85,6 @@ function shortId(value: string) {
 
 function pluralize(label: string, count: number) {
   return `${count} ${label}${count === 1 ? "" : "s"}`;
-}
-
-function formatOperationCount(operation: EventOperation, count: number) {
-  if (count <= 0) {
-    return null;
-  }
-
-  if (operation === "Create") {
-    return `+${count}`;
-  }
-
-  if (operation === "Delete") {
-    return `-${count}`;
-  }
-
-  if (operation === "Update") {
-    return `~${count}`;
-  }
-
-  return null;
 }
 
 function formatRadarRelativeTime(value: string) {
@@ -135,10 +125,21 @@ function getStringField(snapshot: Record<string, unknown> | null, key: string) {
 
 function buildRadarIndexes(sidebarData: SidebarTreeData) {
   const indexes: RadarIndexes = {
+    profiles: new Map(),
     programs: new Map(),
     projects: new Map(),
     tables: new Map(),
   };
+
+  for (const profile of sidebarData.profiles) {
+    indexes.profiles.set(profile.id, {
+      externalName: profile.external_name,
+      icon: profile.icon,
+      id: profile.id,
+      name: profile.name || "Untitled Profile",
+      type: profile.type,
+    });
+  }
 
   for (const node of sidebarData.programs) {
     indexes.programs.set(node.id, node.label);
@@ -361,6 +362,117 @@ function resolveEventTargetKeys(
   return [];
 }
 
+function appendLimitedTargetKeys(
+  targetKeys: string[],
+  nextTargetKeys: string[],
+) {
+  for (const targetKey of nextTargetKeys) {
+    if (
+      targetKeys.length >= CHANGE_RADAR_TARGET_LIMIT ||
+      targetKeys.includes(targetKey)
+    ) {
+      continue;
+    }
+
+    targetKeys.push(targetKey);
+  }
+}
+
+function resolveEventDetailTargetKeys(
+  event: EventRow,
+  resolutionMaps: ResolutionMaps,
+) {
+  const snapshot = getEventSnapshot(event);
+
+  if (
+    event.resource === "project" ||
+    event.resource === "table" ||
+    event.resource === "row" ||
+    event.resource === "column" ||
+    event.resource === "program" ||
+    event.resource === "program_version"
+  ) {
+    return resolveEventTargetKeys(event, resolutionMaps).slice(0, 1);
+  }
+
+  if (event.resource === "cell") {
+    const rowId = getStringField(snapshot, "row_id");
+    const columnId = getStringField(snapshot, "column_id");
+
+    return rowId && columnId
+      ? [
+          changeTargetKey.cell(rowId, columnId),
+        ]
+      : [];
+  }
+
+  if (event.resource === "column_dependency") {
+    const sourceColumnId = getStringField(snapshot, "source_column_id");
+    const targetColumnId = getStringField(snapshot, "target_column_id");
+
+    return [
+      ...(targetColumnId
+        ? [
+            changeTargetKey.column(targetColumnId),
+          ]
+        : []),
+      ...(sourceColumnId
+        ? [
+            changeTargetKey.column(sourceColumnId),
+          ]
+        : []),
+    ];
+  }
+
+  if (event.resource === "program_file") {
+    const programId = getStringField(snapshot, "program_id");
+    const versionId = getStringField(snapshot, "version_id");
+    const resolvedProgramId =
+      programId ??
+      (versionId ? resolutionMaps.versionProgramIds[versionId] : undefined);
+    const filename = getStringField(snapshot, "filename");
+
+    return resolvedProgramId && filename
+      ? [
+          changeTargetKey.programFile(resolvedProgramId, filename),
+        ]
+      : resolvedProgramId
+        ? [
+            changeTargetKey.program(resolvedProgramId),
+          ]
+        : [];
+  }
+
+  if (event.resource === "program_run") {
+    const versionId = getStringField(snapshot, "program_version_id");
+    const programId = versionId
+      ? resolutionMaps.versionProgramIds[versionId]
+      : undefined;
+
+    return versionId
+      ? [
+          changeTargetKey.programVersion(versionId),
+        ]
+      : programId
+        ? [
+            changeTargetKey.program(programId),
+          ]
+        : [];
+  }
+
+  if (
+    event.resource === "profile" ||
+    event.resource === "key" ||
+    event.resource === "secret"
+  ) {
+    return [
+      changeTargetKey.profiles(),
+    ];
+  }
+
+  return [];
+}
+
 function resolveRadarScope(
   event: EventRow,
   indexes: RadarIndexes,
@@ -538,49 +650,116 @@ function buildRadarSegments(
   );
 }
 
-function buildBatchDescription(
-  counts: Map<string, number>,
-  operationCounts: Record<EventOperation, number>,
-  burstCount: number,
-  operationOrder: EventOperation[] = [
-    "Create",
-    "Update",
-    "Delete",
-  ],
-) {
-  const operationSummary = operationOrder
-    .map((operation) =>
-      formatOperationCount(operation, operationCounts[operation]),
+function buildBatchDescription(detailItems: MarbleReviewNavigatorDetailItem[]) {
+  return detailItems
+    .map((item) =>
+      [
+        item.label,
+        ...(item.diffs ?? []).map((diff) =>
+          diff.tone === "create"
+            ? `+${diff.count}`
+            : diff.tone === "delete"
+              ? `-${diff.count}`
+              : `~${diff.count}`,
+        ),
+      ].join(" "),
     )
-    .filter((part): part is string => part !== null)
-    .join(" ");
+    .filter((part) => part.length > 0)
+    .join(" · ");
+}
 
-  const resourceTotals = new Map<string, number>();
+function buildBatchDetailItems(
+  counts: Map<string, number>,
+  burstCount: number,
+  resourceTargetKeys: Map<string, string[]>,
+  resourceOperationTargetKeys: Map<string, string[]>,
+  targetKeys: string[],
+): MarbleReviewNavigatorDetailItem[] {
+  const resourceTotals = new Map<
+    string,
+    {
+      count: number;
+      operations: Record<"Create" | "Delete" | "Update", number>;
+    }
+  >();
 
   for (const [key, count] of counts) {
-    const [resource] = key.split(":");
-    resourceTotals.set(resource, (resourceTotals.get(resource) ?? 0) + count);
+    const [resource, operation] = key.split(":");
+
+    if (
+      !resource ||
+      (operation !== "Create" &&
+        operation !== "Delete" &&
+        operation !== "Update")
+    ) {
+      continue;
+    }
+
+    const current = resourceTotals.get(resource) ?? {
+      count: 0,
+      operations: {
+        Create: 0,
+        Delete: 0,
+        Update: 0,
+      },
+    };
+
+    current.count += count;
+    current.operations[operation] += count;
+    resourceTotals.set(resource, current);
   }
 
-  const resourceSummary = Array.from(resourceTotals.entries())
-    .map(([resource, count]) => ({
-      count,
-      resource: titleCase(resource).toLowerCase(),
+  const resourceItems = Array.from(resourceTotals.entries())
+    .map(([resource, value]) => ({
+      diffs: [
+        value.operations.Create > 0
+          ? {
+              count: value.operations.Create,
+              targetKeys: resourceOperationTargetKeys.get(`${resource}:Create`),
+              tone: "create" as const,
+            }
+          : null,
+        value.operations.Update > 0
+          ? {
+              count: value.operations.Update,
+              targetKeys: resourceOperationTargetKeys.get(`${resource}:Update`),
+              tone: "update" as const,
+            }
+          : null,
+        value.operations.Delete > 0
+          ? {
+              count: value.operations.Delete,
+              targetKeys: resourceOperationTargetKeys.get(`${resource}:Delete`),
+              tone: "delete" as const,
+            }
+          : null,
+      ].filter((diff): diff is NonNullable<typeof diff> => diff !== null),
+      label: pluralize(titleCase(resource).toLowerCase(), value.count),
+      targetKeys: resourceTargetKeys.get(resource),
+      total: value.count,
     }))
     .sort(
       (left, right) =>
-        right.count - left.count || left.resource.localeCompare(right.resource),
+        right.total - left.total || left.label.localeCompare(right.label),
     )
     .slice(0, 2)
-    .map((entry) => pluralize(entry.resource, entry.count));
+    .map(({ diffs, label, targetKeys: resourceItemTargetKeys }) => ({
+      diffs,
+      label,
+      targetKeys: resourceItemTargetKeys,
+    }));
 
   return [
-    burstCount > 1 ? `${burstCount} waves` : null,
-    operationSummary,
-    ...resourceSummary,
-  ]
-    .filter((part): part is string => part !== null && part.length > 0)
-    .join(" · ");
+    ...(burstCount > 1
+      ? [
+          {
+            label: `${burstCount} waves`,
+            targetKeys,
+          } satisfies MarbleReviewNavigatorDetailItem,
+        ]
+      : []),
+    ...resourceItems,
+  ];
 }
 
 function buildRadarBatches(
@@ -592,6 +771,7 @@ function buildRadarBatches(
   const grouped = new Map<
     string,
     {
+      actorProfileIds: string[];
       burstKeys: Set<string>;
       counts: Map<string, number>;
       href: string;
@@ -599,6 +779,8 @@ function buildRadarBatches(
       label: string;
       latestAt: string;
       operations: Record<EventOperation, number>;
+      resourceOperationTargetKeys: Map<string, string[]>;
+      resourceTargetKeys: Map<string, string[]>;
       targetKeys: string[];
       unread: boolean;
     }
@@ -618,6 +800,9 @@ function buildRadarBatches(
 
     if (!grouped.has(groupId)) {
       grouped.set(groupId, {
+        actorProfileIds: [
+          event.actor_profile_id,
+        ],
         burstKeys: new Set(),
         counts: new Map(),
         href: scope.href,
@@ -630,6 +815,8 @@ function buildRadarBatches(
           Read: 0,
           Update: 0,
         },
+        resourceOperationTargetKeys: new Map(),
+        resourceTargetKeys: new Map(),
         targetKeys: [
           ...scope.targetKeys,
         ].slice(0, CHANGE_RADAR_TARGET_LIMIT),
@@ -640,6 +827,10 @@ function buildRadarBatches(
     }
 
     const current = grouped.get(groupId);
+    const detailTargetKeys = resolveEventDetailTargetKeys(
+      event,
+      resolutionMaps,
+    );
 
     if (!current) {
       continue;
@@ -652,15 +843,23 @@ function buildRadarBatches(
       current.unread ||
       lastReviewedAt === null ||
       event.created_at.localeCompare(lastReviewedAt) > 0;
-    for (const targetKey of scope.targetKeys) {
-      if (
-        current.targetKeys.length >= CHANGE_RADAR_TARGET_LIMIT ||
-        current.targetKeys.includes(targetKey)
-      ) {
-        continue;
-      }
+    appendLimitedTargetKeys(current.targetKeys, scope.targetKeys);
 
-      current.targetKeys.push(targetKey);
+    const resourceTargetKeys =
+      current.resourceTargetKeys.get(event.resource) ?? [];
+    appendLimitedTargetKeys(resourceTargetKeys, detailTargetKeys);
+    current.resourceTargetKeys.set(event.resource, resourceTargetKeys);
+
+    const resourceOperationTargetKeys =
+      current.resourceOperationTargetKeys.get(summaryKey) ?? [];
+    appendLimitedTargetKeys(resourceOperationTargetKeys, detailTargetKeys);
+    current.resourceOperationTargetKeys.set(
+      summaryKey,
+      resourceOperationTargetKeys,
+    );
+
+    if (!current.actorProfileIds.includes(event.actor_profile_id)) {
+      current.actorProfileIds.push(event.actor_profile_id);
     }
 
     if (event.created_at.localeCompare(current.latestAt) > 0) {
@@ -671,14 +870,29 @@ function buildRadarBatches(
   return Array.from(grouped.values())
     .sort((left, right) => right.latestAt.localeCompare(left.latestAt))
     .slice(0, 6)
-    .map(
-      (batch): RadarBatchRecord => ({
+    .map((batch): RadarBatchRecord => {
+      const detailItems = buildBatchDetailItems(
+        batch.counts,
+        batch.burstKeys.size,
+        batch.resourceTargetKeys,
+        batch.resourceOperationTargetKeys,
+        batch.targetKeys,
+      );
+
+      return {
+        actors: batch.actorProfileIds
+          .map(
+            (profileId) =>
+              indexes.profiles.get(profileId) ?? {
+                id: profileId,
+                name: `Profile ${shortId(profileId)}`,
+                type: "Agent" as const,
+              },
+          )
+          .slice(0, 3),
         burstCount: batch.burstKeys.size,
-        description: buildBatchDescription(
-          batch.counts,
-          batch.operations,
-          batch.burstKeys.size,
-        ),
+        description: buildBatchDescription(detailItems),
+        detailItems,
         href: batch.href,
         id: batch.id,
         label: batch.label,
@@ -686,8 +900,8 @@ function buildRadarBatches(
         segments: buildRadarSegments(batch.operations),
         targetKeys: batch.targetKeys,
         unread: batch.unread,
-      }),
-    );
+      };
+    });
 }
 
 function upsertRadarEvent(current: EventRow[], nextEvent: EventRow) {
@@ -1003,12 +1217,26 @@ export function ChangeRadar({
     lastReviewedAt,
   );
   const batches: MarbleActivityRadarBatch[] = batchRecords.map((batch) => ({
+    actors: batch.actors,
     description: batch.description,
     id: batch.id,
     label: batch.label,
+    onPreviewEnd: clearPreviewChangeSpotlight,
+    onPreviewStart: () => previewChangeSpotlight(batch.targetKeys),
     onSelect: () => {
       markReviewedThrough(batch.latestAt);
-      queueChangeSpotlight(batch.targetKeys);
+      clearPreviewChangeSpotlight();
+      queueChangeSpotlightDeck(
+        batchRecords.map((record) => ({
+          description: record.description,
+          detailItems: record.detailItems,
+          href: record.href,
+          id: record.id,
+          label: record.label,
+          targetKeys: record.targetKeys,
+        })),
+        batch.id,
+      );
       router.push(batch.href);
     },
     segments: batch.segments,
@@ -1025,6 +1253,11 @@ export function ChangeRadar({
       onMarkAllRead={() =>
         markReviewedThrough(batchRecords[0]?.latestAt ?? null)
       }
+      onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          clearPreviewChangeSpotlight();
+        }
+      }}
       unreadCount={unreadCount}
     />
   );

@@ -103,6 +103,17 @@ export {
 } from "./components/pane";
 export { MarblePaneEditableCrumb } from "./components/pane-editable-crumb";
 export {
+  MarbleProfileAttribution,
+  type MarbleProfileAttributionProfile,
+  type MarbleProfileAttributionProps,
+} from "./components/profile-attribution";
+export {
+  MarbleReviewNavigator,
+  type MarbleReviewNavigatorDetailItem,
+  type MarbleReviewNavigatorDiff,
+  type MarbleReviewNavigatorProps,
+} from "./components/review-navigator";
+export {
   MarbleSearchSelect,
   type MarbleSearchSelectOption,
   type MarbleSearchSelectProps,

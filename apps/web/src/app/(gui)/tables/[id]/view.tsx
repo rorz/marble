@@ -940,6 +940,14 @@ function CellWithRunButton(props: CustomCellRendererProps) {
   );
 }
 
+function escapeChangeTargetSelector(value: string) {
+  if (typeof window !== "undefined" && window.CSS?.escape) {
+    return window.CSS.escape(value);
+  }
+
+  return value.replaceAll('"', '\\"');
+}
+
 // ── Components ──────────────────────────────────────────
 
 function InterpolationEditor({
@@ -2150,12 +2158,55 @@ export default function TablePageView({
     [],
   );
 
+  const findChangeTarget = useCallback((descriptor: ChangeTargetDescriptor) => {
+    if (typeof document === "undefined") {
+      return null;
+    }
+
+    const targetKey =
+      descriptor.kind === "table"
+        ? changeTargetKey.table(descriptor.tableId)
+        : descriptor.kind === "row"
+          ? changeTargetKey.row(descriptor.rowId)
+          : descriptor.kind === "column"
+            ? changeTargetKey.column(descriptor.columnId)
+            : descriptor.kind === "cell"
+              ? changeTargetKey.cell(descriptor.rowId, descriptor.columnId)
+              : null;
+
+    if (!targetKey) {
+      return null;
+    }
+
+    const targetElement = document.querySelector<HTMLElement>(
+      `[data-change-target="${escapeChangeTargetSelector(targetKey)}"]`,
+    );
+
+    if (!targetElement) {
+      return null;
+    }
+
+    if (descriptor.kind === "column") {
+      return (
+        targetElement.closest<HTMLElement>(".ag-header-cell") ?? targetElement
+      );
+    }
+
+    if (descriptor.kind === "row" || descriptor.kind === "cell") {
+      return targetElement.closest<HTMLElement>(".ag-cell") ?? targetElement;
+    }
+
+    return targetElement;
+  }, []);
+
   const changeSpotlightResolver = useMemo(
     () => ({
+      findElement: findChangeTarget,
       match: matchChangeTarget,
       reveal: revealChangeTarget,
     }),
     [
+      findChangeTarget,
       matchChangeTarget,
       revealChangeTarget,
     ],

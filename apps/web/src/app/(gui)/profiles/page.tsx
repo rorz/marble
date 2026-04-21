@@ -51,9 +51,10 @@ export default async function Profile4Page() {
 
   return (
     <MarblePane
+      className="max-w-3xl"
       description="Your human profile is created automatically. Add separate agent profiles for the tools you delegate to, then mint keys inside each profile so activity stays attributable."
       title="Profiles"
-      width="Narrow"
+      width="Full"
     >
       <ProfilesPageView
         initialProfiles={profiles.map((profile) => ({

@@ -4,6 +4,7 @@ import {
   buildProgramNode,
   buildProjectNode,
   buildTableNode,
+  type SidebarProfileRecord,
   type SidebarProgramRow,
   type SidebarProjectRow,
   type SidebarTableRow,
@@ -21,31 +22,46 @@ export async function listSidebarDataForUser(
   const ownerProfileIds = await listOwnedProfileIds(userId);
   const supabase = createServiceRoleClient();
 
-  const [projectsResult, firstPartyProgramsResult, ownedProgramsResult] =
-    await Promise.all([
-      ownerProfileIds.length === 0
-        ? Promise.resolve({
-            data: [],
-            error: null,
-          })
-        : supabase
-            .from("project")
-            .select("id, name, owner_profile_id, updated_at")
-            .in("owner_profile_id", ownerProfileIds),
-      supabase
-        .from("program")
-        .select("first_party, id, name, owner_profile_id, updated_at")
-        .eq("first_party", true),
-      ownerProfileIds.length === 0
-        ? Promise.resolve({
-            data: [],
-            error: null,
-          })
-        : supabase
-            .from("program")
-            .select("first_party, id, name, owner_profile_id, updated_at")
-            .in("owner_profile_id", ownerProfileIds),
-    ]);
+  const [
+    profilesResult,
+    projectsResult,
+    firstPartyProgramsResult,
+    ownedProgramsResult,
+  ] = await Promise.all([
+    supabase
+      .from("profile")
+      .select("id, name, external_name, icon, type")
+      .eq("owner_user_id", userId)
+      .order("created_at", {
+        ascending: true,
+      }),
+    ownerProfileIds.length === 0
+      ? Promise.resolve({
+          data: [],
+          error: null,
+        })
+      : supabase
+          .from("project")
+          .select("id, name, owner_profile_id, updated_at")
+          .in("owner_profile_id", ownerProfileIds),
+    supabase
+      .from("program")
+      .select("first_party, id, name, owner_profile_id, updated_at")
+      .eq("first_party", true),
+    ownerProfileIds.length === 0
+      ? Promise.resolve({
+          data: [],
+          error: null,
+        })
+      : supabase
+          .from("program")
+          .select("first_party, id, name, owner_profile_id, updated_at")
+          .in("owner_profile_id", ownerProfileIds),
+  ]);
+
+  if (profilesResult.error) {
+    throw profilesResult.error;
+  }
 
   if (projectsResult.error) {
     throw projectsResult.error;
@@ -95,6 +111,7 @@ export async function listSidebarDataForUser(
 
   return {
     ownerProfileIds,
+    profiles: (profilesResult.data ?? []) as SidebarProfileRecord[],
     programs: sortSidebarNodes(
       [
         ...programs.values(),
