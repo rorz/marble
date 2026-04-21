@@ -14,6 +14,7 @@ export {
 } from "./components/badge";
 export {
   MarbleButton,
+  type MarbleButtonIcon,
   type MarbleButtonProps,
 } from "./components/button";
 export {

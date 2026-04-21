@@ -3,6 +3,8 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type {
   ButtonHTMLAttributes,
+  ComponentPropsWithoutRef,
+  ComponentType,
   CSSProperties,
   FocusEvent as ReactFocusEvent,
   PointerEvent as ReactPointerEvent,
@@ -199,7 +201,7 @@ const marbleButtonBorderVariants = cva(
 );
 
 const marbleButtonInnerVariants = cva(
-  "relative flex size-full items-center justify-center overflow-hidden rounded-[5px] font-bold uppercase",
+  "relative flex size-full items-center justify-center overflow-hidden rounded-[5px] font-semibold",
   {
     defaultVariants: {
       size: "md",
@@ -207,8 +209,9 @@ const marbleButtonInnerVariants = cva(
     },
     variants: {
       size: {
-        md: "px-3 py-1.5 text-xs tracking-wide",
-        sm: "px-2.5 py-1 text-[11px] tracking-[0.18em]",
+        md: "px-3 py-1.5 text-xs tracking-normal",
+        sm: "px-2.5 py-1 text-[11px] tracking-wide",
+        xs: "px-2 py-0.5 text-[10px] tracking-wide",
       },
       variant: {
         dark: "bg-neutral-600 text-neutral-100",
@@ -228,8 +231,25 @@ const marbleButtonCursorDotVariants = cva(
     },
     variants: {
       size: {
-        md: "size-14",
-        sm: "size-12",
+        md: "size-12",
+        sm: "size-10",
+        xs: "size-10",
+      },
+    },
+  },
+);
+
+const marbleButtonContentVariants = cva(
+  "relative z-10 inline-flex items-center justify-center",
+  {
+    defaultVariants: {
+      size: "md",
+    },
+    variants: {
+      size: {
+        md: "gap-1.5",
+        sm: "gap-1.5",
+        xs: "gap-1",
       },
     },
   },
@@ -239,6 +259,12 @@ type MarbleButtonInlineStyle = CSSProperties & {
   "--marble-button-dot-x"?: string;
   "--marble-button-dot-y"?: string;
 };
+
+const marbleButtonIconSizes = {
+  md: 14,
+  sm: 12,
+  xs: 12,
+} as const;
 
 const marbleButtonDefaultInlineStyle = {
   "--marble-button-dot-x": "50%",
@@ -283,13 +309,49 @@ function centerCursorDotPositionIfKeyboardFocused(
   }
 }
 
-export type MarbleButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
+type MarbleButtonIconWeight =
+  | "thin"
+  | "light"
+  | "regular"
+  | "bold"
+  | "fill"
+  | "duotone";
+
+export type MarbleButtonIcon = ComponentType<
+  ComponentPropsWithoutRef<"svg"> & {
+    alt?: string;
+    color?: string;
+    mirrored?: boolean;
+    size?: string | number;
+    weight?: MarbleButtonIconWeight;
+  }
+>;
+
+type MarbleButtonBaseProps = ButtonHTMLAttributes<HTMLButtonElement> &
   VariantProps<typeof marbleButtonInnerVariants>;
+
+type MarbleButtonIconProps =
+  | {
+      iconLeft?: MarbleButtonIcon;
+      iconRight?: never;
+    }
+  | {
+      iconLeft?: never;
+      iconRight?: MarbleButtonIcon;
+    }
+  | {
+      iconLeft?: undefined;
+      iconRight?: undefined;
+    };
+
+export type MarbleButtonProps = MarbleButtonBaseProps & MarbleButtonIconProps;
 
 export function MarbleButton({
   children,
   className,
   disabled = false,
+  iconLeft: IconLeft,
+  iconRight: IconRight,
   onBlur,
   onFocus,
   onPointerCancel,
@@ -302,6 +364,8 @@ export function MarbleButton({
   variant = "light",
   ...props
 }: MarbleButtonProps) {
+  const iconSize = marbleButtonIconSizes[size ?? "md"];
+
   return (
     <button
       className={cx(
@@ -379,8 +443,28 @@ export function MarbleButton({
               }}
             />
           </span>
-          <span className="relative z-10 inline-flex items-center justify-center">
+          <span
+            className={marbleButtonContentVariants({
+              size,
+            })}
+          >
+            {IconLeft ? (
+              <IconLeft
+                aria-hidden="true"
+                className="shrink-0 opacity-80"
+                size={iconSize}
+                weight="fill"
+              />
+            ) : null}
             {children}
+            {IconRight ? (
+              <IconRight
+                aria-hidden="true"
+                className="shrink-0 opacity-80"
+                size={iconSize}
+                weight="fill"
+              />
+            ) : null}
           </span>
         </div>
       </div>

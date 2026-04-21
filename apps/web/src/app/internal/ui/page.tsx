@@ -14,6 +14,7 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import {
+  MarbleActivityRadar,
   MarbleAlert,
   MarbleBadge,
   MarbleButton,
@@ -61,6 +62,12 @@ import {
   MarbleWorkspaceMark,
   MarbleWorkspacePopover,
 } from "@marble/ui";
+import {
+  ArrowRightIcon,
+  PlayIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@phosphor-icons/react/ssr";
 import { type ReactNode, useState } from "react";
 
 const badgeTones = [
@@ -382,6 +389,43 @@ export default function UiPage() {
       ],
     },
   ];
+  const activityRadarBatches = [
+    {
+      description: "+1 ~14 · 1 Table · 14 Cells",
+      id: "activity-radar-prospects",
+      label: "Prospects",
+      onSelect: () => handleMenuSelect("Change radar: Prospects"),
+      segments: [
+        {
+          tone: "create" as const,
+          value: 1,
+        },
+        {
+          tone: "update" as const,
+          value: 14,
+        },
+      ],
+      timestampLabel: "Just now",
+      unread: true,
+    },
+    {
+      description: "~4 -1 · 4 Columns · 1 Row",
+      id: "activity-radar-pipeline",
+      label: "Pipeline",
+      onSelect: () => handleMenuSelect("Change radar: Pipeline"),
+      segments: [
+        {
+          tone: "update" as const,
+          value: 4,
+        },
+        {
+          tone: "delete" as const,
+          value: 1,
+        },
+      ],
+      timestampLabel: "12m ago",
+    },
+  ];
 
   const renderCommandMenu = (closeDialog = false) => (
     <>
@@ -499,13 +543,13 @@ export default function UiPage() {
         </header>
 
         <Section
-          description="Buttons, badges, and alerts now show every tone and the main size transitions instead of only the happy path."
+          description="Buttons, badges, and alerts now show every tone, the shipped size transitions, and the standard icon slots instead of only the happy path."
           id="actions"
           title="Actions"
         >
           <div className="space-y-4">
             <DemoPanel
-              description="Every button variant in both shipped sizes, plus disabled states."
+              description="Every button variant in all shipped sizes, plus disabled states and standardized phosphor icon slots."
               title="Buttons"
             >
               <div className="space-y-4">
@@ -551,6 +595,57 @@ export default function UiPage() {
                       variant="dark"
                     >
                       Disabled
+                    </MarbleButton>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                    Extra Small
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {buttonVariants.map((button) => (
+                      <MarbleButton
+                        key={`xs-${button.label}`}
+                        size="xs"
+                        variant={button.variant}
+                      >
+                        {button.children}
+                      </MarbleButton>
+                    ))}
+                    <MarbleButton
+                      disabled
+                      size="xs"
+                      variant="dark"
+                    >
+                      Disabled
+                    </MarbleButton>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                    With icons
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <MarbleButton iconLeft={PlusIcon}>Add Row</MarbleButton>
+                    <MarbleButton
+                      iconRight={ArrowRightIcon}
+                      variant="dark"
+                    >
+                      Inspect
+                    </MarbleButton>
+                    <MarbleButton
+                      iconLeft={PlayIcon}
+                      variant="orange"
+                    >
+                      Run All
+                    </MarbleButton>
+                    <MarbleButton
+                      iconLeft={TrashIcon}
+                      variant="red"
+                    >
+                      Delete
                     </MarbleButton>
                   </div>
                 </div>
@@ -1124,6 +1219,29 @@ export default function UiPage() {
                   />
                 </div>
 
+                <div className="flex items-center justify-between rounded-xs border border-taupe-200 bg-white p-3">
+                  <div className="space-y-1">
+                    <div className="font-medium text-sm text-taupe-950">
+                      Activity radar
+                    </div>
+                    <div className="text-sm text-taupe-600">
+                      Compact agentic burst inbox for shell chrome.
+                    </div>
+                  </div>
+
+                  <MarbleActivityRadar
+                    batches={activityRadarBatches}
+                    compact
+                    onMarkAllRead={() =>
+                      handleMenuSelect("Change radar: Mark all reviewed")
+                    }
+                    onOpenFeed={() =>
+                      handleMenuSelect("Change radar: Open events")
+                    }
+                    unreadCount={1}
+                  />
+                </div>
+
                 <div className="rounded-xs border border-taupe-200 bg-white px-3 py-2">
                   <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
                     Last menu action
@@ -1194,13 +1312,13 @@ export default function UiPage() {
         </Section>
 
         <Section
-          description="Overlay coverage includes all modal sizes plus every sheet side, with the modal now rendered as a real top-layer portal instead of fighting card stacking contexts."
+          description="Overlay coverage includes all modal sizes plus every sheet side, with both sheets and modals rendered as real top-layer portals instead of fighting local stacking contexts."
           id="overlays"
           title="Overlays"
         >
           <div className="space-y-4">
             <DemoPanel
-              description="Every side is selectable from the harness, and the close primitive is surfaced directly."
+              description="Every side is selectable from the harness, and the sheet now portals to the page root instead of pretending its host card is the viewport."
               title="Sheet"
             >
               <div className="space-y-4">
@@ -1220,21 +1338,21 @@ export default function UiPage() {
                   ))}
                 </div>
 
-                <div className="relative h-88 overflow-hidden rounded-xs border border-taupe-200 bg-white">
+                <div className="h-88 overflow-hidden rounded-xs border border-taupe-200 bg-white">
                   <div className="flex h-full flex-col gap-3 bg-linear-to-br from-white via-taupe-50 to-taupe-100 p-4">
                     <MarbleBadge
                       caps
                       tone="info"
                     >
-                      Inline host
+                      Underlay
                     </MarbleBadge>
                     <div className="space-y-2">
                       <h3 className="font-semibold text-lg text-taupe-900">
-                        Host surface
+                        Underlying page
                       </h3>
                       <p className="max-w-sm text-sm text-taupe-600">
-                        Sheets stay scoped to their container, which makes them
-                        useful for inspectors and inline secondary flows.
+                        Opening a sheet now uses the document-level overlay
+                        layer, so this card is just the page beneath it.
                       </p>
                     </div>
                   </div>
@@ -1259,9 +1377,9 @@ export default function UiPage() {
                       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
                         <MarbleAlert
                           size="sm"
-                          tone="warning"
+                          tone="neutral"
                         >
-                          This preview stays intentionally container-bound.
+                          The sheet is no longer clipped by the demo card.
                         </MarbleAlert>
                         <p className="text-sm text-taupe-600">
                           Current side:{" "}

@@ -1,17 +1,12 @@
 "use client";
 
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
-import { createContext, useContext, useId } from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import type {
+  ButtonHTMLAttributes,
+  ComponentProps,
+  HTMLAttributes,
+} from "react";
 import { cx } from "../utils/cx";
-
-type MarbleSheetContextValue = {
-  descriptionId: string;
-  onOpenChange?: (open: boolean) => void;
-  open: boolean;
-  titleId: string;
-};
-
-const MarbleSheetContext = createContext<MarbleSheetContextValue | null>(null);
 
 const marbleSheetContentSideClassNames = {
   bottom:
@@ -22,42 +17,10 @@ const marbleSheetContentSideClassNames = {
   top: "inset-x-1 top-1 max-h-[80%] rounded-b-md data-[state=closed]:-translate-y-full data-[state=open]:translate-y-0",
 } as const;
 
-function useMarbleSheetContext() {
-  const context = useContext(MarbleSheetContext);
+export type MarbleSheetProps = ComponentProps<typeof DialogPrimitive.Root>;
 
-  if (!context) {
-    throw new Error("MarbleSheet components must be used inside MarbleSheet.");
-  }
-
-  return context;
-}
-
-export type MarbleSheetProps = {
-  children: ReactNode;
-  onOpenChange?: (open: boolean) => void;
-  open: boolean;
-};
-
-export function MarbleSheet({
-  children,
-  onOpenChange,
-  open,
-}: MarbleSheetProps) {
-  const titleId = useId();
-  const descriptionId = useId();
-
-  return (
-    <MarbleSheetContext.Provider
-      value={{
-        descriptionId,
-        onOpenChange,
-        open,
-        titleId,
-      }}
-    >
-      {children}
-    </MarbleSheetContext.Provider>
-  );
+export function MarbleSheet({ children, ...props }: MarbleSheetProps) {
+  return <DialogPrimitive.Root {...props}>{children}</DialogPrimitive.Root>;
 }
 
 export type MarbleSheetCloseProps = ButtonHTMLAttributes<HTMLButtonElement>;
@@ -65,49 +28,43 @@ export type MarbleSheetCloseProps = ButtonHTMLAttributes<HTMLButtonElement>;
 export function MarbleSheetClose({
   children,
   className,
-  onClick,
   type = "button",
   ...props
 }: MarbleSheetCloseProps) {
-  const { onOpenChange } = useMarbleSheetContext();
-
   return (
-    <button
-      className={cx(
-        "flex size-8 items-center justify-center rounded-sm text-taupe-400 transition-colors hover:bg-taupe-100 hover:text-taupe-900",
-        className,
-      )}
-      onClick={(event) => {
-        onClick?.(event);
-
-        if (!event.defaultPrevented) {
-          onOpenChange?.(false);
-        }
-      }}
-      type={type}
-      {...props}
-    >
-      {children ?? (
-        <svg
-          aria-hidden="true"
-          className="size-4"
-          fill="none"
-          viewBox="0 0 16 16"
-        >
-          <path
-            d="M4 4L12 12M12 4L4 12"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeWidth="1.5"
-          />
-        </svg>
-      )}
-      <span className="sr-only">Close sheet</span>
-    </button>
+    <DialogPrimitive.Close asChild>
+      <button
+        className={cx(
+          "flex size-8 items-center justify-center rounded-sm text-taupe-400 transition-colors hover:bg-taupe-100 hover:text-taupe-900",
+          className,
+        )}
+        type={type}
+        {...props}
+      >
+        {children ?? (
+          <svg
+            aria-hidden="true"
+            className="size-4"
+            fill="none"
+            viewBox="0 0 16 16"
+          >
+            <path
+              d="M4 4L12 12M12 4L4 12"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="1.5"
+            />
+          </svg>
+        )}
+        <span className="sr-only">Close sheet</span>
+      </button>
+    </DialogPrimitive.Close>
   );
 }
 
-export type MarbleSheetContentProps = HTMLAttributes<HTMLDivElement> & {
+export type MarbleSheetContentProps = ComponentProps<
+  typeof DialogPrimitive.Content
+> & {
   backdropClassName?: string;
   showBackdrop?: boolean;
   showCloseButton?: boolean;
@@ -118,52 +75,53 @@ export function MarbleSheetContent({
   backdropClassName,
   children,
   className,
+  forceMount,
   showBackdrop = true,
   showCloseButton = true,
   side = "right",
   ...props
 }: MarbleSheetContentProps) {
-  const { descriptionId, onOpenChange, open, titleId } =
-    useMarbleSheetContext();
-  const state = open ? "open" : "closed";
-
   return (
-    <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+    <DialogPrimitive.Portal
+      {...(forceMount
+        ? {
+            forceMount: true,
+          }
+        : {})}
+    >
       {showBackdrop ? (
-        <button
-          aria-hidden={!open}
+        <DialogPrimitive.Overlay
           className={cx(
-            "absolute inset-0 bg-taupe-950/40 backdrop-blur-xs transition-opacity duration-200 ease-out",
-            open ? "pointer-events-auto opacity-100" : "opacity-0",
+            "fixed inset-0 z-[1100] bg-taupe-950/40 backdrop-blur-xs transition-opacity duration-200 ease-out data-[state=closed]:pointer-events-none data-[state=closed]:opacity-0 data-[state=open]:opacity-100 motion-reduce:transition-none",
             backdropClassName,
           )}
-          onClick={() => onOpenChange?.(false)}
-          tabIndex={open ? 0 : -1}
-          type="button"
+          {...(forceMount
+            ? {
+                forceMount: true,
+              }
+            : {})}
         />
       ) : null}
 
-      <div
-        aria-describedby={descriptionId}
-        aria-hidden={!open}
-        aria-labelledby={titleId}
-        aria-modal={showBackdrop || undefined}
+      <DialogPrimitive.Content
         className={cx(
-          "pointer-events-auto absolute z-10 flex min-h-0 flex-col overflow-hidden border border-taupe-200 bg-linear-to-b from-white via-white to-taupe-50 shadow-[0_18px_48px_rgba(84,57,26,0.16)] outline-none transition-[transform,opacity] duration-200 ease-out data-[state=closed]:opacity-0 data-[state=open]:opacity-100",
+          "fixed z-[1101] flex min-h-0 flex-col overflow-hidden border border-taupe-200 bg-linear-to-b from-white via-white to-taupe-50 shadow-[0_18px_48px_rgba(84,57,26,0.16)] outline-none transition-[transform,opacity] duration-200 ease-out data-[state=closed]:pointer-events-none data-[state=closed]:opacity-0 data-[state=open]:opacity-100 motion-reduce:transition-none",
           marbleSheetContentSideClassNames[side],
           className,
         )}
-        data-state={state}
-        role="dialog"
-        tabIndex={-1}
+        {...(forceMount
+          ? {
+              forceMount: true,
+            }
+          : {})}
         {...props}
       >
-        {showCloseButton && onOpenChange ? (
+        {showCloseButton ? (
           <MarbleSheetClose className="absolute top-3 right-3 z-10" />
         ) : null}
         {children}
-      </div>
-    </div>
+      </DialogPrimitive.Content>
+    </DialogPrimitive.Portal>
   );
 }
 
@@ -214,16 +172,13 @@ export function MarbleSheetTitle({
   className,
   ...props
 }: MarbleSheetTitleProps) {
-  const { titleId } = useMarbleSheetContext();
-
   return (
-    <h2
+    <DialogPrimitive.Title
       className={cx("pr-8 font-semibold text-base text-taupe-950", className)}
-      id={titleId}
       {...props}
     >
       {children}
-    </h2>
+    </DialogPrimitive.Title>
   );
 }
 
@@ -234,15 +189,12 @@ export function MarbleSheetDescription({
   className,
   ...props
 }: MarbleSheetDescriptionProps) {
-  const { descriptionId } = useMarbleSheetContext();
-
   return (
-    <p
+    <DialogPrimitive.Description
       className={cx("text-sm text-taupe-600", className)}
-      id={descriptionId}
       {...props}
     >
       {children}
-    </p>
+    </DialogPrimitive.Description>
   );
 }

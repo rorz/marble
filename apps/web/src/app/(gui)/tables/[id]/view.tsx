@@ -13,10 +13,17 @@ import {
   MarbleModalHeader,
   MarbleModalTitle,
   MarblePane,
-  MarblePaneEditableCrumb,
   MarbleSelect,
+  MarbleSheet,
+  MarbleSheetClose,
+  MarbleSheetContent,
+  MarbleSheetDescription,
+  MarbleSheetFooter,
+  MarbleSheetHeader,
+  MarbleSheetTitle,
   MarbleTextarea,
 } from "@marble/ui";
+import { PlayIcon } from "@phosphor-icons/react/ssr";
 import {
   AllCommunityModule,
   type CellContextMenuEvent,
@@ -660,6 +667,82 @@ function CellInspectorModal({
   );
 }
 
+function getRunLogLineClassName(line: string) {
+  if (line.includes("✗")) {
+    return "text-red-400";
+  }
+
+  if (line.includes("✓")) {
+    return "text-green-600";
+  }
+
+  if (line.includes("skip")) {
+    return "text-blue-500";
+  }
+
+  return "text-zinc-500";
+}
+
+function RunLogSheet({
+  lines,
+  onClear,
+  onOpenChange,
+  open,
+}: {
+  lines: string[];
+  onClear: () => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+}) {
+  return (
+    <MarbleSheet
+      modal={false}
+      onOpenChange={onOpenChange}
+      open={open}
+    >
+      <MarbleSheetContent
+        className="border-x-0 border-b-0"
+        onOpenAutoFocus={(event) => event.preventDefault()}
+        showBackdrop={false}
+        side="bottom"
+      >
+        <MarbleSheetHeader className="relative pr-14">
+          <MarbleSheetTitle>Run Log</MarbleSheetTitle>
+          <MarbleSheetDescription>
+            Recent execution output for this table.
+          </MarbleSheetDescription>
+          <MarbleSheetClose className="absolute top-3 right-3" />
+        </MarbleSheetHeader>
+
+        <div className="min-h-0 flex-1 overflow-auto px-5 py-4">
+          {lines.length > 0 ? (
+            <pre className="space-y-0.5 font-mono text-xs">
+              {lines.map((line, index) => (
+                <div
+                  className={getRunLogLineClassName(line)}
+                  // biome-ignore lint/suspicious/noArrayIndexKey: log
+                  key={`${index}-${line.slice(0, 20)}`}
+                >
+                  {line}
+                </div>
+              ))}
+            </pre>
+          ) : (
+            <p className="text-sm text-zinc-500">no logs</p>
+          )}
+        </div>
+
+        <MarbleSheetFooter>
+          <MarbleButton onClick={onClear}>Clear</MarbleButton>
+          <MarbleSheetClose className="h-auto w-auto rounded-xs border border-taupe-200 px-3 py-1.5 text-sm text-taupe-700">
+            Close
+          </MarbleSheetClose>
+        </MarbleSheetFooter>
+      </MarbleSheetContent>
+    </MarbleSheet>
+  );
+}
+
 // ── Custom Column Header ────────────────────────────────
 
 function ColumnHeader(props: IHeaderParams) {
@@ -962,10 +1045,9 @@ export default function TablePageView({
   >(initialTablePageData.referenceColumns);
 
   const [runLog, setRunLog] = useState<string[]>([]);
+  const [runLogSheetOpen, setRunLogSheetOpen] = useState(false);
   const [, setRunning] = useState(false);
-  const [editingSurface, setEditingSurface] = useState<
-    null | "crumb" | "title"
-  >(null);
+  const [editingSurface, setEditingSurface] = useState<null | "title">(null);
   const [nameDraft, setNameDraft] = useState(initialTablePageData.table.name);
   const [savingName, setSavingName] = useState(false);
   const [renameError, setRenameError] = useState<null | string>(null);
@@ -1645,7 +1727,9 @@ export default function TablePageView({
 
   // ── CRUD handlers ─────────────────────────────────────
 
-  const [rowCount, setRowCount] = useState(1);
+  const [rowCountInput, setRowCountInput] = useState("1");
+  const hasRowCountInput = rowCountInput.trim() !== "";
+  const rowCount = Math.max(1, Number.parseInt(rowCountInput, 10) || 1);
 
   const handleAddRows = useCallback(async () => {
     if (!selectedTableId) return;
@@ -1926,62 +2010,55 @@ export default function TablePageView({
         },
         {
           id: "table",
-          label: (
-            <MarblePaneEditableCrumb
-              disabled={savingName}
-              editing={editingSurface === "crumb"}
-              onCancel={stopEditingName}
-              onChange={setNameDraft}
-              onCommit={() => void commitName()}
-              onEdit={() => setEditingSurface("crumb")}
-              value={nameDraft}
-            />
-          ),
+          label: selectedTableName,
         },
       ]}
     >
-      <div className="flex h-full flex-col bg-zinc-50 font-sans text-zinc-900">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-3">
-            <EditableName
-              className="-mx-1 rounded-sm px-1 text-left text-4xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
-              disabled={savingName}
-              editing={editingSurface === "title"}
-              name={nameDraft}
-              onCancel={stopEditingName}
-              onChange={setNameDraft}
-              onCommit={() => void commitName()}
-              onEdit={() => setEditingSurface("title")}
-            />
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
-              <span>
-                {selectedTable.project_folder_path.join(" / ") || "Root"}
-              </span>
-              <span>{selectedTable.project_name}</span>
-              <span>
-                {DATE_FORMATTER.format(new Date(selectedTable.updated_at))}
-              </span>
+      <div className="relative flex w-full h-full min-h-0 flex-col overflow-hidden bg-zinc-50 font-sans text-zinc-900">
+        <div
+          className={cx(
+            "flex min-h-0 flex-1 flex-col w-full",
+            sidebarMode.kind !== "closed" && "pr-80",
+          )}
+        >
+          <div className="mb-3 w-full flex flex-wrap items-center justify-between gap-3 border-zinc-200">
+            <div className="min-w-0 flex w-full flex-wrap items-center justify-between">
+              <div className="flex flex-col items-start gap-1">
+                <EditableName
+                  className="-mx-1 max-w-full rounded-sm px-1 text-left font-medium text-xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
+                  disabled={savingName}
+                  editing={editingSurface === "title"}
+                  name={nameDraft}
+                  onCancel={stopEditingName}
+                  onChange={setNameDraft}
+                  onCommit={() => void commitName()}
+                  onEdit={() => setEditingSurface("title")}
+                />
+                <span className="text-xs text-zinc-500">
+                  Created{" "}
+                  {DATE_FORMATTER.format(new Date(selectedTable.created_at))}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MarbleButton iconRight={PlayIcon}>Run all</MarbleButton>
+                <MarbleButton>Export</MarbleButton>
+              </div>
             </div>
           </div>
-        </div>
 
-        {renameError ? (
-          <MarbleAlert
-            className="mb-4"
-            tone="error"
-          >
-            {renameError}
-          </MarbleAlert>
-        ) : null}
+          {renameError ? (
+            <MarbleAlert
+              className="mb-3"
+              tone="error"
+            >
+              {renameError}
+            </MarbleAlert>
+          ) : null}
 
-        {/* Main */}
-        <div className="flex min-h-0 flex-1">
-          {/* Grid + log panel */}
-          <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex h-full flex-1 flex-col">
-              {selectedTableId ? (
-                <div className="marble-table-grid mb-4 min-h-0 flex-1">
-                  <style>{`
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {selectedTableId ? (
+              <div className="marble-table-grid min-h-0 flex-1">
+                <style>{`
                     .marble-table-grid .ag-cell.ag-cell-inline-editing {
                       border-radius: 0;
                       box-shadow: none;
@@ -2019,135 +2096,99 @@ export default function TablePageView({
                       outline: none;
                     }
                   `}</style>
-                  <AgGridReact
-                    columnDefs={colDefs}
-                    context={gridContext}
-                    domLayout="normal"
-                    getRowId={(params) => params.data._rowId as string}
-                    headerHeight={34}
-                    onCellContextMenu={onCellContextMenu}
-                    onCellDoubleClicked={(event) => {
-                      const columnId = event.colDef.field;
-                      if (!columnId) return;
-                      const col = columnsRef.current.find(
-                        (c) => c.id === columnId,
-                      );
-                      if (!col) return;
-                      if (isManualInputColumn(col)) return;
-                      const rowId = event.data?._rowId as string;
-                      const cell = cellsRef.current.find(
-                        (c) => c.row_id === rowId && c.column_id === columnId,
-                      );
-                      setInspectedCell({
-                        columnName: col.name,
-                        manualInput: cell?.manual_input ?? null,
-                        rowIndex: event.data?._rowIndex as number,
-                        state: getCellState(cell),
-                      });
-                    }}
-                    onCellValueChanged={onCellValueChanged}
-                    preventDefaultOnContextMenu
-                    ref={gridRef}
-                    rowData={rowData}
-                    rowHeight={32}
-                    theme={gridTheme}
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
-                  Select or create a table to get started.
-                </div>
-              )}
-
-              <div className="mt-2 flex shrink-0 justify-start">
-                <div className="flex items-center gap-2">
-                  <MarbleButton
-                    disabled={!selectedTableId}
-                    onClick={handleAddRows}
-                  >
-                    Add
-                  </MarbleButton>
-                  <MarbleInput
-                    max="100"
-                    min="1"
-                    onChange={(e) =>
-                      setRowCount(
-                        Math.max(1, parseInt(e.target.value, 10) || 1),
-                      )
-                    }
-                    size="sm"
-                    type="number"
-                    value={rowCount}
-                    wrapperClassName="w-16"
-                  />
-                  <span className="text-sm text-zinc-600">
-                    {rowCount === 1 ? "Row" : "Rows"}
-                  </span>
-                </div>
+                <AgGridReact
+                  columnDefs={colDefs}
+                  context={gridContext}
+                  domLayout="normal"
+                  getRowId={(params) => params.data._rowId as string}
+                  headerHeight={34}
+                  onCellContextMenu={onCellContextMenu}
+                  onCellDoubleClicked={(event) => {
+                    const columnId = event.colDef.field;
+                    if (!columnId) return;
+                    const col = columnsRef.current.find(
+                      (c) => c.id === columnId,
+                    );
+                    if (!col) return;
+                    if (isManualInputColumn(col)) return;
+                    const rowId = event.data?._rowId as string;
+                    const cell = cellsRef.current.find(
+                      (c) => c.row_id === rowId && c.column_id === columnId,
+                    );
+                    setInspectedCell({
+                      columnName: col.name,
+                      manualInput: cell?.manual_input ?? null,
+                      rowIndex: event.data?._rowIndex as number,
+                      state: getCellState(cell),
+                    });
+                  }}
+                  onCellValueChanged={onCellValueChanged}
+                  preventDefaultOnContextMenu
+                  ref={gridRef}
+                  rowData={rowData}
+                  rowHeight={32}
+                  theme={gridTheme}
+                />
               </div>
-            </div>
-
-            {/* Run log */}
-            {runLog.length > 0 && (
-              <div className="max-h-48 overflow-auto border-zinc-200 border-t px-5 py-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <h3 className="font-medium text-xs text-zinc-500 uppercase tracking-wider">
-                    Log
-                  </h3>
-                  <button
-                    className="text-xs text-zinc-400 hover:text-zinc-600"
-                    onClick={() => setRunLog([])}
-                    type="button"
-                  >
-                    clear
-                  </button>
-                </div>
-                <pre className="space-y-0.5 font-mono text-xs">
-                  {runLog.map((line, i) => (
-                    <div
-                      className={
-                        line.includes("✗")
-                          ? "text-red-400"
-                          : line.includes("✓")
-                            ? "text-green-600"
-                            : line.includes("skip")
-                              ? "text-blue-500"
-                              : "text-zinc-500"
-                      }
-                      // biome-ignore lint/suspicious/noArrayIndexKey: log
-                      key={`${i}-${line.slice(0, 20)}`}
-                    >
-                      {line}
-                    </div>
-                  ))}
-                </pre>
+            ) : (
+              <div className="flex flex-1 items-center justify-center text-sm text-zinc-500">
+                Select or create a table to get started.
               </div>
             )}
-          </div>
 
-          {/* Column sidebar — only visible when creating or editing */}
-          {sidebarMode.kind !== "closed" && (
-            <ColumnSidebar
-              columns={sortedColumns}
-              currentTableId={selectedTableId}
-              key={
-                sidebarMode.kind === "edit"
-                  ? `edit-${sidebarMode.columnId}`
-                  : "create"
-              }
-              mode={sidebarMode}
-              onClose={() =>
-                setSidebarMode({
-                  kind: "closed",
-                })
-              }
-              onCreateColumn={handleCreateColumn}
-              onUpdateColumn={handleUpdateColumn}
-              programs={programs}
-              referenceColumns={referenceColumns}
-            />
-          )}
+            <div className="flex shrink-0 items-center justify-between gap-3 bg-zinc-50 pt-2">
+              <div className="flex items-center gap-2">
+                <MarbleButton
+                  disabled={!selectedTableId || !hasRowCountInput}
+                  onClick={handleAddRows}
+                >
+                  Add
+                </MarbleButton>
+                <MarbleInput
+                  max="100"
+                  min="1"
+                  onChange={(event) => setRowCountInput(event.target.value)}
+                  size="sm"
+                  type="number"
+                  value={rowCountInput}
+                  wrapperClassName="w-16"
+                />
+                <span className="text-sm text-zinc-600">
+                  {hasRowCountInput && rowCount === 1 ? "Row" : "Rows"}
+                </span>
+              </div>
+
+              <MarbleButton
+                onClick={() => setRunLogSheetOpen(true)}
+                size="sm"
+              >
+                View run log
+              </MarbleButton>
+            </div>
+          </div>
         </div>
+
+        {sidebarMode.kind !== "closed" && (
+          <ColumnSidebar
+            columns={sortedColumns}
+            currentTableId={selectedTableId}
+            key={
+              sidebarMode.kind === "edit"
+                ? `edit-${sidebarMode.columnId}`
+                : "create"
+            }
+            mode={sidebarMode}
+            onClose={() =>
+              setSidebarMode({
+                kind: "closed",
+              })
+            }
+            onCreateColumn={handleCreateColumn}
+            onUpdateColumn={handleUpdateColumn}
+            programs={programs}
+            referenceColumns={referenceColumns}
+          />
+        )}
 
         {/* Overlays */}
         {contextMenu && (
@@ -2168,6 +2209,12 @@ export default function TablePageView({
             onClose={() => setInspectedCell(null)}
           />
         )}
+        <RunLogSheet
+          lines={runLog}
+          onClear={() => setRunLog([])}
+          onOpenChange={setRunLogSheetOpen}
+          open={runLogSheetOpen}
+        />
       </div>
     </MarblePane>
   );
@@ -2390,8 +2437,17 @@ function ColumnSidebar({
   const isCreate = mode.kind === "create";
 
   return (
-    <aside className="flex w-80 shrink-0 flex-col border-zinc-200 border-l bg-zinc-50">
-      <div className="flex items-center justify-between border-zinc-200 border-b px-4 py-2.5">
+    <aside className="absolute inset-y-0 right-0 z-20 flex w-80 min-h-0 flex-col overflow-hidden border-taupe-300 border-l bg-[linear-gradient(180deg,#fffdf9_0%,#f7f1e8_100%)] shadow-[-28px_0_56px_rgba(84,57,26,0.18)]">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 -left-5 w-5 bg-[linear-gradient(90deg,rgba(84,57,26,0.16)_0%,rgba(84,57,26,0.06)_42%,transparent_100%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0 left-0 w-px bg-white/85"
+      />
+
+      <div className="relative flex items-center justify-between border-taupe-300 border-b bg-[linear-gradient(180deg,#f4ede2_0%,#fcfaf6_100%)] px-4 py-3">
         <h2 className="font-medium text-xs text-zinc-500 uppercase tracking-wider">
           {isCreate ? "New Column" : "Edit Column"}
         </h2>
@@ -2404,106 +2460,159 @@ function ColumnSidebar({
         </button>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-auto p-4">
-        <div className="block">
-          <MarbleFieldLabel>Name</MarbleFieldLabel>
-          <MarbleInput
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Uppercased"
-            type="text"
-            value={name}
-            wrapperClassName="w-full"
-          />
-        </div>
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 space-y-3 overflow-auto p-4">
+          <div className="block">
+            <MarbleFieldLabel>Name</MarbleFieldLabel>
+            <MarbleInput
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Uppercased"
+              type="text"
+              value={name}
+              wrapperClassName="w-full"
+            />
+          </div>
 
-        <div className="mt-2 block">
-          <MarbleFieldLabel>Program</MarbleFieldLabel>
-          <MarbleSelect
-            onChange={(e) => setProgramId(e.target.value)}
-            value={programId}
-            wrapperClassName="w-full"
-          >
-            <option value="">Select program...</option>
-            {programs.map((p) => (
-              <option
-                key={p.id}
-                value={p.id}
-              >
-                {p.name}
-              </option>
-            ))}
-          </MarbleSelect>
-        </div>
-
-        {hasManualInput && (
-          <MarbleAlert
-            size="sm"
-            tone="warning"
-          >
-            This program reads from cell.manualInputValue — cells will be
-            editable.
-          </MarbleAlert>
-        )}
-
-        {fields.length > 0 && (
-          <div className="space-y-2">
-            <MarbleFieldLabel>Input Template</MarbleFieldLabel>
-            {fields.map((f) => {
-              const fv = fieldValues[f.key] ?? {
-                mode: "static",
-                value: "",
-              };
-              return (
-                <div
-                  className="space-y-1.5 rounded border border-zinc-200 bg-zinc-100 p-2.5"
-                  key={f.key}
+          <div className="mt-2 block">
+            <MarbleFieldLabel>Program</MarbleFieldLabel>
+            <MarbleSelect
+              onChange={(e) => setProgramId(e.target.value)}
+              value={programId}
+              wrapperClassName="w-full"
+            >
+              <option value="">Select program...</option>
+              {programs.map((p) => (
+                <option
+                  key={p.id}
+                  value={p.id}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-orange-600 text-xs">
-                      {f.key}
-                    </span>
-                    <span className="text-[10px] text-zinc-500">{f.title}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <label className="flex cursor-pointer items-center gap-1">
-                      <input
-                        checked={fv.mode === "static"}
-                        className="accent-orange-500"
-                        name={`mode-${f.key}`}
-                        onChange={() =>
-                          setFieldValues((prev) => ({
-                            ...prev,
-                            [f.key]: {
-                              mode: "static",
-                              value: f.defaultValue ?? f.enumValues?.[0] ?? "",
-                            },
-                          }))
-                        }
-                        type="radio"
-                      />
-                      Formula
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-1">
-                      <input
-                        checked={fv.mode === "column"}
-                        className="accent-orange-500"
-                        name={`mode-${f.key}`}
-                        onChange={() =>
-                          setFieldValues((prev) => ({
-                            ...prev,
-                            [f.key]: {
-                              mode: "column",
-                              value: referenceColumns[0]?.id ?? "",
-                            },
-                          }))
-                        }
-                        type="radio"
-                      />
-                      From column
-                    </label>
-                  </div>
-                  {fv.mode === "static" ? (
-                    f.enumValues ? (
+                  {p.name}
+                </option>
+              ))}
+            </MarbleSelect>
+          </div>
+
+          {hasManualInput && (
+            <MarbleAlert
+              size="sm"
+              tone="warning"
+            >
+              This program reads from cell.manualInputValue — cells will be
+              editable.
+            </MarbleAlert>
+          )}
+
+          {fields.length > 0 && (
+            <div className="space-y-2">
+              <MarbleFieldLabel>Input Template</MarbleFieldLabel>
+              {fields.map((f) => {
+                const fv = fieldValues[f.key] ?? {
+                  mode: "static",
+                  value: "",
+                };
+                return (
+                  <div
+                    className="space-y-1.5 rounded border border-zinc-200 bg-zinc-100 p-2.5"
+                    key={f.key}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-orange-600 text-xs">
+                        {f.key}
+                      </span>
+                      <span className="text-[10px] text-zinc-500">
+                        {f.title}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <label className="flex cursor-pointer items-center gap-1">
+                        <input
+                          checked={fv.mode === "static"}
+                          className="accent-orange-500"
+                          name={`mode-${f.key}`}
+                          onChange={() =>
+                            setFieldValues((prev) => ({
+                              ...prev,
+                              [f.key]: {
+                                mode: "static",
+                                value:
+                                  f.defaultValue ?? f.enumValues?.[0] ?? "",
+                              },
+                            }))
+                          }
+                          type="radio"
+                        />
+                        Formula
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-1">
+                        <input
+                          checked={fv.mode === "column"}
+                          className="accent-orange-500"
+                          name={`mode-${f.key}`}
+                          onChange={() =>
+                            setFieldValues((prev) => ({
+                              ...prev,
+                              [f.key]: {
+                                mode: "column",
+                                value: referenceColumns[0]?.id ?? "",
+                              },
+                            }))
+                          }
+                          type="radio"
+                        />
+                        From column
+                      </label>
+                    </div>
+                    {fv.mode === "static" ? (
+                      f.enumValues ? (
+                        <MarbleSelect
+                          onChange={(e) =>
+                            setFieldValues((prev) => ({
+                              ...prev,
+                              [f.key]: {
+                                ...fv,
+                                value: e.target.value,
+                              },
+                            }))
+                          }
+                          size="xs"
+                          value={fv.value}
+                          wrapperClassName="w-full"
+                        >
+                          {f.enumValues.map((v) => (
+                            <option
+                              key={v}
+                              value={v}
+                            >
+                              {v}
+                            </option>
+                          ))}
+                        </MarbleSelect>
+                      ) : (
+                        <InterpolationEditor
+                          currentTableId={currentTableId}
+                          onChange={(newVal) =>
+                            setFieldValues((prev) => ({
+                              ...prev,
+                              [f.key]: {
+                                ...fv,
+                                value: newVal,
+                              },
+                            }))
+                          }
+                          placeholder={
+                            f.type === "object"
+                              ? f.required
+                                ? '{"key": "value"}'
+                                : "leave blank or JSON"
+                              : f.type === "array"
+                                ? "[]"
+                                : undefined
+                          }
+                          referenceColumns={referenceColumns}
+                          value={fv.value}
+                        />
+                      )
+                    ) : (
                       <MarbleSelect
                         onChange={(e) =>
                           setFieldValues((prev) => ({
@@ -2518,168 +2627,120 @@ function ColumnSidebar({
                         value={fv.value}
                         wrapperClassName="w-full"
                       >
-                        {f.enumValues.map((v) => (
+                        <option
+                          disabled
+                          value=""
+                        >
+                          Pick a column...
+                        </option>
+                        {referenceColumns.map((col) => (
                           <option
-                            key={v}
-                            value={v}
+                            key={col.id}
+                            value={col.id}
                           >
-                            {v}
+                            {col.label}
+                            {col.allow_manual_input ? " (input)" : ""}
                           </option>
                         ))}
                       </MarbleSelect>
-                    ) : (
-                      <InterpolationEditor
-                        currentTableId={currentTableId}
-                        onChange={(newVal) =>
-                          setFieldValues((prev) => ({
-                            ...prev,
-                            [f.key]: {
-                              ...fv,
-                              value: newVal,
-                            },
-                          }))
-                        }
-                        placeholder={
-                          f.type === "object"
-                            ? f.required
-                              ? '{"key": "value"}'
-                              : "leave blank or JSON"
-                            : f.type === "array"
-                              ? "[]"
-                              : undefined
-                        }
-                        referenceColumns={referenceColumns}
-                        value={fv.value}
-                      />
-                    )
-                  ) : (
-                    <MarbleSelect
-                      onChange={(e) =>
-                        setFieldValues((prev) => ({
-                          ...prev,
-                          [f.key]: {
-                            ...fv,
-                            value: e.target.value,
-                          },
-                        }))
-                      }
-                      size="xs"
-                      value={fv.value}
-                      wrapperClassName="w-full"
-                    >
-                      <option
-                        disabled
-                        value=""
-                      >
-                        Pick a column...
-                      </option>
-                      {referenceColumns.map((col) => (
-                        <option
-                          key={col.id}
-                          value={col.id}
-                        >
-                          {col.label}
-                          {col.allow_manual_input ? " (input)" : ""}
-                        </option>
-                      ))}
-                    </MarbleSelect>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {/* Output Config escape hatch — edit mode only */}
-        {!isCreate && selectedProgram && (
-          <div className="border-zinc-200 border-t pt-3">
-            <button
-              className="flex w-full items-center gap-1.5 text-[10px] text-zinc-500 uppercase tracking-wider"
-              onClick={() => setOutputSchemaOpen((o) => !o)}
-              type="button"
-            >
-              <span
-                className="text-[8px] transition-transform"
-                style={{
-                  transform: outputSchemaOpen
-                    ? "rotate(90deg)"
-                    : "rotate(0deg)",
-                }}
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {/* Output Config escape hatch — edit mode only */}
+          {!isCreate && selectedProgram && (
+            <div className="border-zinc-200 border-t pt-3">
+              <button
+                className="flex w-full items-center gap-1.5 text-[10px] text-zinc-500 uppercase tracking-wider"
+                onClick={() => setOutputSchemaOpen((o) => !o)}
+                type="button"
               >
-                ▶
-              </span>
-              Output Config
-              {outputSchemaDirty && (
-                <span className="text-orange-500 normal-case tracking-normal">
-                  (unsaved)
-                </span>
-              )}
-            </button>
-            {outputSchemaOpen && (
-              <div className="mt-2 space-y-2">
-                <MarbleTextarea
-                  monospace
-                  onChange={(e) => {
-                    setOutputSchemaJson(e.target.value);
-                    setOutputSchemaDirty(true);
-                  }}
-                  rows={8}
-                  size="xs"
-                  spellCheck={false}
-                  value={outputSchemaJson}
-                />
-                <MarbleButton
-                  className="w-full"
-                  disabled={!outputSchemaDirty || savingOutputSchema}
-                  onClick={async () => {
-                    let parsed: unknown;
-                    try {
-                      parsed = JSON.parse(outputSchemaJson);
-                    } catch {
-                      return;
-                    }
-                    setSavingOutputSchema(true);
-                    try {
-                      await updateProgramOutputSchema(
-                        selectedProgram.id,
-                        parsed,
-                      );
-                      setOutputSchemaDirty(false);
-                    } finally {
-                      setSavingOutputSchema(false);
-                    }
+                <span
+                  className="text-[8px] transition-transform"
+                  style={{
+                    transform: outputSchemaOpen
+                      ? "rotate(90deg)"
+                      : "rotate(0deg)",
                   }}
                 >
-                  {savingOutputSchema ? "Saving..." : "Save Output Config"}
-                </MarbleButton>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+                  ▶
+                </span>
+                Output Config
+                {outputSchemaDirty && (
+                  <span className="text-orange-500 normal-case tracking-normal">
+                    (unsaved)
+                  </span>
+                )}
+              </button>
+              {outputSchemaOpen && (
+                <div className="mt-2 space-y-2">
+                  <MarbleTextarea
+                    monospace
+                    onChange={(e) => {
+                      setOutputSchemaJson(e.target.value);
+                      setOutputSchemaDirty(true);
+                    }}
+                    rows={8}
+                    size="xs"
+                    spellCheck={false}
+                    value={outputSchemaJson}
+                  />
+                  <MarbleButton
+                    className="w-full"
+                    disabled={!outputSchemaDirty || savingOutputSchema}
+                    onClick={async () => {
+                      let parsed: unknown;
+                      try {
+                        parsed = JSON.parse(outputSchemaJson);
+                      } catch {
+                        return;
+                      }
+                      setSavingOutputSchema(true);
+                      try {
+                        await updateProgramOutputSchema(
+                          selectedProgram.id,
+                          parsed,
+                        );
+                        setOutputSchemaDirty(false);
+                      } finally {
+                        setSavingOutputSchema(false);
+                      }
+                    }}
+                  >
+                    {savingOutputSchema ? "Saving..." : "Save Output Config"}
+                  </MarbleButton>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
-      <div className="space-y-3 border-zinc-300 border-t bg-zinc-100 p-4">
-        {validationError && (
-          <MarbleAlert
-            size="sm"
-            tone="error"
+        <div className="shrink-0 space-y-3 border-taupe-300 border-t bg-[linear-gradient(180deg,#f8f2e7_0%,#efe4d2_100%)] p-4">
+          {validationError && (
+            <MarbleAlert
+              size="sm"
+              tone="error"
+            >
+              {validationError}
+            </MarbleAlert>
+          )}
+          <MarbleButton
+            className="w-full"
+            disabled={!name.trim() || !programId || saving || !!validationError}
+            onClick={handleSave}
+            variant="orange"
           >
-            {validationError}
-          </MarbleAlert>
-        )}
-        <MarbleButton
-          className="w-full"
-          disabled={!name.trim() || !programId || saving || !!validationError}
-          onClick={handleSave}
-          variant="orange"
-        >
-          {saving
-            ? isCreate
-              ? "Creating..."
-              : "Saving..."
-            : isCreate
-              ? "Create Column"
-              : "Save Changes"}
-        </MarbleButton>
+            {saving
+              ? isCreate
+                ? "Creating..."
+                : "Saving..."
+              : isCreate
+                ? "Create Column"
+                : "Save Changes"}
+          </MarbleButton>
+        </div>
       </div>
     </aside>
   );
