@@ -132,6 +132,16 @@ export async function saveProgramVersion(
   };
 }
 
+export async function renameProgram(programId: string, name: string) {
+  return callMarbleApi<Program>(`/programs/${programId}`, {
+    body: {
+      name,
+    },
+    method: "PATCH",
+    requestId: crypto.randomUUID(),
+  });
+}
+
 export async function testProgram(
   programVersionId: string,
   inputConfig: Record<string, unknown>,

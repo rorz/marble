@@ -60,7 +60,7 @@ export function buildProjectNode(
 export function buildProgramNode(program: SidebarProgramRow): SidebarTreeNode {
   return {
     children: [],
-    href: `/programs?programId=${program.id}`,
+    href: `/programs/${program.id}`,
     id: program.id,
     kind: "program",
     label: program.name || "Untitled Program",
