@@ -26,6 +26,7 @@ export {
   MarbleCardFooter,
   type MarbleCardFooterProps,
   MarbleCardHeader,
+  type MarbleCardHeaderAction,
   type MarbleCardHeaderProps,
   type MarbleCardProps,
   MarbleCardTitle,

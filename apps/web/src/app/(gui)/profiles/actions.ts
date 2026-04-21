@@ -6,6 +6,7 @@ import { callMarbleApi } from "../../../lib/marble-api";
 import { createClient as createServerClient } from "../../../lib/supabase/server";
 import { createServiceRoleClient } from "../../../lib/supabase/service-role";
 import {
+  DEFAULT_AGENT_PROFILE_ICON,
   PROFILE_RECORD_SELECT,
   type ProfileKeyRecord,
   type ProfileRecord,
@@ -25,6 +26,7 @@ function normalizeProfile(formData: FormData) {
 
   return {
     externalName: readFormValue(formData, "externalName") || null,
+    icon: readFormValue(formData, "icon") || DEFAULT_AGENT_PROFILE_ICON,
     name,
   };
 }

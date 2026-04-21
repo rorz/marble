@@ -1,7 +1,9 @@
 import type { Database } from "@marble/supabase";
 
 export const PROFILE_RECORD_SELECT =
-  "created_at, external_name, id, name, owner_user_id, type, updated_at";
+  "created_at, external_name, icon, id, name, owner_user_id, type, updated_at";
+
+export const DEFAULT_AGENT_PROFILE_ICON = "🤖";
 
 export const AGENT_PROVIDER_OPTIONS = [
   "Codex",
@@ -17,10 +19,26 @@ export const AGENT_PROVIDER_OPTIONS = [
   "Devin",
 ] as const;
 
+export const AGENT_PROFILE_ICON_OPTIONS = [
+  "🤖",
+  "🧠",
+  "🛠️",
+  "🔍",
+  "✍️",
+  "📚",
+  "⚙️",
+  "🧪",
+  "📦",
+  "🛰️",
+  "📈",
+  "🧾",
+] as const;
+
 export type ProfileRecord = Pick<
   Database["public"]["Tables"]["profile"]["Row"],
   | "created_at"
   | "external_name"
+  | "icon"
   | "id"
   | "name"
   | "owner_user_id"

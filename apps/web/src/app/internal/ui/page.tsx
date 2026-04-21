@@ -730,6 +730,41 @@ export default function UiPage() {
                   </MarbleCardFooter>
                 </MarbleCard>
 
+                <MarbleCard>
+                  <MarbleCardHeader
+                    actions={[
+                      {
+                        children: "Create key",
+                        size: "sm",
+                        variant: "dark",
+                      },
+                    ]}
+                    disclosureActions={[
+                      {
+                        label: "Rename profile",
+                        onSelect: () => undefined,
+                      },
+                      {
+                        label: "Delete profile",
+                        onSelect: () => undefined,
+                        tone: "danger",
+                      },
+                    ]}
+                  >
+                    <MarbleCardTitle>Action Header</MarbleCardTitle>
+                    <MarbleCardDescription>
+                      Standardized inline buttons and disclosure menus now live
+                      in the shared header API.
+                    </MarbleCardDescription>
+                  </MarbleCardHeader>
+                  <MarbleCardContent>
+                    <div className="rounded-xs border border-taupe-200 bg-taupe-50 p-3 text-sm text-taupe-600">
+                      Use inline actions for primary moves and disclosure items
+                      for the destructive or secondary ones.
+                    </div>
+                  </MarbleCardContent>
+                </MarbleCard>
+
                 <MarbleCard tone="subtle">
                   <MarbleCardHeader>
                     <MarbleCardTitle>Subtle</MarbleCardTitle>

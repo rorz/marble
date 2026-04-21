@@ -51,6 +51,10 @@ function getSegmentTotal(segments: MarbleActivityRadarSegment[]) {
   return segments.reduce((total, segment) => total + segment.value, 0);
 }
 
+function pluralize(label: string, count: number) {
+  return `${count} ${label}${count === 1 ? "" : "s"}`;
+}
+
 function summarizeSegments(batches: MarbleActivityRadarBatch[]) {
   const segmentTotals = {
     create: 0,
@@ -216,52 +220,71 @@ export function MarbleActivityRadar({
   triggerClassName,
   unreadCount = 0,
 }: MarbleActivityRadarProps) {
-  const headerSegments = summarizeSegments(batches.slice(0, 6));
+  const unreadBatches = batches.filter((batch) => batch.unread);
+  const reviewedBatches = batches.filter((batch) => !batch.unread);
+  const visibleUnreadBatches = unreadBatches.slice(0, 4);
+  const remainingVisibleSlots = Math.max(0, 6 - visibleUnreadBatches.length);
+  const visibleReviewedBatches = reviewedBatches.slice(
+    0,
+    remainingVisibleSlots,
+  );
+  const visibleBatches = [
+    ...visibleUnreadBatches,
+    ...visibleReviewedBatches,
+  ];
+  const headerSegments = summarizeSegments(visibleBatches);
   const hasUnread = unreadCount > 0;
   const sections: MarbleContextPopoverSection[] = [];
+  const changedPlaceLabel = pluralize("place", unreadCount || batches.length);
 
-  if (batches.length > 0) {
-    sections.push({
-      id: "activity-batches",
-      items: batches.slice(0, 8).map((batch) => ({
-        description: batch.description,
-        detail: (
-          <div className="flex min-w-[4.75rem] items-center justify-end gap-2">
-            {batch.unread ? (
-              <UnreadPill tone="warning">New</UnreadPill>
-            ) : batch.timestampLabel ? (
-              <span className="font-medium text-[10px] uppercase tracking-[0.18em] text-taupe-500">
-                {batch.timestampLabel}
-              </span>
-            ) : null}
-            <div className="w-12">
-              <ActivityMeter segments={batch.segments} />
-            </div>
-          </div>
-        ),
-        icon: (
-          <span
-            className={cx(
-              "size-2.5 rounded-full",
-              batch.unread ? "bg-orange-500" : "bg-taupe-300",
-            )}
+  const buildBatchItem = (batch: MarbleActivityRadarBatch) => ({
+    description: batch.description,
+    detail: (
+      <div className="flex min-w-[3.5rem] flex-col items-end gap-1">
+        <span
+          className={cx(
+            "font-medium text-[11px]",
+            batch.unread ? "text-orange-700" : "text-taupe-500",
+          )}
+        >
+          {batch.unread ? "New" : batch.timestampLabel}
+        </span>
+        <div className="w-10">
+          <ActivityMeter
+            className="h-1.5 rounded-full border-taupe-200/80 bg-taupe-100 shadow-none"
+            segments={batch.segments}
           />
-        ),
-        id: batch.id,
-        label: batch.label,
-        onSelect: batch.onSelect,
-      })),
+        </div>
+      </div>
+    ),
+    id: batch.id,
+    label: batch.label,
+    onSelect: batch.onSelect,
+  });
+
+  if (visibleUnreadBatches.length > 0) {
+    sections.push({
+      id: "activity-new",
+      items: visibleUnreadBatches.map(buildBatchItem),
+      label: "New",
     });
   }
 
-  if (onOpenFeed || onMarkAllRead) {
+  if (visibleReviewedBatches.length > 0) {
+    sections.push({
+      id: "activity-earlier",
+      items: visibleReviewedBatches.map(buildBatchItem),
+      label: visibleUnreadBatches.length > 0 ? "Earlier" : "Recent",
+    });
+  }
+
+  if ((onOpenFeed && batches.length > 0) || (onMarkAllRead && hasUnread)) {
     sections.push({
       id: "activity-actions",
       items: [
         ...(onOpenFeed
           ? [
               {
-                description: "Inspect the full event feed.",
                 label: "Open events",
                 onSelect: onOpenFeed,
               },
@@ -270,13 +293,13 @@ export function MarbleActivityRadar({
         ...(onMarkAllRead
           ? [
               {
-                description: "Dismiss all currently visible bursts.",
-                label: "Mark visible as reviewed",
+                label: "Mark visible reviewed",
                 onSelect: onMarkAllRead,
               },
             ]
           : []),
       ],
+      label: "Actions",
     });
   }
 
@@ -286,29 +309,39 @@ export function MarbleActivityRadar({
       ariaLabel="Open change radar"
       className={className}
       header={
-        <div className="flex items-start gap-3 rounded-xs border border-orange-200/70 bg-orange-50/40 px-3 py-3">
+        <div className="flex items-center gap-3 px-2 py-1.5">
           <ActivityGlyph
             pulse={hasUnread}
             segments={headerSegments}
           />
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 text-sm">
               <span className="font-semibold text-sm text-taupe-950">
                 Change radar
               </span>
               <UnreadPill tone={hasUnread ? "warning" : "neutral"}>
-                {hasUnread ? `${unreadCount} unread` : "Quiet"}
+                {hasUnread ? `${unreadCount} new` : "Quiet"}
               </UnreadPill>
             </div>
             <span className="text-xs text-taupe-600">
               {batches.length > 0
-                ? "Live agentic bursts grouped into compact review items."
+                ? hasUnread
+                  ? `${changedPlaceLabel} need review.`
+                  : `${changedPlaceLabel} changed recently.`
                 : emptyDescription}
             </span>
           </div>
+          {headerSegments.length > 0 ? (
+            <div className="w-12 shrink-0">
+              <ActivityMeter
+                className="h-1.5 rounded-full border-taupe-200/80 bg-taupe-100 shadow-none"
+                segments={headerSegments}
+              />
+            </div>
+          ) : null}
         </div>
       }
-      menuClassName="min-w-[24rem] rounded-xs border border-orange-200/80 bg-white p-2 shadow-[0_18px_40px_rgba(84,57,26,0.12)]"
+      menuClassName="min-w-[22rem] max-w-[26rem] rounded-xs border border-orange-200/80 bg-white p-2 shadow-[0_18px_40px_rgba(84,57,26,0.12)]"
       sections={sections}
       triggerClassName={cx(
         compact

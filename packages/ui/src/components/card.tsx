@@ -1,6 +1,11 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import type { CSSProperties, HTMLAttributes } from "react";
+import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
 import { cx } from "../utils/cx";
+import { MarbleButton, type MarbleButtonProps } from "./button";
+import {
+  MarbleContextPopover,
+  type MarbleContextPopoverItem,
+} from "./context-popover";
 
 const marbleCardNoiseTexture =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")";
@@ -83,9 +88,15 @@ const marbleCardNoiseStyles: Record<MarbleCardTone, CSSProperties> = {
 };
 
 const marbleCardHeaderVariants = cva("flex flex-col gap-1.5 p-5");
+const marbleCardHeaderTextVariants = cva(
+  "flex min-w-0 flex-1 flex-col gap-1.5",
+);
+const marbleCardHeaderActionsVariants = cva(
+  "flex shrink-0 flex-wrap items-center gap-2 self-start",
+);
 const marbleCardContentVariants = cva("px-5 pb-5");
 const marbleCardFooterVariants = cva("flex items-center gap-3 px-5 pb-5 pt-2");
-const marbleCardTitleVariants = cva("font-semibold text-sm text-zinc-900");
+const marbleCardTitleVariants = cva("font-semibold text-base text-zinc-900");
 const marbleCardDescriptionVariants = cva("text-sm text-zinc-600");
 
 export type MarbleCardProps = HTMLAttributes<HTMLDivElement> &
@@ -126,19 +137,78 @@ export function MarbleCard({
   );
 }
 
-export type MarbleCardHeaderProps = HTMLAttributes<HTMLDivElement>;
+export type MarbleCardHeaderAction = MarbleButtonProps & {
+  id?: string;
+};
+
+export type MarbleCardHeaderProps = HTMLAttributes<HTMLDivElement> & {
+  actions?: MarbleCardHeaderAction[];
+  disclosureActions?: MarbleContextPopoverItem[];
+  disclosureAriaLabel?: string;
+  disclosureHeader?: ReactNode;
+  disclosureMenuClassName?: string;
+  disclosureTriggerClassName?: string;
+};
 
 export function MarbleCardHeader({
+  actions,
   children,
   className,
+  disclosureActions,
+  disclosureAriaLabel = "Open card actions",
+  disclosureHeader,
+  disclosureMenuClassName,
+  disclosureTriggerClassName,
   ...props
 }: MarbleCardHeaderProps) {
+  const hasHeaderActions =
+    Boolean(actions?.length) || Boolean(disclosureActions?.length);
+
+  if (!hasHeaderActions) {
+    return (
+      <div
+        className={cx(marbleCardHeaderVariants(), className)}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div
-      className={cx(marbleCardHeaderVariants(), className)}
+      className={cx(
+        marbleCardHeaderVariants(),
+        "gap-3 sm:flex-row sm:items-start sm:justify-between",
+        className,
+      )}
       {...props}
     >
-      {children}
+      <div className={marbleCardHeaderTextVariants()}>{children}</div>
+      <div className={marbleCardHeaderActionsVariants()}>
+        {actions?.map(
+          ({ id, size = "sm", type = "button", ...action }, index) => (
+            <MarbleButton
+              key={id ?? `card-action-${index}`}
+              size={size}
+              type={type}
+              {...action}
+            />
+          ),
+        )}
+        {disclosureActions?.length ? (
+          <MarbleContextPopover
+            ariaLabel={disclosureAriaLabel}
+            header={disclosureHeader}
+            items={disclosureActions}
+            menuClassName={disclosureMenuClassName}
+            triggerClassName={cx(
+              "size-7 text-zinc-300 hover:bg-transparent hover:text-zinc-500",
+              disclosureTriggerClassName,
+            )}
+          />
+        ) : null}
+      </div>
     </div>
   );
 }

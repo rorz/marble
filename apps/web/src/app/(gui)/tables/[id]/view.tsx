@@ -13,6 +13,7 @@ import {
   MarbleModalHeader,
   MarbleModalTitle,
   MarblePane,
+  MarblePaneEditableCrumb,
   MarbleSelect,
   MarbleSheet,
   MarbleSheetClose,
@@ -1047,7 +1048,9 @@ export default function TablePageView({
   const [runLog, setRunLog] = useState<string[]>([]);
   const [runLogSheetOpen, setRunLogSheetOpen] = useState(false);
   const [, setRunning] = useState(false);
-  const [editingSurface, setEditingSurface] = useState<null | "title">(null);
+  const [editingSurface, setEditingSurface] = useState<
+    null | "crumb" | "title"
+  >(null);
   const [nameDraft, setNameDraft] = useState(initialTablePageData.table.name);
   const [savingName, setSavingName] = useState(false);
   const [renameError, setRenameError] = useState<null | string>(null);
@@ -2010,17 +2013,23 @@ export default function TablePageView({
         },
         {
           id: "table",
-          label: selectedTableName,
+          label: (
+            <MarblePaneEditableCrumb
+              disabled={savingName}
+              editing={editingSurface === "crumb"}
+              onCancel={stopEditingName}
+              onChange={setNameDraft}
+              onCommit={() => void commitName()}
+              onEdit={() => setEditingSurface("crumb")}
+              value={nameDraft}
+            />
+          ),
         },
       ]}
+      frame="none"
     >
-      <div className="relative flex w-full h-full min-h-0 flex-col overflow-hidden bg-zinc-50 font-sans text-zinc-900">
-        <div
-          className={cx(
-            "flex min-h-0 flex-1 flex-col w-full",
-            sidebarMode.kind !== "closed" && "pr-80",
-          )}
-        >
+      <div className="relative flex w-full h-full min-h-0 flex overflow-hidden bg-zinc-50 font-sans text-zinc-900">
+        <div className={cx("flex min-h-0 flex-1 flex-col w-full p-4")}>
           <div className="mb-3 w-full flex flex-wrap items-center justify-between gap-3 border-zinc-200">
             <div className="min-w-0 flex w-full flex-wrap items-center justify-between">
               <div className="flex flex-col items-start gap-1">
@@ -2035,8 +2044,8 @@ export default function TablePageView({
                   onEdit={() => setEditingSurface("title")}
                 />
                 <span className="text-xs text-zinc-500">
-                  Created{" "}
-                  {DATE_FORMATTER.format(new Date(selectedTable.created_at))}
+                  Last updated{" "}
+                  {DATE_FORMATTER.format(new Date(selectedTable.updated_at))}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -2437,33 +2446,44 @@ function ColumnSidebar({
   const isCreate = mode.kind === "create";
 
   return (
-    <aside className="absolute inset-y-0 right-0 z-20 flex w-80 min-h-0 flex-col overflow-hidden border-taupe-300 border-l bg-[linear-gradient(180deg,#fffdf9_0%,#f7f1e8_100%)] shadow-[-28px_0_56px_rgba(84,57,26,0.18)]">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 -left-5 w-5 bg-[linear-gradient(90deg,rgba(84,57,26,0.16)_0%,rgba(84,57,26,0.06)_42%,transparent_100%)]"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 left-0 w-px bg-white/85"
-      />
-
-      <div className="relative flex items-center justify-between border-taupe-300 border-b bg-[linear-gradient(180deg,#f4ede2_0%,#fcfaf6_100%)] px-4 py-3">
-        <h2 className="font-medium text-xs text-zinc-500 uppercase tracking-wider">
-          {isCreate ? "New Column" : "Edit Column"}
-        </h2>
+    <aside className="flex w-80 min-h-0 flex-col overflow-hidden rounded-xs border-l border-taupe-200 bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-taupe-200 px-4 py-3">
+        <div className="min-w-0 space-y-1">
+          <h2 className="text-base font-medium text-taupe-950">
+            {isCreate ? "New Column" : "Edit Column"}
+          </h2>
+          {!isCreate && editingColumn ? (
+            <p className="truncate text-xs text-taupe-600">
+              {editingColumn.name}
+            </p>
+          ) : null}
+        </div>
         <button
-          className="text-sm text-zinc-400 leading-none transition-colors hover:text-zinc-700"
+          aria-label="Close column sidebar"
+          className="flex size-8 shrink-0 items-center justify-center rounded-sm text-taupe-400 transition-colors hover:bg-taupe-100 hover:text-taupe-900"
           onClick={onClose}
           type="button"
         >
-          ×
+          <svg
+            aria-hidden="true"
+            className="size-4"
+            fill="none"
+            viewBox="0 0 16 16"
+          >
+            <path
+              d="M4 4L12 12M12 4L4 12"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeWidth="1.5"
+            />
+          </svg>
         </button>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <div className="flex-1 space-y-3 overflow-auto p-4">
-          <div className="block">
-            <MarbleFieldLabel>Name</MarbleFieldLabel>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 space-y-4 overflow-auto px-4 py-4">
+          <div className="space-y-1.5">
+            <MarbleFieldLabel className="text-taupe-700">Name</MarbleFieldLabel>
             <MarbleInput
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Uppercased"
@@ -2473,8 +2493,10 @@ function ColumnSidebar({
             />
           </div>
 
-          <div className="mt-2 block">
-            <MarbleFieldLabel>Program</MarbleFieldLabel>
+          <div className="space-y-1.5">
+            <MarbleFieldLabel className="text-taupe-700">
+              Program
+            </MarbleFieldLabel>
             <MarbleSelect
               onChange={(e) => setProgramId(e.target.value)}
               value={programId}
@@ -2503,8 +2525,10 @@ function ColumnSidebar({
           )}
 
           {fields.length > 0 && (
-            <div className="space-y-2">
-              <MarbleFieldLabel>Input Template</MarbleFieldLabel>
+            <div className="space-y-2.5">
+              <MarbleFieldLabel className="text-taupe-700">
+                Input Template
+              </MarbleFieldLabel>
               {fields.map((f) => {
                 const fv = fieldValues[f.key] ?? {
                   mode: "static",
@@ -2512,19 +2536,19 @@ function ColumnSidebar({
                 };
                 return (
                   <div
-                    className="space-y-1.5 rounded border border-zinc-200 bg-zinc-100 p-2.5"
+                    className="space-y-2 rounded-xs border border-taupe-200 bg-taupe-50/60 p-3"
                     key={f.key}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-orange-600 text-xs">
+                    <div className="space-y-0.5">
+                      <span className="block font-mono text-[11px] text-taupe-950">
                         {f.key}
                       </span>
-                      <span className="text-[10px] text-zinc-500">
+                      <span className="block text-xs text-taupe-600">
                         {f.title}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <label className="flex cursor-pointer items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-taupe-700">
+                      <label className="flex cursor-pointer items-center gap-1.5">
                         <input
                           checked={fv.mode === "static"}
                           className="accent-orange-500"
@@ -2543,7 +2567,7 @@ function ColumnSidebar({
                         />
                         Formula
                       </label>
-                      <label className="flex cursor-pointer items-center gap-1">
+                      <label className="flex cursor-pointer items-center gap-1.5">
                         <input
                           checked={fv.mode === "column"}
                           className="accent-orange-500"
@@ -2651,19 +2675,17 @@ function ColumnSidebar({
           )}
           {/* Output Config escape hatch — edit mode only */}
           {!isCreate && selectedProgram && (
-            <div className="border-zinc-200 border-t pt-3">
+            <div className="border-t border-taupe-200 pt-4">
               <button
-                className="flex w-full items-center gap-1.5 text-[10px] text-zinc-500 uppercase tracking-wider"
+                className="flex w-full items-center gap-1.5 text-left text-[10px] text-taupe-600 uppercase tracking-wider"
                 onClick={() => setOutputSchemaOpen((o) => !o)}
                 type="button"
               >
                 <span
-                  className="text-[8px] transition-transform"
-                  style={{
-                    transform: outputSchemaOpen
-                      ? "rotate(90deg)"
-                      : "rotate(0deg)",
-                  }}
+                  className={cx(
+                    "text-[8px] transition-transform",
+                    outputSchemaOpen && "rotate-90",
+                  )}
                 >
                   ▶
                 </span>
@@ -2717,7 +2739,7 @@ function ColumnSidebar({
           )}
         </div>
 
-        <div className="shrink-0 space-y-3 border-taupe-300 border-t bg-[linear-gradient(180deg,#f8f2e7_0%,#efe4d2_100%)] p-4">
+        <div className="shrink-0 space-y-3 border-t border-taupe-200 bg-taupe-50 px-4 py-2.5">
           {validationError && (
             <MarbleAlert
               size="sm"
@@ -2737,7 +2759,7 @@ function ColumnSidebar({
                 ? "Creating..."
                 : "Saving..."
               : isCreate
-                ? "Create Column"
+                ? "Create column"
                 : "Save Changes"}
           </MarbleButton>
         </div>

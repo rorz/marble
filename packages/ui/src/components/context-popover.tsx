@@ -32,6 +32,7 @@ type MarbleContextPopoverItem = {
 type MarbleContextPopoverSection = {
   id?: string;
   items: MarbleContextPopoverItem[];
+  label?: string;
 };
 
 export type MarbleContextPopoverProps = {
@@ -104,7 +105,7 @@ export function MarbleContextPopover({
     ],
   );
   const enabledItemIndexes = getEnabledItemIndexes(flattenedItems);
-  const isTriggerDisabled = disabled || enabledItemIndexes.length === 0;
+  const isTriggerDisabled = disabled || flattenedItems.length === 0;
 
   const getItemKey = (item: MarbleContextPopoverItem) =>
     item.id ??
@@ -116,7 +117,11 @@ export function MarbleContextPopover({
       .join(":");
 
   const getSectionKey = (section: MarbleContextPopoverSection) =>
-    section.id ?? section.items.map(getItemKey).join("|");
+    section.id ??
+    [
+      section.label,
+      ...section.items.map(getItemKey),
+    ].join("|");
 
   const containsTarget = useCallback((target: Node) => {
     return (
@@ -151,7 +156,10 @@ export function MarbleContextPopover({
 
       if (typeof itemIndex === "number") {
         focusItem(itemIndex);
+        return;
       }
+
+      menuRef.current?.focus();
     });
   };
 
@@ -442,6 +450,7 @@ export function MarbleContextPopover({
             top: menuPosition?.top ?? 0,
             visibility: menuPosition ? "visible" : "hidden",
           }}
+          tabIndex={-1}
         >
           {header ? <div className="px-1 pb-1">{header}</div> : null}
           {menuSections.map((section, sectionIndex) => {
@@ -461,6 +470,11 @@ export function MarbleContextPopover({
                 )}
                 key={getSectionKey(section)}
               >
+                {section.label ? (
+                  <div className="px-3 pb-1 font-medium text-[10px] text-zinc-400 uppercase tracking-[0.2em]">
+                    {section.label}
+                  </div>
+                ) : null}
                 {section.items.map((item, itemIndex) => {
                   const index = indexOffset + itemIndex;
 

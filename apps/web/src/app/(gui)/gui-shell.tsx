@@ -3,9 +3,6 @@
 import type { Database } from "@marble/supabase";
 import {
   cx,
-  MarbleActivityRadar,
-  type MarbleActivityRadarBatch,
-  type MarbleActivityRadarSegment,
   MarbleBadge,
   MarbleButton,
   MarbleCommandDialog,
@@ -68,6 +65,7 @@ import {
 } from "../../lib/sidebar-tree";
 import { createClient } from "../../lib/supabase/browser";
 import { useSignOut } from "../sign-out-button";
+import { ChangeRadar } from "./change-radar";
 
 type TreeCollectionKey = "programs" | "projects";
 type SidebarGroup = {
@@ -180,7 +178,6 @@ const utilityRoutes: {
 ];
 
 type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
-type EventRow = Database["public"]["Tables"]["event"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type CommandPaletteItem = {
@@ -197,40 +194,8 @@ type CommandPaletteSection = {
   items: CommandPaletteItem[];
 };
 type SupportSheetView = "contact" | "handbook";
-type RadarScope = {
-  href: string;
-  key: string;
-  label: string;
-};
-type RadarBatchRecord = {
-  description: string;
-  href: string;
-  id: string;
-  label: string;
-  latestAt: string;
-  segments: MarbleActivityRadarSegment[];
-  unread: boolean;
-};
-type SidebarRadarIndexes = {
-  programs: Map<string, string>;
-  projects: Map<string, string>;
-  tables: Map<
-    string,
-    {
-      label: string;
-      projectId: string;
-    }
-  >;
-};
 
 const supportSheetWidthClassName = "w-[min(32rem,calc(100vw-1rem))]";
-const CHANGE_RADAR_EVENT_LIMIT = 72;
-const CHANGE_RADAR_BATCH_LIMIT = 8;
-const CHANGE_RADAR_MERGE_WINDOW_MS = 8_000;
-const CHANGE_RADAR_STORAGE_KEY = "marble:change-radar:last-reviewed-at";
-const RADAR_TIME_FORMATTER = new Intl.RelativeTimeFormat("en", {
-  numeric: "auto",
-});
 
 const sidebarModes = {
   collapsed: {
@@ -293,376 +258,6 @@ function collectCommandPaletteResources(
       node,
     ]),
   ]);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function titleCase(value: string) {
-  return value
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (segment) => segment.toUpperCase());
-}
-
-function pluralize(label: string, count: number) {
-  return `${count} ${label}${count === 1 ? "" : "s"}`;
-}
-
-function formatRadarRelativeTime(value: string) {
-  const diffMs = new Date(value).getTime() - Date.now();
-  const absDiffMs = Math.abs(diffMs);
-
-  if (absDiffMs < 15_000) {
-    return "Just now";
-  }
-
-  if (absDiffMs < 3_600_000) {
-    return RADAR_TIME_FORMATTER.format(Math.round(diffMs / 60_000), "minute");
-  }
-
-  if (absDiffMs < 86_400_000) {
-    return RADAR_TIME_FORMATTER.format(Math.round(diffMs / 3_600_000), "hour");
-  }
-
-  return RADAR_TIME_FORMATTER.format(Math.round(diffMs / 86_400_000), "day");
-}
-
-function getEventSnapshot(event: EventRow) {
-  if (isRecord(event.after_state)) {
-    return event.after_state;
-  }
-
-  if (isRecord(event.before_state)) {
-    return event.before_state;
-  }
-
-  return null;
-}
-
-function getStringField(snapshot: Record<string, unknown> | null, key: string) {
-  const value = snapshot?.[key];
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
-function buildSidebarRadarIndexes(sidebarData: SidebarTreeData) {
-  const indexes: SidebarRadarIndexes = {
-    programs: new Map(),
-    projects: new Map(),
-    tables: new Map(),
-  };
-
-  for (const node of sidebarData.programs) {
-    indexes.programs.set(node.id, node.label);
-  }
-
-  for (const projectNode of sidebarData.projects) {
-    indexes.projects.set(projectNode.id, projectNode.label);
-
-    for (const tableNode of projectNode.children) {
-      indexes.tables.set(tableNode.id, {
-        label: tableNode.label,
-        projectId: projectNode.id,
-      });
-    }
-  }
-
-  return indexes;
-}
-
-function resolveRadarScope(
-  event: EventRow,
-  indexes: SidebarRadarIndexes,
-  cellTableIds: Record<string, null | string>,
-): RadarScope {
-  const snapshot = getEventSnapshot(event);
-
-  if (event.resource === "project") {
-    const projectLabel =
-      indexes.projects.get(event.entity_id) ??
-      getStringField(snapshot, "name") ??
-      "Project changes";
-
-    return {
-      href: `/projects/${event.entity_id}`,
-      key: `project:${event.entity_id}`,
-      label: projectLabel,
-    };
-  }
-
-  if (event.resource === "table") {
-    const table = indexes.tables.get(event.entity_id);
-    const tableLabel =
-      table?.label ?? getStringField(snapshot, "name") ?? "Table changes";
-
-    return {
-      href: table
-        ? `/projects/${table.projectId}/tables/${event.entity_id}`
-        : "/events",
-      key: `table:${event.entity_id}`,
-      label: tableLabel,
-    };
-  }
-
-  if (event.resource === "row" || event.resource === "column") {
-    const tableId = getStringField(snapshot, "table_id");
-    const table = tableId ? indexes.tables.get(tableId) : undefined;
-
-    if (tableId && table) {
-      return {
-        href: `/projects/${table.projectId}/tables/${tableId}`,
-        key: `table:${tableId}`,
-        label: table.label,
-      };
-    }
-  }
-
-  if (event.resource === "cell") {
-    const tableId = cellTableIds[event.entity_id];
-    const table = tableId ? indexes.tables.get(tableId) : undefined;
-
-    if (tableId && table) {
-      return {
-        href: `/projects/${table.projectId}/tables/${tableId}`,
-        key: `table:${tableId}`,
-        label: table.label,
-      };
-    }
-  }
-
-  if (event.resource === "program") {
-    const label =
-      indexes.programs.get(event.entity_id) ??
-      getStringField(snapshot, "name") ??
-      "Program changes";
-
-    return {
-      href: `/programs?programId=${event.entity_id}`,
-      key: `program:${event.entity_id}`,
-      label,
-    };
-  }
-
-  return {
-    href: "/events",
-    key: `events:${event.resource}:${event.entity_id}`,
-    label: titleCase(event.resource),
-  };
-}
-
-function buildRadarSegments(
-  counts: Record<EventRow["operation"], number>,
-): MarbleActivityRadarSegment[] {
-  return [
-    counts.Create > 0
-      ? {
-          tone: "create",
-          value: counts.Create,
-        }
-      : null,
-    counts.Update > 0
-      ? {
-          tone: "update",
-          value: counts.Update,
-        }
-      : null,
-    counts.Delete > 0
-      ? {
-          tone: "delete",
-          value: counts.Delete,
-        }
-      : null,
-  ].filter(
-    (segment): segment is MarbleActivityRadarSegment => segment !== null,
-  );
-}
-
-function buildRadarDescription(
-  operationCounts: Record<EventRow["operation"], number>,
-  resourceCounts: Map<string, number>,
-) {
-  const operationSummary = [
-    operationCounts.Create > 0 ? `+${operationCounts.Create}` : null,
-    operationCounts.Update > 0 ? `~${operationCounts.Update}` : null,
-    operationCounts.Delete > 0 ? `-${operationCounts.Delete}` : null,
-  ]
-    .filter((segment): segment is string => segment !== null)
-    .join(" ");
-  const resourceSummary = Array.from(resourceCounts.entries())
-    .sort(
-      (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
-    )
-    .slice(0, 2)
-    .map(([resource, count]) => pluralize(titleCase(resource), count))
-    .join(" · ");
-
-  return [
-    operationSummary,
-    resourceSummary,
-  ]
-    .filter((segment) => segment.length > 0)
-    .join(" · ");
-}
-
-function buildRadarBatches(
-  events: EventRow[],
-  indexes: SidebarRadarIndexes,
-  cellTableIds: Record<string, null | string>,
-  lastReviewedAt: null | string,
-) {
-  const batches: Array<
-    RadarBatchRecord & {
-      oldestMs: number;
-      requestId: null | string;
-      resourceCounts: Map<string, number>;
-      scopeKey: string;
-      source: EventRow["source"];
-    }
-  > = [];
-
-  for (const event of events
-    .filter((candidate) => candidate.operation !== "Read")
-    .sort((left, right) => right.created_at.localeCompare(left.created_at))) {
-    const scope = resolveRadarScope(event, indexes, cellTableIds);
-    const eventMs = new Date(event.created_at).getTime();
-    const requestId = event.request_id ?? null;
-    const previous = batches.at(-1);
-    const canMerge =
-      previous !== undefined &&
-      previous.scopeKey === scope.key &&
-      previous.source === event.source &&
-      (requestId !== null && previous.requestId !== null
-        ? requestId === previous.requestId
-        : previous.oldestMs - eventMs <= CHANGE_RADAR_MERGE_WINDOW_MS);
-
-    if (!canMerge) {
-      const operationCounts = {
-        Create: event.operation === "Create" ? 1 : 0,
-        Delete: event.operation === "Delete" ? 1 : 0,
-        Read: 0,
-        Update: event.operation === "Update" ? 1 : 0,
-      } satisfies Record<EventRow["operation"], number>;
-      const resourceCounts = new Map<string, number>([
-        [
-          event.resource,
-          1,
-        ],
-      ]);
-
-      batches.push({
-        description: buildRadarDescription(operationCounts, resourceCounts),
-        href: scope.href,
-        id:
-          requestId !== null
-            ? `${scope.key}:${requestId}`
-            : `${scope.key}:${event.created_at}`,
-        label: scope.label,
-        latestAt: event.created_at,
-        oldestMs: eventMs,
-        requestId,
-        resourceCounts,
-        scopeKey: scope.key,
-        segments: buildRadarSegments(operationCounts),
-        source: event.source,
-        unread:
-          lastReviewedAt === null ||
-          event.created_at.localeCompare(lastReviewedAt) > 0,
-      });
-      continue;
-    }
-
-    previous.oldestMs = eventMs;
-    previous.resourceCounts.set(
-      event.resource,
-      (previous.resourceCounts.get(event.resource) ?? 0) + 1,
-    );
-    previous.unread =
-      previous.unread ||
-      lastReviewedAt === null ||
-      event.created_at.localeCompare(lastReviewedAt) > 0;
-
-    if (event.operation === "Create") {
-      previous.segments = buildRadarSegments({
-        Create:
-          previous.segments
-            .filter((segment) => segment.tone === "create")
-            .reduce((total, segment) => total + segment.value, 0) + 1,
-        Delete: previous.segments
-          .filter((segment) => segment.tone === "delete")
-          .reduce((total, segment) => total + segment.value, 0),
-        Read: 0,
-        Update: previous.segments
-          .filter((segment) => segment.tone === "update")
-          .reduce((total, segment) => total + segment.value, 0),
-      });
-    } else if (event.operation === "Update") {
-      previous.segments = buildRadarSegments({
-        Create: previous.segments
-          .filter((segment) => segment.tone === "create")
-          .reduce((total, segment) => total + segment.value, 0),
-        Delete: previous.segments
-          .filter((segment) => segment.tone === "delete")
-          .reduce((total, segment) => total + segment.value, 0),
-        Read: 0,
-        Update:
-          previous.segments
-            .filter((segment) => segment.tone === "update")
-            .reduce((total, segment) => total + segment.value, 0) + 1,
-      });
-    } else if (event.operation === "Delete") {
-      previous.segments = buildRadarSegments({
-        Create: previous.segments
-          .filter((segment) => segment.tone === "create")
-          .reduce((total, segment) => total + segment.value, 0),
-        Delete:
-          previous.segments
-            .filter((segment) => segment.tone === "delete")
-            .reduce((total, segment) => total + segment.value, 0) + 1,
-        Read: 0,
-        Update: previous.segments
-          .filter((segment) => segment.tone === "update")
-          .reduce((total, segment) => total + segment.value, 0),
-      });
-    }
-
-    previous.description = buildRadarDescription(
-      {
-        Create: previous.segments
-          .filter((segment) => segment.tone === "create")
-          .reduce((total, segment) => total + segment.value, 0),
-        Delete: previous.segments
-          .filter((segment) => segment.tone === "delete")
-          .reduce((total, segment) => total + segment.value, 0),
-        Read: 0,
-        Update: previous.segments
-          .filter((segment) => segment.tone === "update")
-          .reduce((total, segment) => total + segment.value, 0),
-      },
-      previous.resourceCounts,
-    );
-  }
-
-  return batches
-    .slice(0, CHANGE_RADAR_BATCH_LIMIT)
-    .map(
-      ({
-        oldestMs: _oldestMs,
-        requestId: _requestId,
-        resourceCounts: _resourceCounts,
-        scopeKey: _scopeKey,
-        source: _source,
-        ...batch
-      }) => batch,
-    );
-}
-
-function upsertRadarEvent(current: EventRow[], nextEvent: EventRow) {
-  return [
-    nextEvent,
-    ...current.filter((event) => event.id !== nextEvent.id),
-  ]
-    .sort((left, right) => right.created_at.localeCompare(left.created_at))
-    .slice(0, CHANGE_RADAR_EVENT_LIMIT);
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -939,11 +534,6 @@ export function GuiShell({
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [supabase] = useState(() => createClient());
-  const [radarEvents, setRadarEvents] = useState<EventRow[]>([]);
-  const [lastReviewedAt, setLastReviewedAt] = useState<null | string>(null);
-  const [cellTableIds, setCellTableIds] = useState<
-    Record<string, null | string>
-  >({});
   const sidebar = sidebarModes[sidebarMode];
   const ToggleIcon = sidebar.toggleIcon;
   const router = useRouter();
@@ -961,9 +551,6 @@ export function GuiShell({
     startWidth: number;
     startX: number;
   }>(null);
-  const ownedProfileIds = sidebarData.ownerProfileIds;
-  const ownedProfileIdsKey = ownedProfileIds.join(":");
-  const sidebarRadarIndexes = buildSidebarRadarIndexes(sidebarData);
   const topLevelPath = `/${pathname.split("/").at(1)}`;
   const selectedProgramId = searchParams.get("programId");
   const resetCommandPalette = () => {
@@ -991,31 +578,6 @@ export function GuiShell({
   const navigateFromCommandPalette = (path: string) => {
     closeCommandPalette();
     router.push(path);
-  };
-  const persistRadarReviewState = (nextValue: null | string) => {
-    setLastReviewedAt(nextValue);
-
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (nextValue === null) {
-      window.localStorage.removeItem(CHANGE_RADAR_STORAGE_KEY);
-      return;
-    }
-
-    window.localStorage.setItem(CHANGE_RADAR_STORAGE_KEY, nextValue);
-  };
-  const markRadarReviewedThrough = (timestamp: null | string) => {
-    if (!timestamp) {
-      return;
-    }
-
-    if (lastReviewedAt && timestamp.localeCompare(lastReviewedAt) < 0) {
-      return;
-    }
-
-    persistRadarReviewState(timestamp);
   };
   const workspaceMenuSections = [
     {
@@ -1598,230 +1160,6 @@ export function GuiShell({
   ]);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    setLastReviewedAt(
-      window.localStorage.getItem(CHANGE_RADAR_STORAGE_KEY) ?? null,
-    );
-  }, []);
-
-  useEffect(() => {
-    if (ownedProfileIds.length === 0) {
-      setRadarEvents([]);
-      return;
-    }
-
-    let cancelled = false;
-    const ownedProfileIdSet = new Set(ownedProfileIds);
-
-    void supabase
-      .from("event")
-      .select("*")
-      .in("actor_profile_id", ownedProfileIds)
-      .neq("source", "WEB_APP")
-      .order("created_at", {
-        ascending: false,
-      })
-      .limit(CHANGE_RADAR_EVENT_LIMIT)
-      .then(({ data, error }) => {
-        if (cancelled) {
-          return;
-        }
-
-        if (error) {
-          console.error("Change radar bootstrap failed", error);
-          return;
-        }
-
-        setRadarEvents(
-          ((data ?? []) as EventRow[]).filter(
-            (event) => event.operation !== "Read",
-          ),
-        );
-      });
-
-    const channel = supabase
-      .channel(`gui-radar:${ownedProfileIdsKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "event",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<EventRow>;
-          const candidate =
-            change.eventType === "DELETE" ? change.old : change.new;
-          const actorProfileId = candidate.actor_profile_id;
-          const eventId = candidate.id;
-
-          if (
-            typeof eventId !== "string" ||
-            typeof actorProfileId !== "string" ||
-            !ownedProfileIdSet.has(actorProfileId) ||
-            candidate.source === "WEB_APP" ||
-            candidate.operation === "Read"
-          ) {
-            return;
-          }
-
-          setRadarEvents((current) =>
-            change.eventType === "DELETE"
-              ? current.filter((event) => event.id !== eventId)
-              : upsertRadarEvent(current, change.new as EventRow),
-          );
-        },
-      )
-      .subscribe((status, error) => {
-        if (status === "CHANNEL_ERROR" || error) {
-          console.error("Change radar realtime channel failed", error);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-      void supabase.removeChannel(channel);
-    };
-  }, [
-    ownedProfileIds,
-    ownedProfileIdsKey,
-    supabase,
-  ]);
-
-  useEffect(() => {
-    const unresolvedCellEvents = radarEvents.filter(
-      (event) =>
-        event.resource === "cell" &&
-        cellTableIds[event.entity_id] === undefined,
-    );
-
-    if (unresolvedCellEvents.length === 0) {
-      return;
-    }
-
-    const eventTargets = unresolvedCellEvents.map((event) => ({
-      columnId: getStringField(getEventSnapshot(event), "column_id"),
-      eventId: event.entity_id,
-      rowId: getStringField(getEventSnapshot(event), "row_id"),
-    }));
-    const rowIds = Array.from(
-      new Set(
-        eventTargets.flatMap((target) =>
-          target.rowId
-            ? [
-                target.rowId,
-              ]
-            : [],
-        ),
-      ),
-    );
-    const columnIds = Array.from(
-      new Set(
-        eventTargets.flatMap((target) =>
-          target.columnId
-            ? [
-                target.columnId,
-              ]
-            : [],
-        ),
-      ),
-    );
-
-    if (rowIds.length === 0 && columnIds.length === 0) {
-      setCellTableIds((current) =>
-        Object.fromEntries([
-          ...Object.entries(current),
-          ...eventTargets.map((target) => [
-            target.eventId,
-            null,
-          ]),
-        ]),
-      );
-      return;
-    }
-
-    let cancelled = false;
-
-    void Promise.all([
-      rowIds.length > 0
-        ? supabase.from("row").select("id, table_id").in("id", rowIds)
-        : Promise.resolve({
-            data: [] as Array<{
-              id: string;
-              table_id: string;
-            }>,
-            error: null,
-          }),
-      columnIds.length > 0
-        ? supabase.from("column").select("id, table_id").in("id", columnIds)
-        : Promise.resolve({
-            data: [] as Array<{
-              id: string;
-              table_id: string;
-            }>,
-            error: null,
-          }),
-    ]).then(([rowsResult, columnsResult]) => {
-      if (cancelled) {
-        return;
-      }
-
-      if (rowsResult.error || columnsResult.error) {
-        console.error(
-          "Change radar cell scope resolution failed",
-          rowsResult.error ?? columnsResult.error,
-        );
-        return;
-      }
-
-      const rowTableIds = new Map(
-        (rowsResult.data ?? []).map((row) => [
-          row.id,
-          row.table_id,
-        ]),
-      );
-      const columnTableIds = new Map(
-        (columnsResult.data ?? []).map((column) => [
-          column.id,
-          column.table_id,
-        ]),
-      );
-
-      setCellTableIds((current) => {
-        const next = {
-          ...current,
-        };
-
-        for (const target of eventTargets) {
-          if (next[target.eventId] !== undefined) {
-            continue;
-          }
-
-          next[target.eventId] =
-            (target.rowId ? rowTableIds.get(target.rowId) : undefined) ??
-            (target.columnId
-              ? columnTableIds.get(target.columnId)
-              : undefined) ??
-            null;
-        }
-
-        return next;
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    cellTableIds,
-    radarEvents,
-    supabase,
-  ]);
-
-  useEffect(() => {
     const isNodeActive = (node: SidebarTreeNode) =>
       node.kind === "program"
         ? pathname === "/programs" && selectedProgramId === node.id
@@ -2017,32 +1355,6 @@ export function GuiShell({
         </div>
       );
     });
-  const radarBatchRecords = buildRadarBatches(
-    radarEvents,
-    sidebarRadarIndexes,
-    cellTableIds,
-    lastReviewedAt,
-  );
-  const radarBatches: MarbleActivityRadarBatch[] = radarBatchRecords.map(
-    (batch) => ({
-      description: batch.description,
-      id: batch.id,
-      label: batch.label,
-      onSelect: () => {
-        markRadarReviewedThrough(batch.latestAt);
-        router.push(batch.href);
-      },
-      segments: batch.segments,
-      timestampLabel: formatRadarRelativeTime(batch.latestAt),
-      unread: batch.unread,
-    }),
-  );
-  const radarUnreadCount = radarBatchRecords.filter(
-    (batch) => batch.unread,
-  ).length;
-  const handleMarkVisibleRadarBatchesReviewed = () => {
-    markRadarReviewedThrough(radarBatchRecords[0]?.latestAt ?? null);
-  };
 
   return (
     <div
@@ -2080,13 +1392,10 @@ export function GuiShell({
                 sections={workspaceMenuSections}
               />
 
-              <MarbleActivityRadar
-                batches={radarBatches}
+              <ChangeRadar
                 className="shrink-0"
                 compact
-                onMarkAllRead={handleMarkVisibleRadarBatchesReviewed}
-                onOpenFeed={() => router.push("/events")}
-                unreadCount={radarUnreadCount}
+                sidebarData={sidebarData}
               />
 
               {sidebar.iconOnly ? null : (

@@ -530,7 +530,14 @@ bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual
 4. List columns to capture their IDs.
 5. Create downstream columns with `--input-template`.
 6. Create starter rows with `row create`.
-7. Update cells with manual input as needed.
+7. Resolve the created cell IDs from the row and column IDs.
+8. Update cells with manual input as needed.
+
+Important:
+
+- There is no `cell create` command or API route. Cells are materialized automatically when you create rows or columns.
+- When you create a single row, the API returns the row object, not the cells for that row. Fetch the row's cells next and identify the target cells by `column_id`.
+- Prefer `cell list --row <rowId>` or raw `cells list '{"rowId":"<rowId>"}'` when populating test data. `cell list --table <tableId>` is fine for inspection, but less precise for selecting a specific cell to update.
 
 Example:
 
@@ -544,9 +551,17 @@ bunx marble-cli@latest column create "Company Name" --table <tableId> --program 
 bunx marble-cli@latest column list --table <tableId>
 bunx marble-cli@latest column create "Enriched Email" --table <tableId> --program <apolloProgramId> --input-template '{"personName.$":"$.columns.<personColumnId>.value","companyName.$":"$.columns.<companyColumnId>.value"}' --output-schema '{"type":"string"}'
 bunx marble-cli@latest row create --table <tableId>
-bunx marble-cli@latest cell list --table <tableId>
+bunx marble-cli@latest row list --table <tableId>
+bunx marble-cli@latest cell list --row <rowId>
 bunx marble-cli@latest cell set <personCellId> "Ada"
 bunx marble-cli@latest cell set <companyCellId> "Analytical Engines"
+```
+
+If you prefer raw commands for the cell lookup step:
+
+```sh
+bunx marble-cli@latest rows create '{"tableId":"<tableId>","count":1}'
+bunx marble-cli@latest cells list '{"rowId":"<rowId>"}'
 ```
 
 ## General Approach
@@ -575,6 +590,7 @@ When asked to create a table or workflow, break the task into composable steps.
 - If raw `columns create` or `columns update` fails, check whether `inputTemplate` was passed as a string and `outputSchema` as real JSON.
 - If the CLI prints `Invalid request`, read the structured `Details:` block. Marble now returns the underlying validation issues instead of just the top-line error.
 - If `row create` fails with `idx cannot be used when count is greater than 1`, drop `--idx` or set `--count` back to `1`.
+- If you need to seed a few test values, do not try to create cells directly. Create rows first, then fetch the row's cells and patch the target cell with `cell set` or `cell update --manual-input`.
 - If `program test` fails, fix the runtime code, `input-schema.json`, or `output-config.json`, then rerun it.
 - If a dependent column is blank, confirm the `inputTemplate` references the correct column IDs.
 - If the repo becomes dirty during CLI-only work, move temp artifacts to `/tmp` and clean up anything you created in the workspace.
@@ -594,5 +610,11 @@ Since we haven't got much time for chit-chat, here's the lowdown:
   - Remote program
   - Remote column -- make them one-by-one IN THE ORDER in which makes the most sense
   - Insert ~10 blank rows to pad the table out a bit
+4. When the human asks you to "test with a few cells", do not invent a cell-creation step. Use this loop instead:
+  - Create one row
+  - Capture the returned `row.id`
+  - List that row's cells
+  - Match the target cell by `column_id`
+  - Set manual input on the resolved `cell.id`
 
 That's it!

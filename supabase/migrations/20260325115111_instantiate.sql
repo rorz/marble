@@ -32,6 +32,7 @@ CREATE TABLE
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     "type" profile_type NOT NULL,
     NAME TEXT NOT NULL,
+    icon TEXT,
     external_name TEXT,
     owner_user_id UUID REFERENCES auth.users (id) NOT NULL
   );

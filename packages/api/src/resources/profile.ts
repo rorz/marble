@@ -26,6 +26,7 @@ const profileListSchema = requestObject({
 
 const profileCreateSchema = requestObject({
   externalName: nonEmptyStringSchema.nullable().optional(),
+  icon: nonEmptyStringSchema.nullable().optional(),
   name: nonEmptyStringSchema,
   ownerUserId: uuidSchema.optional(),
   type: profileTypeSchema.optional(),
@@ -33,6 +34,7 @@ const profileCreateSchema = requestObject({
 
 const profileUpdateSchema = requestObject({
   externalName: nonEmptyStringSchema.nullable().optional(),
+  icon: nonEmptyStringSchema.nullable().optional(),
   name: nonEmptyStringSchema.optional(),
   type: profileTypeSchema.optional(),
 });
@@ -144,6 +146,7 @@ export function mountProfileResource(app: Hono<ApiEnv>) {
         handler: async (c, body) => {
           const data = await createRecord(c.var.supabase, "profile", {
             external_name: body.externalName ?? null,
+            icon: body.icon ?? null,
             name: body.name,
             owner_user_id: resolveOwnerUserId({
               authenticatedUserId: c.var.auth?.userId,
@@ -214,12 +217,14 @@ export function mountProfileResource(app: Hono<ApiEnv>) {
           });
           requireAnyDefined([
             body.externalName,
+            body.icon,
             body.name,
             body.type,
           ]);
 
           return updateRecord(c.var.supabase, "profile", id, {
             external_name: body.externalName,
+            icon: body.icon,
             name: body.name,
             type: body.type,
           });

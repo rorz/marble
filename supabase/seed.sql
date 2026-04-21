@@ -10,8 +10,8 @@ WITH
 
 -- Create a system profile to own the seeded data
 system_profile AS (
-  INSERT INTO "profile" (type, name, external_name, owner_user_id)
-  VALUES ('Agent', 'System Agent', 'system', '00000000-0000-0000-0000-000000000000')
+  INSERT INTO "profile" (type, name, external_name, icon, owner_user_id)
+  VALUES ('Agent', 'System Agent', 'system', '🤖', '00000000-0000-0000-0000-000000000000')
   RETURNING id
 ),
 
