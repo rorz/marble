@@ -1066,7 +1066,7 @@ export default function UiPage() {
             </DemoPanel>
 
             <DemoPanel
-              description="Full-width and narrow pane layouts with shared chrome."
+              description="Full-width, narrow, and flush pane layouts with shared chrome."
               title="Pane"
             >
               <div className="space-y-4">
@@ -1102,6 +1102,41 @@ export default function UiPage() {
                         <MarbleCardDescription>
                           Breadcrumbs, actions, and scroll framing stay in the
                           shared primitive.
+                        </MarbleCardDescription>
+                      </MarbleCardHeader>
+                    </MarbleCard>
+                  </MarblePane>
+                </div>
+
+                <div className="h-80 overflow-hidden rounded-sm border border-taupe-200 bg-white shadow-sm">
+                  <MarblePane
+                    actions={[
+                      {
+                        children: "Inspect",
+                        id: "pane-flush-inspect",
+                        variant: "dark",
+                      },
+                    ]}
+                    crumbs={[
+                      {
+                        href: "/tables",
+                        id: "pane-tables",
+                        label: "Tables",
+                      },
+                      {
+                        id: "pane-flush-current",
+                        label: "Pipeline Runs",
+                      },
+                    ]}
+                    frame="none"
+                  >
+                    <MarbleCard className="rounded-none border-x-0 shadow-none">
+                      <MarbleCardHeader>
+                        <MarbleCardTitle>Flush frame</MarbleCardTitle>
+                        <MarbleCardDescription>
+                          Remove the pane inset when the content should sit
+                          directly against the surrounding shell while the
+                          breadcrumb rail keeps its normal chrome.
                         </MarbleCardDescription>
                       </MarbleCardHeader>
                     </MarbleCard>

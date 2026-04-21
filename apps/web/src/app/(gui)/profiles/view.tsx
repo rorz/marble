@@ -584,8 +584,9 @@ export function ProfilesPageView({
             Your human profile
           </h2>
           <p className="text-sm text-zinc-600">
-            This profile is for your own use as a human. Only create API keys
-            here when you're working on Marble directly yourself.
+            This profile is for your own use as a human, and was created
+            automatically with your Marble account. Only create API keys here
+            when you're working on Marble directly yourself.
           </p>
         </div>
 
@@ -596,24 +597,12 @@ export function ProfilesPageView({
                 createdAt={CREATED_AT_FORMATTER.format(
                   new Date(primaryHumanProfile.created_at),
                 )}
-                extraBadges={
-                  <MarbleBadge
-                    caps
-                    tone="info"
-                  >
-                    Automatic
-                  </MarbleBadge>
-                }
                 profileId={primaryHumanProfile.id}
                 profileName={primaryHumanProfile.name}
                 profileType={primaryHumanProfile.type}
               />
             </MarbleCardHeader>
             <MarbleCardContent className="space-y-4 px-4 pb-4 pt-4">
-              <MarbleCardDescription>
-                Reserved for direct human operation. Agent tooling should get
-                its own agent profile below instead of sharing this one.
-              </MarbleCardDescription>
               <KeyList
                 createDisabled={Boolean(
                   creatingKeyProfileId ||

@@ -16,6 +16,7 @@ export type MarblePaneProps = {
   children: ReactNode;
   crumbs?: MarblePaneCrumb[];
   description?: string;
+  frame?: "normal" | "none";
   title?: string;
   width?: "Full" | "Narrow";
   className?: string;
@@ -31,11 +32,15 @@ export const marblePaneInteractiveCrumbClassName = cx(
 export function MarblePane({
   actions,
   children,
+  className,
   crumbs,
   description,
+  frame = "normal",
   title,
   width = "Full",
 }: MarblePaneProps) {
+  const isFramed = frame === "normal";
+
   return (
     <div className="flex size-full min-h-0 w-full flex-col">
       {crumbs ? (
@@ -93,12 +98,22 @@ export function MarblePane({
         </div>
       ) : null}
 
-      <div className="flex min-h-0 w-full flex-1 justify-center overflow-y-scroll px-4">
+      <div
+        className={cx(
+          "flex min-h-0 w-full flex-1 justify-center overflow-y-scroll",
+          isFramed ? "px-4" : "px-0",
+        )}
+      >
         <div
           className={cx(
             "flex h-full min-h-0 w-full flex-col",
             width === "Narrow" ? "max-w-2xl" : "",
-            crumbs === undefined && width === "Narrow" ? "pt-12" : "pt-4",
+            isFramed
+              ? crumbs === undefined && width === "Narrow"
+                ? "pt-12"
+                : "pt-4"
+              : "pt-0",
+            className,
           )}
         >
           {title || description ? (
@@ -110,7 +125,14 @@ export function MarblePane({
             </div>
           ) : null}
 
-          <div className="flex min-h-0 flex-1 flex-col pb-4">{children}</div>
+          <div
+            className={cx(
+              "flex min-h-0 flex-1 flex-col",
+              isFramed ? "pb-4" : "pb-0",
+            )}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </div>

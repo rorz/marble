@@ -1156,13 +1156,14 @@ export function ProgramsPageView({
             ),
         },
       ]}
+      frame="none"
     >
       <div className="space-y-4 size-full">
         {renameError ? (
           <MarbleAlert tone="error">{renameError}</MarbleAlert>
         ) : null}
 
-        <div className="flex size-full min-h-0 overflow-hidden rounded-md border-2 border-taupe-400 bg-[linear-gradient(180deg,#f8f5ee_0%,#f4efe6_100%)] text-zinc-800">
+        <div className="flex size-full min-h-0 overflow-hidden rounded-md border-2 border-taupe-400 bg-[linear-gradient(180deg,#f8f5ee_0%,#f4efe6_100%)] text-zinc-800 rounded-t-none">
           <div
             className={cx(
               "flex w-64 shrink-0 flex-col border-r",
