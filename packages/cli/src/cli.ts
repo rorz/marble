@@ -76,6 +76,7 @@ type CellCommandOptions = {
 type RunCommandOptions = {
   cell?: string;
   clearManualInput?: boolean;
+  range?: string;
   manualInput?: string;
   programVersion?: string;
 };
@@ -94,6 +95,21 @@ type ProjectCommandOptions = {
 type KeyCommandOptions = {
   includeDeleted?: boolean;
   ownerProfileId?: string;
+};
+type CellRecord = {
+  column_id: string;
+  id: string;
+  row_id: string;
+};
+type RowRecord = {
+  id: string;
+  idx: number;
+  table_id: string;
+};
+type ColumnRecord = {
+  id: string;
+  idx: number;
+  table_id: string;
 };
 
 function resolveFromInvocation(targetPath: string) {
@@ -417,6 +433,146 @@ async function upsertProgramFromDirectory(dir: string) {
     loadedProgram,
     ...data,
   };
+}
+
+function didRunRequestSucceed(value: unknown) {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const payload = value as {
+    output?: {
+      ok?: boolean;
+    };
+    success?: boolean;
+  };
+
+  return payload.success === true && payload.output?.ok !== false;
+}
+
+function parseCellRange(range: string) {
+  const [startCellId, endCellId, ...rest] = range
+    .split("..")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (rest.length > 0 || !startCellId || !endCellId) {
+    throw new Error(
+      'cell range must use the form "<startCellId>..<endCellId>"',
+    );
+  }
+
+  return {
+    endCellId,
+    startCellId,
+  };
+}
+
+async function resolveCellRange(range: string) {
+  const { endCellId, startCellId } = parseCellRange(range);
+  const [startCell, endCell] = (await Promise.all([
+    client.get("cells", startCellId),
+    client.get("cells", endCellId),
+  ])) as [
+    CellRecord,
+    CellRecord,
+  ];
+  const [startRow, endRow, startColumn, endColumn] = (await Promise.all([
+    client.get("rows", startCell.row_id),
+    client.get("rows", endCell.row_id),
+    client.get("columns", startCell.column_id),
+    client.get("columns", endCell.column_id),
+  ])) as [
+    RowRecord,
+    RowRecord,
+    ColumnRecord,
+    ColumnRecord,
+  ];
+
+  if (
+    startRow.table_id !== endRow.table_id ||
+    startColumn.table_id !== endColumn.table_id ||
+    startRow.table_id !== startColumn.table_id ||
+    endRow.table_id !== endColumn.table_id
+  ) {
+    throw new Error("cell ranges must stay within a single table");
+  }
+
+  const tableId = startRow.table_id;
+  const [rows, columns, cells] = (await Promise.all([
+    client.list("rows", {
+      tableId,
+    }),
+    client.list("columns", {
+      tableId,
+    }),
+    client.list("cells", {
+      tableId,
+    }),
+  ])) as [
+    RowRecord[],
+    ColumnRecord[],
+    CellRecord[],
+  ];
+  const rowById = new Map(
+    rows.map((row) => [
+      row.id,
+      row,
+    ]),
+  );
+  const columnById = new Map(
+    columns.map((column) => [
+      column.id,
+      column,
+    ]),
+  );
+  const minRowIdx = Math.min(startRow.idx, endRow.idx);
+  const maxRowIdx = Math.max(startRow.idx, endRow.idx);
+  const minColumnIdx = Math.min(startColumn.idx, endColumn.idx);
+  const maxColumnIdx = Math.max(startColumn.idx, endColumn.idx);
+
+  return cells
+    .filter((cell) => {
+      const row = rowById.get(cell.row_id);
+      const column = columnById.get(cell.column_id);
+
+      return (
+        row !== undefined &&
+        column !== undefined &&
+        row.idx >= minRowIdx &&
+        row.idx <= maxRowIdx &&
+        column.idx >= minColumnIdx &&
+        column.idx <= maxColumnIdx
+      );
+    })
+    .sort((left, right) => {
+      const leftRow = rowById.get(left.row_id);
+      const rightRow = rowById.get(right.row_id);
+      const leftColumn = columnById.get(left.column_id);
+      const rightColumn = columnById.get(right.column_id);
+
+      if (!leftRow || !rightRow || !leftColumn || !rightColumn) {
+        return left.id.localeCompare(right.id);
+      }
+
+      return leftRow.idx - rightRow.idx || leftColumn.idx - rightColumn.idx;
+    })
+    .map((cell) => cell.id);
+}
+
+async function resolveRunTargetCellIds(
+  cellIds: string[],
+  options: Pick<RunCommandOptions, "range">,
+) {
+  const rangedCellIds =
+    options.range === undefined ? [] : await resolveCellRange(options.range);
+
+  return Array.from(
+    new Set([
+      ...cellIds,
+      ...rangedCellIds,
+    ]),
+  );
 }
 
 async function buildColumnPayload(
@@ -888,7 +1044,7 @@ function registerColumnCommands() {
     .requiredOption("--table <tableId>", "Owning table ID")
     .option(
       "--program <programId>",
-      "Program ID. Marble resolves this to the latest program version",
+      "Program ID. Marble resolves this to the latest published program version",
     )
     .option("--program-version <programVersionId>", "Pinned program version ID")
     .option("--input-template <json>", "Input template JSON")
@@ -919,7 +1075,7 @@ function registerColumnCommands() {
     .option("--table <tableId>", "Filter by table ID")
     .option(
       "--program <programId>",
-      "Filter by program ID. Marble resolves this to the latest program version",
+      "Filter by program ID. Marble resolves this to the latest published program version",
     )
     .option(
       "--program-version <programVersionId>",
@@ -957,7 +1113,7 @@ function registerColumnCommands() {
     .option("--name <name>", "New column name")
     .option(
       "--program <programId>",
-      "Program ID. Marble resolves this to the latest program version",
+      "Program ID. Marble resolves this to the latest published program version",
     )
     .option("--program-version <programVersionId>", "Pinned program version ID")
     .option("--input-template <json>", "Input template JSON")
@@ -1216,8 +1372,14 @@ function registerRunCommands() {
 
   runCommand
     .command("start")
-    .description("Create and execute the column-bound run for a cell")
-    .argument("<cellId>", "Cell ID")
+    .description(
+      "Create and execute the column-bound run for one or more cells",
+    )
+    .argument("[cellIds...]", "Cell IDs")
+    .option(
+      "--range <start..end>",
+      "Start every cell inside the rectangular range bounded by two cell IDs",
+    )
     .option(
       "--manual-input <value>",
       "Set manual input before starting the run",
@@ -1226,7 +1388,7 @@ function registerRunCommands() {
       "--clear-manual-input",
       "Clear manual input before starting the run",
     )
-    .action((cellId, options: RunCommandOptions) =>
+    .action((cellIds: string[], options: RunCommandOptions) =>
       runAction("starting run", async () => {
         if (options.manualInput !== undefined && options.clearManualInput) {
           throw new Error(
@@ -1234,15 +1396,32 @@ function registerRunCommands() {
           );
         }
 
-        const result = await client.startCellRun(
-          cellId,
-          compactObject({
-            manualInput: options.clearManualInput ? null : options.manualInput,
-          }),
-        );
+        const targetCellIds = await resolveRunTargetCellIds(cellIds, options);
+
+        if (targetCellIds.length === 0) {
+          throw new Error(
+            "run start requires at least one cell ID or a --range selection",
+          );
+        }
+
+        const payload = compactObject({
+          manualInput: options.clearManualInput ? null : options.manualInput,
+        });
+
+        if (targetCellIds.length === 1) {
+          const result = await client.startCellRun(targetCellIds[0], payload);
+
+          printJson(result);
+          if (!didRunRequestSucceed(result)) {
+            process.exitCode = 1;
+          }
+          return;
+        }
+
+        const result = await client.startCellRuns(targetCellIds, payload);
 
         printJson(result);
-        if (!result.success) {
+        if (result.results.some((entry) => !didRunRequestSucceed(entry))) {
           process.exitCode = 1;
         }
       }),

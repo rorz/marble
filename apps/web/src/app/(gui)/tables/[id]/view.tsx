@@ -2530,7 +2530,9 @@ function ColumnSidebar({
 
   const selectedProgram = programs.find((p) => p.id === programId);
   const latestVersion = selectedProgram?.program_version?.length
-    ? selectedProgram.program_version.sort((a, b) => b.version - a.version)[0]
+    ? (selectedProgram.program_version
+        .filter((version) => version.version !== null)
+        .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0] ?? null)
     : null;
 
   const selectedSchema = getProgramInputSchema(latestVersion);
@@ -2555,7 +2557,9 @@ function ColumnSidebar({
     }
 
     const version = program.program_version?.length
-      ? program.program_version.sort((a, b) => b.version - a.version)[0]
+      ? (program.program_version
+          .filter((entry) => entry.version !== null)
+          .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0] ?? null)
       : null;
 
     const s = getProgramInputSchema(version);

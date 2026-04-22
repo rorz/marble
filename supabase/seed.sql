@@ -24,8 +24,8 @@ inserted_program_formula AS (
   RETURNING id
 ),
 inserted_version_formula AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config)
-  SELECT id, 1, '{"type":"object","properties":{"formula":{"type":"string","title":"Formula"}},"required":["formula"]}', '{"schema":{"type":"string","description":"Computed formula result"}}' FROM inserted_program_formula
+  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  SELECT id, 1, '{"type":"object","properties":{"formula":{"type":"string","title":"Formula"}},"required":["formula"]}', '{"schema":{"type":"string","description":"Computed formula result"}}', NOW() FROM inserted_program_formula
   RETURNING id
 ),
 inserted_file_formula_0 AS (
@@ -93,8 +93,8 @@ inserted_program_http_request AS (
   RETURNING id
 ),
 inserted_version_http_request AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config)
-  SELECT id, 1, '{"type":"object","properties":{"method":{"type":"string","enum":["GET","POST","PUT","DELETE"],"default":"GET"},"url":{"type":"string","format":"uri","title":"Endpoint URL"},"headers":{"type":"object","additionalProperties":{"type":"string"},"title":"Headers (JSON)"},"payload":{"type":"object","additionalProperties":true,"title":"Body / Payload"}},"required":["method","url"]}', '{"flags":{"allowInference":true},"schema":{"type":"object","additionalProperties":true,"description":"Generic HTTP response payload (unknown shape)"}}' FROM inserted_program_http_request
+  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  SELECT id, 1, '{"type":"object","properties":{"method":{"type":"string","enum":["GET","POST","PUT","DELETE"],"default":"GET"},"url":{"type":"string","format":"uri","title":"Endpoint URL"},"headers":{"type":"object","additionalProperties":{"type":"string"},"title":"Headers (JSON)"},"payload":{"type":"object","additionalProperties":true,"title":"Body / Payload"}},"required":["method","url"]}', '{"flags":{"allowInference":true},"schema":{"type":"object","additionalProperties":true,"description":"Generic HTTP response payload (unknown shape)"}}', NOW() FROM inserted_program_http_request
   RETURNING id
 ),
 inserted_file_http_request_0 AS (
@@ -199,8 +199,8 @@ inserted_program_sql_query AS (
   RETURNING id
 ),
 inserted_version_sql_query AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config)
-  SELECT id, 1, '{"type":"object","properties":{"connection":{"type":"object","properties":{"dialect":{"type":"string","enum":["Postgres","MySQL"]},"return_mode":{"type":"string","enum":["Rows","Count"]}}},"query":{"type":"string","title":"SQL Query"}},"required":["connection","query"]}', '{"flags":{"allowInference":true},"schema":{"type":"array","items":{"type":"object"},"description":"Query result rows"},"overloads":[{"match":{"connection.return_mode":"Count"},"schema":{"type":"number","description":"The total number of matching rows"}}]}' FROM inserted_program_sql_query
+  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  SELECT id, 1, '{"type":"object","properties":{"connection":{"type":"object","properties":{"dialect":{"type":"string","enum":["Postgres","MySQL"]},"return_mode":{"type":"string","enum":["Rows","Count"]}}},"query":{"type":"string","title":"SQL Query"}},"required":["connection","query"]}', '{"flags":{"allowInference":true},"schema":{"type":"array","items":{"type":"object"},"description":"Query result rows"},"overloads":[{"match":{"connection.return_mode":"Count"},"schema":{"type":"number","description":"The total number of matching rows"}}]}', NOW() FROM inserted_program_sql_query
   RETURNING id
 ),
 inserted_file_sql_query_0 AS (
@@ -281,8 +281,8 @@ inserted_program_uppercase_string AS (
   RETURNING id
 ),
 inserted_version_uppercase_string AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config)
-  SELECT id, 1, '{"type":"object","properties":{"text_to_format":{"type":"string","title":"Text","description":"The string you want to capitalize"}},"required":["text_to_format"]}', '{"flags":{},"schema":{"type":"string","description":"The capitalized string"}}' FROM inserted_program_uppercase_string
+  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  SELECT id, 1, '{"type":"object","properties":{"text_to_format":{"type":"string","title":"Text","description":"The string you want to capitalize"}},"required":["text_to_format"]}', '{"flags":{},"schema":{"type":"string","description":"The capitalized string"}}', NOW() FROM inserted_program_uppercase_string
   RETURNING id
 ),
 inserted_file_uppercase_string_0 AS (
@@ -335,8 +335,8 @@ inserted_program_user_input AS (
   RETURNING id
 ),
 inserted_version_user_input AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config)
-  SELECT id, 1, '{"type":"object","properties":{"format":{"type":"string","enum":["string","number","boolean"],"title":"Column Type","default":"string"}},"required":["format"]}', '{"flags":{"allowManualInput":true},"schema":{"type":"string","description":"Standard text value"},"overloads":[{"match":{"format":"number"},"schema":{"type":"number"}},{"match":{"format":"boolean"},"schema":{"type":"boolean"}}]}' FROM inserted_program_user_input
+  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  SELECT id, 1, '{"type":"object","properties":{"format":{"type":"string","enum":["string","number","boolean"],"title":"Column Type","default":"string"}},"required":["format"]}', '{"flags":{"allowManualInput":true},"schema":{"type":"string","description":"Standard text value"},"overloads":[{"match":{"format":"number"},"schema":{"type":"number"}},{"match":{"format":"boolean"},"schema":{"type":"boolean"}}]}', NOW() FROM inserted_program_user_input
   RETURNING id
 ),
 inserted_file_user_input_0 AS (

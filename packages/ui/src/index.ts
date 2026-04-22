@@ -142,6 +142,20 @@ export {
   type MarbleTextareaProps,
 } from "./components/textarea";
 export {
+  MarbleToaster,
+  marbleToast,
+} from "./components/toast";
+export {
+  MarbleWorkbenchResizeHandle,
+  type MarbleWorkbenchResizeHandleProps,
+  MarbleWorkbenchSection,
+  type MarbleWorkbenchSectionProps,
+  MarbleWorkbenchTab,
+  type MarbleWorkbenchTabProps,
+  MarbleWorkbenchTabs,
+  type MarbleWorkbenchTabsProps,
+} from "./components/workbench";
+export {
   MarbleWorkspaceMark,
   type MarbleWorkspaceMarkProps,
   MarbleWorkspacePopover,

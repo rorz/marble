@@ -31,10 +31,15 @@ type ProgramUpsertResult = {
   versionId: string;
 };
 type RunExecutionResult = {
+  cellId?: string;
   error?: boolean;
   message?: string;
   output: unknown;
   runId: string;
+  success: boolean;
+};
+type BatchRunExecutionResult = {
+  results: RunExecutionResult[];
   success: boolean;
 };
 
@@ -203,6 +208,21 @@ export class MarbleClient {
   ) {
     return this.fetchAPI<RunExecutionResult>(`/cells/${cellId}/run`, {
       body: JSON.stringify(payload),
+      method: "POST",
+    });
+  }
+
+  public startCellRuns(
+    cellIds: string[],
+    payload: {
+      manualInput?: string | null;
+    } = {},
+  ) {
+    return this.fetchAPI<BatchRunExecutionResult>("/cells/run", {
+      body: JSON.stringify({
+        ...payload,
+        cellIds,
+      }),
       method: "POST",
     });
   }

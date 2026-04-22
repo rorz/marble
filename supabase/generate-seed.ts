@@ -168,8 +168,8 @@ inserted_program_${slug} AS (
   RETURNING id
 ),
 inserted_version_${slug} AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config)
-  SELECT id, 1, '${sqlEscape(program.inputSchema)}', '${sqlEscape(program.outputConfig)}' FROM inserted_program_${slug}
+  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  SELECT id, 1, '${sqlEscape(program.inputSchema)}', '${sqlEscape(program.outputConfig)}', NOW() FROM inserted_program_${slug}
   RETURNING id
 ),${fileInserts}`;
   })

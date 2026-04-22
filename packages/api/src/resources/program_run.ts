@@ -21,7 +21,10 @@ import {
   requireAccessibleCell,
   requireAccessibleProgramRun,
 } from "./access";
-import { resolveProgramVersionId } from "./program_version";
+import {
+  requirePublishedProgramVersion,
+  resolveProgramVersionId,
+} from "./program_version";
 import { jsonValueSchema, requestObject, uuidSchema } from "./shared";
 
 const programRunListSchema = requestObject({
@@ -66,6 +69,10 @@ export function mountProgramRunResource(app: Hono<ApiEnv>) {
               programId: body.programId,
               programVersionId: body.programVersionId,
             },
+          );
+          await requirePublishedProgramVersion(
+            c.var.supabase,
+            programVersionId,
           );
           const data = await createRecord(c.var.supabase, "program_run", {
             input: body.input as Json | undefined,
@@ -190,13 +197,18 @@ export function mountProgramRunResource(app: Hono<ApiEnv>) {
               body.programVersionId,
             ])
           ) {
-            updates.program_version_id = await resolveProgramVersionId(
+            const programVersionId = await resolveProgramVersionId(
               c.var.supabase,
               {
                 programId: body.programId,
                 programVersionId: body.programVersionId,
               },
             );
+            await requirePublishedProgramVersion(
+              c.var.supabase,
+              programVersionId,
+            );
+            updates.program_version_id = programVersionId;
           }
 
           return updateRecord(c.var.supabase, "program_run", id, updates);

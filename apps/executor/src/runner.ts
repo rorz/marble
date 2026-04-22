@@ -3,7 +3,10 @@ import { type JsonValue, resolveColumnConfig, Schemas } from "@marble/core";
 import { assert } from "@marble/lib/assert";
 import type { Json, SupabaseClient, Tables } from "@marble/supabase";
 import { z } from "zod";
-import { EXECUTOR_FILE_CONTENT } from "./constants";
+import {
+  BATCH_EXECUTOR_FILE_CONTENT,
+  EXECUTOR_FILE_CONTENT,
+} from "./constants";
 
 type ProgramFile = Pick<
   Tables<"program_file">,
@@ -13,6 +16,23 @@ type ExecutionSecret = {
   category: Tables<"secret">["category"];
   name: string;
   value: string;
+};
+type BatchExecutionJob = {
+  key: string;
+  runInput: JsonValue;
+};
+type BatchExecutionResult = {
+  key: string;
+  output: Schemas.RunReturnValue;
+};
+type BatchExecutorItem = {
+  error?: Json;
+  key: string;
+  ok: boolean;
+  value?: JsonValue;
+};
+type BatchExecutorEnvelope = {
+  results: BatchExecutorItem[];
 };
 
 const executionSecretSchema = z.object({
@@ -64,6 +84,17 @@ export const failureStateFromError = (
       : `Unexpected error: ${String(error)}`,
   );
 };
+
+const batchExecutorEnvelopeSchema: z.ZodType<BatchExecutorEnvelope> = z.object({
+  results: z.array(
+    z.object({
+      error: z.json().optional(),
+      key: z.string(),
+      ok: z.boolean(),
+      value: z.json().optional(),
+    }),
+  ),
+});
 
 function createRuntimeEnvelope(
   input: JsonValue,
@@ -193,6 +224,10 @@ const prepareExecutionEnvironment = async (
     "/workspace/.marble/executor.ts",
     EXECUTOR_FILE_CONTENT,
   );
+  await sandbox.writeFile(
+    "/workspace/.marble/batch-executor.ts",
+    BATCH_EXECUTOR_FILE_CONTENT,
+  );
   await sandbox.writeFile("/workspace/.marble/install_succeeded", "");
 };
 
@@ -213,6 +248,63 @@ const executeProgram = async (
 
   return result;
 };
+
+const executeProgramBatch = async (
+  sandbox: Sandbox,
+  jobs: BatchExecutionJob[],
+  environmentVariables: Record<string, string>,
+) => {
+  const jobsAsBase64 = btoa(
+    JSON.stringify(
+      jobs.map((job) => ({
+        input: job.runInput,
+        key: job.key,
+      })),
+    ),
+  );
+  const command = `bun run .marble/batch-executor.ts --jobsAsBase64 ${jobsAsBase64}`;
+  const session = await sandbox.createSession({
+    cwd: "/workspace",
+    env: environmentVariables,
+  });
+
+  const result = await session.exec(command);
+  await sandbox.deleteSession(session.id);
+
+  return result;
+};
+
+function validateOutputValue(
+  outputSchemaConfig: JsonValue,
+  rawValue: JsonValue,
+): Schemas.RunReturnValue {
+  try {
+    const outputSchema = Schemas.ColumnOutputSchema.parse(outputSchemaConfig);
+    const validation = z.fromJSONSchema(outputSchema).safeParse(rawValue);
+
+    if (!validation.success) {
+      return createFailureState(
+        "Parser",
+        `Output validation failed: ${formatZodIssues(validation.error.issues)}`,
+        validation.error.issues as unknown as Json,
+      );
+    }
+
+    return {
+      ok: true,
+      value: rawValue,
+    } as const;
+  } catch (error) {
+    return createFailureState(
+      "Parser",
+      `Output validation failed: ${
+        error instanceof Error
+          ? error.message
+          : `Unexpected parse error: ${String(error)}`
+      }`,
+    );
+  }
+}
 
 export const executeAndValidate = async (
   sandbox: Sandbox,
@@ -235,8 +327,6 @@ export const executeAndValidate = async (
     runInput,
     environmentVariables,
   );
-  const outputSchema = Schemas.ColumnOutputSchema.parse(outputSchemaConfig);
-
   const rawOutput = (() => {
     if (!executionResult.success) {
       const stderr = executionResult.stderr.trim() || "Program crashed";
@@ -262,20 +352,7 @@ export const executeAndValidate = async (
 
     try {
       const parsed = JSON.parse(executionResult.stdout.trim());
-      const validation = z.fromJSONSchema(outputSchema).safeParse(parsed);
-
-      if (!validation.success) {
-        return createFailureState(
-          "Parser",
-          `Output validation failed: ${formatZodIssues(validation.error.issues)}`,
-          validation.error.issues as unknown as Json,
-        );
-      }
-
-      return {
-        ok: true,
-        value: parsed,
-      } as const;
+      return validateOutputValue(outputSchemaConfig, parsed as JsonValue);
     } catch (error) {
       return createFailureState(
         "Parser",
@@ -290,6 +367,104 @@ export const executeAndValidate = async (
 
   return Schemas.RunReturnValue.parse(rawOutput);
 };
+
+export const executeAndValidateBatch = async (
+  sandbox: Sandbox,
+  programFiles: ProgramFile[],
+  jobs: Array<
+    BatchExecutionJob & {
+      outputSchemaConfig: JsonValue;
+    }
+  >,
+  environmentVariables: Record<string, string> = {},
+): Promise<BatchExecutionResult[]> => {
+  if (jobs.length === 0) {
+    return [];
+  }
+
+  if (programFiles.length === 0) {
+    return jobs.map((job) => ({
+      key: job.key,
+      output: createFailureState(
+        "UnsupportedRuntime",
+        "No files found in program version.",
+      ),
+    }));
+  }
+
+  await prepareExecutionEnvironment(sandbox, programFiles);
+
+  const executionResult = await executeProgramBatch(
+    sandbox,
+    jobs,
+    environmentVariables,
+  );
+
+  if (!executionResult.success) {
+    const stderr = executionResult.stderr.trim() || "Program crashed";
+    let thrownError: unknown = stderr;
+
+    try {
+      thrownError = JSON.parse(stderr);
+    } catch {
+      // stderr was plain text, not JSON
+    }
+
+    throw thrownError;
+  }
+
+  const parsedOutput = batchExecutorEnvelopeSchema.parse(
+    JSON.parse(executionResult.stdout.trim()),
+  );
+  const itemByKey = new Map(
+    parsedOutput.results.map((item) => [
+      item.key,
+      item,
+    ]),
+  );
+
+  return jobs.map((job) => {
+    const item = itemByKey.get(job.key);
+
+    if (!item) {
+      return {
+        key: job.key,
+        output: createFailureState(
+          "Parser",
+          `Batch output missing result for '${job.key}'`,
+        ),
+      };
+    }
+
+    if (!item.ok) {
+      const errorDetail =
+        item.error && typeof item.error === "object"
+          ? (item.error as Record<string, unknown>)
+          : undefined;
+
+      return {
+        key: job.key,
+        output: createFailureState(
+          "Crashed",
+          typeof errorDetail?.message === "string" && errorDetail.message
+            ? errorDetail.message
+            : "Program crashed",
+          item.error,
+        ),
+      };
+    }
+
+    return {
+      key: job.key,
+      output: validateOutputValue(
+        job.outputSchemaConfig,
+        (item.value ?? null) as JsonValue,
+      ),
+    };
+  });
+};
+
+const STORED_RUN_SELECT = `*, program_version(*, program!program_version_program_id_fkey(*), program_file(*)), cell!target_cell_id(*, row!cell_row_id_fkey(*, table!row_table_id_fkey(*, project!table_project_id_fkey(*, profile!project_owner_profile_id_fkey(*)))), column!cell_column_id_fkey(*))`;
 
 export const runtimeInputFromValue = (input: JsonValue): JsonValue => {
   const parsedRunInput = Schemas.RunInput.safeParse(input);
@@ -306,9 +481,7 @@ export const loadStoredRun = async (
 ) => {
   const { data, error } = await supabase
     .from("program_run")
-    .select(
-      `*, program_version(*, program!program_version_program_id_fkey(*), program_file(*)), cell!target_cell_id(*, row!cell_row_id_fkey(*, table!row_table_id_fkey(*, project!table_project_id_fkey(*, profile!project_owner_profile_id_fkey(*)))), column!cell_column_id_fkey(*))`,
-    )
+    .select(STORED_RUN_SELECT)
     .eq("id", runId);
 
   const run = data?.at(0);
@@ -320,6 +493,48 @@ export const loadStoredRun = async (
 };
 
 export type StoredRun = Awaited<ReturnType<typeof loadStoredRun>>;
+
+export const loadStoredRuns = async (
+  supabase: SupabaseClient,
+  runIds: string[],
+) => {
+  const uniqueRunIds = Array.from(new Set(runIds));
+  if (uniqueRunIds.length === 0) {
+    return [] as StoredRun[];
+  }
+
+  const { data, error } = await supabase
+    .from("program_run")
+    .select(STORED_RUN_SELECT)
+    .in("id", uniqueRunIds);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const runsById = new Map(
+    (data ?? []).map((run) => [
+      run.id,
+      run,
+    ]),
+  );
+
+  for (const runId of uniqueRunIds) {
+    if (!runsById.has(runId)) {
+      throw new Error(`No run found for '${runId}'.`);
+    }
+  }
+
+  return runIds.map((runId) => {
+    const run = runsById.get(runId);
+
+    if (!run) {
+      throw new Error(`No run found for '${runId}'.`);
+    }
+
+    return run;
+  });
+};
 
 export const persistStoredRunFailure = async (
   supabase: SupabaseClient,

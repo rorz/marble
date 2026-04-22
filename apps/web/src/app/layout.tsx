@@ -1,3 +1,4 @@
+import { MarbleToaster } from "@marble/ui";
 import type { Metadata } from "next";
 import { Geist, JetBrains_Mono, Manrope } from "next/font/google";
 import "./globals.css";
@@ -38,7 +39,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${jetBrainsMono.variable} ${manrope.variable} h-full antialiased`}
       lang="en"
     >
-      <body className="min-h-full bg-stone-950 text-stone-50">{children}</body>
+      <body className="min-h-full bg-stone-950 text-stone-50">
+        {children}
+        <MarbleToaster />
+      </body>
     </html>
   );
 }

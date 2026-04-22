@@ -97,10 +97,20 @@ CREATE TABLE
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     program_id UUID REFERENCES PROGRAM (id) NOT NULL,
-    "version" INT NOT NULL,
+    "version" INT,
+    published_at TIMESTAMP WITH TIME ZONE,
     input_schema JSONB NOT NULL,
     output_config JSONB NOT NULL,
-    UNIQUE (program_id, VERSION)
+    CONSTRAINT program_version_publish_state_check CHECK (
+      (
+        published_at IS NULL
+        AND "version" IS NULL
+      )
+      OR (
+        published_at IS NOT NULL
+        AND "version" IS NOT NULL
+      )
+    )
   );
 
 CREATE TRIGGER set_updated_at BEFORE
@@ -108,6 +118,14 @@ UPDATE ON "program_version" FOR EACH ROW
 EXECUTE FUNCTION set_updated_at ();
 
 ALTER TABLE "program_version" ENABLE ROW LEVEL SECURITY;
+
+CREATE UNIQUE INDEX program_version_published_version_key ON "program_version" (program_id, "version")
+WHERE
+  "version" IS NOT NULL;
+
+CREATE UNIQUE INDEX program_version_single_draft_key ON "program_version" (program_id)
+WHERE
+  published_at IS NULL;
 
 ALTER TABLE "program"
 ADD CONSTRAINT fk_program_forked_from FOREIGN KEY (forked_from_version_id) REFERENCES "program_version" (id);

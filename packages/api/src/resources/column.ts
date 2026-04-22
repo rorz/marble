@@ -27,7 +27,10 @@ import {
 } from "../data";
 import { listAccessibleTableIds, requireAccessibleTable } from "./access";
 import { deleteProgramRunsForCellIds } from "./program_run";
-import { resolveProgramVersionId } from "./program_version";
+import {
+  requirePublishedProgramVersion,
+  resolveProgramVersionId,
+} from "./program_version";
 import {
   jsonValueSchema,
   nonEmptyStringSchema,
@@ -192,9 +195,8 @@ async function createColumn(
     programId: body.programId,
     programVersionId: body.programVersionId,
   });
-  const programVersion = await getRecord(
+  const programVersion = await requirePublishedProgramVersion(
     c.var.supabase,
-    "program_version",
     programVersionId,
   );
   const inputTemplate = body.inputTemplate ?? "{}";
@@ -421,9 +423,8 @@ export function mountColumnResource(app: Hono<ApiEnv>) {
           const outputSchema =
             body.outputSchema ??
             resolveBaseOutputSchema(
-              await getRecord(
+              await requirePublishedProgramVersion(
                 c.var.supabase,
-                "program_version",
                 programVersionId,
               ),
             );

@@ -14,6 +14,7 @@ import {
   UserGroupIcon,
 } from "@heroicons/react/24/outline";
 import {
+  cx,
   MarbleActivityRadar,
   MarbleAlert,
   MarbleBadge,
@@ -61,8 +62,13 @@ import {
   MarbleSheetHeader,
   MarbleSheetTitle,
   MarbleTextarea,
+  MarbleWorkbenchResizeHandle,
+  MarbleWorkbenchSection,
+  MarbleWorkbenchTab,
+  MarbleWorkbenchTabs,
   MarbleWorkspaceMark,
   MarbleWorkspacePopover,
+  marbleToast,
 } from "@marble/ui";
 import {
   ArrowRightIcon,
@@ -288,6 +294,17 @@ export default function UiPage() {
     useState("Open projects");
   const [lastInteraction, setLastInteraction] = useState("Waiting for input");
   const [reviewNavigatorIndex, setReviewNavigatorIndex] = useState(1);
+  const [workbenchTabs, setWorkbenchTabs] = useState([
+    "input-schema.json",
+    "main.ts",
+    "package.json",
+  ]);
+  const [activeWorkbenchTab, setActiveWorkbenchTab] =
+    useState("input-schema.json");
+  const [isWorkbenchVersionsCollapsed, setIsWorkbenchVersionsCollapsed] =
+    useState(false);
+  const [isWorkbenchDraftCollapsed, setIsWorkbenchDraftCollapsed] =
+    useState(false);
 
   const handleMenuSelect = (label: string) => {
     setLastInteraction(label);
@@ -305,6 +322,26 @@ export default function UiPage() {
     if (options?.closeDialog) {
       setIsCommandDialogOpen(false);
     }
+  };
+
+  const handleWorkbenchTabClose = (filename: string) => {
+    setWorkbenchTabs((current) => {
+      const currentIndex = current.indexOf(filename);
+
+      if (currentIndex === -1) {
+        return current;
+      }
+
+      const nextTabs = current.filter((tab) => tab !== filename);
+
+      setActiveWorkbenchTab((currentActiveTab) =>
+        currentActiveTab === filename
+          ? (nextTabs[currentIndex] ?? nextTabs[currentIndex - 1] ?? "")
+          : currentActiveTab,
+      );
+
+      return nextTabs;
+    });
   };
 
   const utilitySections: MarbleContextPopoverSection[] = [
@@ -677,6 +714,37 @@ export default function UiPage() {
                     </MarbleButton>
                   </div>
                 </div>
+              </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Shared toast chrome for editor lifecycle nudges and background sync feedback."
+              title="Toasts"
+            >
+              <div className="flex flex-wrap gap-3">
+                <MarbleButton
+                  onClick={() =>
+                    marbleToast("Draft created", {
+                      description:
+                        "Forked from v12. Existing columns still use v12.",
+                    })
+                  }
+                  size="sm"
+                >
+                  Show neutral toast
+                </MarbleButton>
+                <MarbleButton
+                  onClick={() =>
+                    marbleToast.success("Published v13", {
+                      description:
+                        "Existing columns stay pinned until you update them.",
+                    })
+                  }
+                  size="sm"
+                  variant="orange"
+                >
+                  Show success toast
+                </MarbleButton>
               </div>
             </DemoPanel>
 
@@ -1222,6 +1290,192 @@ export default function UiPage() {
                       </MarbleCardHeader>
                     </MarbleCard>
                   </MarblePane>
+                </div>
+              </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Dense editor surfaces can now reuse collapsible workbench sections, resize handles, and closeable tab strips instead of improvising bespoke chrome."
+              title="Workbench"
+            >
+              <div className="overflow-hidden rounded-sm border border-taupe-200 bg-[linear-gradient(180deg,#f8f5ee_0%,#f4efe6_100%)] p-2 shadow-sm">
+                <div className="grid gap-2 lg:grid-cols-[12rem_minmax(0,1fr)_15rem]">
+                  <div className="flex min-h-0 flex-col rounded-sm border border-taupe-300 bg-taupe-100/70">
+                    <MarbleWorkbenchSection
+                      badge={
+                        <MarbleBadge className="font-mono">3 files</MarbleBadge>
+                      }
+                      bodyClassName="bg-transparent"
+                      className="flex min-h-0 flex-1 flex-col rounded-none border-0 border-b border-taupe-300 bg-transparent shadow-none"
+                      headerClassName="px-2 py-2"
+                      icon={<FolderOpenIcon className="h-4 w-4" />}
+                      title="Workspace"
+                    >
+                      <div className="space-y-px p-1.5 font-mono text-[11px]">
+                        {[
+                          "input-schema.json",
+                          "main.ts",
+                          "package.json",
+                        ].map((filename) => (
+                          <button
+                            className={cx(
+                              "flex h-7 w-full items-center gap-2 rounded-sm px-1.5 text-left transition-colors",
+                              activeWorkbenchTab === filename
+                                ? "bg-white text-taupe-950 shadow-[inset_2px_0_0_0_#f97316]"
+                                : "text-taupe-700 hover:bg-white/70 hover:text-taupe-950",
+                            )}
+                            key={filename}
+                            onClick={() => {
+                              if (!workbenchTabs.includes(filename)) {
+                                setWorkbenchTabs((current) => [
+                                  ...current,
+                                  filename,
+                                ]);
+                              }
+
+                              setActiveWorkbenchTab(filename);
+                            }}
+                            type="button"
+                          >
+                            <DocumentTextIcon className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                            <span className="truncate">{filename}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </MarbleWorkbenchSection>
+
+                    {isWorkbenchVersionsCollapsed ? null : (
+                      <MarbleWorkbenchResizeHandle title="Resize preview" />
+                    )}
+
+                    <MarbleWorkbenchSection
+                      badge={
+                        <MarbleBadge className="font-mono">v8</MarbleBadge>
+                      }
+                      bodyStyle={{
+                        height: 118,
+                      }}
+                      className="shrink-0 rounded-none border-0 bg-transparent shadow-none"
+                      collapsed={isWorkbenchVersionsCollapsed}
+                      collapsible
+                      headerClassName="px-2 py-2"
+                      icon={<SparklesIcon className="h-4 w-4" />}
+                      onToggleCollapsed={() =>
+                        setIsWorkbenchVersionsCollapsed((current) => !current)
+                      }
+                      title="Versions"
+                    >
+                      <div className="h-full space-y-px overflow-y-auto bg-transparent p-1.5">
+                        {[
+                          "v8 · Latest",
+                          "v7 · 3 files",
+                          "v6 · 2 files",
+                        ].map((label) => (
+                          <div
+                            className="rounded-sm border border-taupe-200 bg-white/85 px-2 py-2 font-mono text-[11px] text-taupe-700"
+                            key={label}
+                          >
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+                    </MarbleWorkbenchSection>
+                  </div>
+
+                  <div className="overflow-hidden rounded-sm border border-taupe-300 bg-white">
+                    <MarbleWorkbenchTabs>
+                      {workbenchTabs.map((filename) => (
+                        <MarbleWorkbenchTab
+                          active={activeWorkbenchTab === filename}
+                          dirty={filename === "main.ts"}
+                          icon={
+                            <DocumentTextIcon className="h-4 w-4 text-sky-600" />
+                          }
+                          key={filename}
+                          label={filename}
+                          onClose={() => handleWorkbenchTabClose(filename)}
+                          onSelect={() => setActiveWorkbenchTab(filename)}
+                        />
+                      ))}
+                    </MarbleWorkbenchTabs>
+                    <div className="h-64 bg-white p-4 font-mono text-[12px] leading-6 text-taupe-800">
+                      <pre>{`export default async function run(input) {\n  return {\n    mood: input.vibe?.label ?? "calm",\n    ok: true,\n  };\n}`}</pre>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <MarbleWorkbenchSection
+                      actions={
+                        <MarbleBadge tone="warning">3 pending</MarbleBadge>
+                      }
+                      badge={
+                        <MarbleBadge className="font-mono">v9</MarbleBadge>
+                      }
+                      bodyStyle={{
+                        height: 172,
+                      }}
+                      collapsed={isWorkbenchDraftCollapsed}
+                      collapsible
+                      description="Saving mints the next version while live runs stay on v8."
+                      icon={<CodeBracketIcon className="h-4 w-4" />}
+                      onToggleCollapsed={() =>
+                        setIsWorkbenchDraftCollapsed((current) => !current)
+                      }
+                      title="Draft Stack"
+                    >
+                      <div className="h-full overflow-y-auto p-2">
+                        {[
+                          "Base v8",
+                          "Edited input schema",
+                          "Edited main.ts",
+                          "Added package.json",
+                        ].map((label, index) => (
+                          <div
+                            className="rounded-sm border border-taupe-300 bg-white px-3 py-2 shadow-sm"
+                            key={label}
+                            style={{
+                              marginLeft: `${index * 10}px`,
+                            }}
+                          >
+                            <div className="font-medium text-[12px] text-taupe-900">
+                              {label}
+                            </div>
+                            <div className="mt-1 text-[11px] text-taupe-500">
+                              Layered change cards keep the next version legible
+                              before you commit it.
+                            </div>
+                          </div>
+                        ))}
+                        <MarbleWorkbenchResizeHandle title="Resize preview" />
+                      </div>
+                    </MarbleWorkbenchSection>
+
+                    <MarbleWorkbenchSection
+                      badge={<MarbleBadge tone="info">Saved v8</MarbleBadge>}
+                      bodyStyle={{
+                        height: 140,
+                      }}
+                      description="Testing stays pinned to the latest saved version until the draft stack is committed."
+                      icon={<PlayIcon className="h-4 w-4" />}
+                      title="Test Inputs"
+                    >
+                      <div className="space-y-2 p-2">
+                        <MarbleInput
+                          size="sm"
+                          type="text"
+                          value="cheerful"
+                          wrapperClassName="w-full"
+                        />
+                        <MarbleButton
+                          className="w-full"
+                          size="sm"
+                          variant="orange"
+                        >
+                          Run saved version
+                        </MarbleButton>
+                      </div>
+                    </MarbleWorkbenchSection>
+                  </div>
                 </div>
               </div>
             </DemoPanel>

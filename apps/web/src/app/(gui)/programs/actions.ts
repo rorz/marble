@@ -6,17 +6,11 @@ import { callMarbleApi } from "../../../lib/marble-api";
 import {
   createServiceRoleClient,
   listOwnedProfileIds,
-  resolveOwnedProfileId,
 } from "../../../lib/supabase/service-role";
 
-type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type Program = Database["public"]["Tables"]["program"]["Row"];
 type ProgramVersion = Database["public"]["Tables"]["program_version"]["Row"];
 type ProgramFile = Database["public"]["Tables"]["program_file"]["Row"];
-type RowRow = Database["public"]["Tables"]["row"]["Row"];
-type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
-type TableRow = Database["public"]["Tables"]["table"]["Row"];
-type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
 type EditableProgramFile = {
   content: string;
   filename: string;
@@ -41,6 +35,10 @@ const PROGRAM_SELECT =
 function db() {
   return createServiceRoleClient();
 }
+
+type ProgramVersionWithFiles = ProgramVersion & {
+  files: ProgramFile[];
+};
 
 const DEFAULT_PROGRAM_NAME = "Untitled Program";
 const DEFAULT_PROGRAM_INPUT_SCHEMA = {
@@ -124,70 +122,103 @@ export async function listPrograms(): Promise<FullProgram[]> {
   ].sort((a, b) => a.created_at.localeCompare(b.created_at));
 }
 
-export async function saveProgramVersion(
-  programId: string | null,
-  name: string,
+async function patchProgramVersion(
+  programVersionId: string,
+  body: {
+    files?: EditableProgramFile[];
+    inputSchema?: unknown;
+    outputConfig?: unknown;
+    publish?: boolean;
+  },
+) {
+  return callMarbleApi<ProgramVersionWithFiles>(
+    `/program-versions/${programVersionId}`,
+    {
+      body,
+      method: "PATCH",
+      requestId: crypto.randomUUID(),
+    },
+  );
+}
+
+export async function createDraftVersion(
+  programId: string,
   inputSchema: unknown,
   outputConfig: unknown,
   files: EditableProgramFile[],
 ) {
-  const requestId = crypto.randomUUID();
-
-  if (programId) {
-    const version = await callMarbleApi<
-      ProgramVersion & {
-        files: ProgramFile[];
-      }
-    >("/program-versions", {
+  const version = await callMarbleApi<ProgramVersionWithFiles>(
+    "/program-versions",
+    {
       body: {
         files,
         inputSchema,
         outputConfig,
         programId,
+        publish: false,
       },
       method: "POST",
-      requestId,
-    });
+      requestId: crypto.randomUUID(),
+    },
+  );
 
-    return {
-      programId,
-      versionId: version.id,
-    };
-  }
+  return {
+    programId,
+    version,
+  };
+}
 
+export async function syncDraftVersion(
+  programVersionId: string,
+  inputSchema: unknown,
+  outputConfig: unknown,
+  files: EditableProgramFile[],
+) {
+  return patchProgramVersion(programVersionId, {
+    files,
+    inputSchema,
+    outputConfig,
+  });
+}
+
+export async function publishDraftVersion(
+  programVersionId: string,
+  inputSchema: unknown,
+  outputConfig: unknown,
+  files: EditableProgramFile[],
+) {
+  return patchProgramVersion(programVersionId, {
+    files,
+    inputSchema,
+    outputConfig,
+    publish: true,
+  });
+}
+
+export async function createProgram() {
+  const files = createDefaultProgramFiles(DEFAULT_PROGRAM_NAME);
   const program = await callMarbleApi<
     Program & {
-      initialVersion: ProgramVersion & {
-        files: ProgramFile[];
-      };
+      initialVersion: ProgramVersionWithFiles;
     }
   >("/programs", {
     body: {
       initialVersion: {
         files,
-        inputSchema,
-        outputConfig,
+        inputSchema: DEFAULT_PROGRAM_INPUT_SCHEMA,
+        outputConfig: DEFAULT_PROGRAM_OUTPUT_CONFIG,
+        publish: false,
       },
-      name,
+      name: DEFAULT_PROGRAM_NAME,
     },
     method: "POST",
-    requestId,
+    requestId: crypto.randomUUID(),
   });
 
   return {
     programId: program.id,
     versionId: program.initialVersion.id,
   };
-}
-
-export async function createProgram() {
-  return saveProgramVersion(
-    null,
-    DEFAULT_PROGRAM_NAME,
-    DEFAULT_PROGRAM_INPUT_SCHEMA,
-    DEFAULT_PROGRAM_OUTPUT_CONFIG,
-    createDefaultProgramFiles(DEFAULT_PROGRAM_NAME),
-  );
 }
 
 export async function renameProgram(programId: string, name: string) {
@@ -209,96 +240,23 @@ export async function testProgram(
   output: unknown;
   error?: string;
 }> {
-  const user = await requireUser();
-  const actorProfileId = await resolveOwnedProfileId(user.id);
-  const requestId = crypto.randomUUID();
-  const { data: existingProject, error: projectError } = await db()
-    .from("project")
-    .select("id")
-    .eq("owner_profile_id", actorProfileId)
-    .order("created_at", {
-      ascending: true,
-    })
-    .limit(1)
-    .maybeSingle();
-
-  if (projectError) {
-    throw projectError;
-  }
-
-  const project =
-    existingProject ??
-    (await callMarbleApi<ProjectRow>("/projects", {
-      method: "POST",
-      profileId: actorProfileId,
-      requestId,
-    }));
-  const { data: existingTable, error: tableError } = await db()
-    .from("table")
-    .select("id")
-    .eq("project_id", project.id)
-    .order("created_at", {
-      ascending: true,
-    })
-    .limit(1)
-    .maybeSingle();
-
-  if (tableError) {
-    throw tableError;
-  }
-
-  const table =
-    existingTable ??
-    (await callMarbleApi<TableRow>(`/projects/${project.id}/tables`, {
-      method: "POST",
-      profileId: actorProfileId,
-      requestId,
-    }));
-  const ts = Date.now();
-  const column = await callMarbleApi<
-    ColumnRow & {
-      cells: CellRow[];
-    }
-  >("/columns", {
-    body: {
-      idx: ts,
-      inputTemplate: JSON.stringify(inputConfig),
-      name: `__test_${ts}`,
-      outputSchema: {},
-      programVersionId,
-      tableId: table.id,
-    },
-    method: "POST",
-    requestId,
-  });
-  const row = await callMarbleApi<RowRow>(`/tables/${table.id}/rows`, {
-    body: {
-      idx: ts,
-    },
-    method: "POST",
-    requestId,
-  });
-  const cells = await callMarbleApi<CellRow[]>(`/rows/${row.id}/cells`, {
-    requestId,
-  });
-  const cell = cells.find((candidate) => candidate.column_id === column.id);
-
-  if (!cell) {
-    throw new Error("Failed to resolve test cell");
-  }
-
   const result = await callMarbleApi<RunExecutionResult>(
-    `/cells/${cell.id}/run`,
+    `/test?programVersionId=${encodeURIComponent(programVersionId)}`,
     {
       body: {
-        ...(manualInput === undefined
-          ? {}
-          : {
-              manualInput,
-            }),
+        input:
+          manualInput === undefined
+            ? inputConfig
+            : {
+                cell: {
+                  manualInputValue: manualInput,
+                },
+                input: inputConfig,
+                system: {},
+              },
       },
       method: "POST",
-      requestId,
+      requestId: crypto.randomUUID(),
     },
   );
 

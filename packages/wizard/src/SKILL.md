@@ -37,6 +37,18 @@ If you're an agent and your human has asked you to "make me a (workflow | table 
 - `cell`: one row-column execution state plus optional manual input.
 - `program_run`: stored run record targeting a cell.
 
+## Rules Quick Reference
+
+| Rule | Summary |
+| --- | --- |
+| Separate user input from program logic | In table workflows, do not make a business-logic program consume its own cell manual input as the primary operator input. Create a dedicated user-input column first, run it, then feed its output downstream through `inputTemplate`. |
+| Prefer singular CLI commands | Use the singular resource commands by default. Reach for raw plural commands only when you need direct API-shaped control. |
+| Cells are materialized, not created | Do not invent a `cell create` step. Create rows or columns, then list the resulting cells. |
+| Stored runs own output state | Use `run start` for normal execution. Do not force final `cell.state` unless you are doing low-level debugging or recovery work. |
+| Batch execution stays cell-shaped | `run start` can target one cell, many cells, or a rectangular cell range. Marble batches compatible cells through one sandbox process, but the mental model stays per-cell. |
+
+Promote durable workflow findings into this section when they should change future operator behavior. Do not use it as a changelog or a bucket for one-off exceptions.
+
 ## Exact CLI Shape
 
 The CLI has two layers:
@@ -60,6 +72,8 @@ bunx marble-cli@latest column create "Person Name" --table <tableId> --program <
 bunx marble-cli@latest row create --table <tableId> --count 3
 bunx marble-cli@latest cell set <cellId> "Ada Lovelace"
 bunx marble-cli@latest run start <cellId>
+bunx marble-cli@latest run start <cellId1> <cellId2> <cellId3>
+bunx marble-cli@latest run start --range <startCellId>..<endCellId>
 bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
 ```
 
@@ -80,7 +94,7 @@ bunx marble-cli@latest programs --help
 bunx marble-cli@latest column create --help
 ```
 
-Important rules:
+CLI specifics:
 
 - There are no nested `tables <id> columns add` commands in the CLI.
 - Prefer singular commands such as `table create`, `column create`, `row create`, `cell set`, `run start`, and `program test`.
@@ -190,10 +204,20 @@ bunx marble-cli@latest cell update <cellId> --clear-manual-input
 ```sh
 bunx marble-cli@latest run start <cellId>
 bunx marble-cli@latest run start <cellId> --manual-input "Ada Lovelace"
+bunx marble-cli@latest run start <cellId1> <cellId2> <cellId3>
+bunx marble-cli@latest run start --range <startCellId>..<endCellId>
 bunx marble-cli@latest run list --cell <cellId>
 bunx marble-cli@latest run get <runId>
 bunx marble-cli@latest run execute <runId>
 ```
+
+Important details:
+
+- `run start` accepts explicit cell IDs, a `--range <startCellId>..<endCellId>` selector, or both together.
+- Ranges must stay inside one table. Marble resolves the rectangular area bounded by the two cell IDs.
+- Batch starts stay cell-shaped. Marble still creates one stored `program_run` per cell and writes one final `cell.state` per cell.
+- Compatible cells are executed through one sandbox process when possible. This reduces sandbox churn without changing the user-facing program contract.
+- Per-cell failures stay isolated. A thrown error in one `main(input)` call should not poison sibling cells in the same batch, although a hard sandbox/bootstrap failure can still fail the whole batch.
 
 ### Program
 
@@ -322,6 +346,7 @@ For normal operator workflows, stop there and use `run start` to execute the cel
 For ordinary runs:
 
 - Prefer `run start <cellId>` instead of raw `program-runs create`.
+- Prefer `run start <cellId1> <cellId2> ...` or `run start --range <startCellId>..<endCellId>` when you want batch execution without changing the program contract.
 - Let Marble create the stored run and let the executor populate `input`, `output`, and the final `cell.state`.
 - Treat direct `output` or `cell.state` writes as low-level escape hatches, not the default execution path.
 
@@ -459,6 +484,8 @@ If you need to control `cell.manualInputValue`, use `--manual-input`:
 bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
 ```
 
+That is for program-level testing. Do not mirror that shape directly into a table design unless the workflow genuinely wants the logic program to own manual input. In normal tables, prefer a dedicated user-input column that feeds the logic column through `inputTemplate`.
+
 If you need full control, use `--full-input`:
 
 ```sh
@@ -528,12 +555,12 @@ bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual
 
 1. Create or identify the table.
 2. Upsert the programs you want to use.
-3. Create input columns with `column create`.
+3. Create dedicated user-input columns first for any operator-entered values.
 4. List columns to capture their IDs.
 5. Create downstream columns with `--input-template`.
 6. Create starter rows with `row create`.
 7. Resolve the created cell IDs from the row and column IDs.
-8. Update cells with manual input as needed.
+8. Update the user-input cells with manual input as needed.
 9. Start runs in dependency order so each column's output is produced by a stored run, not by a forced cell state.
 
 Important:
@@ -542,6 +569,9 @@ Important:
 - When you create a single row, the API returns the row object, not the cells for that row. Fetch the row's cells next and identify the target cells by `column_id`.
 - Prefer `cell list --row <rowId>` or raw `cells list '{"rowId":"<rowId>"}'` when populating test data. `cell list --table <tableId>` is fine for inspection, but less precise for selecting a specific cell to update.
 - `cell set` updates `manualInput` only. It does not execute the cell's program or write the final `state`.
+- When several cells in the same dependency layer are ready, prefer one `run start` command with multiple cell IDs instead of a loop of one-cell starts.
+- Use `run start --range <startCellId>..<endCellId>` when you want to execute a rectangular slice of a table without manually enumerating each cell.
+- Treat direct manual input on a business-logic column as a smell. If the value is meant to be supplied by an operator, give it its own user-input column and reference that column from downstream logic.
 - The executor should own final `cell.state` writes. In normal table workflows, use `run start` so realtime activity and stored run history line up with what the UI expects.
 
 Example:
@@ -560,8 +590,7 @@ bunx marble-cli@latest row list --table <tableId>
 bunx marble-cli@latest cell list --row <rowId>
 bunx marble-cli@latest cell set <personCellId> "Ada"
 bunx marble-cli@latest cell set <companyCellId> "Analytical Engines"
-bunx marble-cli@latest run start <personCellId>
-bunx marble-cli@latest run start <companyCellId>
+bunx marble-cli@latest run start <personCellId> <companyCellId>
 bunx marble-cli@latest run start <enrichedEmailCellId>
 ```
 
@@ -580,13 +609,14 @@ When asked to create a table or workflow, break the task into composable steps.
 
 - Use a column for each workflow step.
 - Combine columnar results into a final synthesis column when needed.
-- Use manual-input columns for simple user-provided values.
+- Use dedicated user-input columns for simple user-provided values, then feed those outputs into downstream logic columns.
 - Prefer object-shaped program input once a function has more than a handful of inputs.
 
 ### Don't
 
 - Invent CLI subcommands that do not exist, or forget that raw plural commands are still available when you need them.
 - Build one monolithic program when several columns would be clearer.
+- Make a business-logic program operate on its own table manual input when a separate user-input column would express the workflow more clearly.
 - Assume provider credentials exist unless Marble or the user explicitly provides them.
 - Confuse provisioning remote Marble objects with editing the Marble repo.
 
@@ -599,6 +629,9 @@ When asked to create a table or workflow, break the task into composable steps.
 - If the CLI prints `Invalid request`, read the structured `Details:` block. Marble now returns the underlying validation issues instead of just the top-line error.
 - If `row create` fails with `idx cannot be used when count is greater than 1`, drop `--idx` or set `--count` back to `1`.
 - If you need to seed a few test values, do not try to create cells directly. Create rows first, fetch the row's cells, set `manualInput`, then use `run start` for each cell you actually want to execute.
+- If `run start --range` fails, confirm both bounding cells are in the same table and that you used the exact `startCellId..endCellId` form.
+- If one cell in a batch fails, inspect that cell's stored run and output payload first. Batch mode isolates normal `main(input)` failures per cell.
+- If an entire batch fails at once, suspect shared bootstrap problems: syntax errors, missing dependencies, import-time crashes, or sandbox-level failures.
 - If a value seems to "magically appear," check whether you forced `cell.state` somewhere. In the normal flow, visible output should be traceable to a stored run.
 - If `program test` fails, fix the runtime code, `input-schema.json`, or `output-config.json`, then rerun it.
 - If a dependent column is blank, confirm the `inputTemplate` references the correct column IDs.
@@ -617,15 +650,16 @@ Since we haven't got much time for chit-chat, here's the lowdown:
   - Temporary local program files to test your assumptions (NOT remote Programs)
   - Remote project
   - Remote table
-  - Remote program
-  - Remote column -- make them one-by-one IN THE ORDER in which makes the most sense
+  - Remote programs, including a dedicated user-input program when the workflow needs operator-entered values
+  - Remote columns -- create user-input columns before dependent logic columns
   - Insert ~10 blank rows to pad the table out a bit
 4. When the human asks you to "test with a few cells", do not invent a cell-creation step. Use this loop instead:
   - Create one row
   - Capture the returned `row.id`
   - List that row's cells
-  - Match the target cell by `column_id`
-  - Set manual input on the resolved `cell.id`
-  - Start a stored run for that cell with `run start`
+  - Match the target cells by `column_id`
+  - Set manual input on the user-input cells, not on downstream logic cells
+  - Start stored runs in dependency order, beginning with the user-input cells
+  - When several same-layer cells are ready, batch them in one `run start` command instead of firing one command per cell
 
 That's it!

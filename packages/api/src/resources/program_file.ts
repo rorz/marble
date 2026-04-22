@@ -51,6 +51,12 @@ async function createProgramFile(
   body: z.infer<typeof programFileCreateSchema>,
 ) {
   const version = await getRecord(c.var.supabase, "program_version", versionId);
+  if (version.published_at !== null) {
+    throw new ApiError(
+      409,
+      `Program version '${versionId}' is published and read-only`,
+    );
+  }
   const program = await getRecord(
     c.var.supabase,
     "program",
@@ -120,7 +126,18 @@ export function mountProgramFileResource(app: Hono<ApiEnv>) {
     item: {
       delete: {
         handler: async (c, id) => {
-          await getRecord(c.var.supabase, "program_file", id);
+          const existing = await getRecord(c.var.supabase, "program_file", id);
+          const version = await getRecord(
+            c.var.supabase,
+            "program_version",
+            existing.version_id,
+          );
+          if (version.published_at !== null) {
+            throw new ApiError(
+              409,
+              `Program version '${version.id}' is published and read-only`,
+            );
+          }
           await deleteRecord(c.var.supabase, "program_file", id);
 
           return successResponse();
@@ -133,12 +150,24 @@ export function mountProgramFileResource(app: Hono<ApiEnv>) {
       patch: {
         handler: async (c, id, body) => {
           const existing = await getRecord(c.var.supabase, "program_file", id);
+          const version = await getRecord(
+            c.var.supabase,
+            "program_version",
+            existing.version_id,
+          );
           requireAnyDefined([
             body.content,
             body.filename,
             body.filetype,
             body.ownerProfileId,
           ]);
+
+          if (version.published_at !== null) {
+            throw new ApiError(
+              409,
+              `Program version '${version.id}' is published and read-only`,
+            );
+          }
 
           return updateRecord(c.var.supabase, "program_file", id, {
             content: body.content,

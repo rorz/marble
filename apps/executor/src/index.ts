@@ -1,7 +1,7 @@
 import { getSandbox } from "@cloudflare/sandbox";
 import { type JsonValue, Schemas } from "@marble/core";
 import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
-import { createClient, type SupabaseClient } from "@marble/supabase";
+import { createClient, type Json, type SupabaseClient } from "@marble/supabase";
 import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { createMiddleware } from "hono/factory";
@@ -13,10 +13,12 @@ import { z } from "zod";
 import { getEnv } from "./env.js";
 import {
   executeAndValidate,
+  executeAndValidateBatch,
   failureStateFromError,
   formatZodIssues,
   loadProgramVersionFiles,
   loadStoredRun,
+  loadStoredRuns,
   persistStoredRunFailure,
   resolveEnvironmentVariablesForAuth,
   resolveEnvironmentVariablesForRun,
@@ -57,6 +59,10 @@ type TestValidatedRequest = {
   valid(target: "query"): z.infer<typeof TestQuerySchema>;
 };
 
+type LiveBatchValidatedRequest = {
+  valid(target: "json"): z.infer<typeof BatchRunBodySchema>;
+};
+
 const BODY_LIMIT_BYTES = 1024 * 1024;
 
 const RunQuerySchema = z.object({
@@ -81,8 +87,24 @@ const TestBodySchema = z.object({
   input: z.json(),
 });
 
+const BatchRunBodySchema = z.object({
+  runIds: z.array(z.string().uuid()).min(1),
+});
+
 const RunEnvelopeSchema = z.object({
   output: Schemas.RunReturnValue,
+  success: z.boolean(),
+});
+
+const BatchRunItemSchema = z.object({
+  cellId: z.string().uuid(),
+  output: Schemas.RunReturnValue,
+  runId: z.string().uuid(),
+  success: z.boolean(),
+});
+
+const BatchRunEnvelopeSchema = z.object({
+  results: z.array(BatchRunItemSchema),
   success: z.boolean(),
 });
 
@@ -345,6 +367,178 @@ const liveRunHandler = async (c: Context<ExecutorEnv>) => {
   }
 };
 
+const liveBatchRunHandler = async (c: Context<ExecutorEnv>) => {
+  const { runIds } = (c.req as LiveBatchValidatedRequest).valid("json");
+
+  let runs: StoredRun[];
+  try {
+    runs = await loadStoredRuns(c.var.supabase, runIds);
+  } catch (error) {
+    throw httpError(
+      404,
+      error instanceof Error ? error.message : "No runs found.",
+      error,
+    );
+  }
+
+  const resultsByRunId = new Map<string, z.infer<typeof BatchRunItemSchema>>();
+  const runsByColumnId = new Map<string, StoredRun[]>();
+
+  for (const run of runs) {
+    const columnId = run.cell.column.id;
+    const existingGroup = runsByColumnId.get(columnId);
+
+    if (existingGroup) {
+      existingGroup.push(run);
+      continue;
+    }
+
+    runsByColumnId.set(columnId, [
+      run,
+    ]);
+  }
+
+  for (const group of runsByColumnId.values()) {
+    const resolvableJobs: Array<{
+      outputSchemaConfig: JsonValue;
+      parsedInput: Json;
+      run: StoredRun;
+      runInput: JsonValue;
+    }> = [];
+
+    for (const run of group) {
+      try {
+        const { parsedInput, runInput } = await resolveStoredRunInput(
+          c.var.supabase,
+          run,
+        );
+
+        resolvableJobs.push({
+          outputSchemaConfig: run.cell.column.output_schema as JsonValue,
+          parsedInput,
+          run,
+          runInput,
+        });
+      } catch (error) {
+        console.error(
+          `[${c.get("requestId")}] Run ${run.id} failed before execution`,
+          error,
+        );
+
+        const failState = failureStateFromError(error);
+        await persistStoredRunFailure(c.var.supabase, run, run.id, failState);
+        resultsByRunId.set(run.id, {
+          cellId: run.target_cell_id,
+          output: failState,
+          runId: run.id,
+          success: false,
+        });
+      }
+    }
+
+    if (resolvableJobs.length === 0) {
+      continue;
+    }
+
+    try {
+      const environmentVariables = await resolveEnvironmentVariablesForRun(
+        c.var.supabase,
+        resolvableJobs[0].run,
+      );
+      const outputs = await executeAndValidateBatch(
+        getSandbox(c.env.Sandbox, resolvableJobs[0].run.cell.column.id),
+        resolvableJobs[0].run.program_version.program_file,
+        resolvableJobs.map((job) => ({
+          key: job.run.id,
+          outputSchemaConfig: job.outputSchemaConfig,
+          runInput: job.runInput,
+        })),
+        environmentVariables,
+      );
+      const outputByRunId = new Map(
+        outputs.map((result) => [
+          result.key,
+          result.output,
+        ]),
+      );
+
+      await Promise.all(
+        resolvableJobs.map(async (job) => {
+          const output = outputByRunId.get(job.run.id);
+
+          if (!output) {
+            throw new Error(`Missing batch result for run '${job.run.id}'.`);
+          }
+
+          await Promise.all([
+            c.var.supabase
+              .from("cell")
+              .update({
+                state: output,
+              })
+              .eq("id", job.run.target_cell_id),
+            c.var.supabase
+              .from("program_run")
+              .update({
+                input: job.parsedInput,
+                output,
+              })
+              .eq("id", job.run.id),
+          ]);
+
+          resultsByRunId.set(job.run.id, {
+            cellId: job.run.target_cell_id,
+            output,
+            runId: job.run.id,
+            success: true,
+          });
+        }),
+      );
+    } catch (error) {
+      console.error(
+        `[${c.get("requestId")}] Batch execution failed for column ${resolvableJobs[0].run.cell.column.id}`,
+        error,
+      );
+
+      const failState = failureStateFromError(error);
+      await Promise.all(
+        resolvableJobs.map((job) =>
+          persistStoredRunFailure(
+            c.var.supabase,
+            job.run,
+            job.run.id,
+            failState,
+          ),
+        ),
+      );
+
+      for (const job of resolvableJobs) {
+        resultsByRunId.set(job.run.id, {
+          cellId: job.run.target_cell_id,
+          output: failState,
+          runId: job.run.id,
+          success: false,
+        });
+      }
+    }
+  }
+
+  const orderedResults = runIds.map((runId) => {
+    const result = resultsByRunId.get(runId);
+
+    if (!result) {
+      throw httpError(500, `Batch result missing for run '${runId}'`);
+    }
+
+    return result;
+  });
+
+  return jsonResponse(BatchRunEnvelopeSchema, {
+    results: orderedResults,
+    success: orderedResults.every((result) => result.success),
+  });
+};
+
 const testHandler = async (c: Context<ExecutorEnv>) => {
   const query = (c.req as TestValidatedRequest).valid("query");
   const body = (c.req as TestValidatedRequest).valid("json");
@@ -411,6 +605,15 @@ app.post(
   requestBodyLimit,
   zodValidator("query", RunQuerySchema),
   liveRunHandler,
+);
+
+app.post(
+  "/runs",
+  authMiddleware,
+  requestBodyLimit,
+  zodValidator("header", JsonContentTypeSchema),
+  zodValidator("json", BatchRunBodySchema),
+  liveBatchRunHandler,
 );
 
 app.post(

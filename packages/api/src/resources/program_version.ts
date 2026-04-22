@@ -41,12 +41,15 @@ const programVersionCreateSchema = requestObject({
   outputConfig: jsonValueSchema,
   ownerProfileId: uuidSchema.optional(),
   programId: uuidSchema.optional(),
+  publish: z.boolean().optional(),
   version: z.number().int().positive().optional(),
 });
 
 const programVersionPatchSchema = requestObject({
+  files: z.array(programFilePayloadSchema).optional(),
   inputSchema: jsonValueSchema.optional(),
   outputConfig: jsonValueSchema.optional(),
+  publish: z.boolean().optional(),
   version: z.number().int().positive().optional(),
 });
 
@@ -69,8 +72,9 @@ async function nextProgramVersionNumber(
 ) {
   const { data, error } = await supabase
     .from("program_version")
-    .select("*")
+    .select("version")
     .eq("program_id", programId)
+    .not("published_at", "is", null)
     .order("version", {
       ascending: false,
     })
@@ -82,6 +86,106 @@ async function nextProgramVersionNumber(
   }
 
   return (data?.version ?? 0) + 1;
+}
+
+export async function listProgramVersionFiles(
+  supabase: SupabaseClient,
+  versionId: string,
+) {
+  return listRecordsFromQuery(
+    supabase,
+    "program_file",
+    {
+      versionId,
+    },
+    {
+      versionId: "version_id",
+    },
+    [
+      {
+        column: "filename",
+      },
+    ],
+  );
+}
+
+export async function getProgramVersionWithFiles(
+  supabase: SupabaseClient,
+  id: string,
+) {
+  const [version, files] = await Promise.all([
+    getRecord(supabase, "program_version", id),
+    listProgramVersionFiles(supabase, id),
+  ]);
+
+  return {
+    ...version,
+    files,
+  };
+}
+
+export async function findProgramDraftVersion(
+  supabase: SupabaseClient,
+  programId: string,
+) {
+  const { data, error } = await supabase
+    .from("program_version")
+    .select("*")
+    .eq("program_id", programId)
+    .is("published_at", null)
+    .order("updated_at", {
+      ascending: false,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new ApiError(500, error.message);
+  }
+
+  return data;
+}
+
+export async function findLatestPublishedProgramVersion(
+  supabase: SupabaseClient,
+  programId: string,
+) {
+  const { data, error } = await supabase
+    .from("program_version")
+    .select("*")
+    .eq("program_id", programId)
+    .not("published_at", "is", null)
+    .order("version", {
+      ascending: false,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new ApiError(500, error.message);
+  }
+
+  return data;
+}
+
+export async function requirePublishedProgramVersion(
+  supabase: SupabaseClient,
+  programVersionId: string,
+) {
+  const version = await getRecord(
+    supabase,
+    "program_version",
+    programVersionId,
+  );
+
+  if (version.published_at === null) {
+    throw new ApiError(
+      409,
+      `Program version '${programVersionId}' is still a draft and cannot be used here`,
+    );
+  }
+
+  return version;
 }
 
 export function normalizeProgramVersionInput(input: {
@@ -127,6 +231,12 @@ export function normalizeProgramVersionInput(input: {
   } satisfies NormalizedProgramVersionInput;
 }
 
+function hasDuplicateProgramFilenames(
+  files: NormalizedProgramVersionInput["files"],
+) {
+  return new Set(files.map((file) => file.filename)).size !== files.length;
+}
+
 export async function resolveProgramVersionId(
   supabase: SupabaseClient,
   options: {
@@ -165,17 +275,15 @@ export async function resolveProgramVersionId(
 
   await getRecord(supabase, "program", options.programId);
 
-  const latestVersion = await requireById<DbRow<"program_version">>(
-    supabase
-      .from("program_version")
-      .select("*")
-      .eq("program_id", options.programId)
-      .order("version", {
-        ascending: false,
-      })
-      .limit(1)
-      .maybeSingle(),
-    "Program version for program",
+  const latestVersion = await requireById(
+    Promise.resolve({
+      data: await findLatestPublishedProgramVersion(
+        supabase,
+        options.programId,
+      ),
+      error: null,
+    }),
+    "Published program version for program",
     options.programId,
   );
 
@@ -249,14 +357,24 @@ export async function createProgramVersionRecord(
   supabase: SupabaseClient,
   programId: string,
   input: NormalizedProgramVersionInput,
+  options: {
+    publish?: boolean;
+  } = {},
 ) {
+  if (hasDuplicateProgramFilenames(input.files)) {
+    throw new ApiError(400, "Program files must have unique filenames");
+  }
+
   const program = await getRecord(supabase, "program", programId);
+  const shouldPublish = options.publish ?? true;
   const version = await createRecord(supabase, "program_version", {
     input_schema: input.inputSchema,
     output_config: input.outputConfig,
     program_id: programId,
-    version:
-      input.version ?? (await nextProgramVersionNumber(supabase, programId)),
+    published_at: shouldPublish ? new Date().toISOString() : null,
+    version: shouldPublish
+      ? (input.version ?? (await nextProgramVersionNumber(supabase, programId)))
+      : null,
   });
 
   const fallbackOwnerProfileId =
@@ -290,7 +408,64 @@ function createProgramVersionFromBody(
     c.var.supabase,
     programId,
     normalizeProgramVersionInput(body),
+    {
+      publish: body.publish,
+    },
   );
+}
+
+async function syncProgramVersionFiles(
+  supabase: SupabaseClient,
+  version: DbRow<"program_version">,
+  files: NormalizedProgramVersionInput["files"],
+) {
+  if (hasDuplicateProgramFilenames(files)) {
+    throw new ApiError(400, "Program files must have unique filenames");
+  }
+
+  const [existingFiles, program] = await Promise.all([
+    listProgramVersionFiles(supabase, version.id),
+    getRecord(supabase, "program", version.program_id),
+  ]);
+  const existingByFilename = new Map(
+    existingFiles.map((file) => [
+      file.filename,
+      file,
+    ]),
+  );
+  const incomingFilenames = new Set(files.map((file) => file.filename));
+
+  for (const existingFile of existingFiles) {
+    if (!incomingFilenames.has(existingFile.filename)) {
+      await deleteRecord(supabase, "program_file", existingFile.id);
+    }
+  }
+
+  for (const file of files) {
+    const existingFile = existingByFilename.get(file.filename);
+
+    if (!existingFile) {
+      await createRecord(supabase, "program_file", {
+        content: file.content,
+        filename: file.filename,
+        filetype: file.filetype,
+        owner_profile_id: file.ownerProfileId ?? program.owner_profile_id,
+        version_id: version.id,
+      });
+      continue;
+    }
+
+    if (
+      existingFile.content !== file.content ||
+      existingFile.filetype !== file.filetype
+    ) {
+      await updateRecord(supabase, "program_file", existingFile.id, {
+        content: file.content,
+        filetype: file.filetype,
+        owner_profile_id: file.ownerProfileId ?? existingFile.owner_profile_id,
+      });
+    }
+  }
 }
 
 export function mountProgramVersionResource(app: Hono<ApiEnv>) {
@@ -363,12 +538,25 @@ export function mountProgramVersionResource(app: Hono<ApiEnv>) {
       idParam: "programVersionId",
       patch: {
         handler: async (c, id, body) => {
-          await getRecord(c.var.supabase, "program_version", id);
+          const existing = await getRecord(
+            c.var.supabase,
+            "program_version",
+            id,
+          );
           requireAnyDefined([
+            body.files,
             body.inputSchema,
             body.outputConfig,
+            body.publish,
             body.version,
           ]);
+
+          if (existing.published_at !== null) {
+            throw new ApiError(
+              409,
+              `Program version '${id}' is published and read-only`,
+            );
+          }
 
           const updates: DbUpdate<"program_version"> = {};
 
@@ -404,7 +592,40 @@ export function mountProgramVersionResource(app: Hono<ApiEnv>) {
             updates.version = body.version;
           }
 
-          return updateRecord(c.var.supabase, "program_version", id, updates);
+          if (body.publish) {
+            updates.published_at = new Date().toISOString();
+            updates.version =
+              body.version ??
+              updates.version ??
+              (await nextProgramVersionNumber(
+                c.var.supabase,
+                existing.program_id,
+              ));
+          }
+
+          if (body.files) {
+            await syncProgramVersionFiles(
+              c.var.supabase,
+              existing,
+              normalizeProgramVersionInput({
+                files: body.files,
+                inputSchema:
+                  body.inputSchema === undefined
+                    ? existing.input_schema
+                    : body.inputSchema,
+                outputConfig:
+                  body.outputConfig === undefined
+                    ? existing.output_config
+                    : body.outputConfig,
+              }).files,
+            );
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await updateRecord(c.var.supabase, "program_version", id, updates);
+          }
+
+          return getProgramVersionWithFiles(c.var.supabase, id);
         },
         schema: programVersionPatchSchema,
       },

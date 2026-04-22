@@ -33,6 +33,7 @@ const initialProgramVersionSchema = requestObject({
   inputSchema: jsonValueSchema.optional(),
   outputConfig: jsonValueSchema.optional(),
   ownerProfileId: uuidSchema.optional(),
+  publish: z.boolean().optional(),
   version: z.number().int().positive().optional(),
 });
 
@@ -64,7 +65,10 @@ function normalizeInitialProgramVersion(
   body: z.infer<typeof programCreateSchema>,
 ) {
   if (body.initialVersion) {
-    return normalizeProgramVersionInput(body.initialVersion);
+    return {
+      input: normalizeProgramVersionInput(body.initialVersion),
+      publish: body.initialVersion.publish,
+    };
   }
 
   const files = [
@@ -88,12 +92,15 @@ function normalizeInitialProgramVersion(
     return null;
   }
 
-  return normalizeProgramVersionInput({
-    files,
-    inputSchema: body.inputSchema,
-    outputConfig: body.outputConfig,
-    ownerProfileId: body.ownerProfileId,
-  });
+  return {
+    input: normalizeProgramVersionInput({
+      files,
+      inputSchema: body.inputSchema,
+      outputConfig: body.outputConfig,
+      ownerProfileId: body.ownerProfileId,
+    }),
+    publish: true,
+  };
 }
 
 export function mountProgramResource(app: Hono<ApiEnv>) {
@@ -124,7 +131,10 @@ export function mountProgramResource(app: Hono<ApiEnv>) {
             const version = await createProgramVersionRecord(
               c.var.supabase,
               program.id,
-              initialVersion,
+              initialVersion.input,
+              {
+                publish: initialVersion.publish,
+              },
             );
             return {
               data: {

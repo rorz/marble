@@ -442,8 +442,9 @@ export type Database = {
           input_schema: Json
           output_config: Json
           program_id: string
+          published_at: string | null
           updated_at: string
-          version: number
+          version: number | null
         }
         Insert: {
           created_at?: string
@@ -451,8 +452,9 @@ export type Database = {
           input_schema: Json
           output_config: Json
           program_id: string
+          published_at?: string | null
           updated_at?: string
-          version: number
+          version?: number | null
         }
         Update: {
           created_at?: string
@@ -460,8 +462,9 @@ export type Database = {
           input_schema?: Json
           output_config?: Json
           program_id?: string
+          published_at?: string | null
           updated_at?: string
-          version?: number
+          version?: number | null
         }
         Relationships: [
           {

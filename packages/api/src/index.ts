@@ -66,6 +66,11 @@ const cellRunBodySchema = z.object({
   manualInput: z.string().nullable().optional(),
 });
 
+const batchCellRunBodySchema = z.object({
+  cellIds: z.array(z.string().uuid()).min(1),
+  manualInput: z.string().nullable().optional(),
+});
+
 function forwardExecutorHeaders(c: ApiContext) {
   return Object.fromEntries(
     [
@@ -184,6 +189,63 @@ async function executeStoredRun(
       status: responseStatus,
     },
   );
+}
+
+async function executeStoredRuns(
+  c: ApiContext,
+  options: {
+    runIds: string[];
+  },
+) {
+  const { payload, status } = await proxyExecutorRequest(c, {
+    body: {
+      runIds: options.runIds,
+    },
+    path: "/runs",
+    search: "",
+  });
+  const responseStatus =
+    status === 500 && payload.success === false ? 200 : status;
+
+  return c.json(payload, {
+    status: responseStatus,
+  });
+}
+
+async function createPendingStoredRun(
+  c: ApiContext,
+  options: {
+    cellId: string;
+    manualInput?: string | null;
+  },
+) {
+  const cell = await requireAccessibleCell(c.var.supabase, {
+    authenticatedProfileId: c.var.auth?.profileId,
+    cellId: options.cellId,
+    userId: c.var.auth?.userId,
+  });
+  const column = await getRecord(c.var.supabase, "column", cell.column_id);
+
+  await updateRecord(c.var.supabase, "cell", options.cellId, {
+    ...(options.manualInput === undefined
+      ? {}
+      : {
+          manual_input: options.manualInput,
+        }),
+    state: {
+      ok: null,
+    } as Json,
+  });
+
+  const run = await createRecord(c.var.supabase, "program_run", {
+    program_version_id: column.program_version_id,
+    target_cell_id: options.cellId,
+  });
+
+  return {
+    cellId: options.cellId,
+    runId: run.id,
+  };
 }
 
 function normalizeEventSource(
@@ -358,33 +420,35 @@ app.post(
   route(async (c) => {
     const cellId = requiredParam(c, "cellId");
     const body = await parseJsonBody(c, cellRunBodySchema);
-    const cell = await requireAccessibleCell(c.var.supabase, {
-      authenticatedProfileId: c.var.auth?.profileId,
+    const run = await createPendingStoredRun(c, {
       cellId,
-      userId: c.var.auth?.userId,
-    });
-    const column = await getRecord(c.var.supabase, "column", cell.column_id);
-
-    await updateRecord(c.var.supabase, "cell", cellId, {
-      ...(body.manualInput === undefined
-        ? {}
-        : {
-            manual_input: body.manualInput,
-          }),
-      state: {
-        ok: null,
-      } as Json,
-    });
-
-    const run = await createRecord(c.var.supabase, "program_run", {
-      program_version_id: column.program_version_id,
-      target_cell_id: cellId,
+      manualInput: body.manualInput,
     });
 
     return executeStoredRun(c, {
       cellId,
-      runId: run.id,
+      runId: run.runId,
       setPendingState: false,
+    });
+  }),
+);
+
+app.post(
+  "/cells/run",
+  route(async (c) => {
+    const body = await parseJsonBody(c, batchCellRunBodySchema);
+    const cellIds = Array.from(new Set(body.cellIds));
+    const runs = await Promise.all(
+      cellIds.map((cellId) =>
+        createPendingStoredRun(c, {
+          cellId,
+          manualInput: body.manualInput,
+        }),
+      ),
+    );
+
+    return executeStoredRuns(c, {
+      runIds: runs.map((run) => run.runId),
     });
   }),
 );
