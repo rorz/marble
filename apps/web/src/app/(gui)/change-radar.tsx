@@ -37,7 +37,7 @@ type ResolutionMaps = {
   versionProgramIds: Record<string, null | string>;
 };
 type RadarIndexes = {
-  drains: Map<
+  pipes: Map<
     string,
     {
       label: string;
@@ -142,7 +142,7 @@ function getStringField(snapshot: Record<string, unknown> | null, key: string) {
 
 function buildRadarIndexes(sidebarData: SidebarTreeData) {
   const indexes: RadarIndexes = {
-    drains: new Map(),
+    pipes: new Map(),
     profiles: new Map(),
     programs: new Map(),
     projects: new Map(),
@@ -182,8 +182,8 @@ function buildRadarIndexes(sidebarData: SidebarTreeData) {
         });
       }
 
-      if (childNode.kind === "drain") {
-        indexes.drains.set(childNode.id, {
+      if (childNode.kind === "pipe") {
+        indexes.pipes.set(childNode.id, {
           label: childNode.label,
           projectId: projectNode.id,
         });
@@ -332,11 +332,11 @@ function resolveEventTargetKeys(
     ];
   }
 
-  if (event.resource === "drain") {
+  if (event.resource === "pipe") {
     const tableId = getStringField(snapshot, "table_id");
 
     return [
-      changeTargetKey.drain(event.entity_id),
+      changeTargetKey.pipe(event.entity_id),
       ...(tableId
         ? [
             changeTargetKey.table(tableId),
@@ -448,7 +448,7 @@ function resolveEventDetailTargetKeys(
   if (
     event.resource === "project" ||
     event.resource === "source" ||
-    event.resource === "drain" ||
+    event.resource === "pipe" ||
     event.resource === "table" ||
     event.resource === "row" ||
     event.resource === "column" ||
@@ -601,19 +601,18 @@ function resolveRadarScope(
     }
   }
 
-  if (event.resource === "drain") {
-    const indexedDrain = indexes.drains.get(event.entity_id);
+  if (event.resource === "pipe") {
+    const indexedPipe = indexes.pipes.get(event.entity_id);
     const tableId = getStringField(snapshot, "table_id");
     const projectId =
-      indexedDrain?.projectId ??
+      indexedPipe?.projectId ??
       (tableId ? indexes.tables.get(tableId)?.projectId : undefined);
 
     if (projectId) {
       return {
-        href: `/projects/${projectId}/drains/${event.entity_id}`,
-        key: `drain:${event.entity_id}`,
-        label:
-          indexedDrain?.label ?? getStringField(snapshot, "name") ?? "Drain",
+        href: `/projects/${projectId}/pipes/${event.entity_id}`,
+        key: `pipe:${event.entity_id}`,
+        label: indexedPipe?.label ?? getStringField(snapshot, "name") ?? "Pipe",
         targetKeys: resolveEventTargetKeys(event, resolutionMaps),
       };
     }

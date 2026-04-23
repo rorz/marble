@@ -25,9 +25,9 @@ import {
 import { mountCellResource } from "./resources/cell";
 import { mountColumnResource } from "./resources/column";
 import { mountColumnDependencyResource } from "./resources/column_dependency";
-import { mountDrainResource } from "./resources/drain";
 import { mountEventResource } from "./resources/event";
 import { mountKeyResource } from "./resources/key";
+import { mountPipeResource } from "./resources/pipe";
 import { mountProfileResource } from "./resources/profile";
 import { mountProgramResource } from "./resources/program";
 import { mountProgramFileResource } from "./resources/program_file";
@@ -46,9 +46,9 @@ const resourceMounts = {
   cells: mountCellResource,
   column_dependencies: mountColumnDependencyResource,
   columns: mountColumnResource,
-  drains: mountDrainResource,
   events: mountEventResource,
   keys: mountKeyResource,
+  pipes: mountPipeResource,
   profiles: mountProfileResource,
   program_files: mountProgramFileResource,
   program_runs: mountProgramRunResource,

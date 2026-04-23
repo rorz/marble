@@ -10,10 +10,10 @@ import { createServiceRoleClient } from "./supabase/service-role";
 
 type SourceRow = Database["public"]["Tables"]["source"]["Row"];
 type SourceEventRow = Database["public"]["Tables"]["source_event"]["Row"];
-type DrainRow = Database["public"]["Tables"]["drain"]["Row"];
+type PipeRow = Database["public"]["Tables"]["pipe"]["Row"];
 
 export type ProjectSourceWorkspaceData = {
-  drains: DrainRow[];
+  pipes: PipeRow[];
   inputColumns: ReferenceableColumn[];
   project: NonNullable<Awaited<ReturnType<typeof getOwnedProjectForUser>>>;
   sourceEvents: SourceEventRow[];
@@ -50,7 +50,7 @@ export async function getProjectSourceWorkspaceData(
 
   const sources = (sourceData ?? []) as SourceRow[];
   const sourceIds = sources.map((source) => source.id);
-  const [sourceEventResult, drainResult, inputColumns] = await Promise.all([
+  const [sourceEventResult, pipeResult, inputColumns] = await Promise.all([
     supabase
       .from("source_event")
       .select("*")
@@ -65,7 +65,7 @@ export async function getProjectSourceWorkspaceData(
           error: null,
         })
       : supabase
-          .from("drain")
+          .from("pipe")
           .select("*")
           .in("source_id", sourceIds)
           .order("created_at", {
@@ -78,16 +78,16 @@ export async function getProjectSourceWorkspaceData(
     throw sourceEventResult.error;
   }
 
-  if (drainResult.error) {
-    throw drainResult.error;
+  if (pipeResult.error) {
+    throw pipeResult.error;
   }
 
   return {
-    drains: (drainResult.data ?? []) as DrainRow[],
     inputColumns: inputColumns.filter(
       (column) =>
         column.project_id === projectId && column.allow_manual_input === true,
     ),
+    pipes: (pipeResult.data ?? []) as PipeRow[],
     project,
     sourceEvents: (sourceEventResult.data ?? []) as SourceEventRow[],
     sources,

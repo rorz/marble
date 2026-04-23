@@ -211,51 +211,6 @@ export type Database = {
           },
         ]
       }
-      drain: {
-        Row: {
-          created_at: string
-          id: string
-          mappings: Json
-          name: string
-          source_id: string
-          table_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          mappings?: Json
-          name?: string
-          source_id: string
-          table_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          mappings?: Json
-          name?: string
-          source_id?: string
-          table_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "drain_source_id_fkey"
-            columns: ["source_id"]
-            isOneToOne: false
-            referencedRelation: "source"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "drain_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "table"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       event: {
         Row: {
           actor_key_id: string | null
@@ -347,6 +302,51 @@ export type Database = {
             columns: ["owner_profile_id"]
             isOneToOne: false
             referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipe: {
+        Row: {
+          created_at: string
+          id: string
+          mappings: Json
+          name: string
+          source_id: string
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mappings?: Json
+          name?: string
+          source_id: string
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mappings?: Json
+          name?: string
+          source_id?: string
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipe_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "source"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipe_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "table"
             referencedColumns: ["id"]
           },
         ]
@@ -751,7 +751,7 @@ export type Database = {
           created_at: string
           id: string
           parse_error: string | null
-          parsed_payload: Json
+          parsed_payload: Json | null
           project_id: string
           raw_payload: Json
           source_id: string
@@ -760,7 +760,7 @@ export type Database = {
           created_at?: string
           id?: string
           parse_error?: string | null
-          parsed_payload: Json
+          parsed_payload?: Json | null
           project_id: string
           raw_payload: Json
           source_id: string
@@ -769,7 +769,7 @@ export type Database = {
           created_at?: string
           id?: string
           parse_error?: string | null
-          parsed_payload?: Json
+          parsed_payload?: Json | null
           project_id?: string
           raw_payload?: Json
           source_id?: string

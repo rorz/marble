@@ -29,14 +29,15 @@ import {
   CaretRightIcon,
   CodeBlockIcon,
   FileCodeIcon,
+  FunnelIcon,
   IdentificationBadgeIcon,
   KeyIcon,
   LifebuoyIcon,
-  LightningIcon,
-  LinkSimpleIcon,
+  PipeIcon,
   RobotIcon,
+  SidebarIcon,
+  TableIcon,
 } from "@phosphor-icons/react";
-import { SidebarIcon, TableIcon } from "@phosphor-icons/react/dist/ssr";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -190,7 +191,7 @@ const utilityRoutes: {
 type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type SourceRow = Database["public"]["Tables"]["source"]["Row"];
-type DrainRow = Database["public"]["Tables"]["drain"]["Row"];
+type PipeRow = Database["public"]["Tables"]["pipe"]["Row"];
 type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type CommandPaletteItem = {
   detail: string;
@@ -318,16 +319,16 @@ function getNodeIcon(node: SidebarTreeNode) {
 
   if (node.kind === "source") {
     return (
-      <LinkSimpleIcon
+      <FunnelIcon
         className="h-4 w-4"
         weight="duotone"
       />
     );
   }
 
-  if (node.kind === "drain") {
+  if (node.kind === "pipe") {
     return (
-      <LightningIcon
+      <PipeIcon
         className="h-4 w-4"
         weight="duotone"
       />
@@ -355,8 +356,8 @@ function getNodeTargetKey(node: SidebarTreeNode) {
     return changeTargetKey.source(node.id);
   }
 
-  if (node.kind === "drain") {
-    return changeTargetKey.drain(node.id);
+  if (node.kind === "pipe") {
+    return changeTargetKey.pipe(node.id);
   }
 
   return changeTargetKey.program(node.id);
@@ -997,7 +998,7 @@ export function GuiShell({
       return {
         detail: projectLabel,
         icon: (
-          <LinkSimpleIcon
+          <FunnelIcon
             size={16}
             weight="duotone"
           />
@@ -1014,8 +1015,8 @@ export function GuiShell({
         onSelect: () => navigateFromCommandPalette(node.href),
       };
     });
-  const drainCommandItems = projectResources
-    .filter(({ node }) => node.kind === "drain")
+  const pipeCommandItems = projectResources
+    .filter(({ node }) => node.kind === "pipe")
     .map(({ node, parents }) => {
       const parentPath = parents.map((parent) => parent.label);
       const projectLabel = parentPath.at(-1) ?? "Project";
@@ -1023,14 +1024,14 @@ export function GuiShell({
       return {
         detail: projectLabel,
         icon: (
-          <LightningIcon
+          <PipeIcon
             size={16}
             weight="duotone"
           />
         ),
-        id: `command-palette-drain:${node.id}`,
+        id: `command-palette-pipe:${node.id}`,
         keywords: [
-          "drain",
+          "pipe",
           "mapping",
           "ingest",
           node.id,
@@ -1275,9 +1276,9 @@ export function GuiShell({
       items: sourceCommandItems,
     },
     {
-      heading: "Drains",
-      id: "command-palette-drain-resources",
-      items: drainCommandItems,
+      heading: "Pipes",
+      id: "command-palette-pipe-resources",
+      items: pipeCommandItems,
     },
     {
       heading: "Programs",
@@ -1420,7 +1421,7 @@ export function GuiShell({
         if (
           child.kind === "table" ||
           child.kind === "source" ||
-          child.kind === "drain"
+          child.kind === "pipe"
         ) {
           next.set(child.id, project.id);
         }
@@ -1454,7 +1455,7 @@ export function GuiShell({
         descriptor.kind === "project" ||
         descriptor.kind === "table" ||
         descriptor.kind === "source" ||
-        descriptor.kind === "drain" ||
+        descriptor.kind === "pipe" ||
         descriptor.kind === "row" ||
         descriptor.kind === "column" ||
         descriptor.kind === "cell"
@@ -1490,8 +1491,8 @@ export function GuiShell({
         }
       }
 
-      if (descriptor.kind === "drain") {
-        const projectId = projectIdByChildId.get(descriptor.drainId);
+      if (descriptor.kind === "pipe") {
+        const projectId = projectIdByChildId.get(descriptor.pipeId);
 
         if (projectId) {
           next.add(`node:${projectId}`);
@@ -1912,10 +1913,10 @@ export function GuiShell({
         {
           event: "*",
           schema: "public",
-          table: "drain",
+          table: "pipe",
         },
         (payload) => {
-          const change = payload as RealtimePayload<DrainRow>;
+          const change = payload as RealtimePayload<PipeRow>;
 
           if (change.eventType === "DELETE") {
             if (typeof change.old.id !== "string") {
@@ -1924,14 +1925,14 @@ export function GuiShell({
 
             applyMutation({
               id: change.old.id,
-              type: "drain:delete",
+              type: "pipe:delete",
             });
             return;
           }
 
           applyMutation({
-            row: change.new as DrainRow,
-            type: "drain:upsert",
+            row: change.new as PipeRow,
+            type: "pipe:upsert",
           });
         },
       )
@@ -2028,7 +2029,7 @@ export function GuiShell({
         ? [
             "cell",
             "column",
-            "drain",
+            "pipe",
             "project",
             "row",
             "source",
@@ -2084,7 +2085,7 @@ export function GuiShell({
   return (
     <div
       className={cx(
-        "grid h-screen grid-cols-1 grid-rows-1 bg-taupe-100 md:[grid-template-columns:var(--gui-sidebar-columns)]",
+        "relative grid h-screen grid-cols-1 grid-rows-1 bg-taupe-100 md:[grid-template-columns:var(--gui-sidebar-columns)]",
         isAnySidebarResizing
           ? ""
           : "transition-[grid-template-columns] duration-200 ease-out",
@@ -2267,26 +2268,21 @@ export function GuiShell({
         </div>
       </main>
 
-      <div className="relative min-h-0">
-        <aside
-          className={cx(
-            "flex size-full min-h-0 flex-col overflow-hidden pb-8",
-            agentSidebarMode === "collapsed"
-              ? "items-center px-0 pt-6"
-              : "p-2 pl-0",
-          )}
-          id="gui-agent-sidebar"
-        >
-          {agentSidebarMode === "collapsed" ? (
+      <div
+        className={cx(
+          "relative min-h-0",
+          agentSidebarMode === "collapsed"
+            ? null
+            : "h-screen border-l border-taupe-200/90 bg-[linear-gradient(180deg,rgba(242,236,227,0.98)_0%,rgba(255,255,255,0.98)_100%)] shadow-[-10px_0_24px_rgba(84,57,26,0.06)]",
+        )}
+      >
+        {agentSidebarMode === "collapsed" ? null : (
+          <aside
+            className="flex size-full min-h-0 h-screen flex-col overflow-hidden"
+            id="gui-agent-sidebar"
+          >
             <ChangeRadar
-              className="shrink-0"
-              mode="trigger"
-              onToggleSidebar={toggleAgentSidebar}
-              sidebarData={sidebarData}
-            />
-          ) : (
-            <ChangeRadar
-              className="min-h-0 flex-1"
+              className="min-h-0 flex-1 rounded-none border-0 bg-transparent shadow-none"
               headerActions={
                 <button
                   aria-label={agentSidebarToggleLabel}
@@ -2303,8 +2299,8 @@ export function GuiShell({
               }
               sidebarData={sidebarData}
             />
-          )}
-        </aside>
+          </aside>
+        )}
 
         {agentSidebarMode === "collapsed" ? null : (
           <hr
@@ -2331,6 +2327,17 @@ export function GuiShell({
           />
         )}
       </div>
+
+      {agentSidebarMode === "collapsed" ? (
+        <div className="pointer-events-none absolute top-6 right-4 z-20">
+          <ChangeRadar
+            className="pointer-events-auto shrink-0 opacity-80 transition-opacity hover:opacity-100"
+            mode="trigger"
+            onToggleSidebar={toggleAgentSidebar}
+            sidebarData={sidebarData}
+          />
+        </div>
+      ) : null}
 
       <ChangeSpotlight />
 

@@ -1,6 +1,6 @@
 import type { Database } from "@marble/supabase";
 import {
-  buildDrainNode,
+  buildPipeNode,
   buildProgramNode,
   buildProjectNode,
   buildSourceNode,
@@ -12,7 +12,7 @@ import {
   upsertSidebarNode,
 } from "./sidebar-tree";
 
-type DrainRow = Database["public"]["Tables"]["drain"]["Row"];
+type PipeRow = Database["public"]["Tables"]["pipe"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
 type SourceRow = Database["public"]["Tables"]["source"]["Row"];
@@ -53,17 +53,17 @@ export type SidebarMutation =
     }
   | {
       id: string;
-      type: "drain:delete";
+      type: "pipe:delete";
     }
   | {
-      row: DrainRow;
-      type: "drain:upsert";
+      row: PipeRow;
+      type: "pipe:upsert";
     };
 
-function resolveProjectIdForDrain(current: SidebarTreeData, drain: DrainRow) {
+function resolveProjectIdForPipe(current: SidebarTreeData, pipe: PipeRow) {
   for (const project of current.projects) {
     for (const child of project.children) {
-      if (child.id === drain.source_id || child.id === drain.table_id) {
+      if (child.id === pipe.source_id || child.id === pipe.table_id) {
         return project.id;
       }
     }
@@ -187,13 +187,13 @@ export function applySidebarMutation(
       };
     }
 
-    case "drain:delete":
+    case "pipe:delete":
       return {
         ...current,
         projects: removeSidebarChildFromAll(current.projects, mutation.id),
       };
 
-    case "drain:upsert": {
+    case "pipe:upsert": {
       const projects = removeSidebarChildFromAll(
         current.projects,
         mutation.row.id,
@@ -202,7 +202,7 @@ export function applySidebarMutation(
         ...current,
         projects,
       };
-      const projectId = resolveProjectIdForDrain(nextCurrent, mutation.row);
+      const projectId = resolveProjectIdForPipe(nextCurrent, mutation.row);
 
       if (!projectId) {
         return nextCurrent;
@@ -213,7 +213,7 @@ export function applySidebarMutation(
         projects: upsertSidebarChild(
           projects,
           projectId,
-          buildDrainNode(mutation.row, projectId),
+          buildPipeNode(mutation.row, projectId),
         ),
       };
     }

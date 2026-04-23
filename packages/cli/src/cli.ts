@@ -104,7 +104,7 @@ type SourceEventCommandOptions = {
   project?: string;
   source?: string;
 };
-type DrainCommandOptions = {
+type PipeCommandOptions = {
   mappings?: string;
   mappingsFile?: string;
   project?: string;
@@ -362,15 +362,15 @@ async function loadPayloadSchema(options: { file?: string; value?: string }) {
   );
 }
 
-async function loadDrainMappings(options: { file?: string; value?: string }) {
-  const value = await loadJsonValue("drain mappings", options);
+async function loadPipeMappings(options: { file?: string; value?: string }) {
+  const value = await loadJsonValue("pipe mappings", options);
 
   if (value === undefined) {
     return undefined;
   }
 
   if (!Array.isArray(value)) {
-    throw new Error("drain mappings must be a JSON array");
+    throw new Error("pipe mappings must be a JSON array");
   }
 
   return value;
@@ -1206,34 +1206,34 @@ function registerSourceEventCommands() {
     );
 }
 
-function registerDrainCommands() {
-  const drainCommand = rootCommand
-    .command("drain")
-    .description("Human-friendly drain commands");
+function registerPipeCommands() {
+  const pipeCommand = rootCommand
+    .command("pipe")
+    .description("Human-friendly pipe commands");
 
-  drainCommand
+  pipeCommand
     .command("create")
-    .description("Create a drain")
-    .argument("[name]", "Drain name")
+    .description("Create a pipe")
+    .argument("[name]", "Pipe name")
     .requiredOption("--source <sourceId>", "Source ID")
     .requiredOption("--table <tableId>", "Table ID")
-    .option("--mappings <json>", "Drain mappings JSON array")
-    .option("--mappings-file <path>", "Path to drain mappings JSON array file")
-    .action((name, options: DrainCommandOptions) =>
-      runAction("creating drain", async () => {
-        const mappings = await loadDrainMappings({
+    .option("--mappings <json>", "Pipe mappings JSON array")
+    .option("--mappings-file <path>", "Path to pipe mappings JSON array file")
+    .action((name, options: PipeCommandOptions) =>
+      runAction("creating pipe", async () => {
+        const mappings = await loadPipeMappings({
           file: options.mappingsFile,
           value: options.mappings,
         });
 
         if (mappings === undefined) {
           throw new Error(
-            "drain create requires one of --mappings or --mappings-file",
+            "pipe create requires one of --mappings or --mappings-file",
           );
         }
 
         printJson(
-          await client.create("drains", {
+          await client.create("pipes", {
             mappings,
             name,
             sourceId: options.source,
@@ -1243,17 +1243,17 @@ function registerDrainCommands() {
       }),
     );
 
-  drainCommand
+  pipeCommand
     .command("list")
-    .description("List drains")
+    .description("List pipes")
     .option("--project <projectId>", "Filter by project ID")
     .option("--source <sourceId>", "Filter by source ID")
     .option("--table <tableId>", "Filter by table ID")
-    .action((options: DrainCommandOptions) =>
-      runAction("listing drains", async () => {
+    .action((options: PipeCommandOptions) =>
+      runAction("listing pipes", async () => {
         printJson(
           await client.list(
-            "drains",
+            "pipes",
             compactObject({
               projectId: options.project,
               sourceId: options.source,
@@ -1264,38 +1264,38 @@ function registerDrainCommands() {
       }),
     );
 
-  drainCommand
+  pipeCommand
     .command("get")
-    .description("Get a drain by ID")
-    .argument("<drainId>", "Drain ID")
-    .action((drainId) =>
-      runAction("getting drain", async () => {
-        printJson(await client.get("drains", drainId));
+    .description("Get a pipe by ID")
+    .argument("<pipeId>", "Pipe ID")
+    .action((pipeId) =>
+      runAction("getting pipe", async () => {
+        printJson(await client.get("pipes", pipeId));
       }),
     );
 
-  drainCommand
+  pipeCommand
     .command("update")
-    .description("Update a drain")
-    .argument("<drainId>", "Drain ID")
-    .option("--name <name>", "New drain name")
+    .description("Update a pipe")
+    .argument("<pipeId>", "Pipe ID")
+    .option("--name <name>", "New pipe name")
     .option("--source <sourceId>", "New source ID")
     .option("--table <tableId>", "New table ID")
-    .option("--mappings <json>", "Drain mappings JSON array")
-    .option("--mappings-file <path>", "Path to drain mappings JSON array file")
+    .option("--mappings <json>", "Pipe mappings JSON array")
+    .option("--mappings-file <path>", "Path to pipe mappings JSON array file")
     .action(
       (
-        drainId,
-        options: DrainCommandOptions & {
+        pipeId,
+        options: PipeCommandOptions & {
           name?: string;
         },
       ) =>
-        runAction("updating drain", async () => {
+        runAction("updating pipe", async () => {
           const payload = compactObject({
             mappings:
               options.mappings !== undefined ||
               options.mappingsFile !== undefined
-                ? await loadDrainMappings({
+                ? await loadPipeMappings({
                     file: options.mappingsFile,
                     value: options.mappings,
                   })
@@ -1305,24 +1305,24 @@ function registerDrainCommands() {
             tableId: options.table,
           });
 
-          assertHasDefinedValues("drain update", payload, [
+          assertHasDefinedValues("pipe update", payload, [
             "--name",
             "--source",
             "--table",
             "--mappings",
             "--mappings-file",
           ]);
-          printJson(await client.update("drains", drainId, payload));
+          printJson(await client.update("pipes", pipeId, payload));
         }),
     );
 
-  drainCommand
+  pipeCommand
     .command("delete")
-    .description("Delete a drain")
-    .argument("<drainId>", "Drain ID")
-    .action((drainId) =>
-      runAction("deleting drain", async () => {
-        printJson(await client.delete("drains", drainId));
+    .description("Delete a pipe")
+    .argument("<pipeId>", "Pipe ID")
+    .action((pipeId) =>
+      runAction("deleting pipe", async () => {
+        printJson(await client.delete("pipes", pipeId));
       }),
     );
 }
@@ -1865,7 +1865,7 @@ rootCommand
 registerProjectCommands();
 registerSourceCommands();
 registerSourceEventCommands();
-registerDrainCommands();
+registerPipeCommands();
 registerProfileCommands();
 registerKeyCommands();
 registerTableCommands();

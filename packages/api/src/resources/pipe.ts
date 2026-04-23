@@ -21,7 +21,7 @@ import {
 } from "../data";
 import {
   listAccessibleSourceIds,
-  requireAccessibleDrain,
+  requireAccessiblePipe,
   requireAccessibleProject,
   requireAccessibleSource,
   requireAccessibleTable,
@@ -35,26 +35,26 @@ const CREATED_AT_DESC_ORDER: OrderSpec[] = [
   },
 ];
 
-const drainMappingSchema = requestObject({
+const pipeMappingSchema = requestObject({
   columnId: uuidSchema,
   jsonPath: nonEmptyStringSchema,
 });
 
-const drainCreateSchema = requestObject({
-  mappings: z.array(drainMappingSchema).min(1),
+const pipeCreateSchema = requestObject({
+  mappings: z.array(pipeMappingSchema).min(1),
   name: nonEmptyStringSchema.optional(),
   sourceId: uuidSchema.optional(),
   tableId: uuidSchema.optional(),
 });
 
-const drainPatchSchema = requestObject({
-  mappings: z.array(drainMappingSchema).min(1).optional(),
+const pipePatchSchema = requestObject({
+  mappings: z.array(pipeMappingSchema).min(1).optional(),
   name: nonEmptyStringSchema.optional(),
   sourceId: uuidSchema.optional(),
   tableId: uuidSchema.optional(),
 });
 
-const drainListSchema = requestObject({
+const pipeListSchema = requestObject({
   projectId: uuidSchema.optional(),
   sourceId: uuidSchema.optional(),
   tableId: uuidSchema.optional(),
@@ -127,10 +127,10 @@ async function listInputEligibleColumnsForTable(
 async function normalizeMappings(
   c: ApiContext,
   tableId: string,
-  mappings: z.infer<typeof drainMappingSchema>[],
+  mappings: z.infer<typeof pipeMappingSchema>[],
 ) {
   if (mappings.length === 0) {
-    throw new ApiError(400, "Drain mappings must include at least one entry");
+    throw new ApiError(400, "Pipe mappings must include at least one entry");
   }
 
   const eligibleColumns = await listInputEligibleColumnsForTable(c, tableId);
@@ -141,7 +141,7 @@ async function normalizeMappings(
     if (seenColumnIds.has(mapping.columnId)) {
       throw new ApiError(
         400,
-        `Drain mappings cannot target the same column twice: ${mapping.columnId}`,
+        `Pipe mappings cannot target the same column twice: ${mapping.columnId}`,
       );
     }
 
@@ -158,7 +158,7 @@ async function normalizeMappings(
   return mappings as unknown as Json;
 }
 
-async function resolveDrainScope(
+async function resolvePipeScope(
   c: ApiContext,
   input: {
     sourceId?: string;
@@ -190,14 +190,14 @@ async function resolveDrainScope(
   if (source.project_id !== table.project_id) {
     throw new ApiError(
       400,
-      "Drain source and table must belong to the same project",
+      "Pipe source and table must belong to the same project",
     );
   }
 
   if (explicitProjectId && source.project_id !== explicitProjectId) {
     throw new ApiError(
       400,
-      "Drain source and table must belong to the requested project",
+      "Pipe source and table must belong to the requested project",
     );
   }
 
@@ -208,12 +208,12 @@ async function resolveDrainScope(
   };
 }
 
-async function createDrain(
+async function createPipe(
   c: ApiContext,
-  body: z.infer<typeof drainCreateSchema>,
+  body: z.infer<typeof pipeCreateSchema>,
   explicitProjectId?: string,
 ) {
-  const { source, table } = await resolveDrainScope(
+  const { source, table } = await resolvePipeScope(
     c,
     {
       sourceId: body.sourceId,
@@ -223,29 +223,29 @@ async function createDrain(
   );
   const mappings = await normalizeMappings(c, table.id, body.mappings);
 
-  const drain = await createRecord(c.var.supabase, "drain", {
+  const pipe = await createRecord(c.var.supabase, "pipe", {
     mappings,
-    name: body.name ?? "Untitled Drain",
+    name: body.name ?? "Untitled Pipe",
     source_id: source.id,
     table_id: table.id,
   });
 
   return {
-    data: drain,
-    location: `/drains/${drain.id}`,
+    data: pipe,
+    location: `/pipes/${pipe.id}`,
   };
 }
 
-export function mountDrainResource(app: Hono<ApiEnv>) {
+export function mountPipeResource(app: Hono<ApiEnv>) {
   mountResource(app, {
     collection: {
       create: {
-        handler: (c, body) => createDrain(c, body),
-        schema: drainCreateSchema,
+        handler: (c, body) => createPipe(c, body),
+        schema: pipeCreateSchema,
       },
       list: {
         handler: async (c, query) => {
-          let request = c.var.supabase.from("drain").select("*");
+          let request = c.var.supabase.from("pipe").select("*");
 
           if (query.projectId) {
             await requireAccessibleProject(c.var.supabase, {
@@ -329,37 +329,37 @@ export function mountDrainResource(app: Hono<ApiEnv>) {
 
           return data ?? [];
         },
-        schema: drainListSchema,
+        schema: pipeListSchema,
       },
-      path: "/drains",
+      path: "/pipes",
     },
     item: {
       delete: {
         handler: async (c, id) => {
-          await requireAccessibleDrain(c.var.supabase, {
+          await requireAccessiblePipe(c.var.supabase, {
             authenticatedProfileId: c.var.auth?.profileId,
-            drainId: id,
+            pipeId: id,
             userId: c.var.auth?.userId,
           });
 
-          await deleteRecord(c.var.supabase, "drain", id);
+          await deleteRecord(c.var.supabase, "pipe", id);
           return successResponse();
         },
       },
       get: {
         handler: (c, id) =>
-          requireAccessibleDrain(c.var.supabase, {
+          requireAccessiblePipe(c.var.supabase, {
             authenticatedProfileId: c.var.auth?.profileId,
-            drainId: id,
+            pipeId: id,
             userId: c.var.auth?.userId,
           }),
       },
-      idParam: "drainId",
+      idParam: "pipeId",
       patch: {
         handler: async (c, id, body) => {
-          const existing = await requireAccessibleDrain(c.var.supabase, {
+          const existing = await requireAccessiblePipe(c.var.supabase, {
             authenticatedProfileId: c.var.auth?.profileId,
-            drainId: id,
+            pipeId: id,
             userId: c.var.auth?.userId,
           });
 
@@ -372,12 +372,12 @@ export function mountDrainResource(app: Hono<ApiEnv>) {
 
           const nextSourceId = body.sourceId ?? existing.source_id;
           const nextTableId = body.tableId ?? existing.table_id;
-          const scope = await resolveDrainScope(c, {
+          const scope = await resolvePipeScope(c, {
             sourceId: nextSourceId,
             tableId: nextTableId,
           });
 
-          return updateRecord(c.var.supabase, "drain", id, {
+          return updateRecord(c.var.supabase, "pipe", id, {
             mappings:
               body.mappings === undefined
                 ? undefined
@@ -388,9 +388,9 @@ export function mountDrainResource(app: Hono<ApiEnv>) {
             table_id: body.tableId === undefined ? undefined : scope.table.id,
           });
         },
-        schema: drainPatchSchema,
+        schema: pipePatchSchema,
       },
-      path: "/drains/:drainId",
+      path: "/pipes/:pipeId",
     },
   });
 
@@ -398,8 +398,8 @@ export function mountDrainResource(app: Hono<ApiEnv>) {
     collection: {
       create: {
         handler: (c, body) =>
-          createDrain(c, body, requiredParam(c, "projectId")),
-        schema: drainCreateSchema,
+          createPipe(c, body, requiredParam(c, "projectId")),
+        schema: pipeCreateSchema,
       },
       list: {
         handler: async (c) => {
@@ -427,14 +427,14 @@ export function mountDrainResource(app: Hono<ApiEnv>) {
 
           return listRecordsInColumn(
             c.var.supabase,
-            "drain",
+            "pipe",
             "source_id",
             sources.map((source) => source.id),
             CREATED_AT_DESC_ORDER,
           );
         },
       },
-      path: "/projects/:projectId/drains",
+      path: "/projects/:projectId/pipes",
     },
   });
 }

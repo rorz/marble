@@ -16,7 +16,7 @@ It works because every changed thing is reduced to a small, canonical target key
 - `column:<id>`
 - `cell:<rowId>:<columnId>`
 - `source:<id>`
-- `drain:<id>`
+- `pipe:<id>`
 - `program:<id>`
 - `program-file:<programId>:<filename>`
 - `program-version:<id>`

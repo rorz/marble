@@ -79,8 +79,8 @@ export type ChangeTargetDescriptor =
       columnId: string;
     }
   | {
-      drainId: string;
-      kind: "drain";
+      pipeId: string;
+      kind: "pipe";
     }
   | {
       kind: "cell";
@@ -151,7 +151,7 @@ export const changeTargetKey = {
   cell: (rowId: string, columnId: string) =>
     `cell:${encodeChangeTargetSegment(rowId)}:${encodeChangeTargetSegment(columnId)}`,
   column: (columnId: string) => `column:${encodeChangeTargetSegment(columnId)}`,
-  drain: (drainId: string) => `drain:${encodeChangeTargetSegment(drainId)}`,
+  pipe: (pipeId: string) => `pipe:${encodeChangeTargetSegment(pipeId)}`,
   profiles: () => "profiles",
   program: (programId: string) =>
     `program:${encodeChangeTargetSegment(programId)}`,
@@ -206,10 +206,10 @@ export function parseChangeTargetKey(
     };
   }
 
-  if (kind === "drain" && parts.length === 2) {
+  if (kind === "pipe" && parts.length === 2) {
     return {
-      drainId: decodeChangeTargetSegment(parts[1]),
       kind,
+      pipeId: decodeChangeTargetSegment(parts[1]),
     };
   }
 
@@ -313,7 +313,7 @@ function formatReviewSummary(targetKeys: string[]) {
   const labels: Record<ChangeTargetDescriptor["kind"], string> = {
     cell: "cell",
     column: "column",
-    drain: "drain",
+    pipe: "pipe",
     profiles: "profile area",
     program: "program area",
     "program-file": "file",

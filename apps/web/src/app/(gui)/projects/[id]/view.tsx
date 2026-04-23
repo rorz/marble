@@ -65,7 +65,7 @@ export function ProjectPageView({
   const [deletingProject, setDeletingProject] = useState(false);
   const [error, setError] = useState<null | string>(null);
   const sources = sortRows(initialProject.sources, compareByUpdatedAtDesc);
-  const drains = sortRows(initialProject.drains, compareByCreatedAtDesc);
+  const pipes = sortRows(initialProject.pipes, compareByCreatedAtDesc);
   const sourceNameById = new Map(
     sources.map((source) => [
       source.id,
@@ -93,10 +93,10 @@ export function ProjectPageView({
       : `/projects/${project.id}/sources/new`;
   };
 
-  const buildDrainDetailHref = (drainId?: string) => {
-    return drainId
-      ? `/projects/${project.id}/drains/${drainId}`
-      : `/projects/${project.id}/drains/new`;
+  const buildPipeDetailHref = (pipeId?: string) => {
+    return pipeId
+      ? `/projects/${project.id}/pipes/${pipeId}`
+      : `/projects/${project.id}/pipes/new`;
   };
 
   useEffect(() => {
@@ -316,7 +316,7 @@ export function ProjectPageView({
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
             <span>{project.table_count} tables</span>
             <span>{sources.length} sources</span>
-            <span>{drains.length} drains</span>
+            <span>{pipes.length} pipes</span>
             <span>{project.folder_path.join(" / ") || "Root"}</span>
             <span>{DATE_FORMATTER.format(new Date(project.updated_at))}</span>
           </div>
@@ -327,53 +327,7 @@ export function ProjectPageView({
         <div className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-xl tracking-tight text-zinc-950">Tables</h2>
-              <div className="text-sm text-zinc-500">
-                {project.table_count} total
-              </div>
-            </div>
-          </div>
-
-          <MarbleCard>
-            {project.tables.length === 0 ? (
-              <MarbleCardContent>
-                <MarbleEmptyState
-                  description="Create a table, then open it to start building."
-                  title="No tables in this project yet"
-                />
-              </MarbleCardContent>
-            ) : (
-              <MarbleCardContent className="p-0">
-                {project.tables.map((table) => (
-                  <MarbleListRow
-                    description={
-                      <>
-                        <span>
-                          {DATE_FORMATTER.format(new Date(table.updated_at))}
-                        </span>
-                        <span className="font-mono">{table.id}</span>
-                      </>
-                    }
-                    descriptionClassName="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500"
-                    key={table.id}
-                    onClick={() =>
-                      router.push(`/projects/${project.id}/tables/${table.id}`)
-                    }
-                    title={table.name || "Untitled Table"}
-                    {...getChangeTargetProps(changeTargetKey.table(table.id))}
-                  />
-                ))}
-              </MarbleCardContent>
-            )}
-          </MarbleCard>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-end justify-between gap-3">
-            <div className="space-y-1">
-              <h2 className="text-xl tracking-tight text-zinc-950">
-                Webhook Sources
-              </h2>
+              <h2 className="text-xl tracking-tight text-zinc-950">Sources</h2>
               <div className="text-sm text-zinc-500">
                 {sources.length} total
               </div>
@@ -425,47 +379,90 @@ export function ProjectPageView({
         <div className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-xl tracking-tight text-zinc-950">Drains</h2>
-              <div className="text-sm text-zinc-500">{drains.length} total</div>
+              <h2 className="text-xl tracking-tight text-zinc-950">Pipes</h2>
+              <div className="text-sm text-zinc-500">{pipes.length} total</div>
             </div>
             <MarbleButton
-              onClick={() => router.push(buildDrainDetailHref())}
+              onClick={() => router.push(buildPipeDetailHref())}
               size="sm"
               variant="light"
             >
-              New drain
+              New pipe
             </MarbleButton>
           </div>
 
           <MarbleCard>
-            {drains.length === 0 ? (
+            {pipes.length === 0 ? (
               <MarbleCardContent>
                 <MarbleEmptyState
-                  description="Create a drain to map cached payloads into table inputs."
-                  title="No drains yet"
+                  description="Create a pipe to map cached payloads into table inputs."
+                  title="No pipes yet"
                 />
               </MarbleCardContent>
             ) : (
               <MarbleCardContent className="p-0">
-                {drains.map((drain) => (
+                {pipes.map((pipe) => (
                   <MarbleListRow
                     description={
                       <>
                         <span>
-                          {sourceNameById.get(drain.source_id) ??
+                          {sourceNameById.get(pipe.source_id) ??
                             "Unknown source"}
                           {" -> "}
-                          {tableLabelById.get(drain.table_id) ??
-                            "Unknown table"}
+                          {tableLabelById.get(pipe.table_id) ?? "Unknown table"}
                         </span>
-                        <span className="font-mono">{drain.id}</span>
+                        <span className="font-mono">{pipe.id}</span>
                       </>
                     }
                     descriptionClassName="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500"
-                    key={drain.id}
-                    onClick={() => router.push(buildDrainDetailHref(drain.id))}
-                    title={drain.name}
-                    {...getChangeTargetProps(changeTargetKey.drain(drain.id))}
+                    key={pipe.id}
+                    onClick={() => router.push(buildPipeDetailHref(pipe.id))}
+                    title={pipe.name}
+                    {...getChangeTargetProps(changeTargetKey.pipe(pipe.id))}
+                  />
+                ))}
+              </MarbleCardContent>
+            )}
+          </MarbleCard>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-end justify-between gap-3">
+            <div className="space-y-1">
+              <h2 className="text-xl tracking-tight text-zinc-950">Tables</h2>
+              <div className="text-sm text-zinc-500">
+                {project.table_count} total
+              </div>
+            </div>
+          </div>
+
+          <MarbleCard>
+            {project.tables.length === 0 ? (
+              <MarbleCardContent>
+                <MarbleEmptyState
+                  description="Create a table, then open it to start building."
+                  title="No tables in this project yet"
+                />
+              </MarbleCardContent>
+            ) : (
+              <MarbleCardContent className="p-0">
+                {project.tables.map((table) => (
+                  <MarbleListRow
+                    description={
+                      <>
+                        <span>
+                          {DATE_FORMATTER.format(new Date(table.updated_at))}
+                        </span>
+                        <span className="font-mono">{table.id}</span>
+                      </>
+                    }
+                    descriptionClassName="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500"
+                    key={table.id}
+                    onClick={() =>
+                      router.push(`/projects/${project.id}/tables/${table.id}`)
+                    }
+                    title={table.name || "Untitled Table"}
+                    {...getChangeTargetProps(changeTargetKey.table(table.id))}
                   />
                 ))}
               </MarbleCardContent>

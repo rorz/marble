@@ -32,8 +32,8 @@ function sourceEventNotFound() {
   return new ApiError(404, "Source event not found");
 }
 
-function drainNotFound() {
-  return new ApiError(404, "Drain not found");
+function pipeNotFound() {
+  return new ApiError(404, "Pipe not found");
 }
 
 function rowNotFound() {
@@ -205,7 +205,7 @@ export async function listAccessibleSourceEventIds(
   return events.map((event) => event.id);
 }
 
-export async function listAccessibleDrainIds(
+export async function listAccessiblePipeIds(
   supabase: SupabaseClient,
   options: AccessOptions,
 ) {
@@ -219,9 +219,9 @@ export async function listAccessibleDrainIds(
     return [];
   }
 
-  const drains = await listRecordsInColumn(
+  const pipes = await listRecordsInColumn(
     supabase,
-    "drain",
+    "pipe",
     "source_id",
     sourceIds,
     [
@@ -231,7 +231,7 @@ export async function listAccessibleDrainIds(
     ],
   );
 
-  return drains.map((drain) => drain.id);
+  return pipes.map((pipe) => pipe.id);
 }
 
 export async function listAccessibleRowIds(
@@ -526,29 +526,29 @@ export async function requireAccessibleSourceEvent(
   return sourceEvent;
 }
 
-export async function requireAccessibleDrain(
+export async function requireAccessiblePipe(
   supabase: SupabaseClient,
   options: AccessOptions & {
-    drainId: string;
+    pipeId: string;
   },
-): Promise<DbRow<"drain">> {
-  const drain = await getRecord(supabase, "drain", options.drainId);
+): Promise<DbRow<"pipe">> {
+  const pipe = await getRecord(supabase, "pipe", options.pipeId);
 
   try {
     await requireAccessibleSource(supabase, {
       authenticatedProfileId: options.authenticatedProfileId,
-      sourceId: drain.source_id,
+      sourceId: pipe.source_id,
       userId: options.userId,
     });
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
-      throw drainNotFound();
+      throw pipeNotFound();
     }
 
     throw error;
   }
 
-  return drain;
+  return pipe;
 }
 
 export async function requireAccessibleRow(

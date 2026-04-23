@@ -20,8 +20,8 @@ export type SidebarSourceRow = Pick<
   "id" | "name" | "project_id" | "updated_at"
 >;
 
-export type SidebarDrainRow = Pick<
-  Database["public"]["Tables"]["drain"]["Row"],
+export type SidebarPipeRow = Pick<
+  Database["public"]["Tables"]["pipe"]["Row"],
   "id" | "name" | "source_id" | "table_id" | "updated_at"
 >;
 
@@ -34,7 +34,7 @@ export type SidebarTreeNode = {
   children: SidebarTreeNode[];
   href: string;
   id: string;
-  kind: "drain" | "program" | "project" | "source" | "table";
+  kind: "pipe" | "program" | "project" | "source" | "table";
   label: string;
   updatedAt: string;
 };
@@ -44,6 +44,15 @@ export type SidebarTreeData = {
   profiles: SidebarProfileRecord[];
   programs: SidebarTreeNode[];
   projects: SidebarTreeNode[];
+};
+
+const PROJECT_RESOURCE_ORDER: Record<
+  Extract<SidebarTreeNode["kind"], "pipe" | "source" | "table">,
+  number
+> = {
+  pipe: 1,
+  source: 0,
+  table: 2,
 };
 
 function compareNodes(left: SidebarTreeNode, right: SidebarTreeNode) {
@@ -59,12 +68,29 @@ export function sortSidebarNodes(nodes: SidebarTreeNode[]) {
   ].sort(compareNodes);
 }
 
+function compareProjectChildren(left: SidebarTreeNode, right: SidebarTreeNode) {
+  const resourceOrderDifference =
+    (PROJECT_RESOURCE_ORDER[left.kind as keyof typeof PROJECT_RESOURCE_ORDER] ??
+      Number.MAX_SAFE_INTEGER) -
+    (PROJECT_RESOURCE_ORDER[
+      right.kind as keyof typeof PROJECT_RESOURCE_ORDER
+    ] ?? Number.MAX_SAFE_INTEGER);
+
+  return resourceOrderDifference || compareNodes(left, right);
+}
+
+function sortProjectChildren(nodes: SidebarTreeNode[]) {
+  return [
+    ...nodes,
+  ].sort(compareProjectChildren);
+}
+
 export function buildProjectNode(
   project: SidebarProjectRow,
   children: SidebarTreeNode[] = [],
 ): SidebarTreeNode {
   return {
-    children: sortSidebarNodes(children),
+    children: sortProjectChildren(children),
     href: `/projects/${project.id}`,
     id: project.id,
     kind: "project",
@@ -106,17 +132,17 @@ export function buildSourceNode(source: SidebarSourceRow): SidebarTreeNode {
   };
 }
 
-export function buildDrainNode(
-  drain: SidebarDrainRow,
+export function buildPipeNode(
+  pipe: SidebarPipeRow,
   projectId: string,
 ): SidebarTreeNode {
   return {
     children: [],
-    href: `/projects/${projectId}/drains/${drain.id}`,
-    id: drain.id,
-    kind: "drain",
-    label: drain.name || "Untitled Drain",
-    updatedAt: drain.updated_at,
+    href: `/projects/${projectId}/pipes/${pipe.id}`,
+    id: pipe.id,
+    kind: "pipe",
+    label: pipe.name || "Untitled Pipe",
+    updatedAt: pipe.updated_at,
   };
 }
 
@@ -143,7 +169,10 @@ export function upsertSidebarChild(
     node.id === parentId
       ? {
           ...node,
-          children: upsertSidebarNode(node.children, childNode),
+          children: sortProjectChildren([
+            childNode,
+            ...node.children.filter((child) => child.id !== childNode.id),
+          ]),
         }
       : node,
   );

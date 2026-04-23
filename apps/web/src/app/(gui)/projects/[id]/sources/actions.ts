@@ -6,9 +6,9 @@ import { requireUser } from "../../../../../lib/auth";
 import { callMarbleApi } from "../../../../../lib/marble-api";
 
 type SourceRow = Database["public"]["Tables"]["source"]["Row"];
-type DrainRow = Database["public"]["Tables"]["drain"]["Row"];
+type PipeRow = Database["public"]["Tables"]["pipe"]["Row"];
 
-type DrainMappingInput = {
+type PipeMappingInput = {
   columnId: string;
   jsonPath: string;
 };
@@ -17,7 +17,7 @@ function revalidateProjectIngressPaths(projectId: string) {
   revalidatePath(`/projects/${projectId}`);
   revalidatePath(`/projects/${projectId}/sources`);
   revalidatePath(`/projects/${projectId}/sources/new`);
-  revalidatePath(`/projects/${projectId}/drains/new`);
+  revalidatePath(`/projects/${projectId}/pipes/new`);
 }
 
 export async function createSourceAction(
@@ -73,10 +73,10 @@ export async function deleteSourceAction(projectId: string, sourceId: string) {
   revalidateProjectIngressPaths(projectId);
 }
 
-export async function createDrainAction(
+export async function createPipeAction(
   projectId: string,
   input: {
-    mappings: DrainMappingInput[];
+    mappings: PipeMappingInput[];
     name?: string;
     sourceId: string;
     tableId: string;
@@ -84,21 +84,21 @@ export async function createDrainAction(
 ) {
   await requireUser();
 
-  const drain = await callMarbleApi<DrainRow>(`/projects/${projectId}/drains`, {
+  const pipe = await callMarbleApi<PipeRow>(`/projects/${projectId}/pipes`, {
     body: input,
     method: "POST",
     requestId: crypto.randomUUID(),
   });
 
   revalidateProjectIngressPaths(projectId);
-  return drain;
+  return pipe;
 }
 
-export async function updateDrainAction(
+export async function updatePipeAction(
   projectId: string,
-  drainId: string,
+  pipeId: string,
   input: {
-    mappings?: DrainMappingInput[];
+    mappings?: PipeMappingInput[];
     name?: string;
     sourceId?: string;
     tableId?: string;
@@ -106,20 +106,20 @@ export async function updateDrainAction(
 ) {
   await requireUser();
 
-  const drain = await callMarbleApi<DrainRow>(`/drains/${drainId}`, {
+  const pipe = await callMarbleApi<PipeRow>(`/pipes/${pipeId}`, {
     body: input,
     method: "PATCH",
     requestId: crypto.randomUUID(),
   });
 
   revalidateProjectIngressPaths(projectId);
-  return drain;
+  return pipe;
 }
 
-export async function deleteDrainAction(projectId: string, drainId: string) {
+export async function deletePipeAction(projectId: string, pipeId: string) {
   await requireUser();
 
-  await callMarbleApi(`/drains/${drainId}`, {
+  await callMarbleApi(`/pipes/${pipeId}`, {
     method: "DELETE",
     requestId: crypto.randomUUID(),
   });

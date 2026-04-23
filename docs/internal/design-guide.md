@@ -80,8 +80,8 @@ Don't be afraid of empty space. Don't be afraid to make things asymmetrical. If 
 
 These are Marble-specific rules for route surfaces and pane layout:
 
-1. Project pages are master inventories. If a project owns tables, sources, drains, or similar children, the project route lists them. It does not become a pseudo-detail view for one selected child.
-2. Child resources get real detail routes. A source detail page shows one source. A drain detail page shows one drain. Do not re-embed sibling lists inside those routes.
+1. Project pages are master inventories. If a project owns tables, sources, pipes, or similar children, the project route lists them. It does not become a pseudo-detail view for one selected child.
+2. Child resources get real detail routes. A source detail page shows one source. A pipe detail page shows one pipe. Do not re-embed sibling lists inside those routes.
 3. First-class project children must appear in the nested sidebar with their own icon. If the sidebar cannot distinguish the resource at a glance, the route surface is incomplete.
 4. Pane crumbs must terminate at the concrete resource name shown in the view. The crumb trail, sidebar selection, and page title should all agree on what the user is looking at.
 5. Detail views should fit the pane directly. Avoid fake split-workspaces, redundant summary chrome, or explanatory wrappers that make the user re-parse the information architecture.

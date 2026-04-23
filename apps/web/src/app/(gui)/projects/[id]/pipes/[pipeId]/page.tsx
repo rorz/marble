@@ -3,25 +3,25 @@ import { requireUser } from "../../../../../../lib/auth";
 import { getProjectSourceWorkspaceData } from "../../../../../../lib/source-data";
 import { ProjectSourceDetailPageView } from "../../sources/view";
 
-export default async function ProjectDrainPage(props: {
+export default async function ProjectPipePage(props: {
   params: Promise<{
-    drainId: string;
+    pipeId: string;
     id: string;
   }>;
 }) {
   const user = await requireUser();
-  const { drainId, id } = await props.params;
+  const { pipeId, id } = await props.params;
   const data = await getProjectSourceWorkspaceData(user.id, id);
 
-  if (data === null || !data.drains.some((drain) => drain.id === drainId)) {
+  if (data === null || !data.pipes.some((pipe) => pipe.id === pipeId)) {
     notFound();
   }
 
   return (
     <ProjectSourceDetailPageView
       initialData={data}
-      initialDrainId={drainId}
-      mode="drain"
+      initialPipeId={pipeId}
+      mode="pipe"
     />
   );
 }

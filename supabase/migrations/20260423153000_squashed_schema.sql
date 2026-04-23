@@ -503,7 +503,7 @@ CREATE TABLE IF NOT EXISTS "public"."source_event" (
     "project_id" "uuid" NOT NULL,
     "source_id" "uuid" NOT NULL,
     "raw_payload" "jsonb" NOT NULL,
-    "parsed_payload" "jsonb" NOT NULL,
+    "parsed_payload" "jsonb",
     "parse_error" "text"
 );
 
@@ -523,19 +523,19 @@ CREATE TABLE IF NOT EXISTS "public"."row" (
 ALTER TABLE "public"."row" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."drain" (
+CREATE TABLE IF NOT EXISTS "public"."pipe" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "source_id" "uuid" NOT NULL,
     "table_id" "uuid" NOT NULL,
-    "name" "text" DEFAULT 'Untitled Drain'::"text" NOT NULL,
+    "name" "text" DEFAULT 'Untitled Pipe'::"text" NOT NULL,
     "mappings" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
-    CONSTRAINT "drain_mappings_is_array" CHECK (("jsonb_typeof"("mappings") = 'array'::"text"))
+    CONSTRAINT "pipe_mappings_is_array" CHECK (("jsonb_typeof"("mappings") = 'array'::"text"))
 );
 
 
-ALTER TABLE "public"."drain" OWNER TO "postgres";
+ALTER TABLE "public"."pipe" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."table" (
@@ -589,8 +589,8 @@ ALTER TABLE ONLY "public"."event"
     ADD CONSTRAINT "event_pkey" PRIMARY KEY ("id");
 
 
-ALTER TABLE ONLY "public"."drain"
-    ADD CONSTRAINT "drain_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."pipe"
+    ADD CONSTRAINT "pipe_pkey" PRIMARY KEY ("id");
 
 
 
@@ -704,11 +704,11 @@ CREATE INDEX "event_source_created_at_idx" ON "public"."event" USING "btree" ("s
 
 
 
-CREATE INDEX "drain_source_created_at_idx" ON "public"."drain" USING "btree" ("source_id", "created_at" DESC);
+CREATE INDEX "pipe_source_created_at_idx" ON "public"."pipe" USING "btree" ("source_id", "created_at" DESC);
 
 
 
-CREATE INDEX "drain_table_created_at_idx" ON "public"."drain" USING "btree" ("table_id", "created_at" DESC);
+CREATE INDEX "pipe_table_created_at_idx" ON "public"."pipe" USING "btree" ("table_id", "created_at" DESC);
 
 
 
@@ -796,7 +796,7 @@ CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."source" FO
 
 
 
-CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."drain" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."pipe" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
 
@@ -862,13 +862,13 @@ ALTER TABLE ONLY "public"."event"
 
 
 
-ALTER TABLE ONLY "public"."drain"
-    ADD CONSTRAINT "drain_source_id_fkey" FOREIGN KEY ("source_id") REFERENCES "public"."source"("id") ON DELETE CASCADE;
+ALTER TABLE ONLY "public"."pipe"
+    ADD CONSTRAINT "pipe_source_id_fkey" FOREIGN KEY ("source_id") REFERENCES "public"."source"("id") ON DELETE CASCADE;
 
 
 
-ALTER TABLE ONLY "public"."drain"
-    ADD CONSTRAINT "drain_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "public"."table"("id") ON DELETE CASCADE;
+ALTER TABLE ONLY "public"."pipe"
+    ADD CONSTRAINT "pipe_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "public"."table"("id") ON DELETE CASCADE;
 
 
 
@@ -1052,11 +1052,11 @@ CREATE POLICY "Users can view source events in their own projects" ON "public"."
 
 
 
-CREATE POLICY "Users can view drains in their own projects" ON "public"."drain" FOR SELECT USING ((EXISTS ( SELECT 1
+CREATE POLICY "Users can view pipes in their own projects" ON "public"."pipe" FOR SELECT USING ((EXISTS ( SELECT 1
    FROM (("public"."table"
      JOIN "public"."project" ON (("project"."id" = "table"."project_id")))
      JOIN "public"."profile" ON (("profile"."id" = "project"."owner_profile_id")))
-  WHERE (("table"."id" = "drain"."table_id") AND ("profile"."owner_user_id" = "auth"."uid"())))));
+  WHERE (("table"."id" = "pipe"."table_id") AND ("profile"."owner_user_id" = "auth"."uid"())))));
 
 
 
@@ -1109,7 +1109,7 @@ ALTER TABLE "public"."source" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."source_event" ENABLE ROW LEVEL SECURITY;
 
 
-ALTER TABLE "public"."drain" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."pipe" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."row" ENABLE ROW LEVEL SECURITY;
@@ -1147,6 +1147,14 @@ ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."program";
 
 
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."project";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."source";
+
+
+
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."pipe";
 
 
 
@@ -1412,9 +1420,9 @@ GRANT ALL ON TABLE "public"."event" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."drain" TO "anon";
-GRANT ALL ON TABLE "public"."drain" TO "authenticated";
-GRANT ALL ON TABLE "public"."drain" TO "service_role";
+GRANT ALL ON TABLE "public"."pipe" TO "anon";
+GRANT ALL ON TABLE "public"."pipe" TO "authenticated";
+GRANT ALL ON TABLE "public"."pipe" TO "service_role";
 
 
 

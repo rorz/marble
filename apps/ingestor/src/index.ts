@@ -9,13 +9,19 @@ const httpApp = new Hono<{
   Bindings: Env;
 }>();
 
+const WEBHOOK_USAGE = {
+  message:
+    "Send a POST request with a JSON body and either Authorization: Bearer <token> or X-Marble-Webhook-Token.",
+  method: "POST",
+};
+
 const queueMessageSchema = z.object({
   payload: z.json(),
   sourceId: z.string().uuid(),
 });
 type QueueMessage = z.infer<typeof queueMessageSchema>;
 
-const drainMappingSchema = z.object({
+const pipeMappingSchema = z.object({
   columnId: z.string().uuid(),
   jsonPath: z.string().trim().min(1),
 });
@@ -90,9 +96,9 @@ async function callMarbleApi<T>(
   return (text.length === 0 ? null : JSON.parse(text)) as T;
 }
 
-async function materializeDrain(
+async function materializePipe(
   env: Env,
-  drain: {
+  pipe: {
     id: string;
     mappings: unknown;
     table_id: string;
@@ -104,11 +110,11 @@ async function materializeDrain(
     id: string;
   }>(env, "/rows", {
     body: {
-      tableId: drain.table_id,
+      tableId: pipe.table_id,
     },
     method: "POST",
   });
-  const mappings = drainMappingSchema.array().parse(drain.mappings);
+  const mappings = pipeMappingSchema.array().parse(pipe.mappings);
   const { data: cells, error: cellError } = await supabase
     .from("cell")
     .select("id, column_id")
@@ -143,7 +149,7 @@ async function materializeDrain(
       });
     } catch (error) {
       console.error(
-        `Drain ${drain.id} mapping ${mapping.columnId} failed for path ${mapping.jsonPath}`,
+        `Pipe ${pipe.id} mapping ${mapping.columnId} failed for path ${mapping.jsonPath}`,
         error,
       );
       continue;
@@ -195,7 +201,7 @@ async function processQueuedSourceEvent(env: Env, input: QueueMessage) {
     return;
   }
 
-  let parsedPayload: QueueMessage["payload"] = input.payload;
+  let parsedPayload: QueueMessage["payload"] | null = null;
   let parseError: string | null = null;
 
   try {
@@ -221,7 +227,7 @@ async function processQueuedSourceEvent(env: Env, input: QueueMessage) {
     .from("source_event")
     .insert({
       parse_error: parseError,
-      parsed_payload: parsedPayload as Json,
+      parsed_payload: parsedPayload as Json | null,
       project_id: source.project_id,
       raw_payload: input.payload as Json,
       source_id: source.id,
@@ -231,26 +237,45 @@ async function processQueuedSourceEvent(env: Env, input: QueueMessage) {
     throw new Error(sourceEventError.message);
   }
 
-  const { data: drains, error: drainError } = await supabase
-    .from("drain")
+  const { data: pipes, error: pipeError } = await supabase
+    .from("pipe")
     .select("id, mappings, table_id")
     .eq("source_id", source.id)
     .order("created_at", {
       ascending: true,
     });
 
-  if (drainError) {
-    throw new Error(drainError.message);
+  if (pipeError) {
+    throw new Error(pipeError.message);
   }
 
-  for (const drain of drains ?? []) {
+  if (parsedPayload === null) {
+    return;
+  }
+
+  for (const pipe of pipes ?? []) {
     try {
-      await materializeDrain(env, drain, parsedPayload);
+      await materializePipe(env, pipe, parsedPayload);
     } catch (error) {
-      console.error(`Drain ${drain.id} failed`, error);
+      console.error(`Pipe ${pipe.id} failed`, error);
     }
   }
 }
+
+httpApp.get("/webhooks/:sourceId", (c) => {
+  return new Response(
+    JSON.stringify({
+      ...WEBHOOK_USAGE,
+      sourceId: c.req.param("sourceId"),
+    }),
+    {
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+      },
+      status: 200,
+    },
+  );
+});
 
 httpApp.post("/webhooks/:sourceId", async (c) => {
   const supabase = db(c.env);

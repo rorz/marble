@@ -14,11 +14,11 @@ import {
   MarbleInput,
   MarbleListRow,
   MarblePane,
+  MarbleSearchSelect,
   MarbleSelect,
   MarbleTextarea,
   marbleToast,
 } from "@marble/ui";
-import { TrashIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { ProjectSourceWorkspaceData } from "../../../../../lib/source-data";
@@ -29,14 +29,19 @@ import {
 import * as actions from "./actions";
 
 type SourceRecord = Database["public"]["Tables"]["source"]["Row"];
-type DrainRecord = Database["public"]["Tables"]["drain"]["Row"];
-type DrainMappingInput = Awaited<
-  Parameters<typeof actions.createDrainAction>[1]
+type PipeRecord = Database["public"]["Tables"]["pipe"]["Row"];
+type PipeMappingInput = Awaited<
+  Parameters<typeof actions.createPipeAction>[1]
 >["mappings"][number];
-type DrainMappingDraft = DrainMappingInput & {
+type PipeMappingDraft = PipeMappingInput & {
   draftId: string;
 };
-type ProjectSourceDetailMode = "drain" | "source";
+type PipePathCandidate = {
+  key: string;
+  path: string;
+  preview: string;
+};
+type ProjectSourceDetailMode = "pipe" | "source";
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -93,11 +98,11 @@ function sourceTitle(source: null | Pick<SourceRecord, "name">) {
   return source?.name || "Untitled Source";
 }
 
-function drainTitle(drain: null | Pick<DrainRecord, "name">) {
-  return drain?.name || "Untitled Drain";
+function pipeTitle(pipe: null | Pick<PipeRecord, "name">) {
+  return pipe?.name || "Untitled Pipe";
 }
 
-function normalizeDrainMappings(value: unknown): DrainMappingInput[] {
+function normalizePipeMappings(value: unknown): PipeMappingInput[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -128,14 +133,293 @@ function normalizeDrainMappings(value: unknown): DrainMappingInput[] {
   });
 }
 
-function createDrainMappingDraft(
-  value: Partial<DrainMappingInput> = {},
-): DrainMappingDraft {
+function createPipeMappingDraft(
+  value: Partial<PipeMappingInput> = {},
+): PipeMappingDraft {
   return {
     columnId: value.columnId ?? "",
     draftId: crypto.randomUUID(),
-    jsonPath: value.jsonPath ?? "$",
+    jsonPath: value.jsonPath ?? "",
   };
+}
+
+function normalizePipeFieldName(value: string) {
+  return value.toLowerCase().replaceAll(/[^a-z0-9]/g, "");
+}
+
+function formatPipeCandidatePreview(value: unknown) {
+  if (value === null) {
+    return "null";
+  }
+
+  if (Array.isArray(value)) {
+    return `${value.length} item${value.length === 1 ? "" : "s"}`;
+  }
+
+  if (typeof value === "object") {
+    return "Object";
+  }
+
+  const preview = String(value);
+  return preview.length > 48 ? `${preview.slice(0, 45)}...` : preview;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function formatPipeSchemaPreview(schema: Record<string, unknown>) {
+  const enumValues = Array.isArray(schema.enum)
+    ? schema.enum.filter(
+        (value): value is boolean | null | number | string =>
+          typeof value === "boolean" ||
+          typeof value === "number" ||
+          typeof value === "string" ||
+          value === null,
+      )
+    : [];
+
+  if (enumValues.length > 0) {
+    const preview = enumValues
+      .slice(0, 3)
+      .map((value) => formatPipeCandidatePreview(value))
+      .join(", ");
+
+    return enumValues.length > 3 ? `Enum ${preview}, ...` : `Enum ${preview}`;
+  }
+
+  const schemaType = schema.type;
+  const typeLabels =
+    typeof schemaType === "string"
+      ? [
+          schemaType,
+        ]
+      : Array.isArray(schemaType)
+        ? schemaType.filter(
+            (value): value is string => typeof value === "string",
+          )
+        : [];
+
+  if (typeLabels.length > 0) {
+    return typeLabels.join(" | ");
+  }
+
+  if (isPlainObject(schema.properties)) {
+    return "object";
+  }
+
+  if (schema.items !== undefined) {
+    return "array";
+  }
+
+  return "value";
+}
+
+function jsonPathPropertySegment(key: string) {
+  return /^[$A-Z_a-z][\w$]*$/u.test(key)
+    ? `.${key}`
+    : `[${JSON.stringify(key)}]`;
+}
+
+function collectPipePathCandidates(
+  value: unknown,
+  path = "$",
+  key = "$",
+): PipePathCandidate[] {
+  if (Array.isArray(value)) {
+    return [
+      {
+        key,
+        path,
+        preview: formatPipeCandidatePreview(value),
+      },
+    ];
+  }
+
+  if (isPlainObject(value)) {
+    const entries = Object.entries(value);
+
+    if (entries.length === 0) {
+      return [
+        {
+          key,
+          path,
+          preview: "{}",
+        },
+      ];
+    }
+
+    return entries.flatMap(([entryKey, entryValue]) =>
+      collectPipePathCandidates(
+        entryValue,
+        `${path}${jsonPathPropertySegment(entryKey)}`,
+        entryKey,
+      ),
+    );
+  }
+
+  return [
+    {
+      key,
+      path,
+      preview: formatPipeCandidatePreview(value),
+    },
+  ];
+}
+
+function dedupePipePathCandidates(candidates: PipePathCandidate[]) {
+  const candidateByPath = new Map<string, PipePathCandidate>();
+
+  for (const candidate of candidates) {
+    if (candidateByPath.has(candidate.path)) {
+      continue;
+    }
+
+    candidateByPath.set(candidate.path, candidate);
+  }
+
+  return Array.from(candidateByPath.values());
+}
+
+function collectPipePathCandidatesFromSchema(
+  schema: unknown,
+  path = "$",
+  key = "$",
+): PipePathCandidate[] {
+  if (!isPlainObject(schema)) {
+    return [];
+  }
+
+  const nestedCandidates: PipePathCandidate[] = [];
+
+  for (const branchKey of [
+    "allOf",
+    "anyOf",
+    "oneOf",
+  ] as const) {
+    const branches = schema[branchKey];
+
+    if (!Array.isArray(branches)) {
+      continue;
+    }
+
+    for (const branch of branches) {
+      nestedCandidates.push(
+        ...collectPipePathCandidatesFromSchema(branch, path, key),
+      );
+    }
+  }
+
+  const properties = schema.properties;
+
+  if (isPlainObject(properties)) {
+    for (const [entryKey, entrySchema] of Object.entries(properties)) {
+      nestedCandidates.push(
+        ...collectPipePathCandidatesFromSchema(
+          entrySchema,
+          `${path}${jsonPathPropertySegment(entryKey)}`,
+          entryKey,
+        ),
+      );
+    }
+  }
+
+  if (nestedCandidates.length > 0) {
+    return dedupePipePathCandidates(nestedCandidates);
+  }
+
+  return [
+    {
+      key,
+      path,
+      preview: formatPipeSchemaPreview(schema),
+    },
+  ];
+}
+
+function parseGeneratedJsonPath(path: string) {
+  if (path === "$") {
+    return [];
+  }
+
+  if (!path.startsWith("$")) {
+    return null;
+  }
+
+  const segments: string[] = [];
+  let index = 1;
+
+  while (index < path.length) {
+    const currentChar = path[index];
+
+    if (currentChar === ".") {
+      let nextIndex = index + 1;
+
+      while (
+        nextIndex < path.length &&
+        path[nextIndex] !== "." &&
+        path[nextIndex] !== "["
+      ) {
+        nextIndex += 1;
+      }
+
+      const segment = path.slice(index + 1, nextIndex);
+
+      if (segment.length === 0) {
+        return null;
+      }
+
+      segments.push(segment);
+      index = nextIndex;
+      continue;
+    }
+
+    if (currentChar === "[") {
+      const bracketMatch = /^\[(?:"(?:\\.|[^"\\])*")\]/u.exec(
+        path.slice(index),
+      );
+
+      if (!bracketMatch) {
+        return null;
+      }
+
+      const segment = JSON.parse(
+        bracketMatch[0].slice(1, bracketMatch[0].length - 1),
+      );
+
+      if (typeof segment !== "string") {
+        return null;
+      }
+
+      segments.push(segment);
+      index += bracketMatch[0].length;
+      continue;
+    }
+
+    return null;
+  }
+
+  return segments;
+}
+
+function resolveGeneratedJsonPath(value: unknown, path: string) {
+  const segments = parseGeneratedJsonPath(path);
+
+  if (segments === null) {
+    return undefined;
+  }
+
+  let currentValue = value;
+
+  for (const segment of segments) {
+    if (!isPlainObject(currentValue) || !(segment in currentValue)) {
+      return undefined;
+    }
+
+    currentValue = currentValue[segment];
+  }
+
+  return currentValue;
 }
 
 function buildSourceCreateHref(projectId: string) {
@@ -146,23 +430,23 @@ function buildSourceDetailHref(projectId: string, sourceId: string) {
   return `/projects/${projectId}/sources/${sourceId}`;
 }
 
-function buildDrainCreateHref(projectId: string) {
-  return `/projects/${projectId}/drains/new`;
+function buildPipeCreateHref(projectId: string) {
+  return `/projects/${projectId}/pipes/new`;
 }
 
-function buildDrainDetailHref(projectId: string, drainId: string) {
-  return `/projects/${projectId}/drains/${drainId}`;
+function buildPipeDetailHref(projectId: string, pipeId: string) {
+  return `/projects/${projectId}/pipes/${pipeId}`;
 }
 
 export function ProjectSourceDetailPageView({
   initialData,
-  initialDrainId = null,
+  initialPipeId = null,
   initialSourceId = null,
   isCreating = false,
   mode,
 }: {
   initialData: ProjectSourceWorkspaceData;
-  initialDrainId?: string | null;
+  initialPipeId?: string | null;
   initialSourceId?: string | null;
   isCreating?: boolean;
   mode: ProjectSourceDetailMode;
@@ -177,16 +461,16 @@ export function ProjectSourceDetailPageView({
   const [sourceEvents, setSourceEvents] = useState(() =>
     sortByCreatedAtDesc(initialData.sourceEvents),
   );
-  const [drains, setDrains] = useState(() =>
-    sortByUpdatedAtDesc(initialData.drains),
+  const [pipes, setPipes] = useState(() =>
+    sortByUpdatedAtDesc(initialData.pipes),
   );
   const [currentSourceId, setCurrentSourceId] = useState(initialSourceId);
-  const [currentDrainId, setCurrentDrainId] = useState(initialDrainId);
+  const [currentPipeId, setCurrentPipeId] = useState(initialPipeId);
   const [creatingSource, setCreatingSource] = useState(
     mode === "source" && isCreating,
   );
-  const [creatingDrain, setCreatingDrain] = useState(
-    mode === "drain" && isCreating,
+  const [creatingPipe, setCreatingPipe] = useState(
+    mode === "pipe" && isCreating,
   );
   const [selectedSourceEventId, setSelectedSourceEventId] = useState<
     null | string
@@ -197,22 +481,23 @@ export function ProjectSourceDetailPageView({
   );
   const [sourceError, setSourceError] = useState<null | string>(null);
   const [sourcePending, setSourcePending] = useState(false);
-  const [drainNameDraft, setDrainNameDraft] = useState("");
-  const [drainSourceIdDraft, setDrainSourceIdDraft] = useState("");
-  const [drainTableIdDraft, setDrainTableIdDraft] = useState("");
-  const [drainMappingsDraft, setDrainMappingsDraft] = useState<
-    DrainMappingDraft[]
-  >([
-    createDrainMappingDraft(),
-  ]);
-  const [drainError, setDrainError] = useState<null | string>(null);
-  const [drainPending, setDrainPending] = useState(false);
+  const [pipeNameDraft, setPipeNameDraft] = useState("");
+  const [pipeSourceIdDraft, setPipeSourceIdDraft] = useState("");
+  const [pipeTableIdDraft, setPipeTableIdDraft] = useState("");
+  const [pipeMappingsDraft, setPipeMappingsDraft] = useState<
+    PipeMappingDraft[]
+  >([]);
+  const [pipeError, setPipeError] = useState<null | string>(null);
+  const [pipePending, setPipePending] = useState(false);
 
   const selectedSource = currentSourceId
     ? (sources.find((source) => source.id === currentSourceId) ?? null)
     : null;
-  const selectedDrain = currentDrainId
-    ? (drains.find((drain) => drain.id === currentDrainId) ?? null)
+  const selectedPipe = currentPipeId
+    ? (pipes.find((pipe) => pipe.id === currentPipeId) ?? null)
+    : null;
+  const selectedPipeSource = pipeSourceIdDraft
+    ? (sources.find((source) => source.id === pipeSourceIdDraft) ?? null)
     : null;
   const selectedSourceEvents = useMemo(
     () =>
@@ -240,19 +525,128 @@ export function ProjectSourceDetailPageView({
       initialData.project.tables,
     ],
   );
-  const availableDrainColumns = useMemo(
+  const availablePipeColumns = useMemo(
     () =>
       initialData.inputColumns.filter(
-        (column) => column.table_id === drainTableIdDraft,
+        (column) => column.table_id === pipeTableIdDraft,
       ),
     [
-      drainTableIdDraft,
+      pipeTableIdDraft,
       initialData.inputColumns,
     ],
   );
+  const latestPipeSourceEvent = useMemo(
+    () =>
+      sortByCreatedAtDesc(
+        sourceEvents.filter(
+          (event) =>
+            event.source_id === pipeSourceIdDraft &&
+            event.parse_error === null &&
+            event.parsed_payload !== null,
+        ),
+      )[0] ?? null,
+    [
+      pipeSourceIdDraft,
+      sourceEvents,
+    ],
+  );
+  const latestPipeParsedPayload = latestPipeSourceEvent?.parsed_payload ?? null;
+  const pipeSchemaPathCandidates = useMemo(
+    () =>
+      collectPipePathCandidatesFromSchema(
+        selectedPipeSource?.payload_schema,
+      ).slice(0, 200),
+    [
+      selectedPipeSource?.payload_schema,
+    ],
+  );
+  const latestPipeEventPathCandidates = useMemo(
+    () =>
+      latestPipeParsedPayload === null
+        ? []
+        : collectPipePathCandidates(latestPipeParsedPayload).slice(0, 200),
+    [
+      latestPipeParsedPayload,
+    ],
+  );
+  const pipeSchemaHasConcreteFields = pipeSchemaPathCandidates.some(
+    (candidate) => candidate.path !== "$",
+  );
+  const pipePathCandidates = useMemo(() => {
+    const baseCandidates =
+      pipeSchemaHasConcreteFields || latestPipeEventPathCandidates.length === 0
+        ? pipeSchemaPathCandidates
+        : latestPipeEventPathCandidates;
+
+    if (latestPipeParsedPayload === null) {
+      return baseCandidates;
+    }
+
+    return baseCandidates.map((candidate) => {
+      const previewValue = resolveGeneratedJsonPath(
+        latestPipeParsedPayload,
+        candidate.path,
+      );
+
+      return {
+        ...candidate,
+        preview:
+          previewValue === undefined
+            ? candidate.preview
+            : formatPipeCandidatePreview(previewValue),
+      };
+    });
+  }, [
+    latestPipeEventPathCandidates,
+    latestPipeParsedPayload,
+    pipeSchemaHasConcreteFields,
+    pipeSchemaPathCandidates,
+  ]);
+  const pipePathCandidateByNormalizedKey = useMemo(() => {
+    const candidateByKey = new Map<string, PipePathCandidate>();
+
+    for (const candidate of pipePathCandidates) {
+      const normalizedKey = normalizePipeFieldName(candidate.key);
+
+      if (normalizedKey.length === 0 || candidateByKey.has(normalizedKey)) {
+        continue;
+      }
+
+      candidateByKey.set(normalizedKey, candidate);
+    }
+
+    return candidateByKey;
+  }, [
+    pipePathCandidates,
+  ]);
+  const pipePathSuggestionOptions = useMemo(
+    () =>
+      pipePathCandidates.map((candidate) => ({
+        label: `${candidate.path} · ${candidate.preview}`,
+        value: candidate.path,
+      })),
+    [
+      pipePathCandidates,
+    ],
+  );
+  const pipeMappingByColumnId = useMemo(
+    () =>
+      new Map(
+        pipeMappingsDraft.map((mapping) => [
+          mapping.columnId,
+          mapping,
+        ]),
+      ),
+    [
+      pipeMappingsDraft,
+    ],
+  );
+  const configuredPipeColumnCount = pipeMappingsDraft.filter(
+    (mapping) => mapping.jsonPath.trim().length > 0,
+  ).length;
   const firstSourceId = sources[0]?.id ?? "";
   const firstTableId = tableOptions[0]?.id ?? "";
-  const drainCreateDisabled =
+  const pipeCreateDisabled =
     sources.length === 0 ||
     tableOptions.length === 0 ||
     initialData.inputColumns.length === 0;
@@ -294,55 +688,137 @@ export function ProjectSourceDetailPageView({
   ]);
 
   useEffect(() => {
-    if (mode !== "drain") {
+    if (mode !== "pipe") {
       return;
     }
 
-    if (creatingDrain) {
-      setDrainNameDraft("");
-      setDrainSourceIdDraft(firstSourceId);
-      setDrainTableIdDraft(firstTableId);
-      setDrainMappingsDraft([
-        createDrainMappingDraft(),
-      ]);
-      setDrainError(null);
+    if (creatingPipe) {
+      setPipeNameDraft("");
+      setPipeSourceIdDraft(firstSourceId);
+      setPipeTableIdDraft(firstTableId);
+      setPipeMappingsDraft([]);
+      setPipeError(null);
       return;
     }
 
-    if (!selectedDrain) {
+    if (!selectedPipe) {
       return;
     }
 
-    setDrainNameDraft(selectedDrain.name);
-    setDrainSourceIdDraft(selectedDrain.source_id);
-    setDrainTableIdDraft(selectedDrain.table_id);
-    setDrainMappingsDraft(
-      normalizeDrainMappings(selectedDrain.mappings).map((mapping) =>
-        createDrainMappingDraft(mapping),
+    setPipeNameDraft(selectedPipe.name);
+    setPipeSourceIdDraft(selectedPipe.source_id);
+    setPipeTableIdDraft(selectedPipe.table_id);
+    setPipeMappingsDraft(
+      normalizePipeMappings(selectedPipe.mappings).map((mapping) =>
+        createPipeMappingDraft(mapping),
       ),
     );
-    setDrainError(null);
+    setPipeError(null);
   }, [
-    creatingDrain,
+    creatingPipe,
     firstSourceId,
     firstTableId,
     mode,
-    selectedDrain,
+    selectedPipe,
   ]);
 
-  const updateDrainMapping = (
-    draftId: string,
-    patch: Partial<DrainMappingInput>,
+  const updatePipeMapping = (
+    columnId: string,
+    patch: Partial<PipeMappingInput>,
   ) => {
-    setDrainMappingsDraft((current) =>
-      current.map((mapping) =>
-        mapping.draftId === draftId
-          ? {
-              ...mapping,
+    setPipeMappingsDraft((current) =>
+      current.some((mapping) => mapping.columnId === columnId)
+        ? current.map((mapping) =>
+            mapping.columnId === columnId
+              ? {
+                  ...mapping,
+                  ...patch,
+                }
+              : mapping,
+          )
+        : [
+            ...current,
+            createPipeMappingDraft({
+              columnId,
               ...patch,
-            }
-          : mapping,
-      ),
+            }),
+          ],
+    );
+  };
+
+  const togglePipeMapping = (columnId: string) => {
+    setPipeMappingsDraft((current) =>
+      current.some((mapping) => mapping.columnId === columnId)
+        ? current.filter((mapping) => mapping.columnId !== columnId)
+        : [
+            ...current,
+            createPipeMappingDraft({
+              columnId,
+            }),
+          ],
+    );
+  };
+
+  const handleAutoMapPipeColumns = () => {
+    if (pipePathCandidates.length === 0) {
+      setPipeError(
+        "Auto-map needs source schema fields or a cached valid parsed event.",
+      );
+      return;
+    }
+
+    let matchedColumnCount = 0;
+
+    setPipeMappingsDraft((current) => {
+      const nextByColumnId = new Map(
+        current.map((mapping) => [
+          mapping.columnId,
+          mapping,
+        ]),
+      );
+
+      for (const column of availablePipeColumns) {
+        const candidate = pipePathCandidateByNormalizedKey.get(
+          normalizePipeFieldName(column.name),
+        );
+
+        if (!candidate) {
+          continue;
+        }
+
+        const existing = nextByColumnId.get(column.id);
+        if (existing?.jsonPath.trim().length) {
+          continue;
+        }
+
+        matchedColumnCount += 1;
+        nextByColumnId.set(
+          column.id,
+          createPipeMappingDraft({
+            columnId: column.id,
+            jsonPath: candidate.path,
+          }),
+        );
+      }
+
+      const orderByColumnId = new Map(
+        availablePipeColumns.map((column, index) => [
+          column.id,
+          index,
+        ]),
+      );
+
+      return Array.from(nextByColumnId.values()).sort(
+        (left, right) =>
+          (orderByColumnId.get(left.columnId) ?? Number.MAX_SAFE_INTEGER) -
+          (orderByColumnId.get(right.columnId) ?? Number.MAX_SAFE_INTEGER),
+      );
+    });
+
+    setPipeError(
+      matchedColumnCount === 0
+        ? "No input columns matched the available JSONPath suggestions by name."
+        : null,
     );
   };
 
@@ -424,8 +900,8 @@ export function ProjectSourceDetailPageView({
       setSources((current) =>
         current.filter((source) => source.id !== selectedSource.id),
       );
-      setDrains((current) =>
-        current.filter((drain) => drain.source_id !== selectedSource.id),
+      setPipes((current) =>
+        current.filter((pipe) => pipe.source_id !== selectedSource.id),
       );
       setSourceEvents((current) =>
         current.filter((event) => event.source_id !== selectedSource.id),
@@ -439,8 +915,8 @@ export function ProjectSourceDetailPageView({
     }
   };
 
-  const handleSaveDrain = async () => {
-    const mappings = drainMappingsDraft
+  const handleSavePipe = async () => {
+    const mappings = pipeMappingsDraft
       .filter(
         (mapping) =>
           mapping.columnId.trim().length > 0 &&
@@ -451,121 +927,131 @@ export function ProjectSourceDetailPageView({
         jsonPath,
       }));
 
-    if (!drainSourceIdDraft) {
-      setDrainError("Choose a source.");
+    if (!pipeSourceIdDraft) {
+      setPipeError("Choose a source.");
       return;
     }
 
-    if (!drainTableIdDraft) {
-      setDrainError("Choose a table.");
+    if (!pipeTableIdDraft) {
+      setPipeError("Choose a table.");
       return;
     }
 
     if (mappings.length === 0) {
-      setDrainError("Add at least one source-to-column mapping.");
+      setPipeError("Add at least one source-to-column mapping.");
       return;
     }
 
-    setDrainPending(true);
-    setDrainError(null);
+    setPipePending(true);
+    setPipeError(null);
 
     try {
-      if (creatingDrain) {
-        const created = await actions.createDrainAction(projectId, {
+      if (creatingPipe) {
+        const created = await actions.createPipeAction(projectId, {
           mappings,
-          name: drainNameDraft.trim() || undefined,
-          sourceId: drainSourceIdDraft,
-          tableId: drainTableIdDraft,
+          name: pipeNameDraft.trim() || undefined,
+          sourceId: pipeSourceIdDraft,
+          tableId: pipeTableIdDraft,
         });
 
-        setDrains((current) =>
+        setPipes((current) =>
           sortByUpdatedAtDesc([
             created,
             ...current,
           ]),
         );
-        setCreatingDrain(false);
-        setCurrentDrainId(created.id);
-        router.replace(buildDrainDetailHref(projectId, created.id));
-        marbleToast.success("Drain created");
+        setCreatingPipe(false);
+        setCurrentPipeId(created.id);
+        router.replace(buildPipeDetailHref(projectId, created.id));
+        marbleToast.success("Pipe created");
         return;
       }
 
-      if (!selectedDrain) {
-        throw new Error("Select a drain before saving.");
+      if (!selectedPipe) {
+        throw new Error("Select a pipe before saving.");
       }
 
-      const updated = await actions.updateDrainAction(
+      const updated = await actions.updatePipeAction(
         projectId,
-        selectedDrain.id,
+        selectedPipe.id,
         {
           mappings,
-          name: drainNameDraft.trim() || undefined,
-          sourceId: drainSourceIdDraft,
-          tableId: drainTableIdDraft,
+          name: pipeNameDraft.trim() || undefined,
+          sourceId: pipeSourceIdDraft,
+          tableId: pipeTableIdDraft,
         },
       );
 
-      setDrains((current) =>
+      setPipes((current) =>
         sortByUpdatedAtDesc(
-          current.map((drain) => (drain.id === updated.id ? updated : drain)),
+          current.map((pipe) => (pipe.id === updated.id ? updated : pipe)),
         ),
       );
-      marbleToast.success("Drain updated");
+      marbleToast.success("Pipe updated");
     } catch (error) {
-      setDrainError(error instanceof Error ? error.message : String(error));
+      setPipeError(error instanceof Error ? error.message : String(error));
     } finally {
-      setDrainPending(false);
+      setPipePending(false);
     }
   };
 
-  const handleDeleteDrain = async () => {
-    if (!selectedDrain || drainPending) {
+  const handleDeletePipe = async () => {
+    if (!selectedPipe || pipePending) {
       return;
     }
 
-    if (!window.confirm(`Delete drain "${drainTitle(selectedDrain)}"?`)) {
+    if (!window.confirm(`Delete pipe "${pipeTitle(selectedPipe)}"?`)) {
       return;
     }
 
-    setDrainPending(true);
-    setDrainError(null);
+    setPipePending(true);
+    setPipeError(null);
 
     try {
-      await actions.deleteDrainAction(projectId, selectedDrain.id);
-      setDrains((current) =>
-        current.filter((drain) => drain.id !== selectedDrain.id),
+      await actions.deletePipeAction(projectId, selectedPipe.id);
+      setPipes((current) =>
+        current.filter((pipe) => pipe.id !== selectedPipe.id),
       );
       router.push(`/projects/${projectId}`);
-      marbleToast.success("Drain deleted");
+      marbleToast.success("Pipe deleted");
     } catch (error) {
-      setDrainError(error instanceof Error ? error.message : String(error));
+      setPipeError(error instanceof Error ? error.message : String(error));
     } finally {
-      setDrainPending(false);
+      setPipePending(false);
     }
   };
 
   const sourcePageTitle = creatingSource
     ? "New source"
     : sourceTitle(selectedSource);
-  const drainPageTitle = creatingDrain
-    ? "New drain"
-    : drainTitle(selectedDrain);
-  const pageTitle = mode === "source" ? sourcePageTitle : drainPageTitle;
+  const pipePageTitle = creatingPipe ? "New pipe" : pipeTitle(selectedPipe);
+  const pageTitle = mode === "source" ? sourcePageTitle : pipePageTitle;
   const paneTargetKey =
     mode === "source"
       ? creatingSource || !selectedSource
         ? changeTargetKey.project(projectId)
         : changeTargetKey.source(selectedSource.id)
-      : creatingDrain || !selectedDrain
+      : creatingPipe || !selectedPipe
         ? changeTargetKey.project(projectId)
-        : changeTargetKey.drain(selectedDrain.id);
-  const drainSourceLabel =
-    sources.find((source) => source.id === drainSourceIdDraft)?.name ??
+        : changeTargetKey.pipe(selectedPipe.id);
+  const pipeSourceLabel =
+    sources.find((source) => source.id === pipeSourceIdDraft)?.name ??
     "Choose source";
-  const drainTableLabel =
-    tableOptions.find((table) => table.id === drainTableIdDraft)?.label ??
+  const pipeTableLabel =
+    tableOptions.find((table) => table.id === pipeTableIdDraft)?.label ??
     "Choose table";
+  const latestPipeSourceEventLabel = latestPipeSourceEvent
+    ? DATE_TIME_FORMATTER.format(new Date(latestPipeSourceEvent.created_at))
+    : null;
+  const pipeSuggestionSummary = pipeSchemaHasConcreteFields
+    ? latestPipeSourceEventLabel
+      ? `Suggestions from source schema · Previewed with valid event ${latestPipeSourceEventLabel}`
+      : "Suggestions from source schema"
+    : latestPipeSourceEventLabel
+      ? `Schema has no concrete fields yet · Falling back to valid event ${latestPipeSourceEventLabel}`
+      : pipeSchemaPathCandidates.length > 0
+        ? "Schema is broad, so field suggestions unlock after a valid parsed event lands"
+        : "Add source schema fields or cache a valid parsed event to unlock suggestions";
 
   return (
     <MarblePane
@@ -612,12 +1098,12 @@ export function ProjectSourceDetailPageView({
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
-              <span>{drainSourceLabel}</span>
+              <span>{pipeSourceLabel}</span>
               <span>{"->"}</span>
-              <span>{drainTableLabel}</span>
-              {!creatingDrain && selectedDrain ? (
+              <span>{pipeTableLabel}</span>
+              {!creatingPipe && selectedPipe ? (
                 <span className="font-mono text-xs text-zinc-400">
-                  {selectedDrain.id}
+                  {selectedPipe.id}
                 </span>
               ) : null}
             </div>
@@ -842,31 +1328,31 @@ export function ProjectSourceDetailPageView({
             >
               <MarbleCardHeader
                 actions={
-                  creatingDrain
+                  creatingPipe
                     ? undefined
                     : [
                         {
-                          children: "New drain",
+                          children: "New pipe",
                           onClick: () =>
-                            router.push(buildDrainCreateHref(projectId)),
+                            router.push(buildPipeCreateHref(projectId)),
                           variant: "light",
                         },
                       ]
                 }
               >
-                <MarbleCardTitle>Drain settings</MarbleCardTitle>
+                <MarbleCardTitle>Pipe settings</MarbleCardTitle>
               </MarbleCardHeader>
               <MarbleCardContent className="space-y-4">
-                {drainError ? (
-                  <MarbleAlert tone="error">{drainError}</MarbleAlert>
+                {pipeError ? (
+                  <MarbleAlert tone="error">{pipeError}</MarbleAlert>
                 ) : null}
 
                 <div className="space-y-1.5">
                   <MarbleFieldLabel>Name</MarbleFieldLabel>
                   <MarbleInput
-                    onChange={(event) => setDrainNameDraft(event.target.value)}
-                    placeholder="Untitled Drain"
-                    value={drainNameDraft}
+                    onChange={(event) => setPipeNameDraft(event.target.value)}
+                    placeholder="Untitled Pipe"
+                    value={pipeNameDraft}
                     wrapperClassName="w-full"
                   />
                 </div>
@@ -876,9 +1362,9 @@ export function ProjectSourceDetailPageView({
                     <MarbleFieldLabel>Source</MarbleFieldLabel>
                     <MarbleSelect
                       onChange={(event) =>
-                        setDrainSourceIdDraft(event.target.value)
+                        setPipeSourceIdDraft(event.target.value)
                       }
-                      value={drainSourceIdDraft}
+                      value={pipeSourceIdDraft}
                       wrapperClassName="w-full"
                     >
                       <option value="">Choose source</option>
@@ -897,15 +1383,10 @@ export function ProjectSourceDetailPageView({
                     <MarbleFieldLabel>Table</MarbleFieldLabel>
                     <MarbleSelect
                       onChange={(event) => {
-                        setDrainTableIdDraft(event.target.value);
-                        setDrainMappingsDraft((current) =>
-                          current.map((mapping) => ({
-                            ...mapping,
-                            columnId: "",
-                          })),
-                        );
+                        setPipeTableIdDraft(event.target.value);
+                        setPipeMappingsDraft([]);
                       }}
-                      value={drainTableIdDraft}
+                      value={pipeTableIdDraft}
                       wrapperClassName="w-full"
                     >
                       <option value="">Choose table</option>
@@ -922,110 +1403,148 @@ export function ProjectSourceDetailPageView({
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-medium text-sm text-zinc-900">
-                      Column mappings
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="font-medium text-sm text-zinc-900">
+                        Table input columns
+                      </div>
+                      <div className="text-xs text-zinc-500">
+                        {configuredPipeColumnCount} of{" "}
+                        {availablePipeColumns.length} columns mapped
+                        {` · ${pipeSuggestionSummary}`}
+                      </div>
                     </div>
-                    <MarbleButton
-                      onClick={() =>
-                        setDrainMappingsDraft((current) => [
-                          ...current,
-                          createDrainMappingDraft(),
-                        ])
-                      }
-                      size="xs"
-                      variant="light"
-                    >
-                      Add mapping
-                    </MarbleButton>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <MarbleButton
+                        disabled={
+                          pipePathCandidates.length === 0 ||
+                          availablePipeColumns.length === 0
+                        }
+                        onClick={handleAutoMapPipeColumns}
+                        size="xs"
+                        variant="light"
+                      >
+                        Auto-map by name
+                      </MarbleButton>
+                      <MarbleButton
+                        disabled={pipeMappingsDraft.length === 0}
+                        onClick={() => setPipeMappingsDraft([])}
+                        size="xs"
+                        variant="light"
+                      >
+                        Clear mapped
+                      </MarbleButton>
+                    </div>
                   </div>
 
-                  {drainMappingsDraft.map((mapping) => (
-                    <div
-                      className="grid gap-3 rounded-xs border border-taupe-200 bg-white/60 p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
-                      key={mapping.draftId}
-                    >
-                      <div className="space-y-1.5">
-                        <MarbleFieldLabel>Input column</MarbleFieldLabel>
-                        <MarbleSelect
-                          onChange={(event) =>
-                            updateDrainMapping(mapping.draftId, {
-                              columnId: event.target.value,
-                            })
-                          }
-                          value={mapping.columnId}
-                          wrapperClassName="w-full"
-                        >
-                          <option value="">Choose column</option>
-                          {availableDrainColumns.map((column) => (
-                            <option
-                              key={column.id}
-                              value={column.id}
-                            >
-                              {column.table_name} / {column.name}
-                            </option>
-                          ))}
-                        </MarbleSelect>
-                      </div>
+                  {availablePipeColumns.length === 0 ? (
+                    <MarbleEmptyState
+                      description="Choose a table with input-eligible columns to configure this pipe."
+                      title="No input columns for this table"
+                    />
+                  ) : (
+                    <div className="overflow-hidden rounded-xs border border-taupe-200 bg-white/60">
+                      {availablePipeColumns.map((column) => {
+                        const mapping = pipeMappingByColumnId.get(column.id);
+                        const isMapped = mapping !== undefined;
+                        const hasJsonPath =
+                          mapping?.jsonPath.trim().length !== 0;
+                        const suggestedCandidate =
+                          pipePathCandidateByNormalizedKey.get(
+                            normalizePipeFieldName(column.name),
+                          );
 
-                      <div className="space-y-1.5">
-                        <MarbleFieldLabel>JSONPath</MarbleFieldLabel>
-                        <MarbleInput
-                          onChange={(event) =>
-                            updateDrainMapping(mapping.draftId, {
-                              jsonPath: event.target.value,
-                            })
-                          }
-                          placeholder="$.record.email"
-                          value={mapping.jsonPath}
-                          wrapperClassName="w-full"
-                        />
-                      </div>
+                        return (
+                          <div
+                            className="grid gap-3 border-b border-taupe-200 px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto]"
+                            key={column.id}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="truncate font-medium text-sm text-zinc-950">
+                                  {column.name}
+                                </div>
+                                {hasJsonPath ? (
+                                  <MarbleBadge tone="success">
+                                    Mapped
+                                  </MarbleBadge>
+                                ) : null}
+                              </div>
+                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                                <span className="font-mono text-[11px]">
+                                  {column.id}
+                                </span>
+                                {suggestedCandidate && !hasJsonPath ? (
+                                  <span>
+                                    Suggested {suggestedCandidate.path}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
 
-                      <div className="flex items-end">
-                        <MarbleButton
-                          disabled={drainMappingsDraft.length === 1}
-                          onClick={() =>
-                            setDrainMappingsDraft((current) =>
-                              current.filter(
-                                (candidate) =>
-                                  candidate.draftId !== mapping.draftId,
-                              ),
-                            )
-                          }
-                          size="xs"
-                          variant="red"
-                        >
-                          <TrashIcon size={12} />
-                        </MarbleButton>
-                      </div>
+                            <div className="space-y-1.5">
+                              <MarbleSearchSelect
+                                disabled={!isMapped}
+                                onChange={(event) =>
+                                  updatePipeMapping(column.id, {
+                                    jsonPath: event.target.value,
+                                  })
+                                }
+                                options={pipePathSuggestionOptions}
+                                placeholder={
+                                  suggestedCandidate?.path ?? "$.record.email"
+                                }
+                                value={mapping?.jsonPath ?? ""}
+                                wrapperClassName="w-full"
+                              />
+                              <div className="text-[11px] text-zinc-500">
+                                {!isMapped
+                                  ? "Not mapped."
+                                  : hasJsonPath
+                                    ? "This path will write into the column when the event payload resolves."
+                                    : "Type or pick a JSONPath for this column."}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center">
+                              <MarbleButton
+                                onClick={() => togglePipeMapping(column.id)}
+                                size="xs"
+                                variant={isMapped ? "dark" : "light"}
+                              >
+                                {isMapped ? "Mapped" : "Map"}
+                              </MarbleButton>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
+                  )}
                 </div>
 
                 <MarbleAlert tone="neutral">
-                  Drains only write into input-eligible cells, then start those
+                  Pipes only write into input-eligible cells, then start those
                   cells. Row-level follow-on work can wake up later through
                   column conditions.
                 </MarbleAlert>
 
                 <div className="flex flex-wrap items-center gap-2">
                   <MarbleButton
-                    disabled={drainPending || drainCreateDisabled}
-                    onClick={() => void handleSaveDrain()}
+                    disabled={pipePending || pipeCreateDisabled}
+                    onClick={() => void handleSavePipe()}
                     variant="dark"
                   >
-                    {drainPending
+                    {pipePending
                       ? "Saving"
-                      : creatingDrain
-                        ? "Create drain"
-                        : "Save drain"}
+                      : creatingPipe
+                        ? "Create pipe"
+                        : "Save pipe"}
                   </MarbleButton>
 
-                  {!creatingDrain ? (
+                  {!creatingPipe ? (
                     <MarbleButton
-                      disabled={drainPending || !selectedDrain}
-                      onClick={() => void handleDeleteDrain()}
+                      disabled={pipePending || !selectedPipe}
+                      onClick={() => void handleDeletePipe()}
                       variant="red"
                     >
                       Delete
@@ -1033,10 +1552,10 @@ export function ProjectSourceDetailPageView({
                   ) : null}
                 </div>
 
-                {drainCreateDisabled ? (
+                {pipeCreateDisabled ? (
                   <MarbleAlert tone="warning">
                     Create at least one source and one table with an
-                    input-eligible column before you add drains.
+                    input-eligible column before you add pipes.
                   </MarbleAlert>
                 ) : null}
               </MarbleCardContent>

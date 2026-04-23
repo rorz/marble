@@ -35,10 +35,6 @@ const RECORD_METADATA = {
     idKey: "dependencyId",
     label: "Column dependency",
   },
-  drain: {
-    idKey: "drainId",
-    label: "Drain",
-  },
   event: {
     idKey: "eventId",
     label: "Event",
@@ -46,6 +42,10 @@ const RECORD_METADATA = {
   key: {
     idKey: "keyId",
     label: "Key",
+  },
+  pipe: {
+    idKey: "pipeId",
+    label: "Pipe",
   },
   profile: {
     idKey: "profileId",

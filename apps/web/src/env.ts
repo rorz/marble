@@ -20,7 +20,7 @@ export const env = createEnv({
       .url()
       .default("http://localhost:3087")
       .optional(),
-    MARBLE_INGESTOR_URL: z.string().url().default("http://localhost:3088"),
+    MARBLE_INGESTOR_URL: z.string().url(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
     SUPABASE_URL: z.string().url(),
   },

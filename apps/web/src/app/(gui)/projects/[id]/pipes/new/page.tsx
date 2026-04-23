@@ -3,7 +3,7 @@ import { requireUser } from "../../../../../../lib/auth";
 import { getProjectSourceWorkspaceData } from "../../../../../../lib/source-data";
 import { ProjectSourceDetailPageView } from "../../sources/view";
 
-export default async function NewProjectDrainPage(props: {
+export default async function NewProjectPipePage(props: {
   params: Promise<{
     id: string;
   }>;
@@ -20,7 +20,7 @@ export default async function NewProjectDrainPage(props: {
     <ProjectSourceDetailPageView
       initialData={data}
       isCreating
-      mode="drain"
+      mode="pipe"
     />
   );
 }
