@@ -10,7 +10,7 @@ WITH
 
 -- Create a system profile to own the seeded data
 system_profile AS (
-  INSERT INTO "profile" (type, name, external_name, icon, owner_user_id)
+  INSERT INTO public."profile" (type, name, external_name, icon, owner_user_id)
   VALUES ('Agent', 'System Agent', 'system', '🤖', '00000000-0000-0000-0000-000000000000')
   RETURNING id
 ),
@@ -19,17 +19,17 @@ system_profile AS (
 
 -- Formula
 inserted_program_formula AS (
-  INSERT INTO "program" (owner_profile_id, name, first_party)
+  INSERT INTO public."program" (owner_profile_id, name, first_party)
   SELECT id, 'Formula', true FROM system_profile
   RETURNING id
 ),
 inserted_version_formula AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  INSERT INTO public."program_version" (program_id, "version", input_schema, output_config, published_at)
   SELECT id, 1, '{"type":"object","properties":{"formula":{"type":"string","title":"Formula"}},"required":["formula"]}', '{"schema":{"type":"string","description":"Computed formula result"}}', NOW() FROM inserted_program_formula
   RETURNING id
 ),
 inserted_file_formula_0 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'input-schema.json', 'Json', '{
   "type": "object",
   "properties": {
@@ -44,7 +44,7 @@ inserted_file_formula_0 AS (
   RETURNING id
 ),
 inserted_file_formula_1 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'main.ts', 'TypeScript', 'export default ({ input }) => {
   const raw = input.formula;
 
@@ -67,7 +67,7 @@ inserted_file_formula_1 AS (
   RETURNING id
 ),
 inserted_file_formula_2 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'output-config.json', 'Json', '{
   "schema": {
     "type": "string",
@@ -78,7 +78,7 @@ inserted_file_formula_2 AS (
   RETURNING id
 ),
 inserted_file_formula_3 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'package.json', 'Json', '{
   "name": "Formula"
 }'
@@ -88,17 +88,17 @@ inserted_file_formula_3 AS (
 
 -- API Request
 inserted_program_http_request AS (
-  INSERT INTO "program" (owner_profile_id, name, first_party)
+  INSERT INTO public."program" (owner_profile_id, name, first_party)
   SELECT id, 'API Request', true FROM system_profile
   RETURNING id
 ),
 inserted_version_http_request AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  INSERT INTO public."program_version" (program_id, "version", input_schema, output_config, published_at)
   SELECT id, 1, '{"type":"object","properties":{"method":{"type":"string","enum":["GET","POST","PUT","DELETE"],"default":"GET"},"url":{"type":"string","format":"uri","title":"Endpoint URL"},"headers":{"type":"object","additionalProperties":{"type":"string"},"title":"Headers (JSON)"},"payload":{"type":"object","additionalProperties":true,"title":"Body / Payload"}},"required":["method","url"]}', '{"flags":{"allowInference":true},"schema":{"type":"object","additionalProperties":true,"description":"Generic HTTP response payload (unknown shape)"}}', NOW() FROM inserted_program_http_request
   RETURNING id
 ),
 inserted_file_http_request_0 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'input-schema.json', 'Json', '{
   "type": "object",
   "properties": {
@@ -129,7 +129,7 @@ inserted_file_http_request_0 AS (
   RETURNING id
 ),
 inserted_file_http_request_1 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'main.ts', 'TypeScript', 'export default async ({ input }) => {
   const options = {
     method: input.method,
@@ -169,7 +169,7 @@ inserted_file_http_request_1 AS (
   RETURNING id
 ),
 inserted_file_http_request_2 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'output-config.json', 'Json', '{
   "flags": {
     "allowInference": true
@@ -184,7 +184,7 @@ inserted_file_http_request_2 AS (
   RETURNING id
 ),
 inserted_file_http_request_3 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'package.json', 'Json', '{
   "name": "API Request"
 }'
@@ -194,17 +194,17 @@ inserted_file_http_request_3 AS (
 
 -- Execute SQL
 inserted_program_sql_query AS (
-  INSERT INTO "program" (owner_profile_id, name, first_party)
+  INSERT INTO public."program" (owner_profile_id, name, first_party)
   SELECT id, 'Execute SQL', true FROM system_profile
   RETURNING id
 ),
 inserted_version_sql_query AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  INSERT INTO public."program_version" (program_id, "version", input_schema, output_config, published_at)
   SELECT id, 1, '{"type":"object","properties":{"connection":{"type":"object","properties":{"dialect":{"type":"string","enum":["Postgres","MySQL"]},"return_mode":{"type":"string","enum":["Rows","Count"]}}},"query":{"type":"string","title":"SQL Query"}},"required":["connection","query"]}', '{"flags":{"allowInference":true},"schema":{"type":"array","items":{"type":"object"},"description":"Query result rows"},"overloads":[{"match":{"connection.return_mode":"Count"},"schema":{"type":"number","description":"The total number of matching rows"}}]}', NOW() FROM inserted_program_sql_query
   RETURNING id
 ),
 inserted_file_sql_query_0 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'input-schema.json', 'Json', '{
   "type": "object",
   "properties": {
@@ -232,7 +232,7 @@ inserted_file_sql_query_0 AS (
   RETURNING id
 ),
 inserted_file_sql_query_1 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'main.ts', 'TypeScript', 'export default async ({ input }) => {
   throw new Error(
     `SQL execution for ${input.connection.dialect} is not yet implemented`,
@@ -242,7 +242,7 @@ inserted_file_sql_query_1 AS (
   RETURNING id
 ),
 inserted_file_sql_query_2 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'output-config.json', 'Json', '{
   "flags": {
     "allowInference": true
@@ -266,7 +266,7 @@ inserted_file_sql_query_2 AS (
   RETURNING id
 ),
 inserted_file_sql_query_3 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'package.json', 'Json', '{
   "name": "Execute SQL"
 }'
@@ -276,17 +276,17 @@ inserted_file_sql_query_3 AS (
 
 -- Uppercase String
 inserted_program_uppercase_string AS (
-  INSERT INTO "program" (owner_profile_id, name, first_party)
+  INSERT INTO public."program" (owner_profile_id, name, first_party)
   SELECT id, 'Uppercase String', true FROM system_profile
   RETURNING id
 ),
 inserted_version_uppercase_string AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  INSERT INTO public."program_version" (program_id, "version", input_schema, output_config, published_at)
   SELECT id, 1, '{"type":"object","properties":{"text_to_format":{"type":"string","title":"Text","description":"The string you want to capitalize"}},"required":["text_to_format"]}', '{"flags":{},"schema":{"type":"string","description":"The capitalized string"}}', NOW() FROM inserted_program_uppercase_string
   RETURNING id
 ),
 inserted_file_uppercase_string_0 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'input-schema.json', 'Json', '{
   "type": "object",
   "properties": {
@@ -302,13 +302,13 @@ inserted_file_uppercase_string_0 AS (
   RETURNING id
 ),
 inserted_file_uppercase_string_1 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'main.ts', 'TypeScript', 'export default ({ input }) => input.text_to_format.toUpperCase();'
   FROM system_profile p, inserted_version_uppercase_string v
   RETURNING id
 ),
 inserted_file_uppercase_string_2 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'output-config.json', 'Json', '{
   "flags": {},
   "schema": {
@@ -320,7 +320,7 @@ inserted_file_uppercase_string_2 AS (
   RETURNING id
 ),
 inserted_file_uppercase_string_3 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'package.json', 'Json', '{
   "name": "Uppercase String"
 }'
@@ -330,17 +330,17 @@ inserted_file_uppercase_string_3 AS (
 
 -- User Input
 inserted_program_user_input AS (
-  INSERT INTO "program" (owner_profile_id, name, first_party)
+  INSERT INTO public."program" (owner_profile_id, name, first_party)
   SELECT id, 'User Input', true FROM system_profile
   RETURNING id
 ),
 inserted_version_user_input AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  INSERT INTO public."program_version" (program_id, "version", input_schema, output_config, published_at)
   SELECT id, 1, '{"type":"object","properties":{"format":{"type":"string","enum":["string","number","boolean"],"title":"Column Type","default":"string"}},"required":["format"]}', '{"flags":{"allowManualInput":true},"schema":{"type":"string","description":"Standard text value"},"overloads":[{"match":{"format":"number"},"schema":{"type":"number"}},{"match":{"format":"boolean"},"schema":{"type":"boolean"}}]}', NOW() FROM inserted_program_user_input
   RETURNING id
 ),
 inserted_file_user_input_0 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'input-schema.json', 'Json', '{
   "type": "object",
   "properties": {
@@ -357,7 +357,7 @@ inserted_file_user_input_0 AS (
   RETURNING id
 ),
 inserted_file_user_input_1 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'main.ts', 'TypeScript', 'export default ({ input, cell }) => {
   const raw = cell.manualInputValue;
 
@@ -374,7 +374,7 @@ inserted_file_user_input_1 AS (
   RETURNING id
 ),
 inserted_file_user_input_2 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'output-config.json', 'Json', '{
   "flags": {
     "allowManualInput": true
@@ -398,7 +398,7 @@ inserted_file_user_input_2 AS (
   RETURNING id
 ),
 inserted_file_user_input_3 AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, 'package.json', 'Json', '{
   "name": "User Input"
 }'
@@ -429,13 +429,13 @@ program_version_user_input AS (
 -- Demo project + table
 
 inserted_project AS (
-  INSERT INTO "project" (owner_profile_id, name, folder_path)
+  INSERT INTO public."project" (owner_profile_id, name, folder_path)
   SELECT id, 'Demo Project', '{}'::TEXT[] FROM system_profile
   RETURNING id
 ),
 
 inserted_table AS (
-  INSERT INTO "table" (project_id, name)
+  INSERT INTO public."table" (project_id, name)
   SELECT id, 'Demo Table' FROM inserted_project
   RETURNING id
 ),
@@ -443,7 +443,7 @@ inserted_table AS (
 -- Demo row
 
 inserted_row AS (
-  INSERT INTO "row" (table_id, "idx")
+  INSERT INTO public."row" (table_id, "idx")
   SELECT id, 0 FROM inserted_table
   RETURNING id
 ),
@@ -451,7 +451,7 @@ inserted_row AS (
 -- Demo columns: col 0 = user input, col 1 = uppercase transform
 
 inserted_col1 AS (
-  INSERT INTO "column" (table_id, name, "idx", program_version_id, input_template, output_schema)
+  INSERT INTO public."column" (table_id, name, "idx", program_version_id, input_template, output_schema)
   SELECT
     t.id,
     'Input',
@@ -464,7 +464,7 @@ inserted_col1 AS (
 ),
 
 inserted_col2 AS (
-  INSERT INTO "column" (table_id, name, "idx", program_version_id, input_template, output_schema)
+  INSERT INTO public."column" (table_id, name, "idx", program_version_id, input_template, output_schema)
   SELECT
     t.id,
     'Uppercased',
@@ -479,7 +479,7 @@ inserted_col2 AS (
 -- Dependency: col 1 (uppercase) depends on col 0 (user input)
 
 _dep AS (
-  INSERT INTO column_dependency (source_column_id, target_column_id)
+  INSERT INTO public."column_dependency" (source_column_id, target_column_id)
   SELECT c1.id, c2.id
   FROM inserted_col1 c1, inserted_col2 c2
 ),
@@ -487,13 +487,13 @@ _dep AS (
 -- Demo cells
 
 _cell1 AS (
-  INSERT INTO cell (column_id, row_id, manual_input)
+  INSERT INTO public."cell" (column_id, row_id, manual_input)
   SELECT c1.id, r.id, 'hello world'
   FROM inserted_col1 c1, inserted_row r
 ),
 
 _cell2 AS (
-  INSERT INTO cell (column_id, row_id)
+  INSERT INTO public."cell" (column_id, row_id)
   SELECT c2.id, r.id
   FROM inserted_col2 c2, inserted_row r
 )

@@ -152,7 +152,7 @@ const programInserts = programs
       .map(
         (file, index) => `
 inserted_file_${slug}_${index} AS (
-  INSERT INTO "program_file" (owner_profile_id, version_id, filename, filetype, content)
+  INSERT INTO public."program_file" (owner_profile_id, version_id, filename, filetype, content)
   SELECT p.id, v.id, '${file.filename}', '${file.filetype}', '${sqlEscape(file.content)}'
   FROM system_profile p, inserted_version_${slug} v
   RETURNING id
@@ -163,12 +163,12 @@ inserted_file_${slug}_${index} AS (
     return `
 -- ${program.name}
 inserted_program_${slug} AS (
-  INSERT INTO "program" (owner_profile_id, name, first_party)
+  INSERT INTO public."program" (owner_profile_id, name, first_party)
   SELECT id, '${sqlEscape(program.name)}', ${program.firstParty} FROM system_profile
   RETURNING id
 ),
 inserted_version_${slug} AS (
-  INSERT INTO "program_version" (program_id, "version", input_schema, output_config, published_at)
+  INSERT INTO public."program_version" (program_id, "version", input_schema, output_config, published_at)
   SELECT id, 1, '${sqlEscape(program.inputSchema)}', '${sqlEscape(program.outputConfig)}', NOW() FROM inserted_program_${slug}
   RETURNING id
 ),${fileInserts}`;
@@ -196,7 +196,7 @@ WITH
 
 -- Create a system profile to own the seeded data
 system_profile AS (
-  INSERT INTO "profile" (type, name, external_name, icon, owner_user_id)
+  INSERT INTO public."profile" (type, name, external_name, icon, owner_user_id)
   VALUES ('Agent', 'System Agent', 'system', '🤖', '00000000-0000-0000-0000-000000000000')
   RETURNING id
 ),
@@ -209,13 +209,13 @@ ${programVersionCtes},
 -- Demo project + table
 
 inserted_project AS (
-  INSERT INTO "project" (owner_profile_id, name, folder_path)
+  INSERT INTO public."project" (owner_profile_id, name, folder_path)
   SELECT id, 'Demo Project', '{}'::TEXT[] FROM system_profile
   RETURNING id
 ),
 
 inserted_table AS (
-  INSERT INTO "table" (project_id, name)
+  INSERT INTO public."table" (project_id, name)
   SELECT id, 'Demo Table' FROM inserted_project
   RETURNING id
 ),
@@ -223,7 +223,7 @@ inserted_table AS (
 -- Demo row
 
 inserted_row AS (
-  INSERT INTO "row" (table_id, "idx")
+  INSERT INTO public."row" (table_id, "idx")
   SELECT id, 0 FROM inserted_table
   RETURNING id
 ),
@@ -231,7 +231,7 @@ inserted_row AS (
 -- Demo columns: col 0 = user input, col 1 = uppercase transform
 
 inserted_col1 AS (
-  INSERT INTO "column" (table_id, name, "idx", program_version_id, input_template, output_schema)
+  INSERT INTO public."column" (table_id, name, "idx", program_version_id, input_template, output_schema)
   SELECT
     t.id,
     'Input',
@@ -244,7 +244,7 @@ inserted_col1 AS (
 ),
 
 inserted_col2 AS (
-  INSERT INTO "column" (table_id, name, "idx", program_version_id, input_template, output_schema)
+  INSERT INTO public."column" (table_id, name, "idx", program_version_id, input_template, output_schema)
   SELECT
     t.id,
     'Uppercased',
@@ -259,7 +259,7 @@ inserted_col2 AS (
 -- Dependency: col 1 (uppercase) depends on col 0 (user input)
 
 _dep AS (
-  INSERT INTO column_dependency (source_column_id, target_column_id)
+  INSERT INTO public."column_dependency" (source_column_id, target_column_id)
   SELECT c1.id, c2.id
   FROM inserted_col1 c1, inserted_col2 c2
 ),
@@ -267,13 +267,13 @@ _dep AS (
 -- Demo cells
 
 _cell1 AS (
-  INSERT INTO cell (column_id, row_id, manual_input)
+  INSERT INTO public."cell" (column_id, row_id, manual_input)
   SELECT c1.id, r.id, 'hello world'
   FROM inserted_col1 c1, inserted_row r
 ),
 
 _cell2 AS (
-  INSERT INTO cell (column_id, row_id)
+  INSERT INTO public."cell" (column_id, row_id)
   SELECT c2.id, r.id
   FROM inserted_col2 c2, inserted_row r
 )

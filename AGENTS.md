@@ -37,6 +37,18 @@ Our development stack:
 4. Start with larger files (ideally a single file) first, clearly demarcated and modularized within the file, instead of lots of modular files. This helps your human mentally grapple and contain the changes you are making before deciding how to modularize them.
 5. Use the web to research a topic or standard -- even if you think you know it well, such as (but not limited to): database or provider documentation; service best practices; package version numbers.
 
+## Database Workflow
+
+IMPORTANT!! You **must** read [Internal Database Guide](./docs/internal/database-guide.md) before making any database schema, migration, or seed changes.
+
+### Database Rules
+
+1. `supabase/migrations` is expected to converge back to a **single** committed schema file named `supabase/migrations/<timestamp>_squashed_schema.sql`. Do not leave behind a pile of incremental migration files.
+2. `supabase migration squash` is not sufficient by itself. The Supabase CLI rewrites the newest migration file by default, keeping whatever stale suffix it already had. You must rename the squashed result to `*_squashed_schema.sql` before you are done.
+3. Any change to schema SQL is also a seed compatibility change until proven otherwise. You must audit `supabase/generate-seed.ts` and regenerate `supabase/seed.sql` every time `supabase/migrations/*.sql` changes.
+4. Keep schema in the squashed migration and keep development data in `supabase/seed.sql`. Do not work around the single-file migration policy by introducing extra checked-in SQL files for routine schema evolution.
+5. Seed SQL should stay data-only and should not rely on incidental `search_path` behavior. Prefer explicit `public.` qualification for application tables.
+
 ## Shared UI Discipline
 
 > [!DANGER]
@@ -71,9 +83,9 @@ If you add or reshape a top-level resource, you are not done when the migration 
 1. Search the repo first.
    Run a repo-wide search for the old ownership model, route segment, resource name, landing page, and any nested-resource assumptions. Do not assume the only affected code is in `packages/api`.
 2. Update the database model fully.
-   Add the migration, backfill existing data, fix or replace RLS policies, update indexes, and regenerate any generated database types.
+   Update the squashed schema migration, fix or replace RLS policies, update indexes, and regenerate any generated database types. Do not leave incremental migration history checked in when you are done.
 3. Update seeds and reset flow.
-   Update `supabase/generate-seed.ts`, regenerate `supabase/seed.sql`, and if the schema changed enough to require a clean local reset, explicitly ask for permission before running `bun run dangerously-splat`.
+   Update `supabase/generate-seed.ts`, regenerate `supabase/seed.sql`, and treat that regeneration as mandatory after every schema SQL change even if you expect no diff. If the schema changed enough to require a clean local reset, explicitly ask for permission before running `bun run dangerously-splat`.
 4. Update resource registries.
    Audit `packages/core/src/api-resources.ts`, `packages/api/src/index.ts`, and `packages/api/src/data.ts` so the new resource is actually first-class everywhere IDs, labels, and route mounting are derived.
 5. Update API authorization explicitly.
@@ -92,6 +104,7 @@ If you add or reshape a top-level resource, you are not done when the migration 
     Never batch up broken work. If `bun check` fails, stop and fix the issue immediately.
 
 ### Minimum Files To Inspect For Resource Work
+- `docs/internal/database-guide.md`
 - `supabase/migrations/*`
 - `supabase/generate-seed.ts`
 - `supabase/seed.sql`
