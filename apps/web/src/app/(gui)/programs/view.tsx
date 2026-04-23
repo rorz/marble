@@ -46,6 +46,7 @@ import {
   MarbleWorkspaceMark,
   marbleToast,
 } from "@marble/ui";
+import { GitBranchIcon } from "@phosphor-icons/react";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -58,6 +59,13 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  ENVIRONMENT_VARIABLE_NAME_PATTERN,
+  type ProgramManifestSecretDeclaration,
+  type ProgramSecretConfig,
+  parseProgramManifestFileContent,
+  parseProgramSecretConfig,
+} from "../../../lib/program-manifest";
 import { changeTargetKey, getChangeTargetProps } from "../change-spotlight";
 import * as actions from "./actions";
 
@@ -81,6 +89,29 @@ type PendingChange = {
   label: string;
   summary: string;
   tag: string;
+};
+type SecretRecord = Awaited<
+  ReturnType<typeof actions.loadProgramsPageData>
+>["secrets"][number];
+type SecretBindingInput = Awaited<
+  ReturnType<typeof actions.updateProgramSecretBindings>
+>[number];
+type MissingSecretConfigurationDetail = {
+  missingSecrets: Array<{
+    bindingSource: "column" | "implicit" | "program";
+    description?: string;
+    envName: string;
+    label: string;
+    required: boolean;
+  }>;
+  sentinel?: string;
+};
+type EditableProgramSecretDeclaration = {
+  description: string;
+  env: string;
+  id: string;
+  label: string;
+  required: boolean;
 };
 
 const workbenchPanelHeightLimits = {
@@ -111,7 +142,10 @@ const workbenchPanelHeightLimits = {
 } as const;
 
 type ResizablePanelId = keyof typeof workbenchPanelHeightLimits;
-type RightWorkbenchPanelId = Exclude<ResizablePanelId, "versions">;
+type RightWorkbenchPanelId = Exclude<
+  ResizablePanelId,
+  "draftStack" | "versions"
+>;
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -151,7 +185,6 @@ const compactSidebarRowIdleClassName =
   "text-taupe-700 hover:bg-white/70 hover:text-taupe-950";
 const importAccept = ".ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.md,.markdown,.txt";
 const rightPanelDefaultHeights = {
-  draftStack: 252,
   inputSchema: 220,
   outputConfig: 220,
   secrets: 176,
@@ -248,6 +281,146 @@ function normalizeProgramVersionMutation(
     ...version,
     program_file: version.program_file ?? version.files ?? [],
   } satisfies ProgramVersionWithFiles;
+}
+
+function normalizeStoredProgramSecretConfig(secretConfig: unknown) {
+  try {
+    return parseProgramSecretConfig(secretConfig ?? []);
+  } catch {
+    return [] satisfies ProgramSecretConfig;
+  }
+}
+
+function createEditableProgramSecretDeclarations(secretConfig: unknown) {
+  return normalizeStoredProgramSecretConfig(secretConfig).map((secret) => ({
+    description: secret.description ?? "",
+    env: secret.env,
+    id: crypto.randomUUID(),
+    label: secret.label,
+    required: secret.required,
+  })) satisfies EditableProgramSecretDeclaration[];
+}
+
+function serializeEditableProgramSecretConfig(
+  secretConfigDraft: EditableProgramSecretDeclaration[],
+) {
+  return secretConfigDraft.map((secret) => {
+    const envName = secret.env.trim();
+
+    return {
+      ...(secret.description.trim().length > 0
+        ? {
+            description: secret.description.trim(),
+          }
+        : {}),
+      env: envName,
+      label: secret.label.trim().length > 0 ? secret.label.trim() : envName,
+      required: secret.required,
+    };
+  });
+}
+
+function getEditableProgramSecretConfigState(
+  secretConfigDraft: EditableProgramSecretDeclaration[],
+) {
+  try {
+    return {
+      declarations: parseProgramSecretConfig(
+        serializeEditableProgramSecretConfig(secretConfigDraft),
+      ),
+      error: null,
+    };
+  } catch (error) {
+    return {
+      declarations: [] as ProgramManifestSecretDeclaration[],
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function getProgramPackageManifestState(files: EditableProgramFile[]) {
+  const manifestFile = files.find((file) => file.filename === "package.json");
+
+  if (!manifestFile) {
+    return {
+      error: null,
+    };
+  }
+
+  try {
+    parseProgramManifestFileContent(manifestFile.content);
+
+    return {
+      error: null,
+    };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+function getProgramSecretConfigComparisonValue(secretConfig: unknown) {
+  return JSON.stringify(normalizeStoredProgramSecretConfig(secretConfig));
+}
+
+function getSuggestedSecretEnvironmentName(
+  secretConfigDraft: EditableProgramSecretDeclaration[],
+) {
+  const existingNames = new Set(
+    secretConfigDraft.map((secret) => secret.env.trim()).filter(Boolean),
+  );
+
+  if (!existingNames.has("API_KEY")) {
+    return "API_KEY";
+  }
+
+  let suffix = 2;
+
+  while (existingNames.has(`API_KEY_${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `API_KEY_${suffix}`;
+}
+
+function getSecretDeclarationIssuesById(
+  secretConfigDraft: EditableProgramSecretDeclaration[],
+) {
+  const envCounts = new Map<string, number>();
+
+  for (const secret of secretConfigDraft) {
+    const envName = secret.env.trim();
+
+    if (!envName) {
+      continue;
+    }
+
+    envCounts.set(envName, (envCounts.get(envName) ?? 0) + 1);
+  }
+
+  return Object.fromEntries(
+    secretConfigDraft.map((secret) => {
+      const envName = secret.env.trim();
+      const label = secret.label.trim();
+      let issue: string | null = null;
+
+      if (!envName) {
+        issue = "Environment variable is required.";
+      } else if (!ENVIRONMENT_VARIABLE_NAME_PATTERN.test(envName)) {
+        issue = "Environment variable names must be valid shell identifiers.";
+      } else if ((envCounts.get(envName) ?? 0) > 1) {
+        issue = `Duplicate secret declaration for '${envName}'.`;
+      } else if (!label) {
+        issue = "Label is required.";
+      }
+
+      return [
+        secret.id,
+        issue,
+      ];
+    }),
+  ) as Record<string, string | null>;
 }
 
 function getMonacoLanguage(file: EditableProgramFile): MonacoLanguage {
@@ -375,9 +548,11 @@ function buildPendingChanges({
   latestFileContentByName,
   latestInputSchemaStr,
   latestOutputConfigStr,
+  latestSecretConfigStr,
   outputConfigStr,
   programName,
   savedProgramName,
+  secretConfigStr,
 }: {
   files: EditableProgramFile[];
   inputSchemaStr: string;
@@ -385,9 +560,11 @@ function buildPendingChanges({
   latestFileContentByName: Map<string, string>;
   latestInputSchemaStr: string;
   latestOutputConfigStr: string;
+  latestSecretConfigStr: string;
   outputConfigStr: string;
   programName: string;
   savedProgramName: string;
+  secretConfigStr: string;
 }): PendingChange[] {
   const changes: PendingChange[] = [];
   const nextProgramName = programName.trim() || "Untitled Program";
@@ -422,6 +599,17 @@ function buildPendingChanges({
       summary:
         "Output mapping changes stay isolated from live columns until save.",
       tag: "Output",
+    });
+  }
+
+  if (secretConfigStr !== latestSecretConfigStr) {
+    changes.push({
+      badgeTone: "warning",
+      id: "secret-config",
+      label: "Updated secret requirements",
+      summary:
+        "Secret requirements travel with the draft version until you publish it.",
+      tag: "Secrets",
     });
   }
 
@@ -507,23 +695,169 @@ function getDefaultDraftOutputConfig() {
   );
 }
 
+function secretBindingEntriesToMap(bindings: SecretBindingInput[]) {
+  return Object.fromEntries(
+    bindings.map((binding) => [
+      binding.envName,
+      binding.secretId,
+    ]),
+  ) as Record<string, string>;
+}
+
+function secretBindingMapToEntries(bindings: Record<string, string>) {
+  return Object.entries(bindings)
+    .sort(([leftEnvName], [rightEnvName]) =>
+      leftEnvName.localeCompare(rightEnvName),
+    )
+    .map(([envName, secretId]) => ({
+      envName,
+      secretId,
+    })) satisfies SecretBindingInput[];
+}
+
+function getMissingSecretConfigurationDetail(
+  detail: unknown,
+): MissingSecretConfigurationDetail | null {
+  if (!detail || typeof detail !== "object") {
+    return null;
+  }
+
+  const detailRecord = detail as {
+    missingSecrets?: unknown;
+    sentinel?: unknown;
+  };
+
+  if (!Array.isArray(detailRecord.missingSecrets)) {
+    return null;
+  }
+
+  const missingSecrets = detailRecord.missingSecrets.flatMap((secret) => {
+    if (!secret || typeof secret !== "object") {
+      return [];
+    }
+
+    const secretRecord = secret as Record<string, unknown>;
+    const envName = secretRecord.envName;
+    const label = secretRecord.label;
+    const required = secretRecord.required;
+    const bindingSource = secretRecord.bindingSource;
+
+    if (
+      typeof envName !== "string" ||
+      typeof label !== "string" ||
+      typeof required !== "boolean" ||
+      (bindingSource !== "column" &&
+        bindingSource !== "implicit" &&
+        bindingSource !== "program")
+    ) {
+      return [];
+    }
+
+    return [
+      {
+        bindingSource: bindingSource as "column" | "implicit" | "program",
+        ...(typeof secretRecord.description === "string"
+          ? {
+              description: secretRecord.description,
+            }
+          : {}),
+        envName,
+        label,
+        required,
+      },
+    ];
+  });
+
+  if (missingSecrets.length === 0) {
+    return null;
+  }
+
+  return {
+    missingSecrets,
+    ...(typeof detailRecord.sentinel === "string"
+      ? {
+          sentinel: detailRecord.sentinel,
+        }
+      : {}),
+  };
+}
+
+function describeProgramSecretResolution(
+  declaration: ProgramManifestSecretDeclaration,
+  explicitSecretId: string | undefined,
+  secrets: SecretRecord[],
+) {
+  const explicitSecret =
+    explicitSecretId === undefined
+      ? null
+      : (secrets.find((secret) => secret.id === explicitSecretId) ?? null);
+  const implicitSecret =
+    secrets.find((secret) => secret.name === declaration.env) ?? null;
+
+  if (explicitSecretId !== undefined && explicitSecret === null) {
+    return {
+      badgeLabel: "Missing",
+      badgeTone: "warning" as const,
+      helperText: "This bound secret no longer exists.",
+      implicitSecret,
+    };
+  }
+
+  if (explicitSecret) {
+    return {
+      badgeLabel: "Default",
+      badgeTone: "info" as const,
+      helperText: `Uses ${explicitSecret.name} by default.`,
+      implicitSecret,
+    };
+  }
+
+  if (implicitSecret) {
+    return {
+      badgeLabel: "Auto",
+      badgeTone: "success" as const,
+      helperText: `Falls back to matching secret ${implicitSecret.name}.`,
+      implicitSecret,
+    };
+  }
+
+  return {
+    badgeLabel: declaration.required ? "Missing" : "Optional",
+    badgeTone: declaration.required
+      ? ("warning" as const)
+      : ("neutral" as const),
+    helperText: declaration.required
+      ? "Required before this program can run."
+      : "Optional secret.",
+    implicitSecret,
+  };
+}
+
 function VersionHistoryRow({
   active,
+  activeBadge,
+  onSelect,
   targetKey,
   version,
 }: Readonly<{
   active: boolean;
+  activeBadge?: string;
+  onSelect?: () => void;
   targetKey?: string;
   version: ProgramVersionRow & {
     program_file: ProgramFileRow[];
   };
 }>) {
   return (
-    <div
+    <button
       className={cx(
-        "border-b border-taupe-400/80 px-3 py-2 last:border-b-0",
-        active ? "bg-white/80" : "bg-transparent",
+        "w-full border-b border-taupe-400/80 px-3 py-2 text-left transition-colors last:border-b-0",
+        active
+          ? "bg-white/85 text-taupe-950"
+          : "bg-transparent text-taupe-800 hover:bg-white/60",
       )}
+      onClick={onSelect}
+      type="button"
       {...(targetKey ? getChangeTargetProps(targetKey) : {})}
     >
       <div className="flex items-center justify-between gap-2">
@@ -536,7 +870,7 @@ function VersionHistoryRow({
               caps
               tone="warning"
             >
-              Latest
+              {activeBadge ?? "Viewing"}
             </MarbleBadge>
           ) : null}
         </div>
@@ -547,11 +881,65 @@ function VersionHistoryRow({
       <div className="mt-1 text-[11px] text-taupe-600">
         {countLabel(version.program_file.length, "file")} in this snapshot
       </div>
-    </div>
+    </button>
   );
 }
 
-function PendingChangeCard({
+function CurrentWorkspaceRow({
+  active,
+  draftVersion,
+  latestPublishedVersion,
+  onSelect,
+}: Readonly<{
+  active: boolean;
+  draftVersion: ProgramVersionWithFiles | null;
+  latestPublishedVersion: PublishedProgramVersionWithFiles | null;
+  onSelect: () => void;
+}>) {
+  const timestamp =
+    draftVersion?.updated_at ?? latestPublishedVersion?.updated_at;
+
+  return (
+    <button
+      className={cx(
+        "w-full border-b border-taupe-400/80 px-3 py-2 text-left transition-colors",
+        active
+          ? "bg-white/85 text-taupe-950"
+          : "bg-transparent text-taupe-800 hover:bg-white/60",
+      )}
+      onClick={onSelect}
+      type="button"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[12px] text-taupe-900">
+            {draftVersion ? "Draft" : "Current"}
+          </span>
+          <MarbleBadge
+            caps
+            tone={draftVersion ? "warning" : "neutral"}
+          >
+            {draftVersion ? "Editable" : "Live"}
+          </MarbleBadge>
+        </div>
+        {timestamp ? (
+          <span className="text-[11px] text-taupe-500">
+            {DATE_TIME_FORMATTER.format(new Date(timestamp))}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-1 text-[11px] text-taupe-600">
+        {draftVersion && latestPublishedVersion
+          ? `Draft workspace forked from v${latestPublishedVersion.version}.`
+          : latestPublishedVersion
+            ? `Published v${latestPublishedVersion.version} is currently live.`
+            : "Unsaved workspace."}
+      </div>
+    </button>
+  );
+}
+
+function DraftStackRow({
   change,
 }: Readonly<{
   change: PendingChange;
@@ -573,21 +961,21 @@ function PendingChangeCard({
           };
 
   return (
-    <div className="flex items-start justify-between gap-2 border-t border-taupe-200 px-2 py-2 first:border-t-0">
-      <div className="min-w-0 flex-1">
-        <div className="font-medium text-[12px] text-taupe-950">
+    <div className="border-b border-taupe-400/80 px-3 py-2 last:border-b-0">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1 font-medium text-[12px] text-taupe-950">
           {change.label}
         </div>
-        <div className="mt-0.5 text-[11px] leading-4 text-taupe-500">
-          {change.summary}
-        </div>
+        <MarbleBadge
+          className={toneClassName.text}
+          tone={toneClassName.badge}
+        >
+          {change.tag}
+        </MarbleBadge>
       </div>
-      <MarbleBadge
-        className={toneClassName.text}
-        tone={toneClassName.badge}
-      >
-        {change.tag}
-      </MarbleBadge>
+      <div className="mt-1 text-[11px] leading-4 text-taupe-600">
+        {change.summary}
+      </div>
     </div>
   );
 }
@@ -676,16 +1064,28 @@ function WorkspaceFileTreeRow({
 type ProgramsPageViewProps = {
   initialMode?: "draft" | "master";
   initialProgramId?: string;
+  initialProgramSecretBindings: Awaited<
+    ReturnType<typeof actions.loadProgramsPageData>
+  >["programSecretBindings"];
   initialPrograms: FullProgram[];
+  initialSecrets: Awaited<
+    ReturnType<typeof actions.loadProgramsPageData>
+  >["secrets"];
 };
 
 export function ProgramsPageView({
   initialMode = "master",
   initialProgramId,
+  initialProgramSecretBindings,
   initialPrograms,
+  initialSecrets,
 }: ProgramsPageViewProps) {
   const router = useRouter();
   const [programs, setPrograms] = useState(() => sortPrograms(initialPrograms));
+  const [programSecretBindings, setProgramSecretBindings] = useState(
+    initialProgramSecretBindings,
+  );
+  const [savingProgramSecrets, setSavingProgramSecrets] = useState(false);
   const [createError, setCreateError] = useState<null | string>(null);
   const [createPending, setCreatePending] = useState(false);
   const [librarySurface, setLibrarySurface] = useState<LibrarySurface>(() =>
@@ -703,14 +1103,15 @@ export function ProgramsPageView({
   const [progName, setProgName] = useState("");
   const [inputSchemaStr, setInputSchemaStr] = useState("{}");
   const [outputConfigStr, setOutputConfigStr] = useState("{}");
+  const [secretConfigDraft, setSecretConfigDraft] = useState<
+    EditableProgramSecretDeclaration[]
+  >([]);
 
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [manualInput, setManualInput] = useState("");
-  const [result, setResult] = useState<{
-    error?: string;
-    ok: boolean;
-    output: unknown;
-  } | null>(null);
+  const [result, setResult] = useState<Awaited<
+    ReturnType<typeof actions.testProgram>
+  > | null>(null);
   const [running, setRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const [log, setLog] = useState<string[]>([]);
@@ -720,12 +1121,13 @@ export function ProgramsPageView({
   const [isNewFileModalOpen, setIsNewFileModalOpen] = useState(false);
   const [newFileName, setNewFileName] = useState("");
   const [newFileError, setNewFileError] = useState<string | null>(null);
+  const [draftStackCollapsed, setDraftStackCollapsed] = useState(false);
+  const [draftStackHeight, setDraftStackHeight] = useState(196);
   const [versionsCollapsed, setVersionsCollapsed] = useState(false);
   const [versionsHeight, setVersionsHeight] = useState(224);
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState<
     Record<RightWorkbenchPanelId, boolean>
   >({
-    draftStack: false,
     inputSchema: false,
     outputConfig: false,
     secrets: false,
@@ -736,6 +1138,7 @@ export function ProgramsPageView({
   );
   const [activeResizePanel, setActiveResizePanel] =
     useState<null | ResizablePanelId>(null);
+  const isMountedRef = useRef(true);
   const resizeStateRef = useRef<null | {
     direction: -1 | 1;
     panelId: ResizablePanelId;
@@ -744,16 +1147,27 @@ export function ProgramsPageView({
     startY: number;
   }>(null);
   const loadedProgramIdRef = useRef<string | null>(null);
+  const draftBootstrapInFlightRef = useRef(false);
   const draftSyncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const [draftBootstrapPending, setDraftBootstrapPending] = useState(false);
   const [draftSyncPending, setDraftSyncPending] = useState(false);
+  const [historicalDraftPending, setHistoricalDraftPending] = useState(false);
+  const [selectedVersionView, setSelectedVersionView] = useState<
+    "current" | string
+  >("current");
 
   useEffect(() => {
     setPrograms(sortPrograms(initialPrograms));
   }, [
     initialPrograms,
+  ]);
+
+  useEffect(() => {
+    setProgramSecretBindings(initialProgramSecretBindings);
+  }, [
+    initialProgramSecretBindings,
   ]);
 
   const selectedProgram = initialProgramId
@@ -774,7 +1188,32 @@ export function ProgramsPageView({
   const programVersions = selectedProgram
     ? sortProgramVersions(selectedProgram.program_version)
     : [];
-  const latestVersionInputSchema = workingVersion?.input_schema;
+  const selectedHistoricalVersion =
+    selectedVersionView === "current"
+      ? null
+      : (programVersions.find(
+          (version) => version.id === selectedVersionView,
+        ) ?? null);
+  const viewingHistoricalVersion = selectedHistoricalVersion !== null;
+  const visibleVersion = selectedHistoricalVersion ?? workingVersion;
+  const latestVersionInputSchema = visibleVersion?.input_schema;
+  const visibleFiles = viewingHistoricalVersion
+    ? normalizeProgramFiles(selectedHistoricalVersion?.program_file)
+    : files;
+  const visibleSecretDeclarations = viewingHistoricalVersion
+    ? createEditableProgramSecretDeclarations(
+        selectedHistoricalVersion?.secret_config,
+      )
+    : secretConfigDraft;
+  const visibleSecretConfigState = getEditableProgramSecretConfigState(
+    visibleSecretDeclarations,
+  );
+  const visibleSecretDeclarationIssues = getSecretDeclarationIssuesById(
+    visibleSecretDeclarations,
+  );
+  const selectedProgramSecretBindings = selectedProgram
+    ? (programSecretBindings[selectedProgram.id] ?? {})
+    : {};
   const latestFileContentByName = new Map(
     normalizeProgramFiles(latestPublishedVersion?.program_file).map((file) => [
       file.filename,
@@ -807,13 +1246,32 @@ export function ProgramsPageView({
     null,
     2,
   );
+  const latestSecretConfigStr = getProgramSecretConfigComparisonValue(
+    latestPublishedVersion?.secret_config,
+  );
+  const workingSecretConfigStr = getProgramSecretConfigComparisonValue(
+    workingVersion?.secret_config,
+  );
+  const currentSecretConfigState =
+    getEditableProgramSecretConfigState(secretConfigDraft);
+  const currentSecretConfigStr =
+    currentSecretConfigState.error === null
+      ? JSON.stringify(currentSecretConfigState.declarations)
+      : null;
+  const packageManifestState = getProgramPackageManifestState(files);
   const normalizedInputSchemaStr = normalizeJsonEditorValue(inputSchemaStr);
   const normalizedOutputConfigStr = normalizeJsonEditorValue(outputConfigStr);
+  const visibleInputSchemaStr = viewingHistoricalVersion
+    ? JSON.stringify(selectedHistoricalVersion?.input_schema ?? {}, null, 2)
+    : inputSchemaStr;
+  const visibleOutputConfigStr = viewingHistoricalVersion
+    ? JSON.stringify(selectedHistoricalVersion?.output_config ?? {}, null, 2)
+    : outputConfigStr;
   const nextVersionNumber = latestPublishedVersion
     ? (latestPublishedVersion.version ?? 0) + 1
     : 1;
   const fileByName = new Map(
-    files.map((file) => [
+    visibleFiles.map((file) => [
       file.filename,
       file,
     ]),
@@ -828,16 +1286,25 @@ export function ProgramsPageView({
       : [];
   });
   const activeFileObj =
-    (activeFile ? fileByName.get(activeFile) : null) ?? openTabFiles[0] ?? null;
-  const dirtyFiles = new Set(
-    files
-      .filter(
-        (file) =>
-          workingVersion === null ||
-          workingFileContentByName.get(file.filename) !== file.content,
-      )
-      .map((file) => file.filename),
-  );
+    (activeFile ? fileByName.get(activeFile) : null) ??
+    openTabFiles[0] ??
+    visibleFiles[0] ??
+    null;
+  const missingSecretConfigurationDetail =
+    result && !result.ok
+      ? getMissingSecretConfigurationDetail(result.detail)
+      : null;
+  const dirtyFiles = viewingHistoricalVersion
+    ? new Set<string>()
+    : new Set(
+        files
+          .filter(
+            (file) =>
+              workingVersion === null ||
+              workingFileContentByName.get(file.filename) !== file.content,
+          )
+          .map((file) => file.filename),
+      );
   const pendingChanges = buildPendingChanges({
     files,
     inputSchemaStr,
@@ -845,9 +1312,11 @@ export function ProgramsPageView({
     latestFileContentByName,
     latestInputSchemaStr,
     latestOutputConfigStr,
+    latestSecretConfigStr,
     outputConfigStr,
     programName: progName,
     savedProgramName: selectedProgram?.name ?? "",
+    secretConfigStr: currentSecretConfigStr ?? "__invalid__",
   });
   const draftStackCards: PendingChange[] = [
     {
@@ -873,6 +1342,9 @@ export function ProgramsPageView({
     (normalizedOutputConfigStr === null
       ? outputConfigStr !== workingOutputConfigStr
       : normalizedOutputConfigStr !== workingOutputConfigStr) ||
+    (currentSecretConfigStr === null
+      ? true
+      : currentSecretConfigStr !== workingSecretConfigStr) ||
     files.length !== (workingVersion?.program_file.length ?? 0) ||
     files.some(
       (file) => workingFileContentByName.get(file.filename) !== file.content,
@@ -889,24 +1361,39 @@ export function ProgramsPageView({
     (normalizedOutputConfigStr === null
       ? outputConfigStr !== latestOutputConfigStr
       : normalizedOutputConfigStr !== latestOutputConfigStr) ||
+    (currentSecretConfigStr === null
+      ? true
+      : currentSecretConfigStr !== latestSecretConfigStr) ||
     files.length !== (latestPublishedVersion?.program_file.length ?? 0) ||
     files.some(
       (file) => latestFileContentByName.get(file.filename) !== file.content,
     );
-  const fields = workingVersion
+  const draftSyncBlockedReason =
+    packageManifestState.error !== null
+      ? "package.json must be valid before the draft syncs."
+      : normalizedInputSchemaStr === null
+        ? "Input schema JSON must be valid before the draft syncs."
+        : normalizedOutputConfigStr === null
+          ? "Output config JSON must be valid before the draft syncs."
+          : currentSecretConfigState.error !== null
+            ? "Secret requirements must be valid before the draft syncs."
+            : null;
+  const fields = visibleVersion
     ? buildFieldsFromSchema(
-        workingVersion.input_schema as Record<string, unknown>,
+        visibleVersion.input_schema as Record<string, unknown>,
       )
     : [];
   const hasManualInput =
     (
-      (workingVersion?.output_config as Record<string, unknown> | undefined)
+      (visibleVersion?.output_config as Record<string, unknown> | undefined)
         ?.flags as Record<string, unknown> | undefined
     )?.allowManualInput === true;
   const isWorkspaceDropzoneVisible = workspaceDragDepth > 0;
+  const canEditWorkspace = !viewingHistoricalVersion;
 
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
       if (draftSyncTimeoutRef.current) {
         clearTimeout(draftSyncTimeoutRef.current);
       }
@@ -942,6 +1429,7 @@ export function ProgramsPageView({
     }
 
     loadedProgramIdRef.current = programIdentity;
+    setSelectedVersionView("current");
     setRenameError(null);
     setEditingSurface(null);
     setResult(null);
@@ -955,6 +1443,7 @@ export function ProgramsPageView({
       const draftFiles = createDefaultDraftFiles();
       setProgName("Untitled Program");
       setFiles(draftFiles);
+      setSecretConfigDraft([]);
       setActiveFile(draftFiles[0]?.filename ?? null);
       setOpenTabs(
         draftFiles[0]?.filename
@@ -973,6 +1462,9 @@ export function ProgramsPageView({
 
       setProgName(selectedProgram?.name ?? "Untitled Program");
       setFiles(nextFiles);
+      setSecretConfigDraft(
+        createEditableProgramSecretDeclarations(workingVersion.secret_config),
+      );
       setActiveFile(nextFiles[0]?.filename ?? null);
       setOpenTabs(
         nextFiles[0]?.filename
@@ -988,6 +1480,7 @@ export function ProgramsPageView({
 
     setProgName(selectedProgram?.name ?? "Untitled Program");
     setFiles([]);
+    setSecretConfigDraft([]);
     setActiveFile(null);
     setOpenTabs([]);
     setInputSchemaStr("{}");
@@ -998,6 +1491,41 @@ export function ProgramsPageView({
     selectedProgram?.id,
     selectedProgram?.name,
     workingVersion,
+  ]);
+
+  useEffect(() => {
+    const visibleFileNames = new Set(visibleFiles.map((file) => file.filename));
+
+    setOpenTabs((current) => {
+      const nextTabs = current.filter((filename) =>
+        visibleFileNames.has(filename),
+      );
+      const resolvedTabs =
+        nextTabs.length > 0
+          ? nextTabs
+          : visibleFiles[0]?.filename
+            ? [
+                visibleFiles[0].filename,
+              ]
+            : [];
+
+      if (
+        current.length === resolvedTabs.length &&
+        current.every((filename, index) => filename === resolvedTabs[index])
+      ) {
+        return current;
+      }
+
+      return resolvedTabs;
+    });
+
+    setActiveFile((current) =>
+      current && visibleFileNames.has(current)
+        ? current
+        : (visibleFiles[0]?.filename ?? null),
+    );
+  }, [
+    visibleFiles,
   ]);
 
   useEffect(() => {
@@ -1039,6 +1567,143 @@ export function ProgramsPageView({
     setPrograms(nextPrograms);
     return nextPrograms;
   }, []);
+
+  const handleProgramSecretBindingChange = useCallback(
+    async (envName: string, nextSecretId: string) => {
+      if (!selectedProgram) {
+        return;
+      }
+
+      const previousBindings = programSecretBindings[selectedProgram.id] ?? {};
+      const nextBindings = {
+        ...previousBindings,
+      };
+
+      if (nextSecretId) {
+        nextBindings[envName] = nextSecretId;
+      } else {
+        delete nextBindings[envName];
+      }
+
+      setProgramSecretBindings((current) => ({
+        ...current,
+        [selectedProgram.id]: nextBindings,
+      }));
+      setSavingProgramSecrets(true);
+
+      try {
+        const savedBindings = await actions.updateProgramSecretBindings(
+          selectedProgram.id,
+          secretBindingMapToEntries(nextBindings),
+        );
+
+        setProgramSecretBindings((current) => ({
+          ...current,
+          [selectedProgram.id]: secretBindingEntriesToMap(savedBindings),
+        }));
+      } catch (error) {
+        setProgramSecretBindings((current) => ({
+          ...current,
+          [selectedProgram.id]: previousBindings,
+        }));
+        marbleToast.error("Secret binding failed", {
+          description: error instanceof Error ? error.message : String(error),
+        });
+      } finally {
+        setSavingProgramSecrets(false);
+      }
+    },
+    [
+      programSecretBindings,
+      selectedProgram,
+    ],
+  );
+
+  const handleAddSecretDeclaration = useCallback(() => {
+    if (!canEditWorkspace) {
+      return;
+    }
+
+    const suggestedEnvName =
+      getSuggestedSecretEnvironmentName(secretConfigDraft);
+
+    setSecretConfigDraft((current) => [
+      ...current,
+      {
+        description: "",
+        env: suggestedEnvName,
+        id: crypto.randomUUID(),
+        label: suggestedEnvName,
+        required: true,
+      },
+    ]);
+  }, [
+    canEditWorkspace,
+    secretConfigDraft,
+  ]);
+
+  const handleRemoveSecretDeclaration = useCallback(
+    (secretId: string) => {
+      if (!canEditWorkspace) {
+        return;
+      }
+
+      setSecretConfigDraft((current) =>
+        current.filter((secret) => secret.id !== secretId),
+      );
+    },
+    [
+      canEditWorkspace,
+    ],
+  );
+
+  const handleSecretDeclarationChange = useCallback(
+    (
+      secretId: string,
+      field: "description" | "env" | "label" | "required",
+      value: boolean | string,
+    ) => {
+      if (!canEditWorkspace) {
+        return;
+      }
+
+      setSecretConfigDraft((current) =>
+        current.map((secret) => {
+          if (secret.id !== secretId) {
+            return secret;
+          }
+
+          if (field === "required") {
+            return {
+              ...secret,
+              required: value === true,
+            };
+          }
+
+          const nextValue = typeof value === "string" ? value : "";
+
+          if (field === "env") {
+            return {
+              ...secret,
+              env: nextValue,
+              label:
+                secret.label === secret.env || secret.label.trim().length === 0
+                  ? nextValue
+                  : secret.label,
+            };
+          }
+
+          return {
+            ...secret,
+            [field]: nextValue,
+          };
+        }),
+      );
+    },
+    [
+      canEditWorkspace,
+    ],
+  );
 
   const upsertProgramVersion = useCallback(
     (
@@ -1113,11 +1778,22 @@ export function ProgramsPageView({
         throw new Error("Fix the draft JSON before creating a draft.");
       }
 
+      if (packageManifestState.error) {
+        throw new Error(
+          `Fix package.json before creating a draft: ${packageManifestState.error}`,
+        );
+      }
+
+      if (!currentSecretConfigStr) {
+        throw new Error("Fix the secret requirements before creating a draft.");
+      }
+
       const { version } = await actions.createDraftVersion(
         selectedProgram.id,
         JSON.parse(normalizedInputSchemaStr),
         JSON.parse(normalizedOutputConfigStr),
         files,
+        currentSecretConfigState.declarations,
       );
       const persistedDraft = upsertProgramVersion(selectedProgram.id, version);
 
@@ -1132,9 +1808,12 @@ export function ProgramsPageView({
     [
       draftVersion,
       files,
+      currentSecretConfigState.declarations,
+      currentSecretConfigStr,
       latestPublishedVersion?.version,
       normalizedInputSchemaStr,
       normalizedOutputConfigStr,
+      packageManifestState.error,
       selectedProgram,
       upsertProgramVersion,
     ],
@@ -1177,55 +1856,104 @@ export function ProgramsPageView({
     updateSelectedProgramName,
   ]);
 
+  const handleCreateDraftFromHistoricalVersion = useCallback(async () => {
+    if (!selectedProgram || !selectedHistoricalVersion) {
+      return;
+    }
+
+    setHistoricalDraftPending(true);
+
+    try {
+      const sourceFiles = normalizeProgramFiles(
+        selectedHistoricalVersion.program_file,
+      );
+      const { version } = await actions.createDraftVersion(
+        selectedProgram.id,
+        selectedHistoricalVersion.input_schema,
+        selectedHistoricalVersion.output_config,
+        sourceFiles,
+        normalizeStoredProgramSecretConfig(
+          selectedHistoricalVersion.secret_config,
+        ),
+      );
+      const persistedDraft = upsertProgramVersion(selectedProgram.id, version);
+      const nextFiles = normalizeProgramFiles(persistedDraft.program_file);
+
+      setFiles(nextFiles);
+      setSecretConfigDraft(
+        createEditableProgramSecretDeclarations(persistedDraft.secret_config),
+      );
+      setActiveFile(nextFiles[0]?.filename ?? null);
+      setOpenTabs(
+        nextFiles[0]?.filename
+          ? [
+              nextFiles[0].filename,
+            ]
+          : [],
+      );
+      setInputSchemaStr(JSON.stringify(persistedDraft.input_schema, null, 2));
+      setOutputConfigStr(JSON.stringify(persistedDraft.output_config, null, 2));
+      setSelectedVersionView("current");
+      setResult(null);
+
+      addLog(`✓ Draft created from v${selectedHistoricalVersion.version}.`);
+      marbleToast.success("Draft created", {
+        description: `Forked from v${selectedHistoricalVersion.version}. Existing columns stay pinned to their current published version.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      addLog(`✗ Draft creation failed: ${message}`);
+      marbleToast.error("Draft creation failed", {
+        description: message,
+      });
+    } finally {
+      setHistoricalDraftPending(false);
+    }
+  }, [
+    addLog,
+    selectedHistoricalVersion,
+    selectedProgram,
+    upsertProgramVersion,
+  ]);
+
   useEffect(() => {
     if (
       !selectedProgram ||
       draftVersion ||
-      draftBootstrapPending ||
+      draftBootstrapInFlightRef.current ||
       !latestPublishedVersion ||
       !hasVersionChangesAgainstPublished
     ) {
       return;
     }
 
-    if (!normalizedInputSchemaStr || !normalizedOutputConfigStr) {
+    if (draftSyncBlockedReason !== null) {
       return;
     }
 
-    let cancelled = false;
+    draftBootstrapInFlightRef.current = true;
     setDraftBootstrapPending(true);
 
     void (async () => {
       try {
         await ensurePersistedDraftVersion();
-      } catch (error) {
-        if (!cancelled) {
-          addLog(
-            `✗ Draft creation failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
-          marbleToast.error("Draft creation failed", {
-            description: error instanceof Error ? error.message : String(error),
-          });
-        }
+      } catch {
       } finally {
-        if (!cancelled) {
+        draftBootstrapInFlightRef.current = false;
+        if (isMountedRef.current) {
           setDraftBootstrapPending(false);
         }
       }
     })();
 
-    return () => {
-      cancelled = true;
-    };
+    return () => {};
   }, [
-    addLog,
-    draftBootstrapPending,
     draftVersion,
+    draftSyncBlockedReason,
     ensurePersistedDraftVersion,
     hasVersionChangesAgainstPublished,
     latestPublishedVersion,
-    normalizedInputSchemaStr,
-    normalizedOutputConfigStr,
     selectedProgram,
   ]);
 
@@ -1248,7 +1976,12 @@ export function ProgramsPageView({
       return;
     }
 
-    if (!normalizedInputSchemaStr || !normalizedOutputConfigStr) {
+    if (draftSyncBlockedReason !== null) {
+      if (draftSyncTimeoutRef.current) {
+        clearTimeout(draftSyncTimeoutRef.current);
+        draftSyncTimeoutRef.current = null;
+      }
+      setDraftSyncPending(false);
       return;
     }
 
@@ -1259,18 +1992,25 @@ export function ProgramsPageView({
     setDraftSyncPending(true);
     draftSyncTimeoutRef.current = setTimeout(() => {
       void (async () => {
+        const inputSchema = normalizedInputSchemaStr;
+        const outputConfig = normalizedOutputConfigStr;
+
+        if (!inputSchema || !outputConfig) {
+          setDraftSyncPending(false);
+          draftSyncTimeoutRef.current = null;
+          return;
+        }
+
         try {
           const syncedDraft = await actions.syncDraftVersion(
             draftVersion.id,
-            JSON.parse(normalizedInputSchemaStr),
-            JSON.parse(normalizedOutputConfigStr),
+            JSON.parse(inputSchema),
+            JSON.parse(outputConfig),
             files,
+            currentSecretConfigState.declarations,
           );
           upsertProgramVersion(selectedProgram.id, syncedDraft);
-        } catch (error) {
-          addLog(
-            `✗ Draft sync failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
+        } catch {
         } finally {
           setDraftSyncPending(false);
           draftSyncTimeoutRef.current = null;
@@ -1285,8 +2025,9 @@ export function ProgramsPageView({
       }
     };
   }, [
-    addLog,
+    currentSecretConfigState.declarations,
     draftVersion,
+    draftSyncBlockedReason,
     files,
     hasLocalDraftPayloadChanges,
     normalizedInputSchemaStr,
@@ -1296,6 +2037,10 @@ export function ProgramsPageView({
   ]);
 
   const openNewFileModal = () => {
+    if (!canEditWorkspace) {
+      return;
+    }
+
     setNewFileName(getSuggestedFileName(files));
     setNewFileError(null);
     setIsNewFileModalOpen(true);
@@ -1307,6 +2052,10 @@ export function ProgramsPageView({
   };
 
   const handleCreateFile = () => {
+    if (!canEditWorkspace) {
+      return;
+    }
+
     const nextFilename = newFileName.trim();
 
     if (!nextFilename) {
@@ -1345,6 +2094,10 @@ export function ProgramsPageView({
       closeModalAfterImport?: boolean;
     },
   ) => {
+    if (!canEditWorkspace) {
+      return;
+    }
+
     if (incomingFiles.length === 0) {
       return;
     }
@@ -1430,7 +2183,11 @@ export function ProgramsPageView({
   const handleWorkspaceDragEnter = (
     event: ReactDragEvent<HTMLFieldSetElement>,
   ) => {
-    if (importingFiles || !isFileDrag(event.dataTransfer)) {
+    if (
+      !canEditWorkspace ||
+      importingFiles ||
+      !isFileDrag(event.dataTransfer)
+    ) {
       return;
     }
 
@@ -1452,7 +2209,11 @@ export function ProgramsPageView({
   const handleWorkspaceDragOver = (
     event: ReactDragEvent<HTMLFieldSetElement>,
   ) => {
-    if (importingFiles || !isFileDrag(event.dataTransfer)) {
+    if (
+      !canEditWorkspace ||
+      importingFiles ||
+      !isFileDrag(event.dataTransfer)
+    ) {
       return;
     }
 
@@ -1461,6 +2222,10 @@ export function ProgramsPageView({
   };
 
   const handleWorkspaceDrop = (event: ReactDragEvent<HTMLFieldSetElement>) => {
+    if (!canEditWorkspace) {
+      return;
+    }
+
     if (!isFileDrag(event.dataTransfer)) {
       return;
     }
@@ -1470,7 +2235,7 @@ export function ProgramsPageView({
   };
 
   const handleCodeChange = (newCode: string) => {
-    if (!activeFile) {
+    if (!canEditWorkspace || !activeFile) {
       return;
     }
 
@@ -1519,9 +2284,18 @@ export function ProgramsPageView({
   };
 
   const getPanelHeight = (panelId: ResizablePanelId) =>
-    panelId === "versions" ? versionsHeight : rightPanelHeights[panelId];
+    panelId === "draftStack"
+      ? draftStackHeight
+      : panelId === "versions"
+        ? versionsHeight
+        : rightPanelHeights[panelId];
 
   const setPanelHeight = (panelId: ResizablePanelId, nextHeight: number) => {
+    if (panelId === "draftStack") {
+      setDraftStackHeight(nextHeight);
+      return;
+    }
+
     if (panelId === "versions") {
       setVersionsHeight(nextHeight);
       return;
@@ -1609,6 +2383,11 @@ export function ProgramsPageView({
     };
 
   const handleSave = async () => {
+    if (viewingHistoricalVersion) {
+      addLog("✗ Return to the current workspace before publishing.");
+      return;
+    }
+
     if (!selectedProgram) {
       addLog("✗ Create a program before publishing a version.");
       return;
@@ -1633,6 +2412,14 @@ export function ProgramsPageView({
         throw new Error("Invalid Output Config JSON");
       }
 
+      if (packageManifestState.error) {
+        throw new Error(`Invalid package.json: ${packageManifestState.error}`);
+      }
+
+      if (!currentSecretConfigStr) {
+        throw new Error("Secret requirements are invalid.");
+      }
+
       const persistedDraft = await ensurePersistedDraftVersion(false);
 
       if (!persistedDraft) {
@@ -1644,6 +2431,7 @@ export function ProgramsPageView({
         JSON.parse(normalizedInputSchemaStr),
         JSON.parse(normalizedOutputConfigStr),
         files,
+        currentSecretConfigState.declarations,
       );
       upsertProgramVersion(selectedProgram.id, publishedVersion);
 
@@ -1678,7 +2466,7 @@ export function ProgramsPageView({
       return;
     }
 
-    const runnableVersion = draftVersion ?? latestPublishedVersion;
+    const runnableVersion = visibleVersion;
 
     if (!runnableVersion) {
       addLog("✗ No runnable version is available yet.");
@@ -1687,7 +2475,9 @@ export function ProgramsPageView({
 
     setRunning(true);
     setResult(null);
-    if (draftVersion) {
+    if (viewingHistoricalVersion && selectedHistoricalVersion) {
+      addLog(`ℹ Running published v${selectedHistoricalVersion.version}.`);
+    } else if (draftVersion) {
       addLog(
         latestPublishedVersion
           ? `ℹ Running draft from v${latestPublishedVersion.version}; live columns remain pinned to v${latestPublishedVersion.version}.`
@@ -1699,7 +2489,7 @@ export function ProgramsPageView({
       );
     }
     addLog(
-      `▶ Running "${progName}" (${draftVersion ? "draft" : latestPublishedVersion ? `v${latestPublishedVersion.version}` : "draft"})...`,
+      `▶ Running "${progName}" (${viewingHistoricalVersion && selectedHistoricalVersion ? `v${selectedHistoricalVersion.version}` : draftVersion ? "draft" : latestPublishedVersion ? `v${latestPublishedVersion.version}` : "draft"})...`,
     );
 
     try {
@@ -1710,7 +2500,13 @@ export function ProgramsPageView({
       );
 
       setResult(nextResult);
-      addLog(nextResult.ok ? "✓ Success" : `✗ Failed: ${nextResult.error}`);
+      addLog(
+        nextResult.ok
+          ? "✓ Success"
+          : nextResult.errorType === "MissingSecretConfiguration"
+            ? `⏸ ${nextResult.error}`
+            : `✗ Failed: ${nextResult.error}`,
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 
@@ -1975,6 +2771,7 @@ export function ProgramsPageView({
             <MarbleWorkbenchSection
               actions={
                 <MarbleButton
+                  disabled={!canEditWorkspace}
                   onClick={openNewFileModal}
                   size="xs"
                   type="button"
@@ -1986,7 +2783,9 @@ export function ProgramsPageView({
                 </MarbleButton>
               }
               badge={
-                <MarbleBadge className="font-mono">{files.length}</MarbleBadge>
+                <MarbleBadge className="font-mono">
+                  {visibleFiles.length}
+                </MarbleBadge>
               }
               bodyClassName="bg-transparent"
               className="flex min-h-0 flex-1 flex-col rounded-none border-0 border-b border-taupe-400 bg-transparent shadow-none"
@@ -2003,9 +2802,9 @@ export function ProgramsPageView({
                 onDrop={handleWorkspaceDrop}
               >
                 <div className="h-full overflow-y-auto p-1.5">
-                  {files.length > 0 ? (
+                  {visibleFiles.length > 0 ? (
                     <div className="space-y-px">
-                      {files.map((file) => (
+                      {visibleFiles.map((file) => (
                         <WorkspaceFileTreeRow
                           active={activeFile === file.filename}
                           dirty={dirtyFiles.has(file.filename)}
@@ -2020,7 +2819,7 @@ export function ProgramsPageView({
                       ))}
                     </div>
                   ) : (
-                    <div className="px-2 py-3 text-taupe-600 text-[11px] italic">
+                    <div className="px-2 py-3 text-[11px] text-taupe-600 italic">
                       No files in this version.
                     </div>
                   )}
@@ -2050,6 +2849,69 @@ export function ProgramsPageView({
                 ) : null}
               </fieldset>
             </MarbleWorkbenchSection>
+
+            <div className="relative shrink-0">
+              {draftStackCollapsed ? null : (
+                <MarbleWorkbenchResizeHandle
+                  active={activeResizePanel === "draftStack"}
+                  aria-label="Resize draft stack panel"
+                  className="absolute inset-x-0 top-0"
+                  onKeyDown={handlePanelResizeKeyDown("draftStack")}
+                  onPointerCancel={finishPanelResize}
+                  onPointerDown={handlePanelResizeStart("draftStack", -1)}
+                  onPointerMove={handlePanelResizeMove}
+                  onPointerUp={finishPanelResize}
+                  title="Resize draft stack panel"
+                />
+              )}
+
+              <MarbleWorkbenchSection
+                actions={
+                  pendingChanges.length > 0 ? (
+                    <MarbleBadge tone="warning">
+                      {countLabel(pendingChanges.length, "change")}
+                    </MarbleBadge>
+                  ) : null
+                }
+                badge={
+                  draftVersion ? (
+                    <MarbleBadge tone="warning">Draft</MarbleBadge>
+                  ) : latestPublishedVersion ? (
+                    <MarbleBadge className="font-mono">
+                      v{nextVersionNumber}
+                    </MarbleBadge>
+                  ) : null
+                }
+                bodyClassName="bg-transparent"
+                bodyStyle={{
+                  height: draftStackHeight,
+                }}
+                className="shrink-0 rounded-none border-0 border-b border-taupe-400 bg-transparent shadow-none"
+                collapsed={draftStackCollapsed}
+                collapsible
+                headerClassName="px-2 py-1.5"
+                icon={
+                  <GitBranchIcon
+                    className="text-taupe-700"
+                    size={16}
+                    weight="regular"
+                  />
+                }
+                onToggleCollapsed={() =>
+                  setDraftStackCollapsed((current) => !current)
+                }
+                title="Draft Stack"
+              >
+                <div className="h-full overflow-y-auto overscroll-contain bg-transparent">
+                  {draftStackCards.map((change) => (
+                    <DraftStackRow
+                      change={change}
+                      key={change.id}
+                    />
+                  ))}
+                </div>
+              </MarbleWorkbenchSection>
+            </div>
 
             <div className="relative shrink-0">
               {versionsCollapsed ? null : (
@@ -2088,16 +2950,46 @@ export function ProgramsPageView({
                 }
                 title="Versions"
               >
-                <div className="h-full overflow-y-auto bg-transparent">
+                <div className="h-full overflow-y-auto overscroll-contain bg-transparent">
                   {programVersions.length > 0 ? (
-                    programVersions.map((version) => (
-                      <VersionHistoryRow
-                        active={version.id === latestPublishedVersion?.id}
-                        key={version.id}
-                        targetKey={changeTargetKey.programVersion(version.id)}
-                        version={version}
-                      />
-                    ))
+                    <>
+                      {draftVersion ? (
+                        <CurrentWorkspaceRow
+                          active={selectedVersionView === "current"}
+                          draftVersion={draftVersion}
+                          latestPublishedVersion={latestPublishedVersion}
+                          onSelect={() => setSelectedVersionView("current")}
+                        />
+                      ) : null}
+                      {programVersions.map((version) => (
+                        <VersionHistoryRow
+                          active={
+                            selectedVersionView === version.id ||
+                            (!draftVersion &&
+                              selectedVersionView === "current" &&
+                              version.id === latestPublishedVersion?.id)
+                          }
+                          activeBadge={
+                            !draftVersion &&
+                            selectedVersionView === "current" &&
+                            version.id === latestPublishedVersion?.id
+                              ? "Live"
+                              : "Viewing"
+                          }
+                          key={version.id}
+                          onSelect={() =>
+                            setSelectedVersionView(
+                              !draftVersion &&
+                                version.id === latestPublishedVersion?.id
+                                ? "current"
+                                : version.id,
+                            )
+                          }
+                          targetKey={changeTargetKey.programVersion(version.id)}
+                          version={version}
+                        />
+                      ))}
+                    </>
                   ) : (
                     <div className="px-3 py-4 text-taupe-600 text-xs italic">
                       {isDraftProgram
@@ -2121,7 +3013,7 @@ export function ProgramsPageView({
                 <div className="min-w-0 flex-1 space-y-2">
                   <MarbleEditableText
                     className="-mx-1 rounded-sm px-1 text-left text-3xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
-                    disabled={savingName}
+                    disabled={savingName || viewingHistoricalVersion}
                     editing={editingSurface === "title"}
                     onCancel={() => {
                       setEditingSurface(null);
@@ -2134,14 +3026,6 @@ export function ProgramsPageView({
                   />
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {isDraftProgram ? (
-                      <MarbleBadge
-                        caps
-                        tone="warning"
-                      >
-                        Draft
-                      </MarbleBadge>
-                    ) : null}
                     {selectedProgram?.first_party ? (
                       <MarbleBadge
                         caps
@@ -2157,44 +3041,87 @@ export function ProgramsPageView({
                         Custom
                       </MarbleBadge>
                     )}
-                    {latestPublishedVersion ? (
+                    {viewingHistoricalVersion && selectedHistoricalVersion ? (
+                      <MarbleBadge tone="neutral">
+                        Viewing v{selectedHistoricalVersion.version}
+                      </MarbleBadge>
+                    ) : draftVersion && latestPublishedVersion ? (
+                      <MarbleBadge tone="warning">
+                        Draft from v{latestPublishedVersion.version}
+                      </MarbleBadge>
+                    ) : draftVersion ? (
+                      <MarbleBadge tone="warning">Draft</MarbleBadge>
+                    ) : latestPublishedVersion ? (
                       <MarbleBadge className="font-mono">
-                        v{latestPublishedVersion.version}
+                        Published v{latestPublishedVersion.version}
                       </MarbleBadge>
                     ) : null}
-                    {hasUnsavedChanges ? (
-                      <MarbleBadge
-                        caps
-                        tone="warning"
-                      >
-                        Publish v{nextVersionNumber}
-                      </MarbleBadge>
-                    ) : null}
-                    {draftBootstrapPending || draftSyncPending ? (
-                      <MarbleBadge tone="info">Syncing</MarbleBadge>
-                    ) : null}
-                    {files.length > 0 ? (
+                    {visibleFiles.length > 0 ? (
                       <MarbleBadge>
-                        {countLabel(files.length, "file")}
+                        {countLabel(visibleFiles.length, "file")}
                       </MarbleBadge>
                     ) : null}
                   </div>
                 </div>
 
-                <MarbleButton
-                  disabled={
-                    saving ||
-                    !progName.trim() ||
-                    files.length === 0 ||
-                    !hasUnsavedChanges
-                  }
-                  onClick={handleSave}
-                  size="sm"
-                  type="button"
-                  variant="orange"
-                >
-                  {saving ? "Publishing..." : `Publish v${nextVersionNumber}`}
-                </MarbleButton>
+                <div className="flex shrink-0 items-center gap-2">
+                  {draftBootstrapPending ||
+                  draftSyncPending ||
+                  historicalDraftPending ? (
+                    <span className="text-[11px] text-taupe-500">
+                      Syncing draft...
+                    </span>
+                  ) : draftSyncBlockedReason &&
+                    canEditWorkspace &&
+                    hasUnsavedChanges ? (
+                    <span className="text-[11px] text-amber-700">
+                      Draft sync paused
+                    </span>
+                  ) : null}
+
+                  {viewingHistoricalVersion && draftVersion ? (
+                    <MarbleButton
+                      onClick={() => setSelectedVersionView("current")}
+                      size="sm"
+                      type="button"
+                    >
+                      Return to draft
+                    </MarbleButton>
+                  ) : null}
+
+                  {viewingHistoricalVersion &&
+                  !draftVersion &&
+                  selectedHistoricalVersion ? (
+                    <MarbleButton
+                      disabled={historicalDraftPending}
+                      onClick={() =>
+                        void handleCreateDraftFromHistoricalVersion()
+                      }
+                      size="sm"
+                      type="button"
+                    >
+                      {historicalDraftPending
+                        ? "Creating draft..."
+                        : `Create draft from v${selectedHistoricalVersion.version}`}
+                    </MarbleButton>
+                  ) : null}
+
+                  <MarbleButton
+                    disabled={
+                      viewingHistoricalVersion ||
+                      saving ||
+                      !progName.trim() ||
+                      files.length === 0 ||
+                      !hasUnsavedChanges
+                    }
+                    onClick={handleSave}
+                    size="sm"
+                    type="button"
+                    variant="orange"
+                  >
+                    {saving ? "Publishing..." : "Publish version"}
+                  </MarbleButton>
+                </div>
               </div>
             </div>
 
@@ -2240,9 +3167,16 @@ export function ProgramsPageView({
                       </div>
                     }
                     onChange={(value) => handleCodeChange(value ?? "")}
-                    options={monacoEditorOptions}
+                    options={{
+                      ...monacoEditorOptions,
+                      readOnly: viewingHistoricalVersion,
+                    }}
                     path={getMonacoModelPath(
-                      initialProgramId ?? null,
+                      viewingHistoricalVersion
+                        ? (selectedHistoricalVersion?.id ??
+                            initialProgramId ??
+                            null)
+                        : (initialProgramId ?? null),
                       activeFileObj.filename,
                     )}
                     theme="vs"
@@ -2298,70 +3232,10 @@ export function ProgramsPageView({
               shellPanelClassName,
             )}
           >
-            <div className="flex items-center justify-between gap-2 border-b border-taupe-400 px-3 py-1.5">
-              <MarbleFieldLabel className="mb-0 text-taupe-700">
-                Draft + Test
-              </MarbleFieldLabel>
-              <MarbleBadge className="font-mono">
-                v{nextVersionNumber}
-              </MarbleBadge>
-            </div>
-
-            <div className="flex-1 overflow-y-auto">
-              <MarbleWorkbenchSection
-                actions={
-                  pendingChanges.length > 0 ? (
-                    <MarbleBadge tone="warning">
-                      {countLabel(pendingChanges.length, "change")}
-                    </MarbleBadge>
-                  ) : null
-                }
-                badge={
-                  <MarbleBadge className="font-mono">
-                    {draftVersion ? "Draft" : `v${nextVersionNumber}`}
-                  </MarbleBadge>
-                }
-                bodyClassName={stackedWorkbenchBodyClassName}
-                bodyStyle={{
-                  height: rightPanelHeights.draftStack,
-                }}
-                className={stackedWorkbenchSectionClassName}
-                collapsed={rightPanelCollapsed.draftStack}
-                collapsible
-                headerClassName={stackedWorkbenchHeaderClassName}
-                icon={<SparklesIcon className="h-4 w-4" />}
-                onToggleCollapsed={() =>
-                  setRightPanelCollapsed((current) => ({
-                    ...current,
-                    draftStack: !current.draftStack,
-                  }))
-                }
-                title="Draft Stack"
-              >
-                <div className="flex h-full flex-col">
-                  <div className="flex-1 overflow-y-auto">
-                    {draftStackCards.map((change) => (
-                      <PendingChangeCard
-                        change={change}
-                        key={change.id}
-                      />
-                    ))}
-                  </div>
-                  <MarbleWorkbenchResizeHandle
-                    active={activeResizePanel === "draftStack"}
-                    aria-label="Resize draft stack"
-                    onKeyDown={handlePanelResizeKeyDown("draftStack")}
-                    onPointerCancel={finishPanelResize}
-                    onPointerDown={handlePanelResizeStart("draftStack", 1)}
-                    onPointerMove={handlePanelResizeMove}
-                    onPointerUp={finishPanelResize}
-                    title="Resize draft stack"
-                  />
-                </div>
-              </MarbleWorkbenchSection>
-
+            <div className="min-h-0 flex-1 overflow-y-auto">
               <MarbleWorkbenchSection
                 badge={
+                  !viewingHistoricalVersion &&
                   inputSchemaStr !== latestInputSchemaStr ? (
                     <MarbleBadge tone="warning">Draft</MarbleBadge>
                   ) : null
@@ -2383,15 +3257,20 @@ export function ProgramsPageView({
                 }
                 title="Input Schema"
               >
-                <div className="flex h-full flex-col p-2">
-                  <MarbleTextarea
-                    className="min-h-0 flex-1"
-                    monospace
-                    onChange={(event) => setInputSchemaStr(event.target.value)}
-                    size="xs"
-                    value={inputSchemaStr}
-                    wrapperClassName="w-full flex-1"
-                  />
+                <div className="flex h-full flex-col">
+                  <div className="min-h-0 flex-1 p-2">
+                    <MarbleTextarea
+                      className="h-full min-h-full resize-none leading-5"
+                      monospace
+                      onChange={(event) =>
+                        setInputSchemaStr(event.target.value)
+                      }
+                      readOnly={viewingHistoricalVersion}
+                      size="xs"
+                      value={visibleInputSchemaStr}
+                      wrapperClassName="flex h-full w-full flex-1"
+                    />
+                  </div>
                   <MarbleWorkbenchResizeHandle
                     active={activeResizePanel === "inputSchema"}
                     aria-label="Resize input schema"
@@ -2407,6 +3286,7 @@ export function ProgramsPageView({
 
               <MarbleWorkbenchSection
                 badge={
+                  !viewingHistoricalVersion &&
                   outputConfigStr !== latestOutputConfigStr ? (
                     <MarbleBadge tone="warning">Draft</MarbleBadge>
                   ) : null
@@ -2428,15 +3308,20 @@ export function ProgramsPageView({
                 }
                 title="Output Config"
               >
-                <div className="flex h-full flex-col p-2">
-                  <MarbleTextarea
-                    className="min-h-0 flex-1"
-                    monospace
-                    onChange={(event) => setOutputConfigStr(event.target.value)}
-                    size="xs"
-                    value={outputConfigStr}
-                    wrapperClassName="w-full flex-1"
-                  />
+                <div className="flex h-full flex-col">
+                  <div className="min-h-0 flex-1 p-2">
+                    <MarbleTextarea
+                      className="h-full min-h-full resize-none leading-5"
+                      monospace
+                      onChange={(event) =>
+                        setOutputConfigStr(event.target.value)
+                      }
+                      readOnly={viewingHistoricalVersion}
+                      size="xs"
+                      value={visibleOutputConfigStr}
+                      wrapperClassName="flex h-full w-full flex-1"
+                    />
+                  </div>
                   <MarbleWorkbenchResizeHandle
                     active={activeResizePanel === "outputConfig"}
                     aria-label="Resize output config"
@@ -2451,13 +3336,59 @@ export function ProgramsPageView({
               </MarbleWorkbenchSection>
 
               <MarbleWorkbenchSection
+                actions={
+                  canEditWorkspace ? (
+                    <MarbleButton
+                      onClick={handleAddSecretDeclaration}
+                      size="xs"
+                      type="button"
+                      variant="light"
+                    >
+                      Add
+                    </MarbleButton>
+                  ) : null
+                }
                 badge={
-                  <MarbleBadge
-                    caps
-                    tone="warning"
-                  >
-                    Stub
-                  </MarbleBadge>
+                  visibleSecretDeclarations.length > 0 ? (
+                    <MarbleBadge
+                      caps
+                      tone={
+                        visibleSecretDeclarations.some((secret) => {
+                          const declarationIssue =
+                            visibleSecretDeclarationIssues[secret.id];
+
+                          if (declarationIssue) {
+                            return true;
+                          }
+
+                          const normalizedEnvName = secret.env.trim();
+                          const resolution = describeProgramSecretResolution(
+                            {
+                              ...(secret.description.trim().length > 0
+                                ? {
+                                    description: secret.description.trim(),
+                                  }
+                                : {}),
+                              env: normalizedEnvName,
+                              label:
+                                secret.label.trim().length > 0
+                                  ? secret.label.trim()
+                                  : normalizedEnvName,
+                              required: secret.required,
+                            },
+                            selectedProgramSecretBindings[normalizedEnvName],
+                            initialSecrets,
+                          );
+
+                          return resolution.badgeTone === "warning";
+                        })
+                          ? "warning"
+                          : "neutral"
+                      }
+                    >
+                      {visibleSecretDeclarations.length} configured
+                    </MarbleBadge>
+                  ) : null
                 }
                 bodyClassName={stackedWorkbenchBodyClassName}
                 bodyStyle={{
@@ -2478,30 +3409,284 @@ export function ProgramsPageView({
               >
                 <div className="flex h-full flex-col">
                   <div className="flex-1 space-y-3 overflow-y-auto p-3">
-                    <p className="text-taupe-600 text-xs">
-                      Required environment variables will surface here once
-                      secret declarations are wired into the program manifest.
+                    <p className="text-taupe-600 text-xs leading-5">
+                      Secret requirements live on the version. Program defaults
+                      apply everywhere unless a column overrides them.
                     </p>
 
-                    {[
-                      "EXTERNAL_API_KEY",
-                      "PRIVATE_SIGNING_SECRET",
-                    ].map((secretName) => (
-                      <div
-                        className="rounded-xs border border-taupe-400/80 bg-white/80 px-3 py-2"
-                        key={secretName}
+                    {!selectedProgram ? (
+                      <MarbleAlert
+                        size="sm"
+                        tone="neutral"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-[12px] text-taupe-900">
-                            {secretName}
-                          </span>
-                          <MarbleBadge tone="warning">Missing</MarbleBadge>
+                        Save this program once before persisting default secret
+                        bindings.
+                      </MarbleAlert>
+                    ) : null}
+
+                    {visibleSecretConfigState.error ? (
+                      <MarbleAlert
+                        size="sm"
+                        tone="warning"
+                      >
+                        {visibleSecretConfigState.error}
+                      </MarbleAlert>
+                    ) : null}
+
+                    {initialSecrets.length === 0 ? (
+                      <div className="rounded-xs border border-taupe-200 bg-white/80 p-3">
+                        <div className="text-xs text-taupe-700">
+                          No named secrets are available yet.
                         </div>
-                        <div className="mt-1 text-[11px] text-taupe-500">
-                          Secret resolution UI coming next.
+                        <div className="mt-3">
+                          <MarbleButton
+                            onClick={() => router.push("/secrets")}
+                            size="xs"
+                            variant="light"
+                          >
+                            Open Secrets
+                          </MarbleButton>
                         </div>
                       </div>
-                    ))}
+                    ) : null}
+
+                    {savingProgramSecrets ? (
+                      <MarbleAlert
+                        size="sm"
+                        tone="neutral"
+                      >
+                        Saving default secret bindings…
+                      </MarbleAlert>
+                    ) : null}
+
+                    {visibleSecretDeclarations.length === 0 &&
+                    !visibleSecretConfigState.error ? (
+                      <p className="text-taupe-600 text-xs">
+                        No secret requirements are declared for this version.
+                      </p>
+                    ) : null}
+
+                    {visibleSecretDeclarations.map((secret) => {
+                      const declarationIssue =
+                        visibleSecretDeclarationIssues[secret.id];
+                      const normalizedEnvName = secret.env.trim();
+                      const normalizedLabel =
+                        secret.label.trim().length > 0
+                          ? secret.label.trim()
+                          : normalizedEnvName;
+                      const explicitSecretId = normalizedEnvName
+                        ? selectedProgramSecretBindings[normalizedEnvName]
+                        : undefined;
+                      const resolution =
+                        declarationIssue === null
+                          ? describeProgramSecretResolution(
+                              {
+                                ...(secret.description.trim().length > 0
+                                  ? {
+                                      description: secret.description.trim(),
+                                    }
+                                  : {}),
+                                env: normalizedEnvName,
+                                label: normalizedLabel,
+                                required: secret.required,
+                              },
+                              explicitSecretId,
+                              initialSecrets,
+                            )
+                          : null;
+
+                      return (
+                        <div
+                          className="space-y-3 rounded-xs border border-taupe-200 bg-white/85 px-3 py-3"
+                          key={secret.id}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="truncate font-mono text-[12px] text-taupe-950">
+                                  {normalizedEnvName || "NEW_SECRET"}
+                                </span>
+                                {resolution ? (
+                                  <MarbleBadge tone={resolution.badgeTone}>
+                                    {resolution.badgeLabel}
+                                  </MarbleBadge>
+                                ) : null}
+                                <MarbleBadge
+                                  tone={secret.required ? "warning" : "neutral"}
+                                >
+                                  {secret.required ? "Required" : "Optional"}
+                                </MarbleBadge>
+                              </div>
+                              <div className="text-[11px] text-taupe-700">
+                                {normalizedLabel || "Label this secret"}
+                              </div>
+                              {secret.description.trim().length > 0 ? (
+                                <div className="text-[11px] text-taupe-500">
+                                  {secret.description.trim()}
+                                </div>
+                              ) : null}
+                            </div>
+                            {canEditWorkspace ? (
+                              <MarbleButton
+                                onClick={() =>
+                                  handleRemoveSecretDeclaration(secret.id)
+                                }
+                                size="xs"
+                                type="button"
+                                variant="light"
+                              >
+                                Remove
+                              </MarbleButton>
+                            ) : null}
+                          </div>
+
+                          {declarationIssue ? (
+                            <MarbleAlert
+                              size="sm"
+                              tone="warning"
+                            >
+                              {declarationIssue}
+                            </MarbleAlert>
+                          ) : null}
+
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <div className="space-y-1.5">
+                              <MarbleFieldLabel className="text-taupe-700">
+                                Env var
+                              </MarbleFieldLabel>
+                              <MarbleInput
+                                disabled={!canEditWorkspace}
+                                onChange={(event) =>
+                                  handleSecretDeclarationChange(
+                                    secret.id,
+                                    "env",
+                                    event.target.value,
+                                  )
+                                }
+                                size="xs"
+                                type="text"
+                                value={secret.env}
+                                wrapperClassName="w-full"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <MarbleFieldLabel className="text-taupe-700">
+                                Label
+                              </MarbleFieldLabel>
+                              <MarbleInput
+                                disabled={!canEditWorkspace}
+                                onChange={(event) =>
+                                  handleSecretDeclarationChange(
+                                    secret.id,
+                                    "label",
+                                    event.target.value,
+                                  )
+                                }
+                                size="xs"
+                                type="text"
+                                value={secret.label}
+                                wrapperClassName="w-full"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem]">
+                            <div className="space-y-1.5">
+                              <MarbleFieldLabel className="text-taupe-700">
+                                Description
+                              </MarbleFieldLabel>
+                              <MarbleTextarea
+                                className="min-h-20 resize-y"
+                                disabled={!canEditWorkspace}
+                                onChange={(event) =>
+                                  handleSecretDeclarationChange(
+                                    secret.id,
+                                    "description",
+                                    event.target.value,
+                                  )
+                                }
+                                size="xs"
+                                value={secret.description}
+                                wrapperClassName="w-full"
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <MarbleFieldLabel className="text-taupe-700">
+                                Requirement
+                              </MarbleFieldLabel>
+                              <MarbleSelect
+                                disabled={!canEditWorkspace}
+                                onChange={(event) =>
+                                  handleSecretDeclarationChange(
+                                    secret.id,
+                                    "required",
+                                    event.target.value === "required",
+                                  )
+                                }
+                                size="xs"
+                                value={
+                                  secret.required ? "required" : "optional"
+                                }
+                                wrapperClassName="w-full"
+                              >
+                                <option value="required">Required</option>
+                                <option value="optional">Optional</option>
+                              </MarbleSelect>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <MarbleFieldLabel className="text-taupe-700">
+                              Default secret
+                            </MarbleFieldLabel>
+                            <MarbleSelect
+                              disabled={
+                                !selectedProgram ||
+                                savingProgramSecrets ||
+                                declarationIssue !== null
+                              }
+                              onChange={(event) =>
+                                handleProgramSecretBindingChange(
+                                  normalizedEnvName,
+                                  event.target.value,
+                                )
+                              }
+                              size="xs"
+                              value={explicitSecretId ?? ""}
+                              wrapperClassName="w-full"
+                            >
+                              <option value="">
+                                {resolution?.implicitSecret
+                                  ? `Use matching secret (${resolution.implicitSecret.name})`
+                                  : "No default binding"}
+                              </option>
+                              {explicitSecretId &&
+                              !initialSecrets.some(
+                                (secret) => secret.id === explicitSecretId,
+                              ) ? (
+                                <option value={explicitSecretId}>
+                                  Missing secret
+                                </option>
+                              ) : null}
+                              {initialSecrets.map((secret) => (
+                                <option
+                                  key={secret.id}
+                                  value={secret.id}
+                                >
+                                  {secret.name}
+                                </option>
+                              ))}
+                            </MarbleSelect>
+                          </div>
+
+                          <div className="text-[11px] text-taupe-500">
+                            {declarationIssue
+                              ? "Fix this declaration before draft sync resumes."
+                              : resolution?.helperText}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   <MarbleWorkbenchResizeHandle
                     active={activeResizePanel === "secrets"}
@@ -2515,6 +3700,22 @@ export function ProgramsPageView({
                   />
                 </div>
               </MarbleWorkbenchSection>
+            </div>
+
+            <div className="relative mt-auto shrink-0">
+              {rightPanelCollapsed.testInputs ? null : (
+                <MarbleWorkbenchResizeHandle
+                  active={activeResizePanel === "testInputs"}
+                  aria-label="Resize test inputs"
+                  className="absolute inset-x-0 top-0"
+                  onKeyDown={handlePanelResizeKeyDown("testInputs")}
+                  onPointerCancel={finishPanelResize}
+                  onPointerDown={handlePanelResizeStart("testInputs", -1)}
+                  onPointerMove={handlePanelResizeMove}
+                  onPointerUp={finishPanelResize}
+                  title="Resize test inputs"
+                />
+              )}
 
               <MarbleWorkbenchSection
                 actions={
@@ -2540,7 +3741,7 @@ export function ProgramsPageView({
                 bodyStyle={{
                   height: rightPanelHeights.testInputs,
                 }}
-                className={stackedWorkbenchSectionClassName}
+                className="rounded-none border-x-0 border-b-0 bg-transparent shadow-none"
                 collapsed={rightPanelCollapsed.testInputs}
                 collapsible
                 headerClassName={stackedWorkbenchHeaderClassName}
@@ -2670,24 +3871,65 @@ export function ProgramsPageView({
                             {result.ok ? "Success" : "Error"}
                           </MarbleBadge>
                         </div>
-                        <div className="max-h-48 overflow-auto break-words px-3 py-2 font-mono text-[11px] leading-5 text-taupe-800">
-                          {result.ok
-                            ? JSON.stringify(result.output, null, 2)
-                            : result.error}
-                        </div>
+                        {result.ok ? (
+                          <div className="max-h-48 overflow-auto break-words px-3 py-2 font-mono text-[11px] leading-5 text-taupe-800">
+                            {JSON.stringify(result.output, null, 2)}
+                          </div>
+                        ) : missingSecretConfigurationDetail ? (
+                          <div className="space-y-3 px-3 py-3">
+                            <MarbleAlert
+                              size="sm"
+                              tone="warning"
+                            >
+                              This run is waiting for secret configuration.
+                            </MarbleAlert>
+                            <div className="space-y-2">
+                              {missingSecretConfigurationDetail.missingSecrets.map(
+                                (secret) => (
+                                  <div
+                                    className="rounded-xs border border-taupe-200 bg-white/70 px-3 py-2"
+                                    key={secret.envName}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-mono text-[11px] text-taupe-900">
+                                        {secret.envName}
+                                      </span>
+                                      <MarbleBadge tone="warning">
+                                        {secret.bindingSource === "program"
+                                          ? "Program"
+                                          : secret.bindingSource === "column"
+                                            ? "Column"
+                                            : "Auto"}
+                                      </MarbleBadge>
+                                    </div>
+                                    <div className="mt-1 text-[11px] text-taupe-600">
+                                      {secret.label}
+                                    </div>
+                                    {secret.description ? (
+                                      <div className="mt-1 text-[11px] text-taupe-500">
+                                        {secret.description}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                ),
+                              )}
+                            </div>
+                            <MarbleButton
+                              onClick={() => router.push("/secrets")}
+                              size="xs"
+                              variant="light"
+                            >
+                              Open Secrets
+                            </MarbleButton>
+                          </div>
+                        ) : (
+                          <div className="max-h-48 overflow-auto break-words px-3 py-2 font-mono text-[11px] leading-5 text-taupe-800">
+                            {result.error}
+                          </div>
+                        )}
                       </div>
                     ) : null}
                   </div>
-                  <MarbleWorkbenchResizeHandle
-                    active={activeResizePanel === "testInputs"}
-                    aria-label="Resize test inputs"
-                    onKeyDown={handlePanelResizeKeyDown("testInputs")}
-                    onPointerCancel={finishPanelResize}
-                    onPointerDown={handlePanelResizeStart("testInputs", 1)}
-                    onPointerMove={handlePanelResizeMove}
-                    onPointerUp={finishPanelResize}
-                    title="Resize test inputs"
-                  />
                 </div>
               </MarbleWorkbenchSection>
             </div>

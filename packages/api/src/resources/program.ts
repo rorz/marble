@@ -1,3 +1,4 @@
+import { ProgramSecretConfigSchema } from "@marble/core";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { type ApiEnv, mountResource, requireAnyDefined } from "../core";
@@ -34,6 +35,7 @@ const initialProgramVersionSchema = requestObject({
   outputConfig: jsonValueSchema.optional(),
   ownerProfileId: uuidSchema.optional(),
   publish: z.boolean().optional(),
+  secretConfig: ProgramSecretConfigSchema.optional(),
   version: z.number().int().positive().optional(),
 });
 
@@ -52,6 +54,7 @@ const programCreateSchema = requestObject({
   name: nonEmptyStringSchema,
   outputConfig: jsonValueSchema.optional(),
   ownerProfileId: uuidSchema.optional(),
+  secretConfig: ProgramSecretConfigSchema.optional(),
 });
 
 const programPatchSchema = requestObject({
@@ -98,6 +101,7 @@ function normalizeInitialProgramVersion(
       inputSchema: body.inputSchema,
       outputConfig: body.outputConfig,
       ownerProfileId: body.ownerProfileId,
+      secretConfig: body.secretConfig,
     }),
     publish: true,
   };

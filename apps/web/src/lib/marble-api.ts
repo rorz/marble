@@ -7,6 +7,7 @@ import { maybeResolveOwnedProfileId } from "./supabase/service-role";
 type MarbleApiMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
 
 type CallMarbleApiOptions = {
+  allowErrorStatus?: boolean;
   body?: unknown;
   method?: MarbleApiMethod;
   profileId?: false | string;
@@ -84,7 +85,7 @@ export async function callMarbleApi<T>(
     }
   }
 
-  if (!response.ok) {
+  if (!response.ok && !options.allowErrorStatus) {
     throw new Error(
       typeof payload === "object" &&
         payload !== null &&

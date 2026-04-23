@@ -1,4 +1,9 @@
-import { Schemas } from "@marble/core";
+import {
+  ProgramSecretConfigSchema,
+  parseProgramManifestFileContent,
+  parseProgramSecretConfig,
+  Schemas,
+} from "@marble/core";
 import type { Json, SupabaseClient } from "@marble/supabase";
 import type { Hono } from "hono";
 import { z } from "zod";
@@ -42,6 +47,7 @@ const programVersionCreateSchema = requestObject({
   ownerProfileId: uuidSchema.optional(),
   programId: uuidSchema.optional(),
   publish: z.boolean().optional(),
+  secretConfig: ProgramSecretConfigSchema.optional(),
   version: z.number().int().positive().optional(),
 });
 
@@ -50,6 +56,7 @@ const programVersionPatchSchema = requestObject({
   inputSchema: jsonValueSchema.optional(),
   outputConfig: jsonValueSchema.optional(),
   publish: z.boolean().optional(),
+  secretConfig: ProgramSecretConfigSchema.optional(),
   version: z.number().int().positive().optional(),
 });
 
@@ -63,6 +70,7 @@ type NormalizedProgramVersionInput = {
   inputSchema: Json;
   outputConfig: Json;
   ownerProfileId?: string;
+  secretConfig?: Json | null;
   version?: number;
 };
 
@@ -198,6 +206,7 @@ export function normalizeProgramVersionInput(input: {
   inputSchema?: unknown;
   outputConfig?: unknown;
   ownerProfileId?: string;
+  secretConfig?: unknown;
   version?: number;
 }) {
   if (input.inputSchema === undefined) {
@@ -222,11 +231,32 @@ export function normalizeProgramVersionInput(input: {
     throw zodError(parsedOutputConfig.error);
   }
 
+  const manifestFile = input.files?.find(
+    (file) => file.filename === "package.json",
+  );
+
+  if (manifestFile) {
+    try {
+      parseProgramManifestFileContent(manifestFile.content);
+    } catch (error) {
+      throw new ApiError(
+        400,
+        error instanceof Error
+          ? `package.json is invalid: ${error.message}`
+          : "package.json is invalid",
+      );
+    }
+  }
+
   return {
     files: input.files ?? [],
     inputSchema: parsedInputSchema.data as Json,
     outputConfig: parsedOutputConfig.data as Json,
     ownerProfileId: input.ownerProfileId,
+    secretConfig:
+      input.secretConfig === undefined
+        ? null
+        : (parseProgramSecretConfig(input.secretConfig) as unknown as Json),
     version: input.version,
   } satisfies NormalizedProgramVersionInput;
 }
@@ -372,6 +402,7 @@ export async function createProgramVersionRecord(
     output_config: input.outputConfig,
     program_id: programId,
     published_at: shouldPublish ? new Date().toISOString() : null,
+    secret_config: input.secretConfig ?? null,
     version: shouldPublish
       ? (input.version ?? (await nextProgramVersionNumber(supabase, programId)))
       : null,
@@ -548,6 +579,7 @@ export function mountProgramVersionResource(app: Hono<ApiEnv>) {
             body.inputSchema,
             body.outputConfig,
             body.publish,
+            body.secretConfig,
             body.version,
           ]);
 
@@ -592,6 +624,12 @@ export function mountProgramVersionResource(app: Hono<ApiEnv>) {
             updates.version = body.version;
           }
 
+          if (body.secretConfig !== undefined) {
+            updates.secret_config = parseProgramSecretConfig(
+              body.secretConfig,
+            ) as unknown as Json;
+          }
+
           if (body.publish) {
             updates.published_at = new Date().toISOString();
             updates.version =
@@ -617,6 +655,10 @@ export function mountProgramVersionResource(app: Hono<ApiEnv>) {
                   body.outputConfig === undefined
                     ? existing.output_config
                     : body.outputConfig,
+                secretConfig:
+                  body.secretConfig === undefined
+                    ? existing.secret_config
+                    : body.secretConfig,
               }).files,
             );
           }

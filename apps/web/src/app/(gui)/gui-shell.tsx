@@ -30,6 +30,7 @@ import {
   CodeBlockIcon,
   FileCodeIcon,
   IdentificationBadgeIcon,
+  KeyIcon,
   LifebuoyIcon,
   PlugsIcon,
   RobotIcon,
@@ -134,14 +135,14 @@ const navigationGroups: SidebarGroup = [
       },
       {
         icon: (
-          <PlugsIcon
+          <KeyIcon
             size={20}
             weight="regular"
           />
         ),
-        id: "integrations",
-        name: "Integrations",
-        path: "/integrations",
+        id: "secrets",
+        name: "Secrets",
+        path: "/secrets",
       },
     ],
   },

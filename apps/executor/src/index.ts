@@ -20,7 +20,7 @@ import {
   loadStoredRun,
   loadStoredRuns,
   persistStoredRunFailure,
-  resolveEnvironmentVariablesForAuth,
+  resolveEnvironmentVariablesForProgramVersion,
   resolveEnvironmentVariablesForRun,
   resolveStoredRunInput,
   runtimeInputFromValue,
@@ -542,14 +542,13 @@ const liveBatchRunHandler = async (c: Context<ExecutorEnv>) => {
 const testHandler = async (c: Context<ExecutorEnv>) => {
   const query = (c.req as TestValidatedRequest).valid("query");
   const body = (c.req as TestValidatedRequest).valid("json");
-  const [files, versionRecord, environmentVariables] = await Promise.all([
+  const [files, versionRecord] = await Promise.all([
     loadProgramVersionFiles(c.var.supabase, query.programVersionId),
     c.var.supabase
       .from("program_version")
-      .select("output_config")
+      .select("output_config, program_id, secret_config")
       .eq("id", query.programVersionId)
       .maybeSingle(),
-    resolveEnvironmentVariablesForAuth(c.var.supabase, c.var.auth),
   ]);
 
   if (versionRecord.error) {
@@ -564,6 +563,13 @@ const testHandler = async (c: Context<ExecutorEnv>) => {
   }
 
   try {
+    const environmentVariables =
+      await resolveEnvironmentVariablesForProgramVersion(c.var.supabase, {
+        auth: c.var.auth,
+        programFiles: files,
+        programId: versionRecord.data.program_id,
+        secretConfig: versionRecord.data.secret_config as Json | null,
+      });
     const output = await executeAndValidate(
       getSandbox(
         c.env.Sandbox,

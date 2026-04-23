@@ -35,6 +35,7 @@ import { mountProgramVersionResource } from "./resources/program_version";
 import { mountProjectResource } from "./resources/project";
 import { mountRowResource } from "./resources/row";
 import { mountSecretResource } from "./resources/secret";
+import { mountSecretBindingRoutes } from "./resources/secret_binding";
 import { mountTableResource } from "./resources/table";
 
 const app = new Hono<ApiEnv>();
@@ -381,6 +382,8 @@ app.get(
 for (const resourceName of ApiResourceNames) {
   resourceMounts[resourceName](app);
 }
+
+mountSecretBindingRoutes(app);
 
 app.post(
   "/test",

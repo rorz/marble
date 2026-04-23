@@ -187,10 +187,10 @@ export function MarbleWorkbenchResizeHandle({
   return (
     <button
       className={cx(
-        "group/workbench-handle relative z-10 shrink-0 touch-none bg-transparent focus-visible:outline-none",
+        "group/workbench-handle relative z-10 shrink-0 overflow-visible touch-none bg-transparent focus-visible:outline-none",
         isHorizontal
-          ? "-my-px h-2 w-full cursor-row-resize"
-          : "-mx-px h-full w-2 cursor-col-resize",
+          ? "-my-px h-px w-full cursor-row-resize"
+          : "-mx-px h-full w-px cursor-col-resize",
         className,
       )}
       type={type}
@@ -198,10 +198,16 @@ export function MarbleWorkbenchResizeHandle({
     >
       <span
         className={cx(
-          "absolute inset-0 block bg-transparent transition-colors",
+          "absolute block",
           isHorizontal
-            ? "top-1/2 h-px -translate-y-1/2"
-            : "left-1/2 w-px -translate-x-1/2",
+            ? "inset-x-0 -top-2 h-[17px]"
+            : "-left-2 inset-y-0 w-[17px]",
+        )}
+      />
+      <span
+        className={cx(
+          "pointer-events-none absolute block transition-colors",
+          isHorizontal ? "inset-x-0 top-0 h-px" : "left-0 inset-y-0 w-px",
           active
             ? "bg-orange-500/80"
             : "group-hover/workbench-handle:bg-taupe-400",

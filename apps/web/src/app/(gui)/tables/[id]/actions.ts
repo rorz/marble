@@ -9,6 +9,12 @@ import {
   listReferenceableColumnsForUser,
 } from "../../../../lib/project-data";
 import {
+  listColumnSecretBindings,
+  listLatestProgramSecretDeclarationsByProgramId,
+  listProgramSecretBindingsForUser,
+  listSecretsForUser,
+} from "../../../../lib/secret-data";
+import {
   createServiceRoleClient,
   listOwnedProfileIds,
 } from "../../../../lib/supabase/service-role";
@@ -17,14 +23,21 @@ type CellRow = Database["public"]["Tables"]["cell"]["Row"];
 type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
 type DependencyRow = Database["public"]["Tables"]["column_dependency"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
+type ProgramFileRow = Database["public"]["Tables"]["program_file"]["Row"];
 type ProgramVersionRow = Database["public"]["Tables"]["program_version"]["Row"];
 type RowRow = Database["public"]["Tables"]["row"]["Row"];
 type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type FullProgram = ProgramRow & {
-  program_version: Pick<
+  program_version: (Pick<
     ProgramVersionRow,
-    "id" | "input_schema" | "output_config" | "version"
-  >[];
+    "id" | "input_schema" | "output_config" | "secret_config" | "version"
+  > & {
+    program_file: Pick<ProgramFileRow, "content" | "filename" | "filetype">[];
+  })[];
+};
+type SecretBindingInput = {
+  envName: string;
+  secretId: string;
 };
 type RunExecutionResult = {
   output: unknown;
@@ -34,7 +47,7 @@ type RunExecutionResult = {
 
 const SUPABASE_SELECT_PAGE_SIZE = 1000;
 const PROGRAM_SELECT =
-  "*, program_version!program_version_program_id_fkey(id, version, input_schema, output_config)";
+  "*, program_version!program_version_program_id_fkey(id, version, input_schema, output_config, secret_config, program_file(*))";
 
 function db() {
   return createServiceRoleClient();
@@ -237,17 +250,32 @@ export async function loadTableData(tableId: string) {
 }
 
 export async function loadTablePageData(tableId: string) {
+  const user = await requireUser();
   const [table, data, programs, referenceColumns] = await Promise.all([
     requireOwnedTable(tableId),
     loadTableData(tableId),
     listProgramsForEditor(),
     listReferenceableColumns(),
   ]);
+  const [secrets, programSecretBindings, columnSecretBindings] =
+    await Promise.all([
+      listSecretsForUser(user.id),
+      listProgramSecretBindingsForUser(
+        user.id,
+        programs.map((program) => program.id),
+      ),
+      listColumnSecretBindings(data.columns.map((column) => column.id)),
+    ]);
 
   return {
     ...data,
+    columnSecretBindings,
+    programSecretBindings,
+    programSecretDeclarations:
+      listLatestProgramSecretDeclarationsByProgramId(programs),
     programs,
     referenceColumns,
+    secrets,
     table,
   };
 }
@@ -315,6 +343,18 @@ export async function updateColumn(input: {
   });
 
   return loadColumn(input.columnId);
+}
+
+export async function updateColumnSecretBindings(
+  columnId: string,
+  bindings: SecretBindingInput[],
+) {
+  return callMarbleApi<SecretBindingInput[]>(`/columns/${columnId}/secrets`, {
+    body: {
+      bindings,
+    },
+    method: "PUT",
+  });
 }
 
 export async function deleteColumn(columnId: string) {

@@ -8,16 +8,18 @@ export default async function ProgramPage(props: {
   }>;
 }) {
   const { id } = await props.params;
-  const programs = await actions.listPrograms();
+  const pageData = await actions.loadProgramsPageData();
 
-  if (!programs.some((program) => program.id === id)) {
+  if (!pageData.programs.some((program) => program.id === id)) {
     notFound();
   }
 
   return (
     <ProgramsPageView
       initialProgramId={id}
-      initialPrograms={programs}
+      initialProgramSecretBindings={pageData.programSecretBindings}
+      initialPrograms={pageData.programs}
+      initialSecrets={pageData.secrets}
     />
   );
 }

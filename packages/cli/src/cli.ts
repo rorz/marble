@@ -8,6 +8,7 @@ import {
   apiResourceLabel,
   apiResourceSegment,
   type CrudOperation,
+  parseProgramManifest,
   supportsResourceOperation,
 } from "@marble/core";
 import { Command } from "commander";
@@ -34,6 +35,7 @@ type LoadedProgramDirectory = {
   inputSchema: unknown;
   name: string;
   outputConfig: unknown;
+  secretConfig: unknown;
 };
 type CrudCommandDefinition = {
   arguments: Array<
@@ -379,19 +381,10 @@ async function loadProgramDirectory(
     throw new Error("Program directory must include output-config.json.");
   }
 
-  const packageManifest = parseJson(
-    "package.json",
-    packageManifestFile.content,
+  const packageManifest = parseProgramManifest(
+    parseJson("package.json", packageManifestFile.content),
   );
-
-  if (!packageManifest || typeof packageManifest !== "object") {
-    throw new Error("package.json must be a JSON object.");
-  }
-
-  const name = requiredStringValue(
-    (packageManifest as JsonObject).name,
-    "package.json.name",
-  );
+  const name = requiredStringValue(packageManifest.name, "package.json.name");
   const inputSchema = parseJson("input-schema.json", inputSchemaFile.content);
   const outputConfig = parseJson(
     "output-config.json",
@@ -403,6 +396,7 @@ async function loadProgramDirectory(
     inputSchema,
     name,
     outputConfig,
+    secretConfig: packageManifest.marble?.secrets ?? [],
   };
 }
 
@@ -427,6 +421,7 @@ async function upsertProgramFromDirectory(dir: string) {
     inputSchema: loadedProgram.inputSchema,
     name: loadedProgram.name,
     outputConfig: loadedProgram.outputConfig,
+    secretConfig: loadedProgram.secretConfig,
   });
 
   return {
@@ -1546,12 +1541,14 @@ function registerProgramCommands() {
     .action((dir, options: ProgramTestOptions) =>
       runAction("testing program", async () => {
         const result = await upsertProgramFromDirectory(dir);
+        const output = await client.testProgramVersion(result.versionId, {
+          input: await buildProgramTestInput(options),
+        });
 
-        printJson(
-          await client.testProgramVersion(result.versionId, {
-            input: await buildProgramTestInput(options),
-          }),
-        );
+        printJson(output);
+        if (!didRunRequestSucceed(output)) {
+          process.exitCode = 1;
+        }
       }),
     );
 }
@@ -1619,12 +1616,14 @@ programsCommand
   .action((dir, inputText) =>
     runAction("testing program", async () => {
       const result = await upsertProgramFromDirectory(dir);
+      const output = await client.testProgramVersion(result.versionId, {
+        input: parseJson("input", inputText),
+      });
 
-      printJson(
-        await client.testProgramVersion(result.versionId, {
-          input: parseJson("input", inputText),
-        }),
-      );
+      printJson(output);
+      if (!didRunRequestSucceed(output)) {
+        process.exitCode = 1;
+      }
     }),
   );
 

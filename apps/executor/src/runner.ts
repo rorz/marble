@@ -1,5 +1,11 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { type JsonValue, resolveColumnConfig, Schemas } from "@marble/core";
+import {
+  type JsonValue,
+  listProgramSecretDeclarationsFromFiles,
+  parseProgramSecretConfig,
+  resolveColumnConfig,
+  Schemas,
+} from "@marble/core";
 import { assert } from "@marble/lib/assert";
 import type { Json, SupabaseClient, Tables } from "@marble/supabase";
 import { z } from "zod";
@@ -14,8 +20,24 @@ type ProgramFile = Pick<
 >;
 type ExecutionSecret = {
   category: Tables<"secret">["category"];
+  id: string;
   name: string;
   value: string;
+};
+type ExecutionSecretMetadata = Pick<
+  Tables<"secret">,
+  "category" | "id" | "name"
+>;
+type SecretBinding = {
+  envName: string;
+  secretId: string;
+};
+type MissingSecretConfiguration = {
+  bindingSource: "column" | "implicit" | "program";
+  description?: string;
+  envName: string;
+  label: string;
+  required: boolean;
 };
 type BatchExecutionJob = {
   key: string;
@@ -40,9 +62,37 @@ const executionSecretSchema = z.object({
     "Managed",
     "UserDefined",
   ]),
+  id: z.string().uuid(),
   name: z.string(),
   value: z.string(),
 });
+const secretBindingSchema = z.object({
+  env_name: z.string(),
+  secret_id: z.string().uuid(),
+});
+
+class MissingSecretConfigurationError extends Error {
+  failState: Schemas.RunReturnValue;
+
+  constructor(missingSecrets: MissingSecretConfiguration[]) {
+    super(
+      missingSecrets.length === 1
+        ? `Waiting for secret configuration: ${missingSecrets[0].envName}`
+        : `Waiting for secret configuration: ${missingSecrets
+            .map((secret) => secret.envName)
+            .join(", ")}`,
+    );
+    this.name = "MissingSecretConfigurationError";
+    this.failState = createFailureState(
+      "MissingSecretConfiguration",
+      this.message,
+      {
+        missingSecrets,
+        sentinel: "WAITING_FOR_SECRET_CONFIGURATION",
+      } as unknown as Json,
+    );
+  }
+}
 
 export const formatZodIssues = (issues: z.ZodIssue[]): string =>
   issues
@@ -69,6 +119,10 @@ export const createFailureState = (
 export const failureStateFromError = (
   error: unknown,
 ): Schemas.RunReturnValue => {
+  if (error instanceof MissingSecretConfigurationError) {
+    return error.failState;
+  }
+
   if (error instanceof z.ZodError) {
     return createFailureState(
       "Validation",
@@ -135,6 +189,48 @@ async function listSecretsForOwnerUserId(
   return z.array(executionSecretSchema).parse(data ?? []) as ExecutionSecret[];
 }
 
+async function listSecretMetadataForOwnerUserId(
+  supabase: SupabaseClient,
+  ownerUserId: string,
+) {
+  const { data, error } = await supabase
+    .from("secret")
+    .select("category, id, name")
+    .eq("owner_user_id", ownerUserId)
+    .order("name", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as ExecutionSecretMetadata[];
+}
+
+async function listSelectedSecretsForOwnerUserId(
+  supabase: SupabaseClient,
+  ownerUserId: string,
+  secretIds: string[],
+) {
+  const uniqueSecretIds = Array.from(new Set(secretIds));
+
+  if (uniqueSecretIds.length === 0) {
+    return [] as ExecutionSecret[];
+  }
+
+  const { data, error } = await supabase.rpc("secret_store_resolve_selected", {
+    p_owner_user_id: ownerUserId,
+    p_secret_ids: uniqueSecretIds,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return z.array(executionSecretSchema).parse(data ?? []) as ExecutionSecret[];
+}
+
 function secretsToEnvironmentVariables(
   secrets: ExecutionSecret[],
 ): Record<string, string> {
@@ -188,6 +284,58 @@ async function resolveEnvironmentVariablesForOwnerUserId(
   return secretsToEnvironmentVariables(
     await listSecretsForOwnerUserId(supabase, ownerUserId),
   );
+}
+
+async function listProgramSecretBindingsForOwnerUserId(
+  supabase: SupabaseClient,
+  ownerUserId: string,
+  programId: string,
+) {
+  const { data, error } = await supabase
+    .from("program_secret_binding")
+    .select("env_name, secret_id")
+    .eq("owner_user_id", ownerUserId)
+    .eq("program_id", programId)
+    .order("env_name", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return z
+    .array(secretBindingSchema)
+    .parse(data ?? [])
+    .map((binding) => ({
+      envName: binding.env_name,
+      secretId: binding.secret_id,
+    })) as SecretBinding[];
+}
+
+async function listColumnSecretBindings(
+  supabase: SupabaseClient,
+  columnId: string,
+) {
+  const { data, error } = await supabase
+    .from("column_secret_binding")
+    .select("env_name, secret_id")
+    .eq("column_id", columnId)
+    .order("env_name", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return z
+    .array(secretBindingSchema)
+    .parse(data ?? [])
+    .map((binding) => ({
+      envName: binding.env_name,
+      secretId: binding.secret_id,
+    })) as SecretBinding[];
 }
 
 const prepareExecutionEnvironment = async (
@@ -698,22 +846,192 @@ export const resolveStoredRunInput = async (
   };
 };
 
-export const resolveEnvironmentVariablesForAuth = async (
+async function resolveDeclaredEnvironmentVariables(
   supabase: SupabaseClient,
-  auth:
-    | {
-        profileId?: string;
-        userId?: string;
-      }
-    | undefined,
+  options: {
+    columnId?: string;
+    ownerUserId: string;
+    programFiles: ProgramFile[];
+    programId: string;
+    secretConfig?: Json | null;
+  },
+) {
+  const declarations =
+    options.secretConfig === undefined || options.secretConfig === null
+      ? listProgramSecretDeclarationsFromFiles(options.programFiles)
+      : parseProgramSecretConfig(options.secretConfig);
+
+  if (declarations.length === 0) {
+    return {
+      environmentVariables: await resolveEnvironmentVariablesForOwnerUserId(
+        supabase,
+        options.ownerUserId,
+      ),
+      missingSecrets: [] as MissingSecretConfiguration[],
+    };
+  }
+
+  const [secretMetadata, programBindings, columnBindings] = await Promise.all([
+    listSecretMetadataForOwnerUserId(supabase, options.ownerUserId),
+    listProgramSecretBindingsForOwnerUserId(
+      supabase,
+      options.ownerUserId,
+      options.programId,
+    ),
+    options.columnId
+      ? listColumnSecretBindings(supabase, options.columnId)
+      : Promise.resolve([] as SecretBinding[]),
+  ]);
+  const secretIdByName = new Map(
+    secretMetadata.map((secret) => [
+      secret.name,
+      secret.id,
+    ]),
+  );
+  const programBindingByEnvName = new Map(
+    programBindings.map((binding) => [
+      binding.envName,
+      binding.secretId,
+    ]),
+  );
+  const columnBindingByEnvName = new Map(
+    columnBindings.map((binding) => [
+      binding.envName,
+      binding.secretId,
+    ]),
+  );
+  const selectedSecretIds = new Set<string>();
+  const missingSecrets: MissingSecretConfiguration[] = [];
+
+  for (const declaration of declarations) {
+    const selectedSecretId =
+      columnBindingByEnvName.get(declaration.env) ??
+      programBindingByEnvName.get(declaration.env) ??
+      secretIdByName.get(declaration.env);
+
+    if (selectedSecretId) {
+      selectedSecretIds.add(selectedSecretId);
+      continue;
+    }
+
+    if (!declaration.required) {
+      continue;
+    }
+
+    missingSecrets.push({
+      bindingSource: "implicit",
+      ...(declaration.description === undefined
+        ? {}
+        : {
+            description: declaration.description,
+          }),
+      envName: declaration.env,
+      label: declaration.label,
+      required: declaration.required,
+    });
+  }
+
+  const resolvedSecrets = await listSelectedSecretsForOwnerUserId(
+    supabase,
+    options.ownerUserId,
+    Array.from(selectedSecretIds),
+  );
+  const resolvedSecretValueById = new Map(
+    resolvedSecrets.map((secret) => [
+      secret.id,
+      secret.value,
+    ]),
+  );
+  const environmentVariables: Record<string, string> = {};
+
+  for (const declaration of declarations) {
+    const columnSecretId = columnBindingByEnvName.get(declaration.env);
+    const programSecretId = programBindingByEnvName.get(declaration.env);
+    const implicitSecretId = secretIdByName.get(declaration.env);
+    const selectedSecretId =
+      columnSecretId ?? programSecretId ?? implicitSecretId;
+    const selectedValue =
+      selectedSecretId === undefined
+        ? undefined
+        : resolvedSecretValueById.get(selectedSecretId);
+
+    if (selectedValue !== undefined) {
+      environmentVariables[declaration.env] = selectedValue;
+      continue;
+    }
+
+    if (!declaration.required) {
+      continue;
+    }
+
+    if (
+      missingSecrets.some(
+        (missingSecret) => missingSecret.envName === declaration.env,
+      )
+    ) {
+      continue;
+    }
+
+    missingSecrets.push({
+      bindingSource:
+        columnSecretId !== undefined
+          ? "column"
+          : programSecretId !== undefined
+            ? "program"
+            : "implicit",
+      ...(declaration.description === undefined
+        ? {}
+        : {
+            description: declaration.description,
+          }),
+      envName: declaration.env,
+      label: declaration.label,
+      required: declaration.required,
+    });
+  }
+
+  return {
+    environmentVariables,
+    missingSecrets,
+  };
+}
+
+export const resolveEnvironmentVariablesForProgramVersion = async (
+  supabase: SupabaseClient,
+  options: {
+    auth:
+      | {
+          profileId?: string;
+          userId?: string;
+        }
+      | undefined;
+    programFiles: ProgramFile[];
+    programId: string;
+    secretConfig?: Json | null;
+  },
 ) => {
   const ownerUserId =
-    auth?.userId ??
-    (auth?.profileId
-      ? await resolveOwnerUserIdForProfile(supabase, auth.profileId)
+    options.auth?.userId ??
+    (options.auth?.profileId
+      ? await resolveOwnerUserIdForProfile(supabase, options.auth.profileId)
       : undefined);
 
-  return resolveEnvironmentVariablesForOwnerUserId(supabase, ownerUserId);
+  if (!ownerUserId) {
+    return {};
+  }
+
+  const resolved = await resolveDeclaredEnvironmentVariables(supabase, {
+    ownerUserId,
+    programFiles: options.programFiles,
+    programId: options.programId,
+    secretConfig: options.secretConfig,
+  });
+
+  if (resolved.missingSecrets.length > 0) {
+    throw new MissingSecretConfigurationError(resolved.missingSecrets);
+  }
+
+  return resolved.environmentVariables;
 };
 
 export const resolveEnvironmentVariablesForRun = async (
@@ -729,10 +1047,19 @@ export const resolveEnvironmentVariablesForRun = async (
     throw new Error("Could not resolve the run owner for secret loading.");
   }
 
-  return resolveEnvironmentVariablesForOwnerUserId(
-    supabase,
-    profile.owner_user_id,
-  );
+  const resolved = await resolveDeclaredEnvironmentVariables(supabase, {
+    columnId: run.cell.column.id,
+    ownerUserId: profile.owner_user_id,
+    programFiles: run.program_version.program_file,
+    programId: run.program_version.program_id,
+    secretConfig: run.program_version.secret_config as Json | null | undefined,
+  });
+
+  if (resolved.missingSecrets.length > 0) {
+    throw new MissingSecretConfigurationError(resolved.missingSecrets);
+  }
+
+  return resolved.environmentVariables;
 };
 
 export const loadProgramVersionFiles = async (

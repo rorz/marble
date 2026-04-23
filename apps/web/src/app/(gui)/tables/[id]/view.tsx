@@ -3,6 +3,7 @@
 import {
   cx,
   MarbleAlert,
+  MarbleBadge,
   MarbleButton,
   MarbleEditableText,
   MarbleFieldLabel,
@@ -62,6 +63,7 @@ import {
   executeRun,
   listReferenceableColumns,
   updateColumn,
+  updateColumnSecretBindings,
   updateProgramOutputSchema,
   updateTableName,
 } from "./actions";
@@ -81,6 +83,14 @@ type ReferenceableColumn = InitialTablePageData["referenceColumns"][number];
 type Column = InitialTablePageData["columns"][number];
 type Row = InitialTablePageData["rows"][number];
 type Cell = InitialTablePageData["cells"][number];
+type SecretRecord = InitialTablePageData["secrets"][number];
+type ProgramSecretBindingMap = InitialTablePageData["programSecretBindings"];
+type ColumnSecretBindingMap = InitialTablePageData["columnSecretBindings"];
+type ProgramSecretDeclarationsByProgramId =
+  InitialTablePageData["programSecretDeclarations"];
+type SecretBindingInput = Awaited<
+  ReturnType<typeof updateColumnSecretBindings>
+>[number];
 
 type SidebarMode =
   | {
@@ -263,6 +273,109 @@ function buildFieldsFromSchema(schema: Record<string, unknown>): SchemaField[] {
     title: (def.title as string) ?? key,
     type: (def.type as string) ?? "string",
   }));
+}
+
+function secretBindingEntriesToMap(bindings: SecretBindingInput[]) {
+  return Object.fromEntries(
+    bindings.map((binding) => [
+      binding.envName,
+      binding.secretId,
+    ]),
+  ) as Record<string, string>;
+}
+
+function secretBindingMapToEntries(bindings: Record<string, string>) {
+  return Object.entries(bindings)
+    .sort(([leftEnvName], [rightEnvName]) =>
+      leftEnvName.localeCompare(rightEnvName),
+    )
+    .map(([envName, secretId]) => ({
+      envName,
+      secretId,
+    })) satisfies SecretBindingInput[];
+}
+
+function describeColumnSecretResolution(
+  declaration: ProgramSecretDeclarationsByProgramId[string][number],
+  options: {
+    overrideSecretId?: string;
+    programDefaultSecretId?: string;
+    secrets: SecretRecord[];
+  },
+) {
+  const overrideSecret =
+    options.overrideSecretId === undefined
+      ? null
+      : (options.secrets.find(
+          (secret) => secret.id === options.overrideSecretId,
+        ) ?? null);
+  const programDefaultSecret =
+    options.programDefaultSecretId === undefined
+      ? null
+      : (options.secrets.find(
+          (secret) => secret.id === options.programDefaultSecretId,
+        ) ?? null);
+  const implicitSecret =
+    options.secrets.find((secret) => secret.name === declaration.env) ?? null;
+
+  if (options.overrideSecretId !== undefined && overrideSecret === null) {
+    return {
+      badgeLabel: "Missing",
+      badgeTone: "warning" as const,
+      helperText: "This override points at a secret that no longer exists.",
+      inheritedLabel: "No inherited secret available",
+    };
+  }
+
+  if (overrideSecret) {
+    return {
+      badgeLabel: "Override",
+      badgeTone: "info" as const,
+      helperText: `Overrides the default with ${overrideSecret.name}.`,
+      inheritedLabel: "Use inherited default",
+    };
+  }
+
+  if (
+    options.programDefaultSecretId !== undefined &&
+    programDefaultSecret === null
+  ) {
+    return {
+      badgeLabel: "Missing",
+      badgeTone: "warning" as const,
+      helperText: "The inherited program default no longer exists.",
+      inheritedLabel: "Program default is missing",
+    };
+  }
+
+  if (programDefaultSecret) {
+    return {
+      badgeLabel: "Program",
+      badgeTone: "neutral" as const,
+      helperText: `Inherits the program default ${programDefaultSecret.name}.`,
+      inheritedLabel: `Use program default (${programDefaultSecret.name})`,
+    };
+  }
+
+  if (implicitSecret) {
+    return {
+      badgeLabel: "Auto",
+      badgeTone: "success" as const,
+      helperText: `Falls back to matching secret ${implicitSecret.name}.`,
+      inheritedLabel: `Use matching secret (${implicitSecret.name})`,
+    };
+  }
+
+  return {
+    badgeLabel: declaration.required ? "Missing" : "Optional",
+    badgeTone: declaration.required
+      ? ("warning" as const)
+      : ("neutral" as const),
+    helperText: declaration.required
+      ? "Required before this column can run."
+      : "Optional secret.",
+    inheritedLabel: "No inherited secret available",
+  };
 }
 
 function coerceFieldValue(
@@ -1074,6 +1187,13 @@ export default function TablePageView({
   const [rows, setRows] = useState<Row[]>(initialTablePageData.rows);
   const [cells, setCells] = useState<Cell[]>(initialTablePageData.cells);
   const programs = initialTablePageData.programs;
+  const secrets = initialTablePageData.secrets;
+  const programSecretBindings = initialTablePageData.programSecretBindings;
+  const programSecretDeclarations =
+    initialTablePageData.programSecretDeclarations;
+  const [columnSecretBindings, setColumnSecretBindings] = useState(
+    initialTablePageData.columnSecretBindings,
+  );
   const [referenceColumns, setReferenceColumns] = useState<
     ReferenceableColumn[]
   >(initialTablePageData.referenceColumns);
@@ -1794,6 +1914,14 @@ export default function TablePageView({
       await deleteColumn(columnId);
       setColumns((prev) => prev.filter((c) => c.id !== columnId));
       setCells((prev) => prev.filter((c) => c.column_id !== columnId));
+      setColumnSecretBindings((current) => {
+        const nextBindings = {
+          ...current,
+        };
+
+        delete nextBindings[columnId];
+        return nextBindings;
+      });
       await refreshReferenceColumns();
     },
     [
@@ -1844,8 +1972,22 @@ export default function TablePageView({
       name?: string;
       program_id?: string;
       input_template?: string;
+      secretBindings?: SecretBindingInput[];
     }) => {
       const updated = await updateColumn(input);
+
+      if (input.secretBindings) {
+        const savedBindings = await updateColumnSecretBindings(
+          input.columnId,
+          input.secretBindings,
+        );
+
+        setColumnSecretBindings((current) => ({
+          ...current,
+          [input.columnId]: secretBindingEntriesToMap(savedBindings),
+        }));
+      }
+
       setColumns((prev) =>
         prev.map((c) => (c.id === updated.id ? (updated as Column) : c)),
       );
@@ -2398,6 +2540,7 @@ export default function TablePageView({
 
         {sidebarMode.kind !== "closed" && (
           <ColumnSidebar
+            columnSecretBindings={columnSecretBindings}
             columns={sortedColumns}
             currentTableId={selectedTableId}
             key={
@@ -2412,9 +2555,13 @@ export default function TablePageView({
               })
             }
             onCreateColumn={handleCreateColumn}
+            onOpenSecrets={() => router.push("/secrets")}
             onUpdateColumn={handleUpdateColumn}
+            programSecretBindings={programSecretBindings}
+            programSecretDeclarations={programSecretDeclarations}
             programs={programs}
             referenceColumns={referenceColumns}
+            secrets={secrets}
           />
         )}
 
@@ -2451,15 +2598,21 @@ export default function TablePageView({
 // ── Column Sidebar ──────────────────────────────────────
 
 function ColumnSidebar({
+  columnSecretBindings,
   mode,
   columns,
+  currentTableId,
+  onOpenSecrets,
   programs,
+  programSecretBindings,
+  programSecretDeclarations,
   onCreateColumn,
   onUpdateColumn,
   onClose,
   referenceColumns,
-  currentTableId,
+  secrets,
 }: {
+  columnSecretBindings: ColumnSecretBindingMap;
   mode:
     | {
         kind: "create";
@@ -2469,7 +2622,11 @@ function ColumnSidebar({
         columnId: string;
       };
   columns: Column[];
+  currentTableId: string;
+  onOpenSecrets: () => void;
   programs: Program[];
+  programSecretBindings: ProgramSecretBindingMap;
+  programSecretDeclarations: ProgramSecretDeclarationsByProgramId;
   onCreateColumn: (input: {
     name: string;
     program_id: string;
@@ -2480,10 +2637,11 @@ function ColumnSidebar({
     name?: string;
     program_id?: string;
     input_template?: string;
+    secretBindings?: SecretBindingInput[];
   }) => Promise<void>;
   onClose: () => void;
   referenceColumns: ReferenceableColumn[];
-  currentTableId: string;
+  secrets: SecretRecord[];
 }) {
   const editingColumn =
     mode.kind === "edit"
@@ -2515,6 +2673,9 @@ function ColumnSidebar({
   const [programId, setProgramId] = useState(
     editingColumn?.program_version?.program_id ?? "",
   );
+  const [secretBindings, setSecretBindings] = useState<Record<string, string>>(
+    () => (editingColumn ? (columnSecretBindings[editingColumn.id] ?? {}) : {}),
+  );
   const [fieldValues, setFieldValues] = useState(initFieldValues);
   const [saving, setSaving] = useState(false);
   const [outputSchemaOpen, setOutputSchemaOpen] = useState(false);
@@ -2537,6 +2698,8 @@ function ColumnSidebar({
 
   const selectedSchema = getProgramInputSchema(latestVersion);
   const fields = selectedSchema ? buildFieldsFromSchema(selectedSchema) : [];
+  const selectedProgramSecretDeclarations =
+    programSecretDeclarations[programId] ?? [];
   const hasManualInput = (() => {
     const config = getProgramOutputConfig(latestVersion) as {
       flags?: {
@@ -2578,9 +2741,19 @@ function ColumnSidebar({
       };
     }
     setFieldValues(defaults);
+    setSecretBindings((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([envName]) =>
+          selectedProgramSecretDeclarations.some(
+            (declaration) => declaration.env === envName,
+          ),
+        ),
+      ),
+    );
   }, [
     programId,
     programs,
+    selectedProgramSecretDeclarations,
   ]);
 
   const buildTemplate = (): string => {
@@ -2638,6 +2811,13 @@ function ColumnSidebar({
   };
 
   const validationError = validateTemplate();
+  const secretBindingsForSave = Object.fromEntries(
+    Object.entries(secretBindings).filter(([envName]) =>
+      selectedProgramSecretDeclarations.some(
+        (declaration) => declaration.env === envName,
+      ),
+    ),
+  );
 
   const handleSave = async () => {
     if (!name.trim() || !programId || validationError || !latestVersion) return;
@@ -2659,6 +2839,7 @@ function ColumnSidebar({
           input_template: buildTemplate(),
           name: name.trim(),
           program_id: latestVersion.id,
+          secretBindings: secretBindingMapToEntries(secretBindingsForSave),
         });
       }
     } finally {
@@ -2745,6 +2926,120 @@ function ColumnSidebar({
               This program reads from cell.manualInputValue — cells will be
               editable.
             </MarbleAlert>
+          )}
+
+          {!programId ? null : isCreate ||
+            selectedProgramSecretDeclarations.length === 0 ? (
+            selectedProgramSecretDeclarations.length === 0 ? (
+              <MarbleAlert
+                size="sm"
+                tone="neutral"
+              >
+                This program does not declare any named secrets.
+              </MarbleAlert>
+            ) : (
+              <MarbleAlert
+                size="sm"
+                tone="neutral"
+              >
+                Program defaults apply automatically. Column-specific overrides
+                appear after the column exists.
+              </MarbleAlert>
+            )
+          ) : (
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between gap-3">
+                <MarbleFieldLabel className="text-taupe-700">
+                  Secret Overrides
+                </MarbleFieldLabel>
+                {secrets.length === 0 ? (
+                  <MarbleButton
+                    onClick={onOpenSecrets}
+                    size="xs"
+                    variant="light"
+                  >
+                    Open Secrets
+                  </MarbleButton>
+                ) : null}
+              </div>
+
+              {selectedProgramSecretDeclarations.map((declaration) => {
+                const overrideSecretId = secretBindings[declaration.env];
+                const resolution = describeColumnSecretResolution(declaration, {
+                  overrideSecretId,
+                  programDefaultSecretId:
+                    programSecretBindings[programId]?.[declaration.env],
+                  secrets,
+                });
+
+                return (
+                  <div
+                    className="space-y-3 rounded-xs border border-taupe-200 bg-taupe-50/60 p-3"
+                    key={declaration.env}
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] text-taupe-950">
+                          {declaration.env}
+                        </span>
+                        <MarbleBadge tone={resolution.badgeTone}>
+                          {resolution.badgeLabel}
+                        </MarbleBadge>
+                      </div>
+                      <div className="text-xs text-taupe-700">
+                        {declaration.label}
+                      </div>
+                      {declaration.description ? (
+                        <div className="text-[11px] text-taupe-500">
+                          {declaration.description}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <MarbleSelect
+                      onChange={(event) =>
+                        setSecretBindings((current) => {
+                          const nextBindings = {
+                            ...current,
+                          };
+
+                          if (event.target.value) {
+                            nextBindings[declaration.env] = event.target.value;
+                          } else {
+                            delete nextBindings[declaration.env];
+                          }
+
+                          return nextBindings;
+                        })
+                      }
+                      size="xs"
+                      value={overrideSecretId ?? ""}
+                      wrapperClassName="w-full"
+                    >
+                      <option value="">{resolution.inheritedLabel}</option>
+                      {overrideSecretId &&
+                      !secrets.some(
+                        (secret) => secret.id === overrideSecretId,
+                      ) ? (
+                        <option value={overrideSecretId}>Missing secret</option>
+                      ) : null}
+                      {secrets.map((secret) => (
+                        <option
+                          key={secret.id}
+                          value={secret.id}
+                        >
+                          {secret.name}
+                        </option>
+                      ))}
+                    </MarbleSelect>
+
+                    <div className="text-[11px] text-taupe-500">
+                      {resolution.helperText}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           {fields.length > 0 && (

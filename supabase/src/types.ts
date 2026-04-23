@@ -169,6 +169,48 @@ export type Database = {
           },
         ]
       }
+      column_secret_binding: {
+        Row: {
+          column_id: string
+          created_at: string
+          env_name: string
+          id: string
+          secret_id: string
+          updated_at: string
+        }
+        Insert: {
+          column_id: string
+          created_at?: string
+          env_name: string
+          id?: string
+          secret_id: string
+          updated_at?: string
+        }
+        Update: {
+          column_id?: string
+          created_at?: string
+          env_name?: string
+          id?: string
+          secret_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "column_secret_binding_column_id_fkey"
+            columns: ["column_id"]
+            isOneToOne: false
+            referencedRelation: "column"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "column_secret_binding_secret_id_fkey"
+            columns: ["secret_id"]
+            isOneToOne: false
+            referencedRelation: "secret"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event: {
         Row: {
           actor_key_id: string | null
@@ -435,6 +477,51 @@ export type Database = {
           },
         ]
       }
+      program_secret_binding: {
+        Row: {
+          created_at: string
+          env_name: string
+          id: string
+          owner_user_id: string
+          program_id: string
+          secret_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          env_name: string
+          id?: string
+          owner_user_id: string
+          program_id: string
+          secret_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          env_name?: string
+          id?: string
+          owner_user_id?: string
+          program_id?: string
+          secret_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_secret_binding_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "program"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "program_secret_binding_secret_id_fkey"
+            columns: ["secret_id"]
+            isOneToOne: false
+            referencedRelation: "secret"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       program_version: {
         Row: {
           created_at: string
@@ -443,6 +530,7 @@ export type Database = {
           output_config: Json
           program_id: string
           published_at: string | null
+          secret_config: Json | null
           updated_at: string
           version: number | null
         }
@@ -453,6 +541,7 @@ export type Database = {
           output_config: Json
           program_id: string
           published_at?: string | null
+          secret_config?: Json | null
           updated_at?: string
           version?: number | null
         }
@@ -463,6 +552,7 @@ export type Database = {
           output_config?: Json
           program_id?: string
           published_at?: string | null
+          secret_config?: Json | null
           updated_at?: string
           version?: number | null
         }
@@ -638,6 +728,15 @@ export type Database = {
         Args: { p_owner_user_id: string }
         Returns: {
           category: Database["public"]["Enums"]["secret_category"]
+          name: string
+          value: string
+        }[]
+      }
+      secret_store_resolve_selected: {
+        Args: { p_owner_user_id: string; p_secret_ids: string[] }
+        Returns: {
+          category: Database["public"]["Enums"]["secret_category"]
+          id: string
           name: string
           value: string
         }[]

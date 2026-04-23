@@ -1,17 +1,7 @@
-import { MarbleEmptyState, MarblePane } from "@marble/ui";
+import { redirect } from "next/navigation";
 
 const IntegrationsPage = () => {
-  return (
-    <MarblePane
-      title="Integrations"
-      width="Narrow"
-    >
-      <MarbleEmptyState
-        description="Integration setup is still being shaped around the shared UI package before the page is opened up."
-        title="Work in progress"
-      />
-    </MarblePane>
-  );
+  redirect("/secrets");
 };
 
 export default IntegrationsPage;

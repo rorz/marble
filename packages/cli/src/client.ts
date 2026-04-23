@@ -24,6 +24,7 @@ type ProgramUpsertPayload = {
   name: string;
   outputConfig: unknown;
   ownerProfileId?: string;
+  secretConfig?: unknown;
 };
 
 type ProgramUpsertResult = {
@@ -50,6 +51,9 @@ type ApiErrorPayload = {
   error?: boolean | string;
   message?: string;
   requestId?: string;
+};
+type FetchApiOptions = {
+  allowErrorStatus?: boolean;
 };
 
 function formatStructuredErrorDetails(details: unknown) {
@@ -133,6 +137,7 @@ export class MarbleClient {
     endpoint: string,
     options: RequestInit = {},
     query?: Record<string, QueryValue>,
+    fetchApiOptions: FetchApiOptions = {},
   ): Promise<T> {
     const url = `${this.apiUrl}${this.buildEndpoint(endpoint, query)}`;
     const headers: Record<string, string> = {
@@ -152,6 +157,28 @@ export class MarbleClient {
 
     const text = await res.text();
 
+    let payload: unknown = null;
+
+    if (text) {
+      payload = JSON.parse(text) as unknown;
+    }
+
+    if (!res.ok && fetchApiOptions.allowErrorStatus) {
+      const hasStructuredSuccessFlag =
+        payload !== null &&
+        typeof payload === "object" &&
+        "success" in payload &&
+        typeof (
+          payload as {
+            success?: unknown;
+          }
+        ).success === "boolean";
+
+      if (hasStructuredSuccessFlag) {
+        return payload as T;
+      }
+    }
+
     if (!res.ok) {
       throw new Error(`API Error (${res.status}): ${formatApiError(text)}`);
     }
@@ -160,7 +187,7 @@ export class MarbleClient {
       return null as T;
     }
 
-    return JSON.parse(text) as T;
+    return payload as T;
   }
 
   public list(resource: ApiResourceName, query?: Record<string, QueryValue>) {
@@ -206,10 +233,17 @@ export class MarbleClient {
       manualInput?: string | null;
     } = {},
   ) {
-    return this.fetchAPI<RunExecutionResult>(`/cells/${cellId}/run`, {
-      body: JSON.stringify(payload),
-      method: "POST",
-    });
+    return this.fetchAPI<RunExecutionResult>(
+      `/cells/${cellId}/run`,
+      {
+        body: JSON.stringify(payload),
+        method: "POST",
+      },
+      undefined,
+      {
+        allowErrorStatus: true,
+      },
+    );
   }
 
   public startCellRuns(
@@ -218,20 +252,34 @@ export class MarbleClient {
       manualInput?: string | null;
     } = {},
   ) {
-    return this.fetchAPI<BatchRunExecutionResult>("/cells/run", {
-      body: JSON.stringify({
-        ...payload,
-        cellIds,
-      }),
-      method: "POST",
-    });
+    return this.fetchAPI<BatchRunExecutionResult>(
+      "/cells/run",
+      {
+        body: JSON.stringify({
+          ...payload,
+          cellIds,
+        }),
+        method: "POST",
+      },
+      undefined,
+      {
+        allowErrorStatus: true,
+      },
+    );
   }
 
   public executeProgramRun(runId: string) {
-    return this.fetchAPI<RunExecutionResult>(`/program-runs/${runId}/execute`, {
-      body: JSON.stringify({}),
-      method: "POST",
-    });
+    return this.fetchAPI<RunExecutionResult>(
+      `/program-runs/${runId}/execute`,
+      {
+        body: JSON.stringify({}),
+        method: "POST",
+      },
+      undefined,
+      {
+        allowErrorStatus: true,
+      },
+    );
   }
 
   public async upsertProgram(
@@ -251,6 +299,7 @@ export class MarbleClient {
         outputConfig: payload.outputConfig,
         ownerProfileId: payload.ownerProfileId,
         programId: existing.id,
+        secretConfig: payload.secretConfig,
       })) as EntityWithId;
 
       return {
@@ -265,6 +314,7 @@ export class MarbleClient {
       name: payload.name,
       outputConfig: payload.outputConfig,
       ownerProfileId: payload.ownerProfileId,
+      secretConfig: payload.secretConfig,
     })) as EntityWithId & {
       initialVersion?: {
         id: string;
@@ -295,6 +345,9 @@ export class MarbleClient {
       },
       {
         programVersionId,
+      },
+      {
+        allowErrorStatus: true,
       },
     );
   }

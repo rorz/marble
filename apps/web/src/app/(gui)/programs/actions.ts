@@ -3,6 +3,12 @@
 import type { Database } from "@marble/supabase";
 import { requireUser } from "../../../lib/auth";
 import { callMarbleApi } from "../../../lib/marble-api";
+import type { ProgramSecretConfig } from "../../../lib/program-manifest";
+import {
+  listProgramSecretBindingsForUser,
+  listSecretsForUser,
+  type SecretBindingMap,
+} from "../../../lib/secret-data";
 import {
   createServiceRoleClient,
   listOwnedProfileIds,
@@ -16,18 +22,37 @@ type EditableProgramFile = {
   filename: string;
   filetype: "TypeScript" | "Json" | "Markdown";
 };
+type RunReturnValue =
+  | {
+      ok: true;
+      value: unknown;
+    }
+  | {
+      error?: {
+        detail?: unknown;
+        type?: string;
+      };
+      message: string;
+      ok: false;
+    };
 type RunExecutionResult = {
-  error?: boolean;
-  message?: string;
-  output?: unknown;
-  runId: string;
+  output: RunReturnValue;
   success: boolean;
+};
+type SecretBindingInput = {
+  envName: string;
+  secretId: string;
 };
 
 export type FullProgram = Program & {
   program_version: (ProgramVersion & {
     program_file: ProgramFile[];
   })[];
+};
+export type ProgramsPageData = {
+  programSecretBindings: SecretBindingMap;
+  programs: FullProgram[];
+  secrets: Awaited<ReturnType<typeof listSecretsForUser>>;
 };
 const PROGRAM_SELECT =
   "*, program_version!program_version_program_id_fkey(*, program_file(*))";
@@ -122,6 +147,24 @@ export async function listPrograms(): Promise<FullProgram[]> {
   ].sort((a, b) => a.created_at.localeCompare(b.created_at));
 }
 
+export async function loadProgramsPageData(): Promise<ProgramsPageData> {
+  const user = await requireUser();
+  const programs = await listPrograms();
+  const [secrets, programSecretBindings] = await Promise.all([
+    listSecretsForUser(user.id),
+    listProgramSecretBindingsForUser(
+      user.id,
+      programs.map((program) => program.id),
+    ),
+  ]);
+
+  return {
+    programSecretBindings,
+    programs,
+    secrets,
+  };
+}
+
 async function patchProgramVersion(
   programVersionId: string,
   body: {
@@ -129,6 +172,7 @@ async function patchProgramVersion(
     inputSchema?: unknown;
     outputConfig?: unknown;
     publish?: boolean;
+    secretConfig?: ProgramSecretConfig;
   },
 ) {
   return callMarbleApi<ProgramVersionWithFiles>(
@@ -146,6 +190,7 @@ export async function createDraftVersion(
   inputSchema: unknown,
   outputConfig: unknown,
   files: EditableProgramFile[],
+  secretConfig: ProgramSecretConfig,
 ) {
   const version = await callMarbleApi<ProgramVersionWithFiles>(
     "/program-versions",
@@ -156,6 +201,7 @@ export async function createDraftVersion(
         outputConfig,
         programId,
         publish: false,
+        secretConfig,
       },
       method: "POST",
       requestId: crypto.randomUUID(),
@@ -173,11 +219,13 @@ export async function syncDraftVersion(
   inputSchema: unknown,
   outputConfig: unknown,
   files: EditableProgramFile[],
+  secretConfig: ProgramSecretConfig,
 ) {
   return patchProgramVersion(programVersionId, {
     files,
     inputSchema,
     outputConfig,
+    secretConfig,
   });
 }
 
@@ -186,12 +234,14 @@ export async function publishDraftVersion(
   inputSchema: unknown,
   outputConfig: unknown,
   files: EditableProgramFile[],
+  secretConfig: ProgramSecretConfig,
 ) {
   return patchProgramVersion(programVersionId, {
     files,
     inputSchema,
     outputConfig,
     publish: true,
+    secretConfig,
   });
 }
 
@@ -208,6 +258,7 @@ export async function createProgram() {
         inputSchema: DEFAULT_PROGRAM_INPUT_SCHEMA,
         outputConfig: DEFAULT_PROGRAM_OUTPUT_CONFIG,
         publish: false,
+        secretConfig: [],
       },
       name: DEFAULT_PROGRAM_NAME,
     },
@@ -238,11 +289,14 @@ export async function testProgram(
 ): Promise<{
   ok: boolean;
   output: unknown;
+  detail?: unknown;
   error?: string;
+  errorType?: string;
 }> {
   const result = await callMarbleApi<RunExecutionResult>(
     `/test?programVersionId=${encodeURIComponent(programVersionId)}`,
     {
+      allowErrorStatus: true,
       body: {
         input:
           manualInput === undefined
@@ -260,16 +314,31 @@ export async function testProgram(
     },
   );
 
-  if (result.error) {
+  if (result.output.ok) {
     return {
-      error: result.message,
-      ok: false,
-      output: null,
+      ok: true,
+      output: result.output.value,
     };
   }
 
   return {
-    ok: result.success,
-    output: result.output,
+    detail: result.output.error?.detail,
+    error: result.output.message,
+    errorType: result.output.error?.type,
+    ok: false,
+    output: null,
   };
+}
+
+export async function updateProgramSecretBindings(
+  programId: string,
+  bindings: SecretBindingInput[],
+) {
+  return callMarbleApi<SecretBindingInput[]>(`/programs/${programId}/secrets`, {
+    body: {
+      bindings,
+    },
+    method: "PUT",
+    requestId: crypto.randomUUID(),
+  });
 }
