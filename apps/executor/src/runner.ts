@@ -1,7 +1,6 @@
 import type { Sandbox } from "@cloudflare/sandbox";
 import {
   type JsonValue,
-  listProgramSecretDeclarationsFromFiles,
   parseProgramSecretConfig,
   resolveColumnConfig,
   Schemas,
@@ -56,6 +55,17 @@ type BatchExecutorItem = {
 type BatchExecutorEnvelope = {
   results: BatchExecutorItem[];
 };
+type CellExecutionCandidateResolution =
+  | {
+      cellId: string;
+      programVersionId: string;
+      status: "ready";
+    }
+  | {
+      cellId: string;
+      state: Schemas.RunReturnValue;
+      status: "blocked";
+    };
 
 const executionSecretSchema = z.object({
   category: z.enum([
@@ -174,21 +184,6 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | undefined {
   return value ?? undefined;
 }
 
-async function listSecretsForOwnerUserId(
-  supabase: SupabaseClient,
-  ownerUserId: string,
-) {
-  const { data, error } = await supabase.rpc("secret_store_resolve", {
-    p_owner_user_id: ownerUserId,
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return z.array(executionSecretSchema).parse(data ?? []) as ExecutionSecret[];
-}
-
 async function listSecretMetadataForOwnerUserId(
   supabase: SupabaseClient,
   ownerUserId: string,
@@ -231,27 +226,6 @@ async function listSelectedSecretsForOwnerUserId(
   return z.array(executionSecretSchema).parse(data ?? []) as ExecutionSecret[];
 }
 
-function secretsToEnvironmentVariables(
-  secrets: ExecutionSecret[],
-): Record<string, string> {
-  const managedEnv: Record<string, string> = {};
-  const userEnv: Record<string, string> = {};
-
-  for (const secret of secrets) {
-    if (secret.category === "Managed") {
-      managedEnv[secret.name] = secret.value;
-      continue;
-    }
-
-    userEnv[secret.name] = secret.value;
-  }
-
-  return {
-    ...managedEnv,
-    ...userEnv,
-  };
-}
-
 async function resolveOwnerUserIdForProfile(
   supabase: SupabaseClient,
   profileId: string,
@@ -271,19 +245,6 @@ async function resolveOwnerUserIdForProfile(
   }
 
   return data.owner_user_id;
-}
-
-async function resolveEnvironmentVariablesForOwnerUserId(
-  supabase: SupabaseClient,
-  ownerUserId?: string,
-) {
-  if (!ownerUserId) {
-    return {};
-  }
-
-  return secretsToEnvironmentVariables(
-    await listSecretsForOwnerUserId(supabase, ownerUserId),
-  );
 }
 
 async function listProgramSecretBindingsForOwnerUserId(
@@ -336,6 +297,46 @@ async function listColumnSecretBindings(
       envName: binding.env_name,
       secretId: binding.secret_id,
     })) as SecretBinding[];
+}
+
+async function listResolvedSecretBindings(
+  supabase: SupabaseClient,
+  options: {
+    columnId?: string;
+    ownerUserId: string;
+    programId: string;
+  },
+) {
+  const [programBindings, columnBindings] = await Promise.all([
+    listProgramSecretBindingsForOwnerUserId(
+      supabase,
+      options.ownerUserId,
+      options.programId,
+    ),
+    options.columnId
+      ? listColumnSecretBindings(supabase, options.columnId)
+      : Promise.resolve([] as SecretBinding[]),
+  ]);
+  const bindingSourceByEnvName = new Map<
+    string,
+    MissingSecretConfiguration["bindingSource"]
+  >();
+  const selectedSecretIdByEnvName = new Map<string, string>();
+
+  for (const binding of programBindings) {
+    bindingSourceByEnvName.set(binding.envName, "program");
+    selectedSecretIdByEnvName.set(binding.envName, binding.secretId);
+  }
+
+  for (const binding of columnBindings) {
+    bindingSourceByEnvName.set(binding.envName, "column");
+    selectedSecretIdByEnvName.set(binding.envName, binding.secretId);
+  }
+
+  return {
+    bindingSourceByEnvName,
+    selectedSecretIdByEnvName,
+  };
 }
 
 const prepareExecutionEnvironment = async (
@@ -623,6 +624,254 @@ export const runtimeInputFromValue = (input: JsonValue): JsonValue => {
   return createRuntimeEnvelope(input);
 };
 
+type ExecutionInputContext = {
+  cell: Pick<Tables<"cell">, "id" | "manual_input" | "state">;
+  column: Pick<
+    Tables<"column">,
+    | "id"
+    | "input_template"
+    | "program_version_id"
+    | "run_condition"
+    | "table_id"
+  >;
+  programVersion: Pick<Tables<"program_version">, "id" | "input_schema">;
+  row: Pick<Tables<"row">, "id" | "idx" | "table_id">;
+};
+
+function createExecutionInputContextFromStoredRun(
+  run: StoredRun,
+): ExecutionInputContext {
+  const row = firstRelation(run.cell.row);
+
+  if (!row) {
+    throw new Error("Could not resolve the run row.");
+  }
+
+  return {
+    cell: {
+      id: run.cell.id,
+      manual_input: run.cell.manual_input,
+      state: run.cell.state,
+    },
+    column: {
+      id: run.cell.column.id,
+      input_template: run.cell.column.input_template,
+      program_version_id: run.cell.column.program_version_id,
+      run_condition: run.cell.column.run_condition,
+      table_id: run.cell.column.table_id,
+    },
+    programVersion: {
+      id: run.program_version.id,
+      input_schema: run.program_version.input_schema,
+    },
+    row: {
+      id: row.id,
+      idx: row.idx,
+      table_id: row.table_id,
+    },
+  };
+}
+
+async function loadExecutionInputContextForCell(
+  supabase: SupabaseClient,
+  cellId: string,
+): Promise<ExecutionInputContext> {
+  const { data: cellRecord, error: cellError } = await supabase
+    .from("cell")
+    .select(
+      "id, manual_input, state, row!cell_row_id_fkey(id, idx, table_id), column!cell_column_id_fkey(id, input_template, program_version_id, run_condition, table_id)",
+    )
+    .eq("id", cellId)
+    .maybeSingle();
+
+  if (cellError) {
+    throw new Error(cellError.message);
+  }
+
+  if (!cellRecord) {
+    throw new Error(`No cell found for '${cellId}'.`);
+  }
+
+  const row = firstRelation(cellRecord.row);
+  const column = firstRelation(cellRecord.column);
+
+  if (!row || !column) {
+    throw new Error(
+      `Could not resolve execution context for cell '${cellId}'.`,
+    );
+  }
+
+  const { data: programVersion, error: programVersionError } = await supabase
+    .from("program_version")
+    .select("id, input_schema")
+    .eq("id", column.program_version_id)
+    .maybeSingle();
+
+  if (programVersionError) {
+    throw new Error(programVersionError.message);
+  }
+
+  if (!programVersion) {
+    throw new Error(
+      `Program version '${column.program_version_id}' was not found.`,
+    );
+  }
+
+  return {
+    cell: {
+      id: cellRecord.id,
+      manual_input: cellRecord.manual_input,
+      state: cellRecord.state,
+    },
+    column: {
+      id: column.id,
+      input_template: column.input_template,
+      program_version_id: column.program_version_id,
+      run_condition: column.run_condition,
+      table_id: column.table_id,
+    },
+    programVersion: {
+      id: programVersion.id,
+      input_schema: programVersion.input_schema,
+    },
+    row: {
+      id: row.id,
+      idx: row.idx,
+      table_id: row.table_id,
+    },
+  };
+}
+
+async function resolveExecutionInputFromContext(
+  supabase: SupabaseClient,
+  context: ExecutionInputContext,
+) {
+  const { data: dependencies, error: dependenciesError } = await supabase
+    .from("column_dependency")
+    .select("source_column_id")
+    .eq("target_column_id", context.column.id);
+
+  if (dependenciesError) {
+    throw new Error(dependenciesError.message);
+  }
+
+  const sourceColumnIds =
+    dependencies?.map((entry) => entry.source_column_id) ?? [];
+  const { data: sourceColumnData, error: sourceColumnError } =
+    sourceColumnIds.length === 0
+      ? {
+          data: [],
+          error: null,
+        }
+      : await supabase
+          .from("column")
+          .select("id, table_id")
+          .in("id", sourceColumnIds);
+
+  if (sourceColumnError) {
+    throw new Error(sourceColumnError.message);
+  }
+
+  const sourceColumns = sourceColumnData ?? [];
+  const externalTableIds = Array.from(
+    new Set(
+      sourceColumns
+        .map((column) => column.table_id)
+        .filter((tableId) => tableId !== context.row.table_id),
+    ),
+  );
+  const { data: externalRowData, error: externalRowError } =
+    externalTableIds.length === 0
+      ? {
+          data: [],
+          error: null,
+        }
+      : await supabase
+          .from("row")
+          .select("id, table_id")
+          .eq("idx", context.row.idx)
+          .in("table_id", externalTableIds);
+
+  if (externalRowError) {
+    throw new Error(externalRowError.message);
+  }
+
+  const rowsByTableId = new Map(
+    (externalRowData ?? []).map((row) => [
+      row.table_id,
+      row.id,
+    ]),
+  );
+  const dependencyRowIds = Array.from(
+    new Set(
+      sourceColumns.flatMap((column) =>
+        column.table_id === context.row.table_id
+          ? [
+              context.row.id,
+            ]
+          : rowsByTableId.has(column.table_id)
+            ? [
+                rowsByTableId.get(column.table_id) as string,
+              ]
+            : [],
+      ),
+    ),
+  );
+  const { data: dependencyCellData, error: dependencyCellError } =
+    sourceColumns.length === 0 || dependencyRowIds.length === 0
+      ? {
+          data: [],
+          error: null,
+        }
+      : await supabase
+          .from("cell")
+          .select("*")
+          .in("column_id", sourceColumnIds)
+          .in("row_id", dependencyRowIds);
+
+  if (dependencyCellError) {
+    throw new Error(dependencyCellError.message);
+  }
+
+  const dependencyCells = dependencyCellData ?? [];
+  const columns = Object.fromEntries(
+    dependencyCells.map((cell) => {
+      const state = cell.state as {
+        ok?: boolean;
+        value?: JsonValue;
+      } | null;
+
+      return [
+        cell.column_id,
+        {
+          value: state?.ok ? (state.value ?? null) : null,
+        },
+      ];
+    }),
+  ) as Record<string, JsonValue>;
+
+  const rowContext: Record<string, JsonValue> = {
+    cell: {
+      manualInputValue: context.cell.manual_input,
+    },
+    columns,
+  };
+  const inputTemplate: JsonValue = JSON.parse(context.column.input_template);
+  const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
+  const inputPayloadSchema = Schemas.ProgramInputSchema.parse(
+    context.programVersion.input_schema,
+  );
+  const parsedInput = z.fromJSONSchema(inputPayloadSchema).parse(resolvedInput);
+
+  return {
+    parsedInput: parsedInput as Json,
+    runInput: createRuntimeEnvelope(
+      parsedInput as JsonValue,
+      context.cell.manual_input,
+    ),
+  };
+}
+
 export const loadStoredRun = async (
   supabase: SupabaseClient,
   runId: string,
@@ -710,139 +959,59 @@ export const resolveStoredRunInput = async (
   supabase: SupabaseClient,
   run: StoredRun,
 ) => {
-  const targetRow = firstRelation(run.cell.row);
-  const targetTable = firstRelation(targetRow?.table);
-
-  if (!targetRow || !targetTable) {
-    throw new Error("Could not resolve the run row or table.");
-  }
-
-  const { data: dependencies, error: dependenciesError } = await supabase
-    .from("column_dependency")
-    .select("source_column_id")
-    .eq("target_column_id", run.cell.column.id);
-
-  if (dependenciesError) {
-    throw new Error(dependenciesError.message);
-  }
-
-  const sourceColumnIds =
-    dependencies?.map((entry) => entry.source_column_id) ?? [];
-  const { data: sourceColumnData, error: sourceColumnError } =
-    sourceColumnIds.length === 0
-      ? {
-          data: [],
-          error: null,
-        }
-      : await supabase
-          .from("column")
-          .select("id, table_id")
-          .in("id", sourceColumnIds);
-
-  if (sourceColumnError) {
-    throw new Error(sourceColumnError.message);
-  }
-
-  const sourceColumns = sourceColumnData ?? [];
-
-  const externalTableIds = Array.from(
-    new Set(
-      sourceColumns
-        .map((column) => column.table_id)
-        .filter((tableId) => tableId !== targetTable.id),
-    ),
+  return resolveExecutionInputFromContext(
+    supabase,
+    createExecutionInputContextFromStoredRun(run),
   );
-  const { data: externalRowData, error: externalRowError } =
-    externalTableIds.length === 0
-      ? {
-          data: [],
-          error: null,
-        }
-      : await supabase
-          .from("row")
-          .select("id, table_id")
-          .eq("idx", targetRow.idx)
-          .in("table_id", externalTableIds);
+};
 
-  if (externalRowError) {
-    throw new Error(externalRowError.message);
+export const resolveCellExecutionCandidate = async (
+  supabase: SupabaseClient,
+  cellId: string,
+): Promise<CellExecutionCandidateResolution | null> => {
+  const context = await loadExecutionInputContextForCell(supabase, cellId);
+  const state = context.cell.state as {
+    ok?: boolean | null;
+  } | null;
+
+  if (state?.ok === null) {
+    return null;
   }
 
-  const rowsByTableId = new Map(
-    (externalRowData ?? []).map((row) => [
-      row.table_id,
-      row.id,
-    ]),
-  );
-  const dependencyRowIds = Array.from(
-    new Set(
-      sourceColumns.flatMap((column) =>
-        column.table_id === targetTable.id
-          ? [
-              targetRow.id,
-            ]
-          : rowsByTableId.has(column.table_id)
-            ? [
-                rowsByTableId.get(column.table_id) as string,
-              ]
-            : [],
-      ),
-    ),
-  );
-  const { data: dependencyCellData, error: dependencyCellError } =
-    sourceColumns.length === 0 || dependencyRowIds.length === 0
-      ? {
-          data: [],
-          error: null,
-        }
-      : await supabase
-          .from("cell")
-          .select("*")
-          .in("column_id", sourceColumnIds)
-          .in("row_id", dependencyRowIds);
-
-  if (dependencyCellError) {
-    throw new Error(dependencyCellError.message);
+  if (
+    Schemas.ColumnRunCondition.safeParse(context.column.run_condition).data !==
+    true
+  ) {
+    return null;
   }
 
-  const dependencyCells = dependencyCellData ?? [];
+  try {
+    await resolveExecutionInputFromContext(supabase, context);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return {
+        cellId: context.cell.id,
+        state: createFailureState(
+          "AutoQueueSkipped",
+          `Not queued because resolved input failed schema validation: ${formatZodIssues(
+            error.issues,
+          )}`,
+          {
+            issues: error.issues as unknown as Json,
+            sentinel: "AUTO_QUEUE_INPUT_VALIDATION_FAILED",
+          } as Json,
+        ),
+        status: "blocked",
+      };
+    }
 
-  const columns = Object.fromEntries(
-    dependencyCells.map((cell) => {
-      const state = cell.state as {
-        ok?: boolean;
-        value?: JsonValue;
-      } | null;
-
-      return [
-        cell.column_id,
-        {
-          value: state?.ok ? (state.value ?? null) : null,
-        },
-      ];
-    }),
-  ) as Record<string, JsonValue>;
-
-  const rowContext: Record<string, JsonValue> = {
-    cell: {
-      manualInputValue: run.cell.manual_input,
-    },
-    columns,
-  };
-
-  const inputTemplate: JsonValue = JSON.parse(run.cell.column.input_template);
-  const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
-  const inputPayloadSchema = Schemas.ProgramInputSchema.parse(
-    run.program_version.input_schema,
-  );
-  const parsedInput = z.fromJSONSchema(inputPayloadSchema).parse(resolvedInput);
+    throw error;
+  }
 
   return {
-    parsedInput: parsedInput as Json,
-    runInput: createRuntimeEnvelope(
-      parsedInput as JsonValue,
-      run.cell.manual_input,
-    ),
+    cellId: context.cell.id,
+    programVersionId: context.column.program_version_id,
+    status: "ready",
   };
 };
 
@@ -851,90 +1020,74 @@ async function resolveDeclaredEnvironmentVariables(
   options: {
     columnId?: string;
     ownerUserId: string;
-    programFiles: ProgramFile[];
     programId: string;
     secretConfig?: Json | null;
   },
 ) {
   const declarations =
     options.secretConfig === undefined || options.secretConfig === null
-      ? listProgramSecretDeclarationsFromFiles(options.programFiles)
+      ? []
       : parseProgramSecretConfig(options.secretConfig);
-
-  if (declarations.length === 0) {
-    return {
-      environmentVariables: await resolveEnvironmentVariablesForOwnerUserId(
-        supabase,
-        options.ownerUserId,
-      ),
-      missingSecrets: [] as MissingSecretConfiguration[],
-    };
-  }
-
-  const [secretMetadata, programBindings, columnBindings] = await Promise.all([
-    listSecretMetadataForOwnerUserId(supabase, options.ownerUserId),
-    listProgramSecretBindingsForOwnerUserId(
-      supabase,
-      options.ownerUserId,
-      options.programId,
-    ),
-    options.columnId
-      ? listColumnSecretBindings(supabase, options.columnId)
-      : Promise.resolve([] as SecretBinding[]),
-  ]);
-  const secretIdByName = new Map(
-    secretMetadata.map((secret) => [
-      secret.name,
-      secret.id,
+  const declarationByEnvName = new Map(
+    declarations.map((declaration) => [
+      declaration.env,
+      declaration,
     ]),
   );
-  const programBindingByEnvName = new Map(
-    programBindings.map((binding) => [
-      binding.envName,
-      binding.secretId,
-    ]),
-  );
-  const columnBindingByEnvName = new Map(
-    columnBindings.map((binding) => [
-      binding.envName,
-      binding.secretId,
-    ]),
-  );
-  const selectedSecretIds = new Set<string>();
+  const { bindingSourceByEnvName, selectedSecretIdByEnvName } =
+    await listResolvedSecretBindings(supabase, {
+      columnId: options.columnId,
+      ownerUserId: options.ownerUserId,
+      programId: options.programId,
+    });
   const missingSecrets: MissingSecretConfiguration[] = [];
 
-  for (const declaration of declarations) {
-    const selectedSecretId =
-      columnBindingByEnvName.get(declaration.env) ??
-      programBindingByEnvName.get(declaration.env) ??
-      secretIdByName.get(declaration.env);
+  if (declarations.length > 0) {
+    const secretMetadata = await listSecretMetadataForOwnerUserId(
+      supabase,
+      options.ownerUserId,
+    );
+    const secretIdByName = new Map(
+      secretMetadata.map((secret) => [
+        secret.name,
+        secret.id,
+      ]),
+    );
 
-    if (selectedSecretId) {
-      selectedSecretIds.add(selectedSecretId);
-      continue;
+    for (const declaration of declarations) {
+      if (selectedSecretIdByEnvName.has(declaration.env)) {
+        continue;
+      }
+
+      const implicitSecretId = secretIdByName.get(declaration.env);
+
+      if (implicitSecretId) {
+        selectedSecretIdByEnvName.set(declaration.env, implicitSecretId);
+        continue;
+      }
+
+      if (!declaration.required) {
+        continue;
+      }
+
+      missingSecrets.push({
+        bindingSource: "implicit",
+        ...(declaration.description === undefined
+          ? {}
+          : {
+              description: declaration.description,
+            }),
+        envName: declaration.env,
+        label: declaration.label,
+        required: declaration.required,
+      });
     }
-
-    if (!declaration.required) {
-      continue;
-    }
-
-    missingSecrets.push({
-      bindingSource: "implicit",
-      ...(declaration.description === undefined
-        ? {}
-        : {
-            description: declaration.description,
-          }),
-      envName: declaration.env,
-      label: declaration.label,
-      required: declaration.required,
-    });
   }
 
   const resolvedSecrets = await listSelectedSecretsForOwnerUserId(
     supabase,
     options.ownerUserId,
-    Array.from(selectedSecretIds),
+    Array.from(new Set(selectedSecretIdByEnvName.values())),
   );
   const resolvedSecretValueById = new Map(
     resolvedSecrets.map((secret) => [
@@ -944,49 +1097,41 @@ async function resolveDeclaredEnvironmentVariables(
   );
   const environmentVariables: Record<string, string> = {};
 
-  for (const declaration of declarations) {
-    const columnSecretId = columnBindingByEnvName.get(declaration.env);
-    const programSecretId = programBindingByEnvName.get(declaration.env);
-    const implicitSecretId = secretIdByName.get(declaration.env);
-    const selectedSecretId =
-      columnSecretId ?? programSecretId ?? implicitSecretId;
-    const selectedValue =
-      selectedSecretId === undefined
-        ? undefined
-        : resolvedSecretValueById.get(selectedSecretId);
+  for (const [envName, secretId] of selectedSecretIdByEnvName) {
+    const selectedValue = resolvedSecretValueById.get(secretId);
 
     if (selectedValue !== undefined) {
-      environmentVariables[declaration.env] = selectedValue;
+      environmentVariables[envName] = selectedValue;
       continue;
     }
 
-    if (!declaration.required) {
+    const declaration = declarationByEnvName.get(envName);
+    const bindingSource = bindingSourceByEnvName.get(envName) ?? "implicit";
+
+    if (
+      !bindingSourceByEnvName.has(envName) &&
+      declaration?.required !== true
+    ) {
       continue;
     }
 
     if (
-      missingSecrets.some(
-        (missingSecret) => missingSecret.envName === declaration.env,
-      )
+      missingSecrets.some((missingSecret) => missingSecret.envName === envName)
     ) {
       continue;
     }
 
     missingSecrets.push({
-      bindingSource:
-        columnSecretId !== undefined
-          ? "column"
-          : programSecretId !== undefined
-            ? "program"
-            : "implicit",
-      ...(declaration.description === undefined
+      bindingSource,
+      ...(declaration?.description === undefined
         ? {}
         : {
             description: declaration.description,
           }),
-      envName: declaration.env,
-      label: declaration.label,
-      required: declaration.required,
+      envName,
+      label: declaration?.label ?? envName,
+      required:
+        bindingSourceByEnvName.has(envName) || declaration?.required === true,
     });
   }
 
@@ -1005,7 +1150,6 @@ export const resolveEnvironmentVariablesForProgramVersion = async (
           userId?: string;
         }
       | undefined;
-    programFiles: ProgramFile[];
     programId: string;
     secretConfig?: Json | null;
   },
@@ -1022,7 +1166,6 @@ export const resolveEnvironmentVariablesForProgramVersion = async (
 
   const resolved = await resolveDeclaredEnvironmentVariables(supabase, {
     ownerUserId,
-    programFiles: options.programFiles,
     programId: options.programId,
     secretConfig: options.secretConfig,
   });
@@ -1050,7 +1193,6 @@ export const resolveEnvironmentVariablesForRun = async (
   const resolved = await resolveDeclaredEnvironmentVariables(supabase, {
     columnId: run.cell.column.id,
     ownerUserId: profile.owner_user_id,
-    programFiles: run.program_version.program_file,
     programId: run.program_version.program_id,
     secretConfig: run.program_version.secret_config as Json | null | undefined,
   });

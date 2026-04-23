@@ -1940,6 +1940,7 @@ export default function TablePageView({
       name: string;
       program_id: string;
       input_template: string;
+      run_condition: boolean;
     }) => {
       if (!selectedTableId) return;
       const { column, cells: newCells } = await createColumn({
@@ -1972,6 +1973,7 @@ export default function TablePageView({
       name?: string;
       program_id?: string;
       input_template?: string;
+      run_condition?: boolean;
       secretBindings?: SecretBindingInput[];
     }) => {
       const updated = await updateColumn(input);
@@ -2631,12 +2633,14 @@ function ColumnSidebar({
     name: string;
     program_id: string;
     input_template: string;
+    run_condition: boolean;
   }) => Promise<void>;
   onUpdateColumn: (input: {
     columnId: string;
     name?: string;
     program_id?: string;
     input_template?: string;
+    run_condition?: boolean;
     secretBindings?: SecretBindingInput[];
   }) => Promise<void>;
   onClose: () => void;
@@ -2672,6 +2676,9 @@ function ColumnSidebar({
   const [name, setName] = useState(editingColumn?.name ?? "");
   const [programId, setProgramId] = useState(
     editingColumn?.program_version?.program_id ?? "",
+  );
+  const [runConditionEnabled, setRunConditionEnabled] = useState(
+    editingColumn?.run_condition === true,
   );
   const [secretBindings, setSecretBindings] = useState<Record<string, string>>(
     () => (editingColumn ? (columnSecretBindings[editingColumn.id] ?? {}) : {}),
@@ -2828,10 +2835,12 @@ function ColumnSidebar({
           input_template: buildTemplate(),
           name: name.trim(),
           program_id: latestVersion.id,
+          run_condition: runConditionEnabled,
         });
         setName("");
         setProgramId("");
         setFieldValues({});
+        setRunConditionEnabled(false);
         onClose();
       } else {
         await onUpdateColumn({
@@ -2839,6 +2848,7 @@ function ColumnSidebar({
           input_template: buildTemplate(),
           name: name.trim(),
           program_id: latestVersion.id,
+          run_condition: runConditionEnabled,
           secretBindings: secretBindingMapToEntries(secretBindingsForSave),
         });
       }
@@ -2927,6 +2937,26 @@ function ColumnSidebar({
               editable.
             </MarbleAlert>
           )}
+
+          <div className="space-y-1.5">
+            <MarbleFieldLabel className="text-taupe-700">
+              Execution
+            </MarbleFieldLabel>
+            <MarbleSelect
+              onChange={(event) =>
+                setRunConditionEnabled(event.target.value === "auto")
+              }
+              value={runConditionEnabled ? "auto" : "manual"}
+              wrapperClassName="w-full"
+            >
+              <option value="manual">Manual only</option>
+              <option value="auto">Auto when ready</option>
+            </MarbleSelect>
+            <div className="text-[11px] text-taupe-500">
+              Auto-run only happens after upstream cells execute and the
+              resolved input validates for this program.
+            </div>
+          </div>
 
           {!programId ? null : isCreate ||
             selectedProgramSecretDeclarations.length === 0 ? (

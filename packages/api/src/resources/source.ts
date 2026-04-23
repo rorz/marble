@@ -1,5 +1,5 @@
 import { Schemas } from "@marble/core";
-import type { Json } from "@marble/supabase";
+import type { Database, Json } from "@marble/supabase";
 import type { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -21,6 +21,7 @@ import {
   successResponse,
   updateRecord,
 } from "../data";
+import { getEnv } from "../env";
 import {
   listAccessibleProjectIds,
   requireAccessibleProject,
@@ -53,6 +54,7 @@ const sourceWriteSchema = requestObject({
   payloadSchema: jsonValueSchema.optional(),
   projectId: uuidSchema.optional(),
 });
+type SourceRow = Database["public"]["Tables"]["source"]["Row"];
 
 function normalizePayloadSchema(payloadSchema: unknown): Json {
   const parsedSchema = Schemas.ProgramInputSchema.safeParse(payloadSchema);
@@ -83,6 +85,23 @@ function normalizePayloadSchema(payloadSchema: unknown): Json {
   return parsedSchema.data as Json;
 }
 
+function serializeSource(c: ApiContext, source: SourceRow) {
+  const webhookBaseUrl =
+    getEnv(c.env).MARBLE_INGESTOR_URL?.replace(/\/$/, "") ?? null;
+
+  return {
+    ...source,
+    webhookUrl:
+      webhookBaseUrl === null
+        ? null
+        : `${webhookBaseUrl}/webhooks/${source.id}`,
+  };
+}
+
+function serializeSources(c: ApiContext, sources: SourceRow[]) {
+  return sources.map((source) => serializeSource(c, source));
+}
+
 async function createSource(
   c: ApiContext,
   body: z.infer<typeof sourceWriteSchema>,
@@ -110,7 +129,7 @@ async function createSource(
   });
 
   return {
-    data: source,
+    data: serializeSource(c, source),
     location: `/sources/${source.id}`,
   };
 }
@@ -131,16 +150,19 @@ export function mountSourceResource(app: Hono<ApiEnv>) {
               userId: c.var.auth?.userId,
             });
 
-            return listRecordsFromQuery(
-              c.var.supabase,
-              "source",
-              {
-                projectId: query.projectId,
-              },
-              {
-                projectId: "project_id",
-              },
-              CREATED_AT_DESC_ORDER,
+            return serializeSources(
+              c,
+              (await listRecordsFromQuery(
+                c.var.supabase,
+                "source",
+                {
+                  projectId: query.projectId,
+                },
+                {
+                  projectId: "project_id",
+                },
+                CREATED_AT_DESC_ORDER,
+              )) as SourceRow[],
             );
           }
 
@@ -157,20 +179,26 @@ export function mountSourceResource(app: Hono<ApiEnv>) {
               return [];
             }
 
-            return listRecordsInColumn(
-              c.var.supabase,
-              "source",
-              "project_id",
-              accessibleProjectIds,
-              CREATED_AT_DESC_ORDER,
+            return serializeSources(
+              c,
+              (await listRecordsInColumn(
+                c.var.supabase,
+                "source",
+                "project_id",
+                accessibleProjectIds,
+                CREATED_AT_DESC_ORDER,
+              )) as SourceRow[],
             );
           }
 
-          return listRecords(
-            c.var.supabase,
-            "source",
-            {},
-            CREATED_AT_DESC_ORDER,
+          return serializeSources(
+            c,
+            (await listRecords(
+              c.var.supabase,
+              "source",
+              {},
+              CREATED_AT_DESC_ORDER,
+            )) as SourceRow[],
           );
         },
         schema: sourceListSchema,
@@ -191,12 +219,15 @@ export function mountSourceResource(app: Hono<ApiEnv>) {
         },
       },
       get: {
-        handler: (c, id) =>
-          requireAccessibleSource(c.var.supabase, {
-            authenticatedProfileId: c.var.auth?.profileId,
-            sourceId: id,
-            userId: c.var.auth?.userId,
-          }),
+        handler: async (c, id) =>
+          serializeSource(
+            c,
+            (await requireAccessibleSource(c.var.supabase, {
+              authenticatedProfileId: c.var.auth?.profileId,
+              sourceId: id,
+              userId: c.var.auth?.userId,
+            })) as SourceRow,
+          ),
       },
       idParam: "sourceId",
       patch: {
@@ -212,13 +243,16 @@ export function mountSourceResource(app: Hono<ApiEnv>) {
             body.payloadSchema,
           ]);
 
-          return updateRecord(c.var.supabase, "source", id, {
-            name: body.name,
-            payload_schema:
-              body.payloadSchema === undefined
-                ? undefined
-                : normalizePayloadSchema(body.payloadSchema),
-          });
+          return serializeSource(
+            c,
+            (await updateRecord(c.var.supabase, "source", id, {
+              name: body.name,
+              payload_schema:
+                body.payloadSchema === undefined
+                  ? undefined
+                  : normalizePayloadSchema(body.payloadSchema),
+            })) as SourceRow,
+          );
         },
         schema: sourceWriteSchema,
       },
@@ -242,16 +276,19 @@ export function mountSourceResource(app: Hono<ApiEnv>) {
             userId: c.var.auth?.userId,
           });
 
-          return listRecordsFromQuery(
-            c.var.supabase,
-            "source",
-            {
-              projectId,
-            },
-            {
-              projectId: "project_id",
-            },
-            CREATED_AT_DESC_ORDER,
+          return serializeSources(
+            c,
+            (await listRecordsFromQuery(
+              c.var.supabase,
+              "source",
+              {
+                projectId,
+              },
+              {
+                projectId: "project_id",
+              },
+              CREATED_AT_DESC_ORDER,
+            )) as SourceRow[],
           );
         },
       },

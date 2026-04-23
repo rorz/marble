@@ -24,7 +24,9 @@ If you're an agent and your human has asked you to "make me a (workflow | table 
 - The CLI reads `.env` from the current working directory.
 - `MARBLE_API_URL` defaults to `https://marble.kenobi.tech/api`.
 - `MARBLE_API_KEY` is optional, but protected environments may require it. Mint one from the Marble web app's Profiles page, then export it into the shell or `.env`.
-- Prefer `bunx marble-cli@latest ...` unless `marble` is already installed or linked in the shell.
+- Run `which marble` first.
+- If `which marble` succeeds, prefer `marble ...`.
+- If `which marble` fails, fall back to `bunx marble-cli@latest ...`.
 - Marble program runs receive provider credentials on `system.providers`.
 
 ## Marble Model
@@ -46,6 +48,7 @@ If you're an agent and your human has asked you to "make me a (workflow | table 
 | Cells are materialized, not created | Do not invent a `cell create` step. Create rows or columns, then list the resulting cells. |
 | Stored runs own output state | Use `run start` for normal execution. Do not force final `cell.state` unless you are doing low-level debugging or recovery work. |
 | Batch execution stays cell-shaped | `run start` can target one cell, many cells, or a rectangular cell range. Marble batches compatible cells through one sandbox process, but the mental model stays per-cell. |
+| Dependencies wake up from execution, not from manual input alone | Updating `cell.manual_input` only stores input. Downstream columns only auto-queue after upstream cells execute, write output state, and the target column has `runCondition: true`. |
 
 Promote durable workflow findings into this section when they should change future operator behavior. Do not use it as a changelog or a bucket for one-off exceptions.
 
@@ -61,20 +64,21 @@ Prefer the singular commands unless you explicitly need the raw API-shaped inter
 ### Human-facing command shape
 
 ```sh
-bunx marble-cli@latest <singular-resource> <verb> [args...] [flags...]
+marble <singular-resource> <verb> [args...] [flags...]
+# fallback: bunx marble-cli@latest <singular-resource> <verb> [args...] [flags...]
 ```
 
 Examples:
 
 ```sh
-bunx marble-cli@latest table create "Apollo Email Enrichment"
-bunx marble-cli@latest column create "Person Name" --table <tableId> --program <programId> --output-schema '{"type":"string"}'
-bunx marble-cli@latest row create --table <tableId> --count 3
-bunx marble-cli@latest cell set <cellId> "Ada Lovelace"
-bunx marble-cli@latest run start <cellId>
-bunx marble-cli@latest run start <cellId1> <cellId2> <cellId3>
-bunx marble-cli@latest run start --range <startCellId>..<endCellId>
-bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
+marble table create "Apollo Email Enrichment"
+marble column create "Person Name" --table <tableId> --program <programId> --output-schema '{"type":"string"}'
+marble row create --table <tableId> --count 3
+marble cell set <cellId> "Ada Lovelace"
+marble run start <cellId>
+marble run start <cellId1> <cellId2> <cellId3>
+marble run start --range <startCellId>..<endCellId>
+marble program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
 ```
 
 ### Raw command shape
@@ -82,16 +86,17 @@ bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual
 The raw mode is still positional JSON:
 
 ```sh
-bunx marble-cli@latest <plural-resource> <verb> [args...]
+marble <plural-resource> <verb> [args...]
+# fallback: bunx marble-cli@latest <plural-resource> <verb> [args...]
 ```
 
 Use help at every level:
 
 ```sh
-bunx marble-cli@latest --help
-bunx marble-cli@latest program --help
-bunx marble-cli@latest programs --help
-bunx marble-cli@latest column create --help
+marble --help
+marble program --help
+marble programs --help
+marble column create --help
 ```
 
 CLI specifics:
@@ -110,14 +115,19 @@ CLI specifics:
 
 Human-facing commands:
 
+- `project`: `create`, `list`, `get`, `update`, `delete`
 - `profile`: `list`, `get`
 - `key`: `list`, `get`
+- `secret`: `list`, `get`, `create`, `update`, `delete`
 - `table`: `create`, `list`, `get`, `update`, `delete`
-- `column`: `create`, `list`, `get`, `update`, `delete`
+- `column`: `create`, `list`, `get`, `update`, `delete`, `secret list`, `secret set`
 - `row`: `create`, `list`, `get`, `update`, `delete`
 - `cell`: `list`, `get`, `set`, `update`
 - `run`: `start`, `list`, `get`, `execute`
-- `program`: `list`, `get`, `delete`, `upsert`, `test`
+- `program`: `list`, `get`, `delete`, `upsert`, `test`, `secret list`, `secret set`
+- `source`: `create`, `list`, `get`, `update`, `delete`
+- `source-event`: `list`, `get`
+- `pipe`: `create`, `list`, `get`, `update`, `delete`
 
 Raw plural commands:
 
@@ -146,55 +156,67 @@ Raw snake-case resources also get camelCase aliases:
 ### Table
 
 ```sh
-bunx marble-cli@latest table create "Apollo Email Enrichment"
-bunx marble-cli@latest table list
-bunx marble-cli@latest table get <tableId>
-bunx marble-cli@latest table update <tableId> --name "Apollo Email Enrichment v2"
-bunx marble-cli@latest table delete <tableId>
+marble table create "Apollo Email Enrichment"
+marble table list
+marble table get <tableId>
+marble table update <tableId> --name "Apollo Email Enrichment v2"
+marble table delete <tableId>
 ```
 
 ### Profile
 
 ```sh
-bunx marble-cli@latest profile list
-bunx marble-cli@latest profile get <profileId>
+marble profile list
+marble profile get <profileId>
 ```
 
 ### Key
 
 ```sh
-bunx marble-cli@latest key list
-bunx marble-cli@latest key list --include-deleted
-bunx marble-cli@latest key get <keyId>
+marble key list
+marble key list --include-deleted
+marble key get <keyId>
+```
+
+### Secret
+
+```sh
+marble secret list
+marble secret list --name APOLLO_API_KEY
+marble secret create APOLLO_API_KEY --value-env APOLLO_API_KEY
+marble secret update <secretId> --value-env APOLLO_API_KEY
+marble secret delete <secretId>
 ```
 
 ### Column
 
 ```sh
-bunx marble-cli@latest column create "Person Name" --table <tableId> --program <programId> --output-schema '{"type":"string"}'
-bunx marble-cli@latest column list --table <tableId>
-bunx marble-cli@latest column get <columnId>
-bunx marble-cli@latest column update <columnId> --name "Full Name"
-bunx marble-cli@latest column delete <columnId>
+marble column create "Person Name" --table <tableId> --program <programId> --output-schema '{"type":"string"}'
+marble column list --table <tableId>
+marble column get <columnId>
+marble column update <columnId> --name "Full Name"
+marble column delete <columnId>
+marble column secret list <columnId>
+marble column secret set <columnId> --binding APOLLO_API_KEY=<secretId>
 ```
 
 ### Row
 
 ```sh
-bunx marble-cli@latest row create --table <tableId>
-bunx marble-cli@latest row create --table <tableId> --count 3
-bunx marble-cli@latest row list --table <tableId>
-bunx marble-cli@latest row update <rowId> --idx 4
-bunx marble-cli@latest row delete <rowId>
+marble row create --table <tableId>
+marble row create --table <tableId> --count 3
+marble row list --table <tableId>
+marble row update <rowId> --idx 4
+marble row delete <rowId>
 ```
 
 ### Cell
 
 ```sh
-bunx marble-cli@latest cell list --table <tableId>
-bunx marble-cli@latest cell get <cellId>
-bunx marble-cli@latest cell set <cellId> "Ada Lovelace"
-bunx marble-cli@latest cell update <cellId> --clear-manual-input
+marble cell list --table <tableId>
+marble cell get <cellId>
+marble cell set <cellId> "Ada Lovelace"
+marble cell update <cellId> --clear-manual-input
 ```
 
 `cell set` and `cell update --manual-input` only change the cell's manual input. They do not execute the column or produce final output state.
@@ -202,13 +224,13 @@ bunx marble-cli@latest cell update <cellId> --clear-manual-input
 ### Run
 
 ```sh
-bunx marble-cli@latest run start <cellId>
-bunx marble-cli@latest run start <cellId> --manual-input "Ada Lovelace"
-bunx marble-cli@latest run start <cellId1> <cellId2> <cellId3>
-bunx marble-cli@latest run start --range <startCellId>..<endCellId>
-bunx marble-cli@latest run list --cell <cellId>
-bunx marble-cli@latest run get <runId>
-bunx marble-cli@latest run execute <runId>
+marble run start <cellId>
+marble run start <cellId> --manual-input "Ada Lovelace"
+marble run start <cellId1> <cellId2> <cellId3>
+marble run start --range <startCellId>..<endCellId>
+marble run list --cell <cellId>
+marble run get <runId>
+marble run execute <runId>
 ```
 
 Important details:
@@ -222,11 +244,33 @@ Important details:
 ### Program
 
 ```sh
-bunx marble-cli@latest program list
-bunx marble-cli@latest program get <programId>
-bunx marble-cli@latest program upsert /tmp/marble-programs/reverse-string
-bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
-bunx marble-cli@latest program delete <programId>
+marble program list
+marble program get <programId>
+marble program upsert /tmp/marble-programs/reverse-string
+marble program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
+marble program delete <programId>
+marble program secret list <programId>
+marble program secret set <programId> --binding APOLLO_API_KEY=<secretId>
+```
+
+### Source
+
+```sh
+marble source create "Apollo Person Enrichment Source" --project <projectId> --payload-schema '{"type":"object"}'
+marble source list --project <projectId>
+marble source get <sourceId>
+marble source update <sourceId> --name "Apollo Inbound Source"
+marble source-event list --source <sourceId> --limit 5
+```
+
+### Pipe
+
+```sh
+marble pipe create --source <sourceId> --table <tableId> --mappings '[{"columnId":"<columnId>","jsonPath":"$.personName"}]'
+marble pipe list --source <sourceId>
+marble pipe get <pipeId>
+marble pipe update <pipeId> --mappings-file ./pipe-mappings.json
+marble pipe delete <pipeId>
 ```
 
 ## Raw CRUD Command Shapes
@@ -234,10 +278,10 @@ bunx marble-cli@latest program delete <programId>
 ### List
 
 ```sh
-bunx marble-cli@latest tables list
-bunx marble-cli@latest columns list '{"tableId":"<tableId>"}'
-bunx marble-cli@latest cells list '{"rowId":"<rowId>"}'
-bunx marble-cli@latest program-versions list '{"programId":"<programId>"}'
+marble tables list
+marble columns list '{"tableId":"<tableId>"}'
+marble cells list '{"rowId":"<rowId>"}'
+marble program-versions list '{"programId":"<programId>"}'
 ```
 
 Use flat scalar filters only. Good:
@@ -251,29 +295,29 @@ Do not pass nested objects or arrays to `list`. The CLI serializes filters into 
 ### Get
 
 ```sh
-bunx marble-cli@latest tables get <tableId>
-bunx marble-cli@latest columns get <columnId>
+marble tables get <tableId>
+marble columns get <columnId>
 ```
 
 ### Create
 
 ```sh
-bunx marble-cli@latest tables create '{"name":"Apollo Email Enrichment"}'
-bunx marble-cli@latest rows create '{"tableId":"<tableId>","count":3}'
+marble tables create '{"name":"Apollo Email Enrichment"}'
+marble rows create '{"tableId":"<tableId>","count":3}'
 ```
 
 ### Update
 
 ```sh
-bunx marble-cli@latest tables update <tableId> '{"name":"Apollo Email Enrichment v2"}'
-bunx marble-cli@latest cells update <cellId> '{"manualInput":"Ada Lovelace"}'
+marble tables update <tableId> '{"name":"Apollo Email Enrichment v2"}'
+marble cells update <cellId> '{"manualInput":"Ada Lovelace"}'
 ```
 
 ### Delete
 
 ```sh
-bunx marble-cli@latest rows delete <rowId>
-bunx marble-cli@latest programs delete <programId>
+marble rows delete <rowId>
+marble programs delete <programId>
 ```
 
 ## Payload Shapes That Matter
@@ -455,13 +499,13 @@ Example:
 Use `program upsert` when you want to publish a directory as the newest version of a program:
 
 ```sh
-bunx marble-cli@latest program upsert /tmp/marble-programs/reverse-string
+marble program upsert /tmp/marble-programs/reverse-string
 ```
 
 Use `program test` when you want to upsert first and then hit `/test` for the newly created version:
 
 ```sh
-bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --input '{"mode":"uppercase"}'
+marble program test /tmp/marble-programs/reverse-string --input '{"mode":"uppercase"}'
 ```
 
 If you pass `--input`, Marble turns it into:
@@ -481,7 +525,7 @@ If you pass `--input`, Marble turns it into:
 If you need to control `cell.manualInputValue`, use `--manual-input`:
 
 ```sh
-bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
+marble program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
 ```
 
 That is for program-level testing. Do not mirror that shape directly into a table design unless the workflow genuinely wants the logic program to own manual input. In normal tables, prefer a dedicated user-input column that feeds the logic column through `inputTemplate`.
@@ -489,13 +533,13 @@ That is for program-level testing. Do not mirror that shape directly into a tabl
 If you need full control, use `--full-input`:
 
 ```sh
-bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --full-input '{"system":{"providers":{}},"cell":{"manualInputValue":"hello"},"input":{"mode":"uppercase"}}'
+marble program test /tmp/marble-programs/reverse-string --full-input '{"system":{"providers":{}},"cell":{"manualInputValue":"hello"},"input":{"mode":"uppercase"}}'
 ```
 
 The raw plural form still exists:
 
 ```sh
-bunx marble-cli@latest programs test /tmp/marble-programs/reverse-string '{"system":{"providers":{}},"cell":{"manualInputValue":"hello"},"input":{"mode":"uppercase"}}'
+marble programs test /tmp/marble-programs/reverse-string '{"system":{"providers":{}},"cell":{"manualInputValue":"hello"},"input":{"mode":"uppercase"}}'
 ```
 
 `program test` is not a local dry run. It always upserts first, so repeated tests create repeated remote versions.
@@ -526,13 +570,13 @@ Manual-input-only columns can use `{}` and read `cell.manualInputValue` directly
 With the human-facing `column create` command, pass real JSON and let the CLI stringify it for transport:
 
 ```sh
-bunx marble-cli@latest column create "Enriched Email" --table <tableId> --program <programId> --input-template '{"personName.$":"$.columns.<personColumnId>.value","companyName.$":"$.columns.<companyColumnId>.value"}' --output-schema '{"type":"string"}'
+marble column create "Enriched Email" --table <tableId> --program <programId> --input-template '{"personName.$":"$.columns.<personColumnId>.value","companyName.$":"$.columns.<companyColumnId>.value"}' --output-schema '{"type":"string"}' --run-condition true
 ```
 
 When you fall back to raw plural commands, escape it because `inputTemplate` itself must be a string:
 
 ```sh
-bunx marble-cli@latest columns create '{"tableId":"<tableId>","name":"Enriched Email","programId":"<programId>","inputTemplate":"{\"personName.$\":\"$.columns.<personColumnId>.value\",\"companyName.$\":\"$.columns.<companyColumnId>.value\"}","outputSchema":{"type":"string"}}'
+marble columns create '{"tableId":"<tableId>","name":"Enriched Email","programId":"<programId>","inputTemplate":"{\"personName.$\":\"$.columns.<personColumnId>.value\",\"companyName.$\":\"$.columns.<companyColumnId>.value\"}","outputSchema":{"type":"string"},"runCondition":true}'
 ```
 
 ## Standard Workflow
@@ -548,7 +592,7 @@ bunx marble-cli@latest columns create '{"tableId":"<tableId>","name":"Enriched E
 Example:
 
 ```sh
-bunx marble-cli@latest program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
+marble program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
 ```
 
 ### Wire A Program Into A Table
@@ -577,28 +621,27 @@ Important:
 Example:
 
 ```sh
-bunx marble-cli@latest table create "Apollo Email Enrichment"
-bunx marble-cli@latest program upsert /tmp/marble-programs/user-input
-bunx marble-cli@latest program upsert /tmp/marble-programs/apollo-email
-bunx marble-cli@latest program list
-bunx marble-cli@latest column create "Person Name" --table <tableId> --program <userInputProgramId> --output-schema '{"type":"string"}'
-bunx marble-cli@latest column create "Company Name" --table <tableId> --program <userInputProgramId> --output-schema '{"type":"string"}'
-bunx marble-cli@latest column list --table <tableId>
-bunx marble-cli@latest column create "Enriched Email" --table <tableId> --program <apolloProgramId> --input-template '{"personName.$":"$.columns.<personColumnId>.value","companyName.$":"$.columns.<companyColumnId>.value"}' --output-schema '{"type":"string"}'
-bunx marble-cli@latest row create --table <tableId>
-bunx marble-cli@latest row list --table <tableId>
-bunx marble-cli@latest cell list --row <rowId>
-bunx marble-cli@latest cell set <personCellId> "Ada"
-bunx marble-cli@latest cell set <companyCellId> "Analytical Engines"
-bunx marble-cli@latest run start <personCellId> <companyCellId>
-bunx marble-cli@latest run start <enrichedEmailCellId>
+marble table create "Apollo Email Enrichment"
+marble program upsert /tmp/marble-programs/user-input
+marble program upsert /tmp/marble-programs/apollo-email
+marble program list
+marble column create "Person Name" --table <tableId> --program <userInputProgramId> --output-schema '{"type":"string"}'
+marble column create "Company Name" --table <tableId> --program <userInputProgramId> --output-schema '{"type":"string"}'
+marble column list --table <tableId>
+marble column create "Enriched Email" --table <tableId> --program <apolloProgramId> --input-template '{"personName.$":"$.columns.<personColumnId>.value","companyName.$":"$.columns.<companyColumnId>.value"}' --output-schema '{"type":"string"}' --run-condition true
+marble row create --table <tableId>
+marble row list --table <tableId>
+marble cell list --row <rowId>
+marble cell set <personCellId> "Ada"
+marble cell set <companyCellId> "Analytical Engines"
+marble run start <personCellId> <companyCellId>
 ```
 
 If you prefer raw commands for the cell lookup step:
 
 ```sh
-bunx marble-cli@latest rows create '{"tableId":"<tableId>","count":1}'
-bunx marble-cli@latest cells list '{"rowId":"<rowId>"}'
+marble rows create '{"tableId":"<tableId>","count":1}'
+marble cells list '{"rowId":"<rowId>"}'
 ```
 
 ## General Approach
@@ -636,6 +679,8 @@ When asked to create a table or workflow, break the task into composable steps.
 - If `program test` fails, fix the runtime code, `input-schema.json`, or `output-config.json`, then rerun it.
 - If a dependent column is blank, confirm the `inputTemplate` references the correct column IDs.
 - If a downstream cell is blank after you set manual input on its sources, make sure you ran the source cells first. Dependencies read prior cell output state, not raw manual input.
+- If a downstream cell still does not run after its sources execute successfully, inspect `column_dependency`, the target column's `runCondition`, and the target column's parsed input schema. Marble only auto-queues dependents whose `runCondition` is `true` and whose resolved input validates.
+- If a program cannot see provider credentials, check both program-level bindings (`program secret`) and any per-column overrides (`column secret`).
 - If the repo becomes dirty during CLI-only work, move temp artifacts to `/tmp` and clean up anything you created in the workspace.
 
 # Agentic Blitz Guide
@@ -649,9 +694,11 @@ Since we haven't got much time for chit-chat, here's the lowdown:
 3. Create resources in this order (using the documentation above as a guide)
   - Temporary local program files to test your assumptions (NOT remote Programs)
   - Remote project
+  - Remote secrets and secret bindings for any provider credentials
   - Remote table
   - Remote programs, including a dedicated user-input program when the workflow needs operator-entered values
   - Remote columns -- create user-input columns before dependent logic columns
+  - Remote sources and pipes when the workflow ingests external payloads
   - Insert ~10 blank rows to pad the table out a bit
 4. When the human asks you to "test with a few cells", do not invent a cell-creation step. Use this loop instead:
   - Create one row
@@ -659,7 +706,7 @@ Since we haven't got much time for chit-chat, here's the lowdown:
   - List that row's cells
   - Match the target cells by `column_id`
   - Set manual input on the user-input cells, not on downstream logic cells
-  - Start stored runs in dependency order, beginning with the user-input cells
+  - Start stored runs on the source cells. Downstream cells whose inputs validate should now auto-queue.
   - When several same-layer cells are ready, batch them in one `run start` command instead of firing one command per cell
 
 That's it!

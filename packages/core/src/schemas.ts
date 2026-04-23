@@ -175,6 +175,9 @@ export type ProgramOutputConfig = z.infer<typeof ProgramOutputConfig>;
 
 // --- Column
 
+export const ColumnRunCondition = z.boolean();
+export type ColumnRunCondition = z.infer<typeof ColumnRunCondition>;
+
 export const ColumnOutputSchema = JsonSchema;
 export type ColumnOutputSchema = z.infer<typeof ColumnOutputSchema>;
 

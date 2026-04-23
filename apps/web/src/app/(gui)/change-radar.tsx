@@ -11,6 +11,7 @@ import {
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
+import { buildPipeTitle } from "../../lib/pipe-display";
 import type { RealtimePayload } from "../../lib/realtime-crud";
 import type { SidebarTreeData } from "../../lib/sidebar-tree";
 import { createClient } from "../../lib/supabase/browser";
@@ -208,6 +209,30 @@ function buildTableHref(
 
 function buildTableLabel(indexes: RadarIndexes, tableId: string) {
   return indexes.tables.get(tableId)?.label ?? `Table ${shortId(tableId)}`;
+}
+
+function buildPipeLabel(
+  indexes: RadarIndexes,
+  pipeId: string,
+  snapshot: Record<string, unknown> | null,
+) {
+  const indexedPipe = indexes.pipes.get(pipeId);
+
+  if (indexedPipe?.label) {
+    return indexedPipe.label;
+  }
+
+  const sourceId = getStringField(snapshot, "source_id");
+  const tableId = getStringField(snapshot, "table_id");
+
+  return buildPipeTitle({
+    sourceLabel: sourceId
+      ? (indexes.sources.get(sourceId)?.label ?? `Source ${shortId(sourceId)}`)
+      : undefined,
+    tableLabel: tableId
+      ? (indexes.tables.get(tableId)?.label ?? `Table ${shortId(tableId)}`)
+      : undefined,
+  });
 }
 
 function buildProgramHref(programId?: string) {
@@ -612,7 +637,7 @@ function resolveRadarScope(
       return {
         href: `/projects/${projectId}/pipes/${event.entity_id}`,
         key: `pipe:${event.entity_id}`,
-        label: indexedPipe?.label ?? getStringField(snapshot, "name") ?? "Pipe",
+        label: buildPipeLabel(indexes, event.entity_id, snapshot),
         targetKeys: resolveEventTargetKeys(event, resolutionMaps),
       };
     }

@@ -6,6 +6,7 @@ import type { z } from "zod";
 export type ApiEnv = {
   Bindings: {
     MARBLE_EXECUTOR_URL?: string;
+    MARBLE_INGESTOR_URL?: string;
     SUPABASE_SERVICE_ROLE_KEY: string;
     SUPABASE_URL: string;
   };

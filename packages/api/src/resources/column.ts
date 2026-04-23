@@ -51,6 +51,7 @@ const columnWriteSchema = requestObject({
   outputSchema: jsonValueSchema.optional(),
   programId: uuidSchema.optional(),
   programVersionId: uuidSchema.optional(),
+  runCondition: z.boolean().optional(),
   tableId: uuidSchema.optional(),
 });
 
@@ -61,6 +62,7 @@ const columnPatchSchema = requestObject({
   outputSchema: jsonValueSchema.optional(),
   programId: uuidSchema.optional(),
   programVersionId: uuidSchema.optional(),
+  runCondition: z.boolean().optional(),
 });
 
 function resolveBaseOutputSchema(programVersion: DbRow<"program_version">) {
@@ -202,10 +204,16 @@ async function createColumn(
   const inputTemplate = body.inputTemplate ?? "{}";
   const outputSchema =
     body.outputSchema ?? resolveBaseOutputSchema(programVersion);
+  const runCondition = body.runCondition ?? false;
   const parsedOutputSchema = Schemas.ColumnOutputSchema.safeParse(outputSchema);
+  const parsedRunCondition = Schemas.ColumnRunCondition.safeParse(runCondition);
 
   if (!parsedOutputSchema.success) {
     throw new ApiError(400, "Invalid request", parsedOutputSchema.error.issues);
+  }
+
+  if (!parsedRunCondition.success) {
+    throw new ApiError(400, "Invalid request", parsedRunCondition.error.issues);
   }
 
   const column =
@@ -222,6 +230,7 @@ async function createColumn(
                 name: body.name,
                 output_schema: parsedOutputSchema.data as Json,
                 program_version_id: programVersionId,
+                run_condition: parsedRunCondition.data,
                 table_id: tableId,
               },
             ],
@@ -233,6 +242,7 @@ async function createColumn(
           name: body.name,
           output_schema: parsedOutputSchema.data as Json,
           program_version_id: programVersionId,
+          run_condition: parsedRunCondition.data,
           table_id: tableId,
         });
 
@@ -407,6 +417,7 @@ export function mountColumnResource(app: Hono<ApiEnv>) {
             body.outputSchema,
             body.programId,
             body.programVersionId,
+            body.runCondition,
           ]);
 
           const inputTemplate = body.inputTemplate;
@@ -430,6 +441,13 @@ export function mountColumnResource(app: Hono<ApiEnv>) {
             );
           const parsedOutputSchema =
             Schemas.ColumnOutputSchema.safeParse(outputSchema);
+          const parsedRunCondition =
+            body.runCondition === undefined
+              ? {
+                  data: undefined,
+                  success: true as const,
+                }
+              : Schemas.ColumnRunCondition.safeParse(body.runCondition);
 
           if (!parsedOutputSchema.success) {
             throw new ApiError(
@@ -439,12 +457,21 @@ export function mountColumnResource(app: Hono<ApiEnv>) {
             );
           }
 
+          if (!parsedRunCondition.success) {
+            throw new ApiError(
+              400,
+              "Invalid request",
+              parsedRunCondition.error.issues,
+            );
+          }
+
           const data = await updateRecord(c.var.supabase, "column", id, {
             idx: body.idx,
             input_template: inputTemplate,
             name: body.name,
             output_schema: parsedOutputSchema.data as Json,
             program_version_id: programVersionId,
+            run_condition: parsedRunCondition.data,
           });
 
           if (inputTemplate !== undefined) {

@@ -12,6 +12,7 @@ export const getEnv = (
     >,
     server: {
       MARBLE_EXECUTOR_URL: z.string().url().optional(),
+      MARBLE_INGESTOR_URL: z.string().url().optional(),
       SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
       SUPABASE_URL: z.string().url(),
     },

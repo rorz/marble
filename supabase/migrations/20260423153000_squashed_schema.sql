@@ -198,11 +198,12 @@ $$;
 ALTER FUNCTION "public"."secret_store_delete"("p_secret_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."secret_store_resolve"("p_owner_user_id" "uuid") RETURNS TABLE("category" "public"."secret_category", "name" "text", "value" "text")
+CREATE OR REPLACE FUNCTION "public"."secret_store_resolve"("p_owner_user_id" "uuid") RETURNS TABLE("id" "uuid", "category" "public"."secret_category", "name" "text", "value" "text")
     LANGUAGE "sql" SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
   SELECT
+    secret.id,
     secret.category,
     secret.name,
     decrypted_secret.decrypted_secret AS value
@@ -313,7 +314,8 @@ CREATE TABLE IF NOT EXISTS "public"."column" (
     "idx" bigint NOT NULL,
     "program_version_id" "uuid" NOT NULL,
     "input_template" "text" NOT NULL,
-    "output_schema" "jsonb" NOT NULL
+    "output_schema" "jsonb" NOT NULL,
+    "run_condition" "jsonb" DEFAULT "to_jsonb"(false) NOT NULL
 );
 
 
@@ -529,7 +531,6 @@ CREATE TABLE IF NOT EXISTS "public"."pipe" (
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "source_id" "uuid" NOT NULL,
     "table_id" "uuid" NOT NULL,
-    "name" "text" DEFAULT 'Untitled Pipe'::"text" NOT NULL,
     "mappings" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
     CONSTRAINT "pipe_mappings_is_array" CHECK (("jsonb_typeof"("mappings") = 'array'::"text"))
 );

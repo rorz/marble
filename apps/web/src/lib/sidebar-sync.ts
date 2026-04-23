@@ -203,6 +203,9 @@ export function applySidebarMutation(
         projects,
       };
       const projectId = resolveProjectIdForPipe(nextCurrent, mutation.row);
+      const projectNode = projectId
+        ? projects.find((project) => project.id === projectId)
+        : null;
 
       if (!projectId) {
         return nextCurrent;
@@ -213,7 +216,16 @@ export function applySidebarMutation(
         projects: upsertSidebarChild(
           projects,
           projectId,
-          buildPipeNode(mutation.row, projectId),
+          buildPipeNode(mutation.row, projectId, {
+            sourceLabel:
+              projectNode?.children.find(
+                (child) => child.id === mutation.row.source_id,
+              )?.label ?? "Untitled Source",
+            tableLabel:
+              projectNode?.children.find(
+                (child) => child.id === mutation.row.table_id,
+              )?.label ?? "Untitled Table",
+          }),
         ),
       };
     }

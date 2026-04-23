@@ -2,6 +2,7 @@
 
 import {
   MarbleAlert,
+  MarbleBadge,
   MarbleButton,
   MarbleCard,
   MarbleCardContent,
@@ -13,6 +14,11 @@ import {
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import {
+  buildPipeMappingDisplayRecords,
+  buildPipeMappingSummary,
+  buildPipeTitle,
+} from "../../../../lib/pipe-display";
 import {
   compareByCreatedAtDesc,
   compareByUpdatedAtDesc,
@@ -69,7 +75,7 @@ export function ProjectPageView({
   const sourceNameById = new Map(
     sources.map((source) => [
       source.id,
-      source.name,
+      source.name || "Untitled Source",
     ]),
   );
   const sourceEventCountBySourceId = new Map<string, number>();
@@ -77,6 +83,12 @@ export function ProjectPageView({
     project.tables.map((table) => [
       table.id,
       table.name || "Untitled Table",
+    ]),
+  );
+  const inputColumnLabelById = new Map(
+    initialProject.inputColumns.map((column) => [
+      column.id,
+      column.name,
     ]),
   );
 
@@ -353,21 +365,12 @@ export function ProjectPageView({
               <MarbleCardContent className="p-0">
                 {sources.map((source) => (
                   <MarbleListRow
-                    description={
-                      <>
-                        <span>
-                          {sourceEventCountBySourceId.get(source.id) ?? 0}{" "}
-                          cached events
-                        </span>
-                        <span className="font-mono">{source.id}</span>
-                      </>
-                    }
-                    descriptionClassName="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500"
+                    description={`${sourceEventCountBySourceId.get(source.id) ?? 0} cached events`}
                     key={source.id}
                     onClick={() =>
                       router.push(buildSourceDetailHref(source.id))
                     }
-                    title={source.name}
+                    title={source.name || "Untitled Source"}
                     {...getChangeTargetProps(changeTargetKey.source(source.id))}
                   />
                 ))}
@@ -401,26 +404,64 @@ export function ProjectPageView({
               </MarbleCardContent>
             ) : (
               <MarbleCardContent className="p-0">
-                {pipes.map((pipe) => (
-                  <MarbleListRow
-                    description={
-                      <>
-                        <span>
-                          {sourceNameById.get(pipe.source_id) ??
-                            "Unknown source"}
-                          {" -> "}
-                          {tableLabelById.get(pipe.table_id) ?? "Unknown table"}
-                        </span>
-                        <span className="font-mono">{pipe.id}</span>
-                      </>
-                    }
-                    descriptionClassName="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500"
-                    key={pipe.id}
-                    onClick={() => router.push(buildPipeDetailHref(pipe.id))}
-                    title={pipe.name}
-                    {...getChangeTargetProps(changeTargetKey.pipe(pipe.id))}
-                  />
-                ))}
+                {pipes.map((pipe) => {
+                  const pipeMappings = buildPipeMappingDisplayRecords(
+                    pipe.mappings,
+                    inputColumnLabelById,
+                  );
+                  const visiblePipeMappings = pipeMappings.slice(0, 4);
+                  const hiddenPipeMappingCount =
+                    pipeMappings.length - visiblePipeMappings.length;
+
+                  return (
+                    <MarbleListRow
+                      align="start"
+                      description={
+                        pipeMappings.length > 0 ? (
+                          <>
+                            {visiblePipeMappings.map((mapping) => (
+                              <MarbleBadge
+                                className="gap-1 rounded-full border-zinc-200 bg-zinc-50 px-2 py-1 font-medium text-zinc-700"
+                                key={`${mapping.jsonPath}:${mapping.columnId}`}
+                              >
+                                <span className="font-mono text-[10px] text-zinc-600">
+                                  {mapping.jsonPathLabel}
+                                </span>
+                                <span className="text-zinc-400">{"->"}</span>
+                                <span className="text-zinc-950">
+                                  {mapping.columnLabel}
+                                </span>
+                              </MarbleBadge>
+                            ))}
+
+                            {hiddenPipeMappingCount > 0 ? (
+                              <MarbleBadge className="rounded-full border-zinc-200 bg-zinc-50 px-2 py-1 font-medium text-zinc-600">
+                                +{hiddenPipeMappingCount} more
+                              </MarbleBadge>
+                            ) : null}
+                          </>
+                        ) : (
+                          buildPipeMappingSummary(
+                            pipe.mappings,
+                            inputColumnLabelById,
+                          )
+                        )
+                      }
+                      descriptionClassName={
+                        pipeMappings.length > 0
+                          ? "mt-2 flex flex-wrap items-center gap-1.5 text-xs"
+                          : "mt-1 text-xs text-zinc-500"
+                      }
+                      key={pipe.id}
+                      onClick={() => router.push(buildPipeDetailHref(pipe.id))}
+                      title={buildPipeTitle({
+                        sourceLabel: sourceNameById.get(pipe.source_id),
+                        tableLabel: tableLabelById.get(pipe.table_id),
+                      })}
+                      {...getChangeTargetProps(changeTargetKey.pipe(pipe.id))}
+                    />
+                  );
+                })}
               </MarbleCardContent>
             )}
           </MarbleCard>
@@ -448,15 +489,7 @@ export function ProjectPageView({
               <MarbleCardContent className="p-0">
                 {project.tables.map((table) => (
                   <MarbleListRow
-                    description={
-                      <>
-                        <span>
-                          {DATE_FORMATTER.format(new Date(table.updated_at))}
-                        </span>
-                        <span className="font-mono">{table.id}</span>
-                      </>
-                    }
-                    descriptionClassName="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500"
+                    description={`Updated ${DATE_FORMATTER.format(new Date(table.updated_at))}`}
                     key={table.id}
                     onClick={() =>
                       router.push(`/projects/${project.id}/tables/${table.id}`)

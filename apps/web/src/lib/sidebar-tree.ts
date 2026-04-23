@@ -1,4 +1,5 @@
 import type { Database } from "@marble/supabase";
+import { buildPipeTitle } from "./pipe-display";
 
 export type SidebarProjectRow = Pick<
   Database["public"]["Tables"]["project"]["Row"],
@@ -22,7 +23,7 @@ export type SidebarSourceRow = Pick<
 
 export type SidebarPipeRow = Pick<
   Database["public"]["Tables"]["pipe"]["Row"],
-  "id" | "name" | "source_id" | "table_id" | "updated_at"
+  "id" | "source_id" | "table_id" | "updated_at"
 >;
 
 export type SidebarProfileRecord = Pick<
@@ -135,13 +136,20 @@ export function buildSourceNode(source: SidebarSourceRow): SidebarTreeNode {
 export function buildPipeNode(
   pipe: SidebarPipeRow,
   projectId: string,
+  labels?: {
+    sourceLabel?: null | string;
+    tableLabel?: null | string;
+  },
 ): SidebarTreeNode {
   return {
     children: [],
     href: `/projects/${projectId}/pipes/${pipe.id}`,
     id: pipe.id,
     kind: "pipe",
-    label: pipe.name || "Untitled Pipe",
+    label: buildPipeTitle({
+      sourceLabel: labels?.sourceLabel,
+      tableLabel: labels?.tableLabel,
+    }),
     updatedAt: pipe.updated_at,
   };
 }

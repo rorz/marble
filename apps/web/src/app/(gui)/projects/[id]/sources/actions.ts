@@ -77,7 +77,6 @@ export async function createPipeAction(
   projectId: string,
   input: {
     mappings: PipeMappingInput[];
-    name?: string;
     sourceId: string;
     tableId: string;
   },
@@ -99,7 +98,6 @@ export async function updatePipeAction(
   pipeId: string,
   input: {
     mappings?: PipeMappingInput[];
-    name?: string;
     sourceId?: string;
     tableId?: string;
   },

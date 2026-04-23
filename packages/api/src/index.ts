@@ -79,6 +79,8 @@ const batchCellRunBodySchema = z.object({
 });
 
 function forwardExecutorHeaders(c: ApiContext) {
+  const auth = c.var.auth;
+
   return Object.fromEntries(
     [
       [
@@ -95,15 +97,15 @@ function forwardExecutorHeaders(c: ApiContext) {
       ],
       [
         "x-marble-auth-key-id",
-        c.req.header("x-marble-auth-key-id"),
+        auth?.keyId ?? c.req.header("x-marble-auth-key-id"),
       ],
       [
         "x-marble-auth-profile-id",
-        c.req.header("x-marble-auth-profile-id"),
+        auth?.profileId ?? c.req.header("x-marble-auth-profile-id"),
       ],
       [
         "x-marble-auth-user-id",
-        c.req.header("x-marble-auth-user-id"),
+        auth?.userId ?? c.req.header("x-marble-auth-user-id"),
       ],
       [
         "x-marble-request-id",

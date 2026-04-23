@@ -42,14 +42,12 @@ const pipeMappingSchema = requestObject({
 
 const pipeCreateSchema = requestObject({
   mappings: z.array(pipeMappingSchema).min(1),
-  name: nonEmptyStringSchema.optional(),
   sourceId: uuidSchema.optional(),
   tableId: uuidSchema.optional(),
 });
 
 const pipePatchSchema = requestObject({
   mappings: z.array(pipeMappingSchema).min(1).optional(),
-  name: nonEmptyStringSchema.optional(),
   sourceId: uuidSchema.optional(),
   tableId: uuidSchema.optional(),
 });
@@ -225,7 +223,6 @@ async function createPipe(
 
   const pipe = await createRecord(c.var.supabase, "pipe", {
     mappings,
-    name: body.name ?? "Untitled Pipe",
     source_id: source.id,
     table_id: table.id,
   });
@@ -365,7 +362,6 @@ export function mountPipeResource(app: Hono<ApiEnv>) {
 
           requireAnyDefined([
             body.mappings,
-            body.name,
             body.sourceId,
             body.tableId,
           ]);
@@ -382,7 +378,6 @@ export function mountPipeResource(app: Hono<ApiEnv>) {
               body.mappings === undefined
                 ? undefined
                 : await normalizeMappings(c, scope.table.id, body.mappings),
-            name: body.name,
             source_id:
               body.sourceId === undefined ? undefined : scope.source.id,
             table_id: body.tableId === undefined ? undefined : scope.table.id,

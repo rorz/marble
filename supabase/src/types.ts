@@ -88,6 +88,7 @@ export type Database = {
           name: string
           output_schema: Json
           program_version_id: string
+          run_condition: Json
           table_id: string
           updated_at: string
         }
@@ -99,6 +100,7 @@ export type Database = {
           name: string
           output_schema: Json
           program_version_id: string
+          run_condition?: Json
           table_id: string
           updated_at?: string
         }
@@ -110,6 +112,7 @@ export type Database = {
           name?: string
           output_schema?: Json
           program_version_id?: string
+          run_condition?: Json
           table_id?: string
           updated_at?: string
         }
@@ -311,7 +314,6 @@ export type Database = {
           created_at: string
           id: string
           mappings: Json
-          name: string
           source_id: string
           table_id: string
           updated_at: string
@@ -320,7 +322,6 @@ export type Database = {
           created_at?: string
           id?: string
           mappings?: Json
-          name?: string
           source_id: string
           table_id: string
           updated_at?: string
@@ -329,7 +330,6 @@ export type Database = {
           created_at?: string
           id?: string
           mappings?: Json
-          name?: string
           source_id?: string
           table_id?: string
           updated_at?: string
@@ -856,6 +856,7 @@ export type Database = {
         Args: { p_owner_user_id: string }
         Returns: {
           category: Database["public"]["Enums"]["secret_category"]
+          id: string
           name: string
           value: string
         }[]

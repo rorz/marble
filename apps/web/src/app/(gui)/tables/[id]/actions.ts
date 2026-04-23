@@ -292,6 +292,7 @@ export async function createColumn(input: {
   name: string;
   program_id: string;
   input_template: string;
+  run_condition: boolean;
 }) {
   const created = await callMarbleApi<
     ColumnRow & {
@@ -303,6 +304,7 @@ export async function createColumn(input: {
       inputTemplate: input.input_template,
       name: input.name,
       programVersionId: input.program_id,
+      runCondition: input.run_condition,
       tableId: input.table_id,
     },
     method: "POST",
@@ -320,6 +322,7 @@ export async function updateColumn(input: {
   name?: string;
   program_id?: string;
   input_template?: string;
+  run_condition?: boolean;
 }) {
   await callMarbleApi(`/columns/${input.columnId}`, {
     body: {
@@ -337,6 +340,11 @@ export async function updateColumn(input: {
         ? {}
         : {
             programVersionId: input.program_id,
+          }),
+      ...(input.run_condition === undefined
+        ? {}
+        : {
+            runCondition: input.run_condition,
           }),
     },
     method: "PATCH",

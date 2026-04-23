@@ -21,6 +21,11 @@ import {
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import {
+  buildPipeMappingSummary,
+  buildPipeTitle,
+  normalizePipeMappings,
+} from "../../../../../lib/pipe-display";
 import type { ProjectSourceWorkspaceData } from "../../../../../lib/source-data";
 import {
   changeTargetKey,
@@ -29,7 +34,6 @@ import {
 import * as actions from "./actions";
 
 type SourceRecord = Database["public"]["Tables"]["source"]["Row"];
-type PipeRecord = Database["public"]["Tables"]["pipe"]["Row"];
 type PipeMappingInput = Awaited<
   Parameters<typeof actions.createPipeAction>[1]
 >["mappings"][number];
@@ -96,41 +100,6 @@ function webhookEndpoint(baseUrl: string, source: Pick<SourceRecord, "id">) {
 
 function sourceTitle(source: null | Pick<SourceRecord, "name">) {
   return source?.name || "Untitled Source";
-}
-
-function pipeTitle(pipe: null | Pick<PipeRecord, "name">) {
-  return pipe?.name || "Untitled Pipe";
-}
-
-function normalizePipeMappings(value: unknown): PipeMappingInput[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((entry) => {
-    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-      return [];
-    }
-
-    const candidate = entry as {
-      columnId?: unknown;
-      jsonPath?: unknown;
-    };
-
-    if (
-      typeof candidate.columnId !== "string" ||
-      typeof candidate.jsonPath !== "string"
-    ) {
-      return [];
-    }
-
-    return [
-      {
-        columnId: candidate.columnId,
-        jsonPath: candidate.jsonPath,
-      },
-    ];
-  });
 }
 
 function createPipeMappingDraft(
@@ -481,7 +450,6 @@ export function ProjectSourceDetailPageView({
   );
   const [sourceError, setSourceError] = useState<null | string>(null);
   const [sourcePending, setSourcePending] = useState(false);
-  const [pipeNameDraft, setPipeNameDraft] = useState("");
   const [pipeSourceIdDraft, setPipeSourceIdDraft] = useState("");
   const [pipeTableIdDraft, setPipeTableIdDraft] = useState("");
   const [pipeMappingsDraft, setPipeMappingsDraft] = useState<
@@ -515,6 +483,12 @@ export function ProjectSourceDetailPageView({
           (event) => event.id === selectedSourceEventId,
         ) ?? null)
       : (selectedSourceEvents[0] ?? null);
+  const sourceLabelById = new Map(
+    sources.map((source) => [
+      source.id,
+      sourceTitle(source),
+    ]),
+  );
   const tableOptions = useMemo(
     () =>
       initialData.project.tables.map((table) => ({
@@ -525,6 +499,12 @@ export function ProjectSourceDetailPageView({
       initialData.project.tables,
     ],
   );
+  const tableLabelById = new Map(
+    tableOptions.map((table) => [
+      table.id,
+      table.label,
+    ]),
+  );
   const availablePipeColumns = useMemo(
     () =>
       initialData.inputColumns.filter(
@@ -534,6 +514,12 @@ export function ProjectSourceDetailPageView({
       pipeTableIdDraft,
       initialData.inputColumns,
     ],
+  );
+  const pipeColumnLabelById = new Map(
+    availablePipeColumns.map((column) => [
+      column.id,
+      column.name,
+    ]),
   );
   const latestPipeSourceEvent = useMemo(
     () =>
@@ -693,7 +679,6 @@ export function ProjectSourceDetailPageView({
     }
 
     if (creatingPipe) {
-      setPipeNameDraft("");
       setPipeSourceIdDraft(firstSourceId);
       setPipeTableIdDraft(firstTableId);
       setPipeMappingsDraft([]);
@@ -705,7 +690,6 @@ export function ProjectSourceDetailPageView({
       return;
     }
 
-    setPipeNameDraft(selectedPipe.name);
     setPipeSourceIdDraft(selectedPipe.source_id);
     setPipeTableIdDraft(selectedPipe.table_id);
     setPipeMappingsDraft(
@@ -949,7 +933,6 @@ export function ProjectSourceDetailPageView({
       if (creatingPipe) {
         const created = await actions.createPipeAction(projectId, {
           mappings,
-          name: pipeNameDraft.trim() || undefined,
           sourceId: pipeSourceIdDraft,
           tableId: pipeTableIdDraft,
         });
@@ -976,7 +959,6 @@ export function ProjectSourceDetailPageView({
         selectedPipe.id,
         {
           mappings,
-          name: pipeNameDraft.trim() || undefined,
           sourceId: pipeSourceIdDraft,
           tableId: pipeTableIdDraft,
         },
@@ -1000,7 +982,12 @@ export function ProjectSourceDetailPageView({
       return;
     }
 
-    if (!window.confirm(`Delete pipe "${pipeTitle(selectedPipe)}"?`)) {
+    const selectedPipeTitle = buildPipeTitle({
+      sourceLabel: sourceLabelById.get(selectedPipe.source_id),
+      tableLabel: tableLabelById.get(selectedPipe.table_id),
+    });
+
+    if (!window.confirm(`Delete pipe "${selectedPipeTitle}"?`)) {
       return;
     }
 
@@ -1024,7 +1011,21 @@ export function ProjectSourceDetailPageView({
   const sourcePageTitle = creatingSource
     ? "New source"
     : sourceTitle(selectedSource);
-  const pipePageTitle = creatingPipe ? "New pipe" : pipeTitle(selectedPipe);
+  const pipeSourceLabel =
+    sourceLabelById.get(pipeSourceIdDraft) ?? "Choose source";
+  const pipeTableLabel = tableLabelById.get(pipeTableIdDraft) ?? "Choose table";
+  const pipeDraftTitle = buildPipeTitle({
+    sourceLabel: pipeSourceLabel,
+    tableLabel: pipeTableLabel,
+  });
+  const pipeMappingSummary = buildPipeMappingSummary(
+    pipeMappingsDraft,
+    pipeColumnLabelById,
+  );
+  const pipePageTitle =
+    creatingPipe && !pipeSourceIdDraft && !pipeTableIdDraft
+      ? "New pipe"
+      : pipeDraftTitle;
   const pageTitle = mode === "source" ? sourcePageTitle : pipePageTitle;
   const paneTargetKey =
     mode === "source"
@@ -1034,12 +1035,8 @@ export function ProjectSourceDetailPageView({
       : creatingPipe || !selectedPipe
         ? changeTargetKey.project(projectId)
         : changeTargetKey.pipe(selectedPipe.id);
-  const pipeSourceLabel =
-    sources.find((source) => source.id === pipeSourceIdDraft)?.name ??
-    "Choose source";
-  const pipeTableLabel =
-    tableOptions.find((table) => table.id === pipeTableIdDraft)?.label ??
-    "Choose table";
+  const pipeHeaderSummary =
+    pipePageTitle === "New pipe" ? pipeDraftTitle : pipeMappingSummary;
   const latestPipeSourceEventLabel = latestPipeSourceEvent
     ? DATE_TIME_FORMATTER.format(new Date(latestPipeSourceEvent.created_at))
     : null;
@@ -1098,9 +1095,7 @@ export function ProjectSourceDetailPageView({
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
-              <span>{pipeSourceLabel}</span>
-              <span>{"->"}</span>
-              <span>{pipeTableLabel}</span>
+              <span>{pipeHeaderSummary}</span>
               {!creatingPipe && selectedPipe ? (
                 <span className="font-mono text-xs text-zinc-400">
                   {selectedPipe.id}
@@ -1346,16 +1341,6 @@ export function ProjectSourceDetailPageView({
                 {pipeError ? (
                   <MarbleAlert tone="error">{pipeError}</MarbleAlert>
                 ) : null}
-
-                <div className="space-y-1.5">
-                  <MarbleFieldLabel>Name</MarbleFieldLabel>
-                  <MarbleInput
-                    onChange={(event) => setPipeNameDraft(event.target.value)}
-                    placeholder="Untitled Pipe"
-                    value={pipeNameDraft}
-                    wrapperClassName="w-full"
-                  />
-                </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-1.5">

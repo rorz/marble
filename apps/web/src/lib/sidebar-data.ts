@@ -105,9 +105,7 @@ export async function listSidebarDataForUser(
           data: [],
           error: null,
         })
-      : supabase
-          .from("pipe")
-          .select("id, name, source_id, table_id, updated_at"),
+      : supabase.from("pipe").select("id, source_id, table_id, updated_at"),
   ]);
 
   if (tablesResult.error) {
@@ -190,7 +188,12 @@ export async function listSidebarDataForUser(
           ...(tablesByProjectId.get(project.id) ?? []).map(buildTableNode),
           ...(sourcesByProjectId.get(project.id) ?? []).map(buildSourceNode),
           ...(pipesByProjectId.get(project.id) ?? []).map((pipe) =>
-            buildPipeNode(pipe, project.id),
+            buildPipeNode(pipe, project.id, {
+              sourceLabel:
+                sourceById.get(pipe.source_id)?.name ?? "Untitled Source",
+              tableLabel:
+                tableById.get(pipe.table_id)?.name ?? "Untitled Table",
+            }),
           ),
         ]),
       ),

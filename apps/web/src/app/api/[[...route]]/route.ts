@@ -85,6 +85,7 @@ async function forward(req: Request) {
 
   return app.fetch(forwardedReq, {
     MARBLE_EXECUTOR_URL: env.MARBLE_EXECUTOR_URL || env.EXECUTOR_URL,
+    MARBLE_INGESTOR_URL: env.MARBLE_INGESTOR_URL,
     SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY || "",
     SUPABASE_URL: env.SUPABASE_URL || "",
   });

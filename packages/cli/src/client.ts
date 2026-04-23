@@ -24,12 +24,17 @@ type ProgramUpsertPayload = {
   name: string;
   outputConfig: unknown;
   ownerProfileId?: string;
+  programId?: string;
   secretConfig?: unknown;
 };
 
 type ProgramUpsertResult = {
   programId: string;
   versionId: string;
+};
+type SecretBindingEntry = {
+  envName: string;
+  secretId: string;
 };
 type RunExecutionResult = {
   cellId?: string;
@@ -282,15 +287,81 @@ export class MarbleClient {
     );
   }
 
+  public listProgramSecretBindings(programId: string) {
+    return this.fetchAPI<SecretBindingEntry[]>(
+      `/programs/${programId}/secrets`,
+    );
+  }
+
+  public updateProgramSecretBindings(
+    programId: string,
+    bindings: SecretBindingEntry[],
+  ) {
+    return this.fetchAPI<SecretBindingEntry[]>(
+      `/programs/${programId}/secrets`,
+      {
+        body: JSON.stringify({
+          bindings,
+        }),
+        method: "PUT",
+      },
+    );
+  }
+
+  public listColumnSecretBindings(columnId: string) {
+    return this.fetchAPI<SecretBindingEntry[]>(`/columns/${columnId}/secrets`);
+  }
+
+  public updateColumnSecretBindings(
+    columnId: string,
+    bindings: SecretBindingEntry[],
+  ) {
+    return this.fetchAPI<SecretBindingEntry[]>(`/columns/${columnId}/secrets`, {
+      body: JSON.stringify({
+        bindings,
+      }),
+      method: "PUT",
+    });
+  }
+
   public async upsertProgram(
     payload: ProgramUpsertPayload,
   ): Promise<ProgramUpsertResult> {
+    if (payload.programId) {
+      await this.get("programs", payload.programId);
+
+      const version = (await this.create("program_versions", {
+        files: payload.files,
+        inputSchema: payload.inputSchema,
+        outputConfig: payload.outputConfig,
+        ownerProfileId: payload.ownerProfileId,
+        programId: payload.programId,
+        secretConfig: payload.secretConfig,
+      })) as EntityWithId;
+
+      return {
+        programId: payload.programId,
+        versionId: version.id,
+      };
+    }
+
     const programs = (await this.list("programs")) as Array<{
       id: string;
       name: string;
     }>;
+    const matchingPrograms = programs.filter(
+      (program) => program.name === payload.name,
+    );
 
-    const existing = programs.find((program) => program.name === payload.name);
+    if (matchingPrograms.length > 1) {
+      throw new Error(
+        `Multiple programs named "${payload.name}" already exist: ${matchingPrograms
+          .map((program) => program.id)
+          .join(", ")}. Re-run with an explicit program ID.`,
+      );
+    }
+
+    const existing = matchingPrograms[0];
 
     if (existing) {
       const version = (await this.create("program_versions", {

@@ -8,7 +8,7 @@ import {
   apiResourceLabel,
   apiResourceSegment,
   type CrudOperation,
-  parseProgramManifest,
+  ENVIRONMENT_VARIABLE_NAME_PATTERN,
   supportsResourceOperation,
 } from "@marble/core";
 import { Command } from "commander";
@@ -35,7 +35,7 @@ type LoadedProgramDirectory = {
   inputSchema: unknown;
   name: string;
   outputConfig: unknown;
-  secretConfig: unknown;
+  secretConfig?: unknown;
 };
 type CrudCommandDefinition = {
   arguments: Array<
@@ -59,6 +59,7 @@ type ColumnCommandOptions = {
   outputSchemaFile?: string;
   program?: string;
   programVersion?: string;
+  runCondition?: string;
   table?: string;
 };
 type RowCommandOptions = {
@@ -88,6 +89,10 @@ type ProgramTestOptions = {
   input?: string;
   inputFile?: string;
   manualInput?: string;
+  programId?: string;
+};
+type ProgramUpsertOptions = {
+  programId?: string;
 };
 type ProjectCommandOptions = {
   folderPath?: string;
@@ -115,6 +120,16 @@ type KeyCommandOptions = {
   includeDeleted?: boolean;
   ownerProfileId?: string;
 };
+type SecretCommandOptions = {
+  category?: string;
+  name?: string;
+  value?: string;
+  valueEnv?: string;
+};
+type SecretBindingCommandOptions = {
+  binding?: string[];
+  clear?: boolean;
+};
 type CellRecord = {
   column_id: string;
   id: string;
@@ -130,6 +145,20 @@ type ColumnRecord = {
   idx: number;
   table_id: string;
 };
+type SecretRecord = {
+  category: string;
+  id: string;
+  name: string;
+};
+type SecretBindingEntry = {
+  envName: string;
+  secretId: string;
+};
+
+const SECRET_CATEGORY_VALUES = [
+  "Managed",
+  "UserDefined",
+] as const;
 
 function resolveFromInvocation(targetPath: string) {
   return path.resolve(invocationCwd, targetPath);
@@ -155,6 +184,31 @@ function formatError(error: unknown) {
 
 function printJson(value: unknown) {
   console.log(JSON.stringify(value, null, 2));
+}
+
+function printJsonWithWebhookHint(value: unknown) {
+  printJson(value);
+
+  if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    typeof (
+      value as {
+        webhookUrl?: unknown;
+      }
+    ).webhookUrl === "string"
+  ) {
+    console.error(
+      `Webhook URL: ${
+        (
+          value as {
+            webhookUrl: string;
+          }
+        ).webhookUrl
+      }`,
+    );
+  }
 }
 
 function parseJson(label: string, input: string) {
@@ -274,6 +328,83 @@ function assertAtMostOneDefined(
   );
 }
 
+function assertSecretBindingSelection(
+  label: string,
+  options: SecretBindingCommandOptions,
+) {
+  if (options.clear && (options.binding?.length ?? 0) > 0) {
+    throw new Error(`${label} accepts either --clear or --binding, not both`);
+  }
+
+  if (options.clear || (options.binding?.length ?? 0) > 0) {
+    return;
+  }
+
+  throw new Error(`${label} requires --clear or at least one --binding value`);
+}
+
+function parseSecretCategory(input?: string) {
+  if (input === undefined) {
+    return undefined;
+  }
+
+  if (
+    (SECRET_CATEGORY_VALUES as readonly string[]).includes(input.trim()) ===
+    false
+  ) {
+    throw new Error(
+      `Secret category must be one of: ${SECRET_CATEGORY_VALUES.join(", ")}`,
+    );
+  }
+
+  return input.trim() as (typeof SECRET_CATEGORY_VALUES)[number];
+}
+
+function readProcessEnvValue(envName: string) {
+  if (!ENVIRONMENT_VARIABLE_NAME_PATTERN.test(envName)) {
+    throw new Error(
+      `Environment variable "${envName}" is not a valid shell identifier`,
+    );
+  }
+
+  const value = process.env[envName];
+
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw new Error(`Environment variable "${envName}" is not set`);
+  }
+
+  return value;
+}
+
+function resolveSecretPlaintext(
+  label: string,
+  options: {
+    value?: string;
+    valueEnv?: string;
+  },
+) {
+  assertAtMostOneDefined(label, [
+    {
+      flag: "--value",
+      value: options.value,
+    },
+    {
+      flag: "--value-env",
+      value: options.valueEnv,
+    },
+  ]);
+
+  if (options.value !== undefined) {
+    return requiredStringValue(options.value, `${label} value`);
+  }
+
+  if (options.valueEnv !== undefined) {
+    return readProcessEnvValue(options.valueEnv.trim());
+  }
+
+  return undefined;
+}
+
 async function readTextFile(label: string, filePath: string) {
   const fullPath = resolveFromInvocation(filePath);
 
@@ -329,6 +460,16 @@ async function loadStringifiedJsonValue(
   }
 
   return JSON.stringify(value);
+}
+
+function parseBooleanJsonValue(label: string, input: string) {
+  const value = parseJson(label, input);
+
+  if (typeof value !== "boolean") {
+    throw new Error(`${label} must be a JSON boolean`);
+  }
+
+  return value;
 }
 
 function parseStringArray(label: string, value: unknown) {
@@ -420,8 +561,9 @@ async function loadProgramDirectory(
     throw new Error("Program directory must include output-config.json.");
   }
 
-  const packageManifest = parseProgramManifest(
-    parseJson("package.json", packageManifestFile.content),
+  const packageManifest = parseJsonObject(
+    "package.json",
+    packageManifestFile.content,
   );
   const name = requiredStringValue(packageManifest.name, "package.json.name");
   const inputSchema = parseJson("input-schema.json", inputSchemaFile.content);
@@ -435,7 +577,6 @@ async function loadProgramDirectory(
     inputSchema,
     name,
     outputConfig,
-    secretConfig: packageManifest.marble?.secrets ?? [],
   };
 }
 
@@ -452,7 +593,10 @@ async function runAction(label: string, action: () => Promise<void>) {
   }
 }
 
-async function upsertProgramFromDirectory(dir: string) {
+async function upsertProgramFromDirectory(
+  dir: string,
+  options: ProgramUpsertOptions = {},
+) {
   const fullPath = resolveFromInvocation(dir);
   const loadedProgram = await loadProgramDirectory(fullPath);
   const data = await client.upsertProgram({
@@ -460,6 +604,7 @@ async function upsertProgramFromDirectory(dir: string) {
     inputSchema: loadedProgram.inputSchema,
     name: loadedProgram.name,
     outputConfig: loadedProgram.outputConfig,
+    programId: options.programId,
     secretConfig: loadedProgram.secretConfig,
   });
 
@@ -482,6 +627,66 @@ function didRunRequestSucceed(value: unknown) {
   };
 
   return payload.success === true && payload.output?.ok !== false;
+}
+
+async function listSecretRecords() {
+  return (await client.list("secrets")) as SecretRecord[];
+}
+
+function parseSecretBindingAssignment(input: string) {
+  const separatorIndex = input.indexOf("=");
+
+  if (separatorIndex <= 0 || separatorIndex >= input.length - 1) {
+    throw new Error(
+      `Secret bindings must use the form ENV_NAME=SECRET_NAME_OR_ID. Received "${input}"`,
+    );
+  }
+
+  const envName = requiredStringValue(
+    input.slice(0, separatorIndex),
+    "binding environment name",
+  );
+
+  if (!ENVIRONMENT_VARIABLE_NAME_PATTERN.test(envName)) {
+    throw new Error(
+      `Secret binding environment name "${envName}" is not valid`,
+    );
+  }
+
+  return {
+    envName,
+    secretReference: requiredStringValue(
+      input.slice(separatorIndex + 1),
+      "binding secret reference",
+    ),
+  };
+}
+
+async function resolveSecretBindings(bindingInputs: string[]) {
+  const secrets = await listSecretRecords();
+  const bindingByEnvName = new Map<string, SecretBindingEntry>();
+
+  for (const bindingInput of bindingInputs) {
+    const binding = parseSecretBindingAssignment(bindingInput);
+    const secret =
+      secrets.find((candidate) => candidate.id === binding.secretReference) ??
+      secrets.find((candidate) => candidate.name === binding.secretReference);
+
+    if (!secret) {
+      throw new Error(
+        `Secret "${binding.secretReference}" was not found for binding ${binding.envName}`,
+      );
+    }
+
+    bindingByEnvName.set(binding.envName, {
+      envName: binding.envName,
+      secretId: secret.id,
+    });
+  }
+
+  return Array.from(bindingByEnvName.values()).sort((left, right) =>
+    left.envName.localeCompare(right.envName),
+  );
 }
 
 function parseCellRange(range: string) {
@@ -637,6 +842,10 @@ async function buildColumnPayload(
     }),
     programId: options.program,
     programVersionId: options.programVersion,
+    runCondition:
+      options.runCondition === undefined
+        ? undefined
+        : parseBooleanJsonValue("run condition", options.runCondition),
     tableId: options.table,
   });
 
@@ -861,6 +1070,111 @@ function registerKeyCommands() {
     );
 }
 
+function registerSecretCommands() {
+  const secretCommand = rootCommand
+    .command("secret")
+    .description("Human-friendly secret commands");
+
+  secretCommand
+    .command("list")
+    .description("List secrets")
+    .option("--category <category>", "Filter by secret category")
+    .option("--name <name>", "Filter by exact secret name")
+    .action((options: SecretCommandOptions) =>
+      runAction("listing secrets", async () => {
+        printJson(
+          await client.list(
+            "secrets",
+            compactObject({
+              category: parseSecretCategory(options.category),
+              name: options.name,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  secretCommand
+    .command("get")
+    .description("Get a secret by ID")
+    .argument("<secretId>", "Secret ID")
+    .action((secretId) =>
+      runAction("getting secret", async () => {
+        printJson(await client.get("secrets", secretId));
+      }),
+    );
+
+  secretCommand
+    .command("create")
+    .description("Create a secret")
+    .argument("<name>", "Secret name")
+    .option("--category <category>", "Secret category")
+    .option("--value <value>", "Secret plaintext value")
+    .option("--value-env <envName>", "Read the secret value from a shell env")
+    .action((name, options: SecretCommandOptions) =>
+      runAction("creating secret", async () => {
+        const value = resolveSecretPlaintext("secret create", {
+          value: options.value,
+          valueEnv: options.valueEnv,
+        });
+
+        if (value === undefined) {
+          throw new Error("secret create requires --value or --value-env");
+        }
+
+        printJson(
+          await client.create(
+            "secrets",
+            compactObject({
+              category: parseSecretCategory(options.category),
+              name,
+              value,
+            }),
+          ),
+        );
+      }),
+    );
+
+  secretCommand
+    .command("update")
+    .description("Update a secret")
+    .argument("<secretId>", "Secret ID")
+    .option("--name <name>", "New secret name")
+    .option("--value <value>", "New secret plaintext value")
+    .option(
+      "--value-env <envName>",
+      "Read the new secret value from a shell env",
+    )
+    .action((secretId, options: SecretCommandOptions) =>
+      runAction("updating secret", async () => {
+        const payload = compactObject({
+          name: options.name,
+          value: resolveSecretPlaintext("secret update", {
+            value: options.value,
+            valueEnv: options.valueEnv,
+          }),
+        });
+
+        assertHasDefinedValues("secret update", payload, [
+          "--name",
+          "--value",
+          "--value-env",
+        ]);
+        printJson(await client.update("secrets", secretId, payload));
+      }),
+    );
+
+  secretCommand
+    .command("delete")
+    .description("Delete a secret")
+    .argument("<secretId>", "Secret ID")
+    .action((secretId) =>
+      runAction("deleting secret", async () => {
+        printJson(await client.delete("secrets", secretId));
+      }),
+    );
+}
+
 function registerTableCommands() {
   const tableCommand = rootCommand
     .command("table")
@@ -1080,7 +1394,7 @@ function registerSourceCommands() {
     .option("--payload-schema-file <path>", "Path to payload schema JSON file")
     .action((name, options: SourceCommandOptions) =>
       runAction("creating source", async () => {
-        printJson(
+        printJsonWithWebhookHint(
           await client.create("sources", {
             name,
             payloadSchema: await loadPayloadSchema({
@@ -1116,7 +1430,7 @@ function registerSourceCommands() {
     .argument("<sourceId>", "Source ID")
     .action((sourceId) =>
       runAction("getting source", async () => {
-        printJson(await client.get("sources", sourceId));
+        printJsonWithWebhookHint(await client.get("sources", sourceId));
       }),
     );
 
@@ -1152,7 +1466,9 @@ function registerSourceCommands() {
             "--payload-schema",
             "--payload-schema-file",
           ]);
-          printJson(await client.update("sources", sourceId, payload));
+          printJsonWithWebhookHint(
+            await client.update("sources", sourceId, payload),
+          );
         }),
     );
 
@@ -1214,12 +1530,11 @@ function registerPipeCommands() {
   pipeCommand
     .command("create")
     .description("Create a pipe")
-    .argument("[name]", "Pipe name")
     .requiredOption("--source <sourceId>", "Source ID")
     .requiredOption("--table <tableId>", "Table ID")
     .option("--mappings <json>", "Pipe mappings JSON array")
     .option("--mappings-file <path>", "Path to pipe mappings JSON array file")
-    .action((name, options: PipeCommandOptions) =>
+    .action((options: PipeCommandOptions) =>
       runAction("creating pipe", async () => {
         const mappings = await loadPipeMappings({
           file: options.mappingsFile,
@@ -1235,7 +1550,6 @@ function registerPipeCommands() {
         printJson(
           await client.create("pipes", {
             mappings,
-            name,
             sourceId: options.source,
             tableId: options.table,
           }),
@@ -1278,42 +1592,32 @@ function registerPipeCommands() {
     .command("update")
     .description("Update a pipe")
     .argument("<pipeId>", "Pipe ID")
-    .option("--name <name>", "New pipe name")
     .option("--source <sourceId>", "New source ID")
     .option("--table <tableId>", "New table ID")
     .option("--mappings <json>", "Pipe mappings JSON array")
     .option("--mappings-file <path>", "Path to pipe mappings JSON array file")
-    .action(
-      (
-        pipeId,
-        options: PipeCommandOptions & {
-          name?: string;
-        },
-      ) =>
-        runAction("updating pipe", async () => {
-          const payload = compactObject({
-            mappings:
-              options.mappings !== undefined ||
-              options.mappingsFile !== undefined
-                ? await loadPipeMappings({
-                    file: options.mappingsFile,
-                    value: options.mappings,
-                  })
-                : undefined,
-            name: options.name,
-            sourceId: options.source,
-            tableId: options.table,
-          });
+    .action((pipeId, options: PipeCommandOptions) =>
+      runAction("updating pipe", async () => {
+        const payload = compactObject({
+          mappings:
+            options.mappings !== undefined || options.mappingsFile !== undefined
+              ? await loadPipeMappings({
+                  file: options.mappingsFile,
+                  value: options.mappings,
+                })
+              : undefined,
+          sourceId: options.source,
+          tableId: options.table,
+        });
 
-          assertHasDefinedValues("pipe update", payload, [
-            "--name",
-            "--source",
-            "--table",
-            "--mappings",
-            "--mappings-file",
-          ]);
-          printJson(await client.update("pipes", pipeId, payload));
-        }),
+        assertHasDefinedValues("pipe update", payload, [
+          "--source",
+          "--table",
+          "--mappings",
+          "--mappings-file",
+        ]);
+        printJson(await client.update("pipes", pipeId, payload));
+      }),
     );
 
   pipeCommand
@@ -1346,6 +1650,7 @@ function registerColumnCommands() {
     .option("--input-template-file <path>", "Path to input template JSON file")
     .option("--output-schema <json>", "Output schema JSON")
     .option("--output-schema-file <path>", "Path to output schema JSON file")
+    .option("--run-condition <json>", "Run condition JSON boolean")
     .option("--idx <number>", "Column index", (value) =>
       parseNonNegativeInteger("idx", value),
     )
@@ -1415,6 +1720,7 @@ function registerColumnCommands() {
     .option("--input-template-file <path>", "Path to input template JSON file")
     .option("--output-schema <json>", "Output schema JSON")
     .option("--output-schema-file <path>", "Path to output schema JSON file")
+    .option("--run-condition <json>", "Run condition JSON boolean")
     .option("--idx <number>", "Column index", (value) =>
       parseNonNegativeInteger("idx", value),
     )
@@ -1440,7 +1746,6 @@ function registerColumnCommands() {
               value: options.programVersion,
             },
           ]);
-
           const payload = compactObject({
             idx: options.idx,
             inputTemplate: await loadStringifiedJsonValue("input template", {
@@ -1454,6 +1759,10 @@ function registerColumnCommands() {
             }),
             programId: options.program,
             programVersionId: options.programVersion,
+            runCondition:
+              options.runCondition === undefined
+                ? undefined
+                : parseBooleanJsonValue("run condition", options.runCondition),
           });
 
           assertHasDefinedValues("column update", payload, [
@@ -1464,6 +1773,7 @@ function registerColumnCommands() {
             "--input-template-file",
             "--output-schema",
             "--output-schema-file",
+            "--run-condition",
             "--idx",
           ]);
           printJson(await client.update("columns", columnId, payload));
@@ -1477,6 +1787,46 @@ function registerColumnCommands() {
     .action((columnId) =>
       runAction("deleting column", async () => {
         printJson(await client.delete("columns", columnId));
+      }),
+    );
+
+  const columnSecretCommand = columnCommand
+    .command("secret")
+    .description("Manage column secret overrides");
+
+  columnSecretCommand
+    .command("list")
+    .description("List secret overrides for a column")
+    .argument("<columnId>", "Column ID")
+    .action((columnId) =>
+      runAction("listing column secret overrides", async () => {
+        printJson(await client.listColumnSecretBindings(columnId));
+      }),
+    );
+
+  columnSecretCommand
+    .command("set")
+    .description("Replace column secret overrides")
+    .argument("<columnId>", "Column ID")
+    .option(
+      "--binding <envName=secretNameOrId>",
+      "Bind an env name to a Marble secret. Repeat for multiple bindings.",
+      (value, previous: string[] = []) => [
+        ...previous,
+        value,
+      ],
+      [],
+    )
+    .option("--clear", "Remove all column secret overrides")
+    .action((columnId, options: SecretBindingCommandOptions) =>
+      runAction("updating column secret overrides", async () => {
+        assertSecretBindingSelection("column secret set", options);
+
+        const bindings = options.clear
+          ? []
+          : await resolveSecretBindings(options.binding ?? []);
+
+        printJson(await client.updateColumnSecretBindings(columnId, bindings));
       }),
     );
 }
@@ -1816,9 +2166,10 @@ function registerProgramCommands() {
     .command("upsert")
     .description("Upsert a program from a local directory")
     .argument("<dir>", "Directory containing the program files and schema")
-    .action((dir) =>
+    .option("--program-id <programId>", "Existing program ID to upsert into")
+    .action((dir, options: ProgramUpsertOptions) =>
       runAction("upserting program", async () => {
-        const result = await upsertProgramFromDirectory(dir);
+        const result = await upsertProgramFromDirectory(dir, options);
 
         console.log(
           `Program "${result.loadedProgram.name}" upserted successfully. (Program ID: ${result.programId}, Version ID: ${result.versionId})`,
@@ -1838,9 +2189,10 @@ function registerProgramCommands() {
       "--full-input-file <path>",
       "Path to full Marble run input JSON file",
     )
+    .option("--program-id <programId>", "Existing program ID to upsert into")
     .action((dir, options: ProgramTestOptions) =>
       runAction("testing program", async () => {
-        const result = await upsertProgramFromDirectory(dir);
+        const result = await upsertProgramFromDirectory(dir, options);
         const output = await client.testProgramVersion(result.versionId, {
           input: await buildProgramTestInput(options),
         });
@@ -1849,6 +2201,48 @@ function registerProgramCommands() {
         if (!didRunRequestSucceed(output)) {
           process.exitCode = 1;
         }
+      }),
+    );
+
+  const programSecretCommand = programCommand
+    .command("secret")
+    .description("Manage program default secret bindings");
+
+  programSecretCommand
+    .command("list")
+    .description("List secret bindings for a program")
+    .argument("<programId>", "Program ID")
+    .action((programId) =>
+      runAction("listing program secret bindings", async () => {
+        printJson(await client.listProgramSecretBindings(programId));
+      }),
+    );
+
+  programSecretCommand
+    .command("set")
+    .description("Replace program secret bindings")
+    .argument("<programId>", "Program ID")
+    .option(
+      "--binding <envName=secretNameOrId>",
+      "Bind an env name to a Marble secret. Repeat for multiple bindings.",
+      (value, previous: string[] = []) => [
+        ...previous,
+        value,
+      ],
+      [],
+    )
+    .option("--clear", "Remove all program secret bindings")
+    .action((programId, options: SecretBindingCommandOptions) =>
+      runAction("updating program secret bindings", async () => {
+        assertSecretBindingSelection("program secret set", options);
+
+        const bindings = options.clear
+          ? []
+          : await resolveSecretBindings(options.binding ?? []);
+
+        printJson(
+          await client.updateProgramSecretBindings(programId, bindings),
+        );
       }),
     );
 }
@@ -1868,6 +2262,7 @@ registerSourceEventCommands();
 registerPipeCommands();
 registerProfileCommands();
 registerKeyCommands();
+registerSecretCommands();
 registerTableCommands();
 registerColumnCommands();
 registerRowCommands();
@@ -1901,9 +2296,10 @@ programsCommand
   .command("upsert")
   .description("Upsert a program from a local directory")
   .argument("<dir>", "Directory containing the program files and schema")
-  .action((dir) =>
+  .option("--program-id <programId>", "Existing program ID to upsert into")
+  .action((dir, options: ProgramUpsertOptions) =>
     runAction("upserting program", async () => {
-      const result = await upsertProgramFromDirectory(dir);
+      const result = await upsertProgramFromDirectory(dir, options);
 
       console.log(
         `Program "${result.loadedProgram.name}" upserted successfully. (Program ID: ${result.programId}, Version ID: ${result.versionId})`,
@@ -1916,9 +2312,10 @@ programsCommand
   .description("Upsert a program and run /test against its latest version")
   .argument("<dir>", "Directory containing the program files and schema")
   .argument("<input>", "Mock input payload as a stringified JSON object")
-  .action((dir, inputText) =>
+  .option("--program-id <programId>", "Existing program ID to upsert into")
+  .action((dir, inputText, options: ProgramUpsertOptions) =>
     runAction("testing program", async () => {
-      const result = await upsertProgramFromDirectory(dir);
+      const result = await upsertProgramFromDirectory(dir, options);
       const output = await client.testProgramVersion(result.versionId, {
         input: parseJson("input", inputText),
       });
