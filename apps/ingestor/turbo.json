@@ -1,0 +1,12 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "typecheck": {
+      "dependsOn": ["$TURBO_EXTENDS$", "typegen"]
+    },
+    "typegen": {
+      "outputs": ["worker-configuration.d.ts"]
+    }
+  }
+}

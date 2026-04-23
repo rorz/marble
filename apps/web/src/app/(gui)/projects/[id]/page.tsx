@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "../../../../lib/auth";
-import * as actions from "../actions";
+import { getProjectSourceWorkspaceData } from "../../../../lib/source-data";
 import { ProjectPageView } from "./view";
 
 export default async function ProjectPage(props: {
@@ -8,17 +8,11 @@ export default async function ProjectPage(props: {
     id: string;
   }>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const { id } = await props.params;
-  let project: Awaited<ReturnType<typeof actions.loadProject>> | null = null;
+  const project = await getProjectSourceWorkspaceData(user.id, id);
 
-  try {
-    project = await actions.loadProject(id);
-  } catch {
-    project = null;
-  }
-
-  if (!project) {
+  if (project === null) {
     notFound();
   }
 

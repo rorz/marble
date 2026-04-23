@@ -79,6 +79,10 @@ export type ChangeTargetDescriptor =
       columnId: string;
     }
   | {
+      drainId: string;
+      kind: "drain";
+    }
+  | {
       kind: "cell";
       columnId: string;
       rowId: string;
@@ -106,6 +110,10 @@ export type ChangeTargetDescriptor =
   | {
       kind: "row";
       rowId: string;
+    }
+  | {
+      kind: "source";
+      sourceId: string;
     }
   | {
       kind: "table";
@@ -143,6 +151,7 @@ export const changeTargetKey = {
   cell: (rowId: string, columnId: string) =>
     `cell:${encodeChangeTargetSegment(rowId)}:${encodeChangeTargetSegment(columnId)}`,
   column: (columnId: string) => `column:${encodeChangeTargetSegment(columnId)}`,
+  drain: (drainId: string) => `drain:${encodeChangeTargetSegment(drainId)}`,
   profiles: () => "profiles",
   program: (programId: string) =>
     `program:${encodeChangeTargetSegment(programId)}`,
@@ -153,6 +162,7 @@ export const changeTargetKey = {
   project: (projectId: string) =>
     `project:${encodeChangeTargetSegment(projectId)}`,
   row: (rowId: string) => `row:${encodeChangeTargetSegment(rowId)}`,
+  source: (sourceId: string) => `source:${encodeChangeTargetSegment(sourceId)}`,
   table: (tableId: string) => `table:${encodeChangeTargetSegment(tableId)}`,
 } as const;
 
@@ -186,6 +196,20 @@ export function parseChangeTargetKey(
     return {
       kind,
       rowId: decodeChangeTargetSegment(parts[1]),
+    };
+  }
+
+  if (kind === "source" && parts.length === 2) {
+    return {
+      kind,
+      sourceId: decodeChangeTargetSegment(parts[1]),
+    };
+  }
+
+  if (kind === "drain" && parts.length === 2) {
+    return {
+      drainId: decodeChangeTargetSegment(parts[1]),
+      kind,
     };
   }
 
@@ -289,12 +313,14 @@ function formatReviewSummary(targetKeys: string[]) {
   const labels: Record<ChangeTargetDescriptor["kind"], string> = {
     cell: "cell",
     column: "column",
+    drain: "drain",
     profiles: "profile area",
     program: "program area",
     "program-file": "file",
     "program-version": "version",
     project: "project area",
     row: "row",
+    source: "source",
     table: "table area",
   };
 

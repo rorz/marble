@@ -16,6 +16,8 @@ import {
 import {
   cx,
   MarbleActivityRadar,
+  MarbleActivityRadarPanel,
+  MarbleActivityRadarTrigger,
   MarbleAlert,
   MarbleBadge,
   MarbleButton,
@@ -1574,6 +1576,24 @@ export default function UiPage() {
                 <div className="flex items-center justify-between rounded-xs border border-taupe-200 bg-white p-3">
                   <div className="space-y-1">
                     <div className="font-medium text-sm text-taupe-950">
+                      Slim trigger
+                    </div>
+                    <div className="text-sm text-taupe-600">
+                      Narrow rail affordance with a dot-sized visual target.
+                    </div>
+                  </div>
+
+                  <MarbleActivityRadarTrigger
+                    aria-label="Expand agent sidebar"
+                    batches={activityRadarBatches}
+                    slim
+                    unreadCount={1}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-xs border border-taupe-200 bg-white p-3">
+                  <div className="space-y-1">
+                    <div className="font-medium text-sm text-taupe-950">
                       Agent changesets
                     </div>
                     <div className="text-sm text-taupe-600">
@@ -1592,6 +1612,29 @@ export default function UiPage() {
                     }
                     unreadCount={1}
                   />
+                </div>
+
+                <div className="rounded-xs border border-taupe-200 bg-white p-3">
+                  <div className="mb-3 space-y-1">
+                    <div className="font-medium text-sm text-taupe-950">
+                      Sidebar panel
+                    </div>
+                    <div className="text-sm text-taupe-600">
+                      Inline review rail for persistent shell-side change
+                      monitoring.
+                    </div>
+                  </div>
+
+                  <div className="h-[28rem]">
+                    <MarbleActivityRadarPanel
+                      batches={activityRadarBatches}
+                      className="h-full"
+                      onMarkAllRead={() =>
+                        handleMenuSelect("Agent changesets: Mark all reviewed")
+                      }
+                      unreadCount={1}
+                    />
+                  </div>
                 </div>
 
                 <div className="rounded-xs border border-taupe-200 bg-white p-3">

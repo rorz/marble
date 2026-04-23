@@ -482,6 +482,35 @@ CREATE TABLE IF NOT EXISTS "public"."project" (
 ALTER TABLE "public"."project" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "public"."source" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "project_id" "uuid" NOT NULL,
+    "name" "text" DEFAULT 'Untitled Source'::"text" NOT NULL,
+    "payload_schema" "jsonb" DEFAULT '{"type": "object"}'::"jsonb" NOT NULL,
+    "webhook_token" "text" DEFAULT "replace"(("gen_random_uuid"())::"text", '-'::"text", ''::"text") NOT NULL,
+    CONSTRAINT "source_payload_schema_is_object" CHECK (("jsonb_typeof"("payload_schema") = 'object'::"text"))
+);
+
+
+ALTER TABLE "public"."source" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."source_event" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "project_id" "uuid" NOT NULL,
+    "source_id" "uuid" NOT NULL,
+    "raw_payload" "jsonb" NOT NULL,
+    "parsed_payload" "jsonb" NOT NULL,
+    "parse_error" "text"
+);
+
+
+ALTER TABLE "public"."source_event" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."row" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
@@ -492,6 +521,21 @@ CREATE TABLE IF NOT EXISTS "public"."row" (
 
 
 ALTER TABLE "public"."row" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."drain" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "source_id" "uuid" NOT NULL,
+    "table_id" "uuid" NOT NULL,
+    "name" "text" DEFAULT 'Untitled Drain'::"text" NOT NULL,
+    "mappings" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    CONSTRAINT "drain_mappings_is_array" CHECK (("jsonb_typeof"("mappings") = 'array'::"text"))
+);
+
+
+ALTER TABLE "public"."drain" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."table" (
@@ -545,6 +589,10 @@ ALTER TABLE ONLY "public"."event"
     ADD CONSTRAINT "event_pkey" PRIMARY KEY ("id");
 
 
+ALTER TABLE ONLY "public"."drain"
+    ADD CONSTRAINT "drain_pkey" PRIMARY KEY ("id");
+
+
 
 ALTER TABLE ONLY "public"."key"
     ADD CONSTRAINT "key_pkey" PRIMARY KEY ("id");
@@ -588,6 +636,21 @@ ALTER TABLE ONLY "public"."program_version"
 
 ALTER TABLE ONLY "public"."project"
     ADD CONSTRAINT "project_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."source_event"
+    ADD CONSTRAINT "source_event_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."source"
+    ADD CONSTRAINT "source_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."source"
+    ADD CONSTRAINT "source_webhook_token_key" UNIQUE ("webhook_token");
 
 
 
@@ -641,6 +704,14 @@ CREATE INDEX "event_source_created_at_idx" ON "public"."event" USING "btree" ("s
 
 
 
+CREATE INDEX "drain_source_created_at_idx" ON "public"."drain" USING "btree" ("source_id", "created_at" DESC);
+
+
+
+CREATE INDEX "drain_table_created_at_idx" ON "public"."drain" USING "btree" ("table_id", "created_at" DESC);
+
+
+
 CREATE INDEX "program_secret_binding_owner_program_idx" ON "public"."program_secret_binding" USING "btree" ("owner_user_id", "program_id");
 
 
@@ -654,6 +725,18 @@ CREATE UNIQUE INDEX "program_version_single_draft_key" ON "public"."program_vers
 
 
 CREATE INDEX "project_owner_profile_created_at_idx" ON "public"."project" USING "btree" ("owner_profile_id", "created_at" DESC);
+
+
+
+CREATE INDEX "source_event_project_created_at_idx" ON "public"."source_event" USING "btree" ("project_id", "created_at" DESC);
+
+
+
+CREATE INDEX "source_event_source_created_at_idx" ON "public"."source_event" USING "btree" ("source_id", "created_at" DESC);
+
+
+
+CREATE INDEX "source_project_created_at_idx" ON "public"."source" USING "btree" ("project_id", "created_at" DESC);
 
 
 
@@ -706,6 +789,14 @@ CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."program_ve
 
 
 CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."project" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."source" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."drain" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
 
@@ -771,6 +862,16 @@ ALTER TABLE ONLY "public"."event"
 
 
 
+ALTER TABLE ONLY "public"."drain"
+    ADD CONSTRAINT "drain_source_id_fkey" FOREIGN KEY ("source_id") REFERENCES "public"."source"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."drain"
+    ADD CONSTRAINT "drain_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "public"."table"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."program"
     ADD CONSTRAINT "fk_program_forked_from" FOREIGN KEY ("forked_from_version_id") REFERENCES "public"."program_version"("id");
 
@@ -833,6 +934,21 @@ ALTER TABLE ONLY "public"."program_version"
 
 ALTER TABLE ONLY "public"."project"
     ADD CONSTRAINT "project_owner_profile_id_fkey" FOREIGN KEY ("owner_profile_id") REFERENCES "public"."profile"("id");
+
+
+
+ALTER TABLE ONLY "public"."source_event"
+    ADD CONSTRAINT "source_event_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."project"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."source_event"
+    ADD CONSTRAINT "source_event_source_id_fkey" FOREIGN KEY ("source_id") REFERENCES "public"."source"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "public"."source"
+    ADD CONSTRAINT "source_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."project"("id") ON DELETE CASCADE;
 
 
 
@@ -922,6 +1038,28 @@ CREATE POLICY "Users can view their own projects" ON "public"."project" FOR SELE
 
 
 
+CREATE POLICY "Users can view sources in their own projects" ON "public"."source" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM ("public"."project"
+     JOIN "public"."profile" ON (("profile"."id" = "project"."owner_profile_id")))
+  WHERE (("project"."id" = "source"."project_id") AND ("profile"."owner_user_id" = "auth"."uid"())))));
+
+
+
+CREATE POLICY "Users can view source events in their own projects" ON "public"."source_event" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM ("public"."project"
+     JOIN "public"."profile" ON (("profile"."id" = "project"."owner_profile_id")))
+  WHERE (("project"."id" = "source_event"."project_id") AND ("profile"."owner_user_id" = "auth"."uid"())))));
+
+
+
+CREATE POLICY "Users can view drains in their own projects" ON "public"."drain" FOR SELECT USING ((EXISTS ( SELECT 1
+   FROM (("public"."table"
+     JOIN "public"."project" ON (("project"."id" = "table"."project_id")))
+     JOIN "public"."profile" ON (("profile"."id" = "project"."owner_profile_id")))
+  WHERE (("table"."id" = "drain"."table_id") AND ("profile"."owner_user_id" = "auth"."uid"())))));
+
+
+
 CREATE POLICY "Users can view their own secrets" ON "public"."secret" FOR SELECT USING (("owner_user_id" = "auth"."uid"()));
 
 
@@ -963,6 +1101,15 @@ ALTER TABLE "public"."program_version" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."project" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."source" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."source_event" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "public"."drain" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."row" ENABLE ROW LEVEL SECURITY;
@@ -1265,6 +1412,12 @@ GRANT ALL ON TABLE "public"."event" TO "service_role";
 
 
 
+GRANT ALL ON TABLE "public"."drain" TO "anon";
+GRANT ALL ON TABLE "public"."drain" TO "authenticated";
+GRANT ALL ON TABLE "public"."drain" TO "service_role";
+
+
+
 GRANT ALL ON TABLE "public"."key" TO "anon";
 GRANT ALL ON TABLE "public"."key" TO "authenticated";
 GRANT ALL ON TABLE "public"."key" TO "service_role";
@@ -1310,6 +1463,18 @@ GRANT ALL ON TABLE "public"."program_version" TO "service_role";
 GRANT ALL ON TABLE "public"."project" TO "anon";
 GRANT ALL ON TABLE "public"."project" TO "authenticated";
 GRANT ALL ON TABLE "public"."project" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."source" TO "anon";
+GRANT ALL ON TABLE "public"."source" TO "authenticated";
+GRANT ALL ON TABLE "public"."source" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."source_event" TO "anon";
+GRANT ALL ON TABLE "public"."source_event" TO "authenticated";
+GRANT ALL ON TABLE "public"."source_event" TO "service_role";
 
 
 
@@ -1394,5 +1559,3 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 CREATE OR REPLACE TRIGGER "on_auth_user_created" AFTER INSERT ON "auth"."users" FOR EACH ROW EXECUTE FUNCTION "public"."handle_new_user"();
 
 SELECT pg_catalog.set_config('search_path', 'public', false);
-
-

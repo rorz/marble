@@ -15,6 +15,16 @@ export type SidebarTableRow = Pick<
   "id" | "name" | "project_id" | "updated_at"
 >;
 
+export type SidebarSourceRow = Pick<
+  Database["public"]["Tables"]["source"]["Row"],
+  "id" | "name" | "project_id" | "updated_at"
+>;
+
+export type SidebarDrainRow = Pick<
+  Database["public"]["Tables"]["drain"]["Row"],
+  "id" | "name" | "source_id" | "table_id" | "updated_at"
+>;
+
 export type SidebarProfileRecord = Pick<
   Database["public"]["Tables"]["profile"]["Row"],
   "external_name" | "icon" | "id" | "name" | "type"
@@ -24,7 +34,7 @@ export type SidebarTreeNode = {
   children: SidebarTreeNode[];
   href: string;
   id: string;
-  kind: "program" | "project" | "table";
+  kind: "drain" | "program" | "project" | "source" | "table";
   label: string;
   updatedAt: string;
 };
@@ -82,6 +92,31 @@ export function buildTableNode(table: SidebarTableRow): SidebarTreeNode {
     kind: "table",
     label: table.name || "Untitled Table",
     updatedAt: table.updated_at,
+  };
+}
+
+export function buildSourceNode(source: SidebarSourceRow): SidebarTreeNode {
+  return {
+    children: [],
+    href: `/projects/${source.project_id}/sources/${source.id}`,
+    id: source.id,
+    kind: "source",
+    label: source.name || "Untitled Source",
+    updatedAt: source.updated_at,
+  };
+}
+
+export function buildDrainNode(
+  drain: SidebarDrainRow,
+  projectId: string,
+): SidebarTreeNode {
+  return {
+    children: [],
+    href: `/projects/${projectId}/drains/${drain.id}`,
+    id: drain.id,
+    kind: "drain",
+    label: drain.name || "Untitled Drain",
+    updatedAt: drain.updated_at,
   };
 }
 

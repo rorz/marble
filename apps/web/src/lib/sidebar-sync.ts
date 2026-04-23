@@ -1,7 +1,9 @@
 import type { Database } from "@marble/supabase";
 import {
+  buildDrainNode,
   buildProgramNode,
   buildProjectNode,
+  buildSourceNode,
   buildTableNode,
   removeSidebarChildFromAll,
   removeSidebarNode,
@@ -10,8 +12,10 @@ import {
   upsertSidebarNode,
 } from "./sidebar-tree";
 
+type DrainRow = Database["public"]["Tables"]["drain"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
+type SourceRow = Database["public"]["Tables"]["source"]["Row"];
 type TableRow = Database["public"]["Tables"]["table"]["Row"];
 
 export type SidebarMutation =
@@ -38,7 +42,35 @@ export type SidebarMutation =
   | {
       row: TableRow;
       type: "table:upsert";
+    }
+  | {
+      id: string;
+      type: "source:delete";
+    }
+  | {
+      row: SourceRow;
+      type: "source:upsert";
+    }
+  | {
+      id: string;
+      type: "drain:delete";
+    }
+  | {
+      row: DrainRow;
+      type: "drain:upsert";
     };
+
+function resolveProjectIdForDrain(current: SidebarTreeData, drain: DrainRow) {
+  for (const project of current.projects) {
+    for (const child of project.children) {
+      if (child.id === drain.source_id || child.id === drain.table_id) {
+        return project.id;
+      }
+    }
+  }
+
+  return null;
+}
 
 export function applySidebarMutation(
   current: SidebarTreeData,
@@ -122,6 +154,66 @@ export function applySidebarMutation(
           projects,
           mutation.row.project_id,
           buildTableNode(mutation.row),
+        ),
+      };
+    }
+
+    case "source:delete":
+      return {
+        ...current,
+        projects: removeSidebarChildFromAll(current.projects, mutation.id),
+      };
+
+    case "source:upsert": {
+      const projects = removeSidebarChildFromAll(
+        current.projects,
+        mutation.row.id,
+      );
+
+      if (!projects.some((project) => project.id === mutation.row.project_id)) {
+        return {
+          ...current,
+          projects,
+        };
+      }
+
+      return {
+        ...current,
+        projects: upsertSidebarChild(
+          projects,
+          mutation.row.project_id,
+          buildSourceNode(mutation.row),
+        ),
+      };
+    }
+
+    case "drain:delete":
+      return {
+        ...current,
+        projects: removeSidebarChildFromAll(current.projects, mutation.id),
+      };
+
+    case "drain:upsert": {
+      const projects = removeSidebarChildFromAll(
+        current.projects,
+        mutation.row.id,
+      );
+      const nextCurrent = {
+        ...current,
+        projects,
+      };
+      const projectId = resolveProjectIdForDrain(nextCurrent, mutation.row);
+
+      if (!projectId) {
+        return nextCurrent;
+      }
+
+      return {
+        ...current,
+        projects: upsertSidebarChild(
+          projects,
+          projectId,
+          buildDrainNode(mutation.row, projectId),
         ),
       };
     }

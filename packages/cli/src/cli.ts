@@ -94,6 +94,23 @@ type ProjectCommandOptions = {
   folderPathFile?: string;
   ownerProfileId?: string;
 };
+type SourceCommandOptions = {
+  payloadSchema?: string;
+  payloadSchemaFile?: string;
+  project?: string;
+};
+type SourceEventCommandOptions = {
+  limit?: number;
+  project?: string;
+  source?: string;
+};
+type DrainCommandOptions = {
+  mappings?: string;
+  mappingsFile?: string;
+  project?: string;
+  source?: string;
+  table?: string;
+};
 type KeyCommandOptions = {
   includeDeleted?: boolean;
   ownerProfileId?: string;
@@ -335,6 +352,28 @@ async function loadFolderPath(options: { file?: string; value?: string }) {
   }
 
   return parseStringArray("folder path", value);
+}
+
+async function loadPayloadSchema(options: { file?: string; value?: string }) {
+  return (
+    (await loadJsonValue("payload schema", options)) ?? {
+      type: "object",
+    }
+  );
+}
+
+async function loadDrainMappings(options: { file?: string; value?: string }) {
+  const value = await loadJsonValue("drain mappings", options);
+
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw new Error("drain mappings must be a JSON array");
+  }
+
+  return value;
 }
 
 async function loadProgramDirectory(
@@ -1027,6 +1066,267 @@ function registerProjectCommands() {
     );
 }
 
+function registerSourceCommands() {
+  const sourceCommand = rootCommand
+    .command("source")
+    .description("Human-friendly source commands");
+
+  sourceCommand
+    .command("create")
+    .description("Create a source")
+    .argument("[name]", "Source name")
+    .requiredOption("--project <projectId>", "Owning project ID")
+    .option("--payload-schema <json>", "Payload schema JSON")
+    .option("--payload-schema-file <path>", "Path to payload schema JSON file")
+    .action((name, options: SourceCommandOptions) =>
+      runAction("creating source", async () => {
+        printJson(
+          await client.create("sources", {
+            name,
+            payloadSchema: await loadPayloadSchema({
+              file: options.payloadSchemaFile,
+              value: options.payloadSchema,
+            }),
+            projectId: options.project,
+          }),
+        );
+      }),
+    );
+
+  sourceCommand
+    .command("list")
+    .description("List sources")
+    .option("--project <projectId>", "Filter by project ID")
+    .action((options: SourceCommandOptions) =>
+      runAction("listing sources", async () => {
+        printJson(
+          await client.list(
+            "sources",
+            compactObject({
+              projectId: options.project,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  sourceCommand
+    .command("get")
+    .description("Get a source by ID")
+    .argument("<sourceId>", "Source ID")
+    .action((sourceId) =>
+      runAction("getting source", async () => {
+        printJson(await client.get("sources", sourceId));
+      }),
+    );
+
+  sourceCommand
+    .command("update")
+    .description("Update a source")
+    .argument("<sourceId>", "Source ID")
+    .option("--name <name>", "New source name")
+    .option("--payload-schema <json>", "Payload schema JSON")
+    .option("--payload-schema-file <path>", "Path to payload schema JSON file")
+    .action(
+      (
+        sourceId,
+        options: SourceCommandOptions & {
+          name?: string;
+        },
+      ) =>
+        runAction("updating source", async () => {
+          const payload = compactObject({
+            name: options.name,
+            payloadSchema:
+              options.payloadSchema !== undefined ||
+              options.payloadSchemaFile !== undefined
+                ? await loadPayloadSchema({
+                    file: options.payloadSchemaFile,
+                    value: options.payloadSchema,
+                  })
+                : undefined,
+          });
+
+          assertHasDefinedValues("source update", payload, [
+            "--name",
+            "--payload-schema",
+            "--payload-schema-file",
+          ]);
+          printJson(await client.update("sources", sourceId, payload));
+        }),
+    );
+
+  sourceCommand
+    .command("delete")
+    .description("Delete a source")
+    .argument("<sourceId>", "Source ID")
+    .action((sourceId) =>
+      runAction("deleting source", async () => {
+        printJson(await client.delete("sources", sourceId));
+      }),
+    );
+}
+
+function registerSourceEventCommands() {
+  const sourceEventCommand = rootCommand
+    .command("source-event")
+    .description("Human-friendly source event commands");
+
+  sourceEventCommand
+    .command("list")
+    .description("List cached source events")
+    .option("--project <projectId>", "Filter by project ID")
+    .option("--source <sourceId>", "Filter by source ID")
+    .option("--limit <number>", "Maximum number of events", (value) =>
+      parsePositiveInteger("limit", value),
+    )
+    .action((options: SourceEventCommandOptions) =>
+      runAction("listing source events", async () => {
+        printJson(
+          await client.list(
+            "source_events",
+            compactObject({
+              limit: options.limit,
+              projectId: options.project,
+              sourceId: options.source,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  sourceEventCommand
+    .command("get")
+    .description("Get a source event by ID")
+    .argument("<sourceEventId>", "Source event ID")
+    .action((sourceEventId) =>
+      runAction("getting source event", async () => {
+        printJson(await client.get("source_events", sourceEventId));
+      }),
+    );
+}
+
+function registerDrainCommands() {
+  const drainCommand = rootCommand
+    .command("drain")
+    .description("Human-friendly drain commands");
+
+  drainCommand
+    .command("create")
+    .description("Create a drain")
+    .argument("[name]", "Drain name")
+    .requiredOption("--source <sourceId>", "Source ID")
+    .requiredOption("--table <tableId>", "Table ID")
+    .option("--mappings <json>", "Drain mappings JSON array")
+    .option("--mappings-file <path>", "Path to drain mappings JSON array file")
+    .action((name, options: DrainCommandOptions) =>
+      runAction("creating drain", async () => {
+        const mappings = await loadDrainMappings({
+          file: options.mappingsFile,
+          value: options.mappings,
+        });
+
+        if (mappings === undefined) {
+          throw new Error(
+            "drain create requires one of --mappings or --mappings-file",
+          );
+        }
+
+        printJson(
+          await client.create("drains", {
+            mappings,
+            name,
+            sourceId: options.source,
+            tableId: options.table,
+          }),
+        );
+      }),
+    );
+
+  drainCommand
+    .command("list")
+    .description("List drains")
+    .option("--project <projectId>", "Filter by project ID")
+    .option("--source <sourceId>", "Filter by source ID")
+    .option("--table <tableId>", "Filter by table ID")
+    .action((options: DrainCommandOptions) =>
+      runAction("listing drains", async () => {
+        printJson(
+          await client.list(
+            "drains",
+            compactObject({
+              projectId: options.project,
+              sourceId: options.source,
+              tableId: options.table,
+            }) as Record<string, QueryValue>,
+          ),
+        );
+      }),
+    );
+
+  drainCommand
+    .command("get")
+    .description("Get a drain by ID")
+    .argument("<drainId>", "Drain ID")
+    .action((drainId) =>
+      runAction("getting drain", async () => {
+        printJson(await client.get("drains", drainId));
+      }),
+    );
+
+  drainCommand
+    .command("update")
+    .description("Update a drain")
+    .argument("<drainId>", "Drain ID")
+    .option("--name <name>", "New drain name")
+    .option("--source <sourceId>", "New source ID")
+    .option("--table <tableId>", "New table ID")
+    .option("--mappings <json>", "Drain mappings JSON array")
+    .option("--mappings-file <path>", "Path to drain mappings JSON array file")
+    .action(
+      (
+        drainId,
+        options: DrainCommandOptions & {
+          name?: string;
+        },
+      ) =>
+        runAction("updating drain", async () => {
+          const payload = compactObject({
+            mappings:
+              options.mappings !== undefined ||
+              options.mappingsFile !== undefined
+                ? await loadDrainMappings({
+                    file: options.mappingsFile,
+                    value: options.mappings,
+                  })
+                : undefined,
+            name: options.name,
+            sourceId: options.source,
+            tableId: options.table,
+          });
+
+          assertHasDefinedValues("drain update", payload, [
+            "--name",
+            "--source",
+            "--table",
+            "--mappings",
+            "--mappings-file",
+          ]);
+          printJson(await client.update("drains", drainId, payload));
+        }),
+    );
+
+  drainCommand
+    .command("delete")
+    .description("Delete a drain")
+    .argument("<drainId>", "Drain ID")
+    .action((drainId) =>
+      runAction("deleting drain", async () => {
+        printJson(await client.delete("drains", drainId));
+      }),
+    );
+}
+
 function registerColumnCommands() {
   const columnCommand = rootCommand
     .command("column")
@@ -1563,6 +1863,9 @@ rootCommand
   .showSuggestionAfterError();
 
 registerProjectCommands();
+registerSourceCommands();
+registerSourceEventCommands();
+registerDrainCommands();
 registerProfileCommands();
 registerKeyCommands();
 registerTableCommands();

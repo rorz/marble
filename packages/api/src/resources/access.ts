@@ -24,6 +24,18 @@ function tableNotFound() {
   return new ApiError(404, "Table not found");
 }
 
+function sourceNotFound() {
+  return new ApiError(404, "Source not found");
+}
+
+function sourceEventNotFound() {
+  return new ApiError(404, "Source event not found");
+}
+
+function drainNotFound() {
+  return new ApiError(404, "Drain not found");
+}
+
 function rowNotFound() {
   return new ApiError(404, "Row not found");
 }
@@ -132,6 +144,94 @@ export async function listAccessibleTableIds(
   );
 
   return tables.map((table) => table.id);
+}
+
+export async function listAccessibleSourceIds(
+  supabase: SupabaseClient,
+  options: AccessOptions,
+) {
+  const projectIds = await listAccessibleProjectIds(supabase, options);
+
+  if (projectIds === undefined) {
+    return undefined;
+  }
+
+  if (projectIds.length === 0) {
+    return [];
+  }
+
+  const sources = await listRecordsInColumn(
+    supabase,
+    "source",
+    "project_id",
+    projectIds,
+    [
+      {
+        column: "created_at",
+      },
+    ],
+  );
+
+  return sources.map((source) => source.id);
+}
+
+export async function listAccessibleSourceEventIds(
+  supabase: SupabaseClient,
+  options: AccessOptions,
+) {
+  const projectIds = await listAccessibleProjectIds(supabase, options);
+
+  if (projectIds === undefined) {
+    return undefined;
+  }
+
+  if (projectIds.length === 0) {
+    return [];
+  }
+
+  const events = await listRecordsInColumn(
+    supabase,
+    "source_event",
+    "project_id",
+    projectIds,
+    [
+      {
+        ascending: false,
+        column: "created_at",
+      },
+    ],
+  );
+
+  return events.map((event) => event.id);
+}
+
+export async function listAccessibleDrainIds(
+  supabase: SupabaseClient,
+  options: AccessOptions,
+) {
+  const sourceIds = await listAccessibleSourceIds(supabase, options);
+
+  if (sourceIds === undefined) {
+    return undefined;
+  }
+
+  if (sourceIds.length === 0) {
+    return [];
+  }
+
+  const drains = await listRecordsInColumn(
+    supabase,
+    "drain",
+    "source_id",
+    sourceIds,
+    [
+      {
+        column: "created_at",
+      },
+    ],
+  );
+
+  return drains.map((drain) => drain.id);
 }
 
 export async function listAccessibleRowIds(
@@ -370,6 +470,85 @@ export async function requireAccessibleTable(
   }
 
   return table;
+}
+
+export async function requireAccessibleSource(
+  supabase: SupabaseClient,
+  options: AccessOptions & {
+    sourceId: string;
+  },
+): Promise<DbRow<"source">> {
+  const source = await getRecord(supabase, "source", options.sourceId);
+
+  try {
+    await requireAccessibleProject(supabase, {
+      authenticatedProfileId: options.authenticatedProfileId,
+      projectId: source.project_id,
+      userId: options.userId,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      throw sourceNotFound();
+    }
+
+    throw error;
+  }
+
+  return source;
+}
+
+export async function requireAccessibleSourceEvent(
+  supabase: SupabaseClient,
+  options: AccessOptions & {
+    sourceEventId: string;
+  },
+): Promise<DbRow<"source_event">> {
+  const sourceEvent = await getRecord(
+    supabase,
+    "source_event",
+    options.sourceEventId,
+  );
+
+  try {
+    await requireAccessibleProject(supabase, {
+      authenticatedProfileId: options.authenticatedProfileId,
+      projectId: sourceEvent.project_id,
+      userId: options.userId,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      throw sourceEventNotFound();
+    }
+
+    throw error;
+  }
+
+  return sourceEvent;
+}
+
+export async function requireAccessibleDrain(
+  supabase: SupabaseClient,
+  options: AccessOptions & {
+    drainId: string;
+  },
+): Promise<DbRow<"drain">> {
+  const drain = await getRecord(supabase, "drain", options.drainId);
+
+  try {
+    await requireAccessibleSource(supabase, {
+      authenticatedProfileId: options.authenticatedProfileId,
+      sourceId: drain.source_id,
+      userId: options.userId,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      throw drainNotFound();
+    }
+
+    throw error;
+  }
+
+  return drain;
 }
 
 export async function requireAccessibleRow(

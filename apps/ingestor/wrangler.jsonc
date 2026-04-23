@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "compatibility_date": "2026-04-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "src/index.ts",
+  "name": "marble-ingestor",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "queues": {
+    "consumers": [
+      {
+        "max_batch_size": 10,
+        "max_batch_timeout": 5,
+        "queue": "marble-source-ingest"
+      }
+    ],
+    "producers": [
+      {
+        "binding": "SOURCE_INGEST_QUEUE",
+        "queue": "marble-source-ingest"
+      }
+    ]
+  },
+  "upload_source_maps": true
+}

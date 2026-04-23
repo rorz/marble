@@ -1,29 +1,26 @@
 {
   "author": "",
   "dependencies": {
-    "@marble/core": "workspace:",
-    "@marble/keys": "workspace:*",
-    "@marble/lib": "workspace:",
-    "@marble/supabase": "workspace:",
+    "@marble/api": "workspace:*",
+    "@marble/core": "workspace:*",
+    "@marble/supabase": "workspace:*",
     "@t3-oss/env-core": "catalog:base",
     "hono": "catalog:base",
-    "nanoid": "catalog:base",
+    "jsonpath-plus": "catalog:base",
     "zod": "catalog:base"
   },
-  "description": "A minimal example of using the Sandbox SDK",
   "devDependencies": {
-    "@cloudflare/sandbox": "catalog:base",
     "@types/node": "catalog:base",
     "typescript": "catalog:base",
     "wrangler": "catalog:base"
   },
   "license": "MIT",
-  "name": "@marble/executor",
+  "name": "@marble/ingestor",
   "private": true,
   "scripts": {
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev --port 3087 --inspector-port 9231",
-    "start": "wrangler dev --port 3087 --inspector-port 9231",
+    "dev": "wrangler dev --port 3088 --inspector-port 9230",
+    "start": "wrangler dev --port 3088 --inspector-port 9230",
     "typecheck": "tsc --noEmit",
     "typegen": "wrangler types"
   },

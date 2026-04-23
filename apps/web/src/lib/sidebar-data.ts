@@ -1,12 +1,16 @@
 import "server-only";
 
 import {
+  buildDrainNode,
   buildProgramNode,
   buildProjectNode,
+  buildSourceNode,
   buildTableNode,
+  type SidebarDrainRow,
   type SidebarProfileRecord,
   type SidebarProgramRow,
   type SidebarProjectRow,
+  type SidebarSourceRow,
   type SidebarTableRow,
   type SidebarTreeData,
   sortSidebarNodes,
@@ -77,27 +81,90 @@ export async function listSidebarDataForUser(
 
   const projects = (projectsResult.data ?? []) as SidebarProjectRow[];
   const projectIds = projects.map((project) => project.id);
-  const { data: tablesData, error: tablesError } =
+  const [tablesResult, sourcesResult, drainsResult] = await Promise.all([
     projectIds.length === 0
-      ? {
+      ? Promise.resolve({
           data: [],
           error: null,
-        }
-      : await supabase
+        })
+      : supabase
           .from("table")
           .select("id, name, project_id, updated_at")
-          .in("project_id", projectIds);
+          .in("project_id", projectIds),
+    projectIds.length === 0
+      ? Promise.resolve({
+          data: [],
+          error: null,
+        })
+      : supabase
+          .from("source")
+          .select("id, name, project_id, updated_at")
+          .in("project_id", projectIds),
+    projectIds.length === 0
+      ? Promise.resolve({
+          data: [],
+          error: null,
+        })
+      : supabase
+          .from("drain")
+          .select("id, name, source_id, table_id, updated_at"),
+  ]);
 
-  if (tablesError) {
-    throw tablesError;
+  if (tablesResult.error) {
+    throw tablesResult.error;
   }
 
-  const tablesByProjectId = new Map<string, SidebarTableRow[]>();
+  if (sourcesResult.error) {
+    throw sourcesResult.error;
+  }
 
-  for (const table of (tablesData ?? []) as SidebarTableRow[]) {
+  if (drainsResult.error) {
+    throw drainsResult.error;
+  }
+
+  const tables = (tablesResult.data ?? []) as SidebarTableRow[];
+  const sources = (sourcesResult.data ?? []) as SidebarSourceRow[];
+  const drains = (drainsResult.data ?? []) as SidebarDrainRow[];
+  const tablesByProjectId = new Map<string, SidebarTableRow[]>();
+  const sourcesByProjectId = new Map<string, SidebarSourceRow[]>();
+  const drainsByProjectId = new Map<string, SidebarDrainRow[]>();
+  const sourceById = new Map(
+    sources.map((source) => [
+      source.id,
+      source,
+    ]),
+  );
+  const tableById = new Map(
+    tables.map((table) => [
+      table.id,
+      table,
+    ]),
+  );
+
+  for (const table of tables) {
     const siblings = tablesByProjectId.get(table.project_id) ?? [];
     siblings.push(table);
     tablesByProjectId.set(table.project_id, siblings);
+  }
+
+  for (const source of sources) {
+    const siblings = sourcesByProjectId.get(source.project_id) ?? [];
+    siblings.push(source);
+    sourcesByProjectId.set(source.project_id, siblings);
+  }
+
+  for (const drain of drains) {
+    const projectId =
+      sourceById.get(drain.source_id)?.project_id ??
+      tableById.get(drain.table_id)?.project_id;
+
+    if (!projectId) {
+      continue;
+    }
+
+    const siblings = drainsByProjectId.get(projectId) ?? [];
+    siblings.push(drain);
+    drainsByProjectId.set(projectId, siblings);
   }
 
   const programs = new Map<string, SidebarProgramRow>();
@@ -119,10 +186,13 @@ export async function listSidebarDataForUser(
     ),
     projects: sortSidebarNodes(
       projects.map((project) =>
-        buildProjectNode(
-          project,
-          (tablesByProjectId.get(project.id) ?? []).map(buildTableNode),
-        ),
+        buildProjectNode(project, [
+          ...(tablesByProjectId.get(project.id) ?? []).map(buildTableNode),
+          ...(sourcesByProjectId.get(project.id) ?? []).map(buildSourceNode),
+          ...(drainsByProjectId.get(project.id) ?? []).map((drain) =>
+            buildDrainNode(drain, project.id),
+          ),
+        ]),
       ),
     ),
   };

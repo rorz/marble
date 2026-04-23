@@ -25,6 +25,7 @@ import {
 import { mountCellResource } from "./resources/cell";
 import { mountColumnResource } from "./resources/column";
 import { mountColumnDependencyResource } from "./resources/column_dependency";
+import { mountDrainResource } from "./resources/drain";
 import { mountEventResource } from "./resources/event";
 import { mountKeyResource } from "./resources/key";
 import { mountProfileResource } from "./resources/profile";
@@ -36,6 +37,8 @@ import { mountProjectResource } from "./resources/project";
 import { mountRowResource } from "./resources/row";
 import { mountSecretResource } from "./resources/secret";
 import { mountSecretBindingRoutes } from "./resources/secret_binding";
+import { mountSourceResource } from "./resources/source";
+import { mountSourceEventResource } from "./resources/source_event";
 import { mountTableResource } from "./resources/table";
 
 const app = new Hono<ApiEnv>();
@@ -43,6 +46,7 @@ const resourceMounts = {
   cells: mountCellResource,
   column_dependencies: mountColumnDependencyResource,
   columns: mountColumnResource,
+  drains: mountDrainResource,
   events: mountEventResource,
   keys: mountKeyResource,
   profiles: mountProfileResource,
@@ -53,6 +57,8 @@ const resourceMounts = {
   projects: mountProjectResource,
   rows: mountRowResource,
   secrets: mountSecretResource,
+  source_events: mountSourceEventResource,
+  sources: mountSourceResource,
   tables: mountTableResource,
 } satisfies Record<ApiResourceName, (app: Hono<ApiEnv>) => void>;
 
@@ -125,7 +131,7 @@ async function proxyExecutorRequest(
   const env = getEnv(c.env);
   const response = await fetch(
     executorEndpointUrl(
-      env.MARBLE_EXECUTOR_URL || "http://localhost:8787",
+      env.MARBLE_EXECUTOR_URL || "http://localhost:3087",
       options.path,
       options.search,
     ),

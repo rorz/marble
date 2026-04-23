@@ -2,14 +2,15 @@
 
 import type { Database } from "@marble/supabase";
 import {
-  MarbleActivityRadar,
   type MarbleActivityRadarBatch,
+  MarbleActivityRadarPanel,
   type MarbleActivityRadarSegment,
+  MarbleActivityRadarTrigger,
   type MarbleProfileAttributionProfile,
   type MarbleReviewNavigatorDetailItem,
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { RealtimePayload } from "../../lib/realtime-crud";
 import type { SidebarTreeData } from "../../lib/sidebar-tree";
 import { createClient } from "../../lib/supabase/browser";
@@ -22,7 +23,9 @@ import {
 
 type ChangeRadarProps = {
   className?: string;
-  compact?: boolean;
+  headerActions?: ReactNode;
+  mode?: "panel" | "trigger";
+  onToggleSidebar?: () => void;
   sidebarData: SidebarTreeData;
 };
 
@@ -34,9 +37,23 @@ type ResolutionMaps = {
   versionProgramIds: Record<string, null | string>;
 };
 type RadarIndexes = {
+  drains: Map<
+    string,
+    {
+      label: string;
+      projectId: string;
+    }
+  >;
   profiles: Map<string, MarbleProfileAttributionProfile>;
   programs: Map<string, string>;
   projects: Map<string, string>;
+  sources: Map<
+    string,
+    {
+      label: string;
+      projectId: string;
+    }
+  >;
   tables: Map<
     string,
     {
@@ -125,9 +142,11 @@ function getStringField(snapshot: Record<string, unknown> | null, key: string) {
 
 function buildRadarIndexes(sidebarData: SidebarTreeData) {
   const indexes: RadarIndexes = {
+    drains: new Map(),
     profiles: new Map(),
     programs: new Map(),
     projects: new Map(),
+    sources: new Map(),
     tables: new Map(),
   };
 
@@ -148,11 +167,27 @@ function buildRadarIndexes(sidebarData: SidebarTreeData) {
   for (const projectNode of sidebarData.projects) {
     indexes.projects.set(projectNode.id, projectNode.label);
 
-    for (const tableNode of projectNode.children) {
-      indexes.tables.set(tableNode.id, {
-        label: tableNode.label,
-        projectId: projectNode.id,
-      });
+    for (const childNode of projectNode.children) {
+      if (childNode.kind === "table") {
+        indexes.tables.set(childNode.id, {
+          label: childNode.label,
+          projectId: projectNode.id,
+        });
+      }
+
+      if (childNode.kind === "source") {
+        indexes.sources.set(childNode.id, {
+          label: childNode.label,
+          projectId: projectNode.id,
+        });
+      }
+
+      if (childNode.kind === "drain") {
+        indexes.drains.set(childNode.id, {
+          label: childNode.label,
+          projectId: projectNode.id,
+        });
+      }
     }
   }
 
@@ -194,6 +229,19 @@ function resolveEventTargetKeys(
   if (event.resource === "table") {
     return [
       changeTargetKey.table(event.entity_id),
+    ];
+  }
+
+  if (event.resource === "source") {
+    const projectId = getStringField(snapshot, "project_id");
+
+    return [
+      changeTargetKey.source(event.entity_id),
+      ...(projectId
+        ? [
+            changeTargetKey.project(projectId),
+          ]
+        : []),
     ];
   }
 
@@ -276,6 +324,19 @@ function resolveEventTargetKeys(
             changeTargetKey.column(sourceColumnId),
           ]
         : []),
+      ...(tableId
+        ? [
+            changeTargetKey.table(tableId),
+          ]
+        : []),
+    ];
+  }
+
+  if (event.resource === "drain") {
+    const tableId = getStringField(snapshot, "table_id");
+
+    return [
+      changeTargetKey.drain(event.entity_id),
       ...(tableId
         ? [
             changeTargetKey.table(tableId),
@@ -386,6 +447,8 @@ function resolveEventDetailTargetKeys(
 
   if (
     event.resource === "project" ||
+    event.resource === "source" ||
+    event.resource === "drain" ||
     event.resource === "table" ||
     event.resource === "row" ||
     event.resource === "column" ||
@@ -508,6 +571,23 @@ function resolveRadarScope(
     };
   }
 
+  if (event.resource === "source") {
+    const indexedSource = indexes.sources.get(event.entity_id);
+    const projectId =
+      indexedSource?.projectId ?? getStringField(snapshot, "project_id");
+    const label =
+      indexedSource?.label ?? getStringField(snapshot, "name") ?? "Source";
+
+    if (projectId) {
+      return {
+        href: `/projects/${projectId}/sources/${event.entity_id}`,
+        key: `source:${event.entity_id}`,
+        label,
+        targetKeys: resolveEventTargetKeys(event, resolutionMaps),
+      };
+    }
+  }
+
   if (event.resource === "row" || event.resource === "column") {
     const tableId = getStringField(snapshot, "table_id");
 
@@ -516,6 +596,24 @@ function resolveRadarScope(
         href: buildTableHref(indexes, tableId),
         key: `table:${tableId}`,
         label: buildTableLabel(indexes, tableId),
+        targetKeys: resolveEventTargetKeys(event, resolutionMaps),
+      };
+    }
+  }
+
+  if (event.resource === "drain") {
+    const indexedDrain = indexes.drains.get(event.entity_id);
+    const tableId = getStringField(snapshot, "table_id");
+    const projectId =
+      indexedDrain?.projectId ??
+      (tableId ? indexes.tables.get(tableId)?.projectId : undefined);
+
+    if (projectId) {
+      return {
+        href: `/projects/${projectId}/drains/${event.entity_id}`,
+        key: `drain:${event.entity_id}`,
+        label:
+          indexedDrain?.label ?? getStringField(snapshot, "name") ?? "Drain",
         targetKeys: resolveEventTargetKeys(event, resolutionMaps),
       };
     }
@@ -915,7 +1013,9 @@ function upsertRadarEvent(current: EventRow[], nextEvent: EventRow) {
 
 export function ChangeRadar({
   className,
-  compact = true,
+  headerActions,
+  mode = "panel",
+  onToggleSidebar,
   sidebarData,
 }: ChangeRadarProps) {
   const router = useRouter();
@@ -1245,19 +1345,28 @@ export function ChangeRadar({
   }));
   const unreadCount = batchRecords.filter((batch) => batch.unread).length;
 
+  if (mode === "trigger") {
+    return (
+      <MarbleActivityRadarTrigger
+        aria-label={`Expand agent sidebar${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+        batches={batches}
+        className={className}
+        onClick={onToggleSidebar}
+        slim
+        title="Expand agent sidebar"
+        unreadCount={unreadCount}
+      />
+    );
+  }
+
   return (
-    <MarbleActivityRadar
+    <MarbleActivityRadarPanel
+      actions={headerActions}
       batches={batches}
       className={className}
-      compact={compact}
       onMarkAllRead={() =>
         markReviewedThrough(batchRecords[0]?.latestAt ?? null)
       }
-      onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          clearPreviewChangeSpotlight();
-        }
-      }}
       unreadCount={unreadCount}
     />
   );

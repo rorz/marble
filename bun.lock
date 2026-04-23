@@ -31,6 +31,24 @@
         "wrangler": "catalog:base",
       },
     },
+    "apps/ingestor": {
+      "name": "@marble/ingestor",
+      "version": "1.0.0",
+      "dependencies": {
+        "@marble/api": "workspace:*",
+        "@marble/core": "workspace:*",
+        "@marble/supabase": "workspace:*",
+        "@t3-oss/env-core": "catalog:base",
+        "hono": "catalog:base",
+        "jsonpath-plus": "catalog:base",
+        "zod": "catalog:base",
+      },
+      "devDependencies": {
+        "@types/node": "catalog:base",
+        "typescript": "catalog:base",
+        "wrangler": "catalog:base",
+      },
+    },
     "apps/web": {
       "name": "@marble/web",
       "version": "0.1.0",
@@ -384,6 +402,8 @@
     "@marble/core": ["@marble/core@workspace:packages/core"],
 
     "@marble/executor": ["@marble/executor@workspace:apps/executor"],
+
+    "@marble/ingestor": ["@marble/ingestor@workspace:apps/ingestor"],
 
     "@marble/keys": ["@marble/keys@workspace:packages/keys"],
 

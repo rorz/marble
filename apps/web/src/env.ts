@@ -14,12 +14,13 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   },
   server: {
-    EXECUTOR_URL: z.string().url().default("http://localhost:8787"),
+    EXECUTOR_URL: z.string().url().default("http://localhost:3087"),
     MARBLE_EXECUTOR_URL: z
       .string()
       .url()
-      .default("http://localhost:8787")
+      .default("http://localhost:3087")
       .optional(),
+    MARBLE_INGESTOR_URL: z.string().url().default("http://localhost:3088"),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
     SUPABASE_URL: z.string().url(),
   },

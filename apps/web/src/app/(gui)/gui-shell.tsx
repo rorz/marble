@@ -32,9 +32,9 @@ import {
   IdentificationBadgeIcon,
   KeyIcon,
   LifebuoyIcon,
-  PlugsIcon,
+  LightningIcon,
+  LinkSimpleIcon,
   RobotIcon,
-  TreeStructureIcon,
 } from "@phosphor-icons/react";
 import { SidebarIcon, TableIcon } from "@phosphor-icons/react/dist/ssr";
 
@@ -52,8 +52,14 @@ import {
 } from "react";
 import {
   applySidebarTreeState,
+  COLLAPSED_AGENT_SIDEBAR_WIDTH,
   COLLAPSED_SIDEBAR_WIDTH,
+  clampAgentSidebarWidth,
   clampSidebarWidth,
+  MAX_AGENT_SIDEBAR_WIDTH,
+  MAX_SIDEBAR_WIDTH,
+  MIN_AGENT_SIDEBAR_WIDTH,
+  MIN_SIDEBAR_WIDTH,
   type SidebarMode,
   type SidebarTreeState,
   updateSidebarTreeStateForKey,
@@ -109,17 +115,6 @@ const navigationGroups: SidebarGroup = [
         isTree: true,
         name: "Projects",
         path: "/projects",
-      },
-      {
-        icon: (
-          <TreeStructureIcon
-            size={20}
-            weight="regular"
-          />
-        ),
-        id: "sources",
-        name: "Sources",
-        path: "/sources",
       },
       {
         icon: (
@@ -194,6 +189,8 @@ const utilityRoutes: {
 
 type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
+type SourceRow = Database["public"]["Tables"]["source"]["Row"];
+type DrainRow = Database["public"]["Tables"]["drain"]["Row"];
 type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type CommandPaletteItem = {
   detail: string;
@@ -319,6 +316,24 @@ function getNodeIcon(node: SidebarTreeNode) {
     );
   }
 
+  if (node.kind === "source") {
+    return (
+      <LinkSimpleIcon
+        className="h-4 w-4"
+        weight="duotone"
+      />
+    );
+  }
+
+  if (node.kind === "drain") {
+    return (
+      <LightningIcon
+        className="h-4 w-4"
+        weight="duotone"
+      />
+    );
+  }
+
   return (
     <CodeBlockIcon
       className="h-4 w-4"
@@ -334,6 +349,14 @@ function getNodeTargetKey(node: SidebarTreeNode) {
 
   if (node.kind === "table") {
     return changeTargetKey.table(node.id);
+  }
+
+  if (node.kind === "source") {
+    return changeTargetKey.source(node.id);
+  }
+
+  if (node.kind === "drain") {
+    return changeTargetKey.drain(node.id);
   }
 
   return changeTargetKey.program(node.id);
@@ -614,17 +637,27 @@ function CommandPaletteSupportSheet({
 
 export function GuiShell({
   children,
+  initialAgentSidebarMode,
+  initialAgentSidebarWidth,
   initialSidebarData,
   initialSidebarMode,
   initialSidebarTreeState,
   initialSidebarWidth,
 }: {
   children: ReactNode;
+  initialAgentSidebarMode: SidebarMode;
+  initialAgentSidebarWidth: number;
   initialSidebarData: SidebarTreeData;
   initialSidebarMode: SidebarMode;
   initialSidebarTreeState: SidebarTreeState;
   initialSidebarWidth: number;
 }) {
+  const [agentSidebarMode, setAgentSidebarMode] = useState<SidebarMode>(
+    initialAgentSidebarMode,
+  );
+  const [agentSidebarWidth, setAgentSidebarWidth] = useState(
+    initialAgentSidebarWidth,
+  );
   const [sidebarMode, setSidebarMode] =
     useState<SidebarMode>(initialSidebarMode);
   const [sidebarWidth, setSidebarWidth] = useState(initialSidebarWidth);
@@ -638,6 +671,7 @@ export function GuiShell({
   >([]);
   const [commandPaletteSupportSheet, setCommandPaletteSupportSheet] =
     useState<SupportSheetView | null>(null);
+  const [isAgentSidebarResizing, setIsAgentSidebarResizing] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [supabase] = useState(() => createClient());
@@ -652,7 +686,18 @@ export function GuiShell({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const previewTargetKeys = useChangeSpotlightPreviewTargetKeys();
-  const resizeHandleRef = useRef<HTMLButtonElement | null>(null);
+  const agentResizeHandleRef = useRef<HTMLHRElement | null>(null);
+  const agentSidebarWidthRef = useRef(agentSidebarWidth);
+  const agentResizeStateRef = useRef<null | {
+    pointerId: number;
+    startWidth: number;
+    startX: number;
+  }>(null);
+  const agentSidebarToggleLabel =
+    agentSidebarMode === "collapsed"
+      ? "Expand agent sidebar"
+      : "Collapse agent sidebar";
+  const resizeHandleRef = useRef<HTMLHRElement | null>(null);
   const sidebarWidthRef = useRef(sidebarWidth);
   const resizeStateRef = useRef<null | {
     pointerId: number;
@@ -779,17 +824,6 @@ export function GuiShell({
     {
       id: "workspace-tools",
       items: [
-        {
-          icon: (
-            <PlugsIcon
-              size={16}
-              weight="regular"
-            />
-          ),
-          id: "workspace-sources",
-          label: "Sources",
-          onSelect: () => router.push("/sources"),
-        },
         {
           icon: (
             <RobotIcon
@@ -947,6 +981,58 @@ export function GuiShell({
         id: `command-palette-table:${node.id}`,
         keywords: [
           "table",
+          node.id,
+          ...parentPath,
+        ],
+        label: node.label,
+        onSelect: () => navigateFromCommandPalette(node.href),
+      };
+    });
+  const sourceCommandItems = projectResources
+    .filter(({ node }) => node.kind === "source")
+    .map(({ node, parents }) => {
+      const parentPath = parents.map((parent) => parent.label);
+      const projectLabel = parentPath.at(-1) ?? "Project";
+
+      return {
+        detail: projectLabel,
+        icon: (
+          <LinkSimpleIcon
+            size={16}
+            weight="duotone"
+          />
+        ),
+        id: `command-palette-source:${node.id}`,
+        keywords: [
+          "source",
+          "webhook",
+          "ingest",
+          node.id,
+          ...parentPath,
+        ],
+        label: node.label,
+        onSelect: () => navigateFromCommandPalette(node.href),
+      };
+    });
+  const drainCommandItems = projectResources
+    .filter(({ node }) => node.kind === "drain")
+    .map(({ node, parents }) => {
+      const parentPath = parents.map((parent) => parent.label);
+      const projectLabel = parentPath.at(-1) ?? "Project";
+
+      return {
+        detail: projectLabel,
+        icon: (
+          <LightningIcon
+            size={16}
+            weight="duotone"
+          />
+        ),
+        id: `command-palette-drain:${node.id}`,
+        keywords: [
+          "drain",
+          "mapping",
+          "ingest",
           node.id,
           ...parentPath,
         ],
@@ -1184,6 +1270,16 @@ export function GuiShell({
       items: tableCommandItems,
     },
     {
+      heading: "Sources",
+      id: "command-palette-source-resources",
+      items: sourceCommandItems,
+    },
+    {
+      heading: "Drains",
+      id: "command-palette-drain-resources",
+      items: drainCommandItems,
+    },
+    {
       heading: "Programs",
       id: "command-palette-program-resources",
       items: programCommandItems,
@@ -1316,12 +1412,16 @@ export function GuiShell({
       : currentCommandPalettePage === "create-table-project"
         ? "Esc or Backspace returns to actions"
         : "Cmd/Ctrl+K toggles this menu";
-  const projectIdByTableId = useMemo(() => {
+  const projectIdByChildId = useMemo(() => {
     const next = new Map<string, string>();
 
     for (const project of sidebarData.projects) {
       for (const child of project.children) {
-        if (child.kind === "table") {
+        if (
+          child.kind === "table" ||
+          child.kind === "source" ||
+          child.kind === "drain"
+        ) {
           next.set(child.id, project.id);
         }
       }
@@ -1353,6 +1453,8 @@ export function GuiShell({
       if (
         descriptor.kind === "project" ||
         descriptor.kind === "table" ||
+        descriptor.kind === "source" ||
+        descriptor.kind === "drain" ||
         descriptor.kind === "row" ||
         descriptor.kind === "column" ||
         descriptor.kind === "cell"
@@ -1373,7 +1475,23 @@ export function GuiShell({
       }
 
       if (descriptor.kind === "table") {
-        const projectId = projectIdByTableId.get(descriptor.tableId);
+        const projectId = projectIdByChildId.get(descriptor.tableId);
+
+        if (projectId) {
+          next.add(`node:${projectId}`);
+        }
+      }
+
+      if (descriptor.kind === "source") {
+        const projectId = projectIdByChildId.get(descriptor.sourceId);
+
+        if (projectId) {
+          next.add(`node:${projectId}`);
+        }
+      }
+
+      if (descriptor.kind === "drain") {
+        const projectId = projectIdByChildId.get(descriptor.drainId);
 
         if (projectId) {
           next.add(`node:${projectId}`);
@@ -1384,7 +1502,7 @@ export function GuiShell({
     return next;
   }, [
     previewDescriptors,
-    projectIdByTableId,
+    projectIdByChildId,
   ]);
   const effectiveOpenKeys = useMemo(
     () =>
@@ -1398,7 +1516,14 @@ export function GuiShell({
       sidebarTreeState,
     ],
   );
-  const expandedGridColumns = `${sidebarWidth}px minmax(0, 1fr)`;
+  const isAnySidebarResizing = isAgentSidebarResizing || isResizing;
+  const layoutGridColumns = `${
+    sidebarMode === "collapsed" ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth
+  }px minmax(0, 1fr) ${
+    agentSidebarMode === "collapsed"
+      ? COLLAPSED_AGENT_SIDEBAR_WIDTH
+      : agentSidebarWidth
+  }px`;
 
   const toggleSidebar = () => {
     const nextMode = nextSidebarMode[sidebarMode];
@@ -1415,10 +1540,37 @@ export function GuiShell({
     setSidebarMode(nextMode);
   };
 
+  const toggleAgentSidebar = () => {
+    const nextMode = nextSidebarMode[agentSidebarMode];
+
+    void fetch("/api/gui/sidebar-mode", {
+      body: JSON.stringify({
+        agentSidebarMode: nextMode,
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+    setAgentSidebarMode(nextMode);
+  };
+
   const persistSidebarWidth = (nextWidth: number) => {
     void fetch("/api/gui/sidebar-mode", {
       body: JSON.stringify({
         width: clampSidebarWidth(nextWidth),
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+  };
+
+  const persistAgentSidebarWidth = (nextWidth: number) => {
+    void fetch("/api/gui/sidebar-mode", {
+      body: JSON.stringify({
+        agentSidebarWidth: clampAgentSidebarWidth(nextWidth),
       }),
       headers: {
         "Content-Type": "application/json",
@@ -1469,7 +1621,7 @@ export function GuiShell({
     persistSidebarWidth(sidebarWidthRef.current);
   };
 
-  const handleResizeStart = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const handleResizeStart = (event: ReactPointerEvent<HTMLHRElement>) => {
     if (sidebarMode === "collapsed") {
       return;
     }
@@ -1485,7 +1637,7 @@ export function GuiShell({
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const handleResizeMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const handleResizeMove = (event: ReactPointerEvent<HTMLHRElement>) => {
     const resizeState = resizeStateRef.current;
 
     if (!resizeState) {
@@ -1500,9 +1652,7 @@ export function GuiShell({
     setSidebarWidth(nextWidth);
   };
 
-  const handleResizeKeyDown = (
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-  ) => {
+  const handleResizeKeyDown = (event: ReactKeyboardEvent<HTMLHRElement>) => {
     let nextWidth: number | null = null;
 
     if (event.key === "ArrowLeft") {
@@ -1523,6 +1673,81 @@ export function GuiShell({
     sidebarWidthRef.current = nextWidth;
     setSidebarWidth(nextWidth);
     persistSidebarWidth(nextWidth);
+  };
+
+  const finishAgentSidebarResize = () => {
+    const resizeState = agentResizeStateRef.current;
+
+    if (!resizeState) {
+      return;
+    }
+
+    agentResizeHandleRef.current?.releasePointerCapture(resizeState.pointerId);
+    agentResizeStateRef.current = null;
+    setIsAgentSidebarResizing(false);
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
+    persistAgentSidebarWidth(agentSidebarWidthRef.current);
+  };
+
+  const handleAgentSidebarResizeStart = (
+    event: ReactPointerEvent<HTMLHRElement>,
+  ) => {
+    if (agentSidebarMode === "collapsed") {
+      return;
+    }
+
+    agentResizeStateRef.current = {
+      pointerId: event.pointerId,
+      startWidth: agentSidebarWidth,
+      startX: event.clientX,
+    };
+    setIsAgentSidebarResizing(true);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handleAgentSidebarResizeMove = (
+    event: ReactPointerEvent<HTMLHRElement>,
+  ) => {
+    const resizeState = agentResizeStateRef.current;
+
+    if (!resizeState) {
+      return;
+    }
+
+    const nextWidth = clampAgentSidebarWidth(
+      resizeState.startWidth - (event.clientX - resizeState.startX),
+    );
+
+    agentSidebarWidthRef.current = nextWidth;
+    setAgentSidebarWidth(nextWidth);
+  };
+
+  const handleAgentSidebarResizeKeyDown = (
+    event: ReactKeyboardEvent<HTMLHRElement>,
+  ) => {
+    let nextWidth: number | null = null;
+
+    if (event.key === "ArrowLeft") {
+      nextWidth = clampAgentSidebarWidth(agentSidebarWidthRef.current + 16);
+    } else if (event.key === "ArrowRight") {
+      nextWidth = clampAgentSidebarWidth(agentSidebarWidthRef.current - 16);
+    } else if (event.key === "Home") {
+      nextWidth = clampAgentSidebarWidth(0);
+    } else if (event.key === "End") {
+      nextWidth = clampAgentSidebarWidth(Number.MAX_SAFE_INTEGER);
+    }
+
+    if (nextWidth === null) {
+      return;
+    }
+
+    event.preventDefault();
+    agentSidebarWidthRef.current = nextWidth;
+    setAgentSidebarWidth(nextWidth);
+    persistAgentSidebarWidth(nextWidth);
   };
 
   useEffect(() => {
@@ -1659,6 +1884,62 @@ export function GuiShell({
         {
           event: "*",
           schema: "public",
+          table: "source",
+        },
+        (payload) => {
+          const change = payload as RealtimePayload<SourceRow>;
+
+          if (change.eventType === "DELETE") {
+            if (typeof change.old.id !== "string") {
+              return;
+            }
+
+            applyMutation({
+              id: change.old.id,
+              type: "source:delete",
+            });
+            return;
+          }
+
+          applyMutation({
+            row: change.new as SourceRow,
+            type: "source:upsert",
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "drain",
+        },
+        (payload) => {
+          const change = payload as RealtimePayload<DrainRow>;
+
+          if (change.eventType === "DELETE") {
+            if (typeof change.old.id !== "string") {
+              return;
+            }
+
+            applyMutation({
+              id: change.old.id,
+              type: "drain:delete",
+            });
+            return;
+          }
+
+          applyMutation({
+            row: change.new as DrainRow,
+            type: "drain:upsert",
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
           table: "program",
         },
         (payload) => {
@@ -1705,6 +1986,12 @@ export function GuiShell({
   );
 
   useEffect(() => {
+    agentSidebarWidthRef.current = agentSidebarWidth;
+  }, [
+    agentSidebarWidth,
+  ]);
+
+  useEffect(() => {
     sidebarWidthRef.current = sidebarWidth;
   }, [
     sidebarWidth,
@@ -1741,8 +2028,10 @@ export function GuiShell({
         ? [
             "cell",
             "column",
+            "drain",
             "project",
             "row",
+            "source",
             "table",
           ]
         : [
@@ -1796,25 +2085,23 @@ export function GuiShell({
     <div
       className={cx(
         "grid h-screen grid-cols-1 grid-rows-1 bg-taupe-100 md:[grid-template-columns:var(--gui-sidebar-columns)]",
-        isResizing
+        isAnySidebarResizing
           ? ""
           : "transition-[grid-template-columns] duration-200 ease-out",
       )}
       style={
         {
-          "--gui-sidebar-columns":
-            sidebarMode === "collapsed"
-              ? `${COLLAPSED_SIDEBAR_WIDTH}px minmax(0, 1fr)`
-              : expandedGridColumns,
+          "--gui-sidebar-columns": layoutGridColumns,
         } as CSSProperties
       }
     >
-      <div className="relative">
+      <div className="relative min-h-0">
         <aside
           className={cx(
-            "flex size-full min-h-0 flex-col pt-6 transition-[padding] duration-200 ease-out h-screen overflow-y-scroll",
+            "flex size-full min-h-0 h-screen flex-col overflow-y-scroll pt-6 transition-[padding] duration-200 ease-out",
             sidebar.asideClassName,
           )}
+          id="gui-navigation-sidebar"
         >
           <div className="flex w-full flex-col gap-2">
             <div
@@ -1826,12 +2113,6 @@ export function GuiShell({
                 description="Default workspace"
                 name="Verdn"
                 sections={workspaceMenuSections}
-              />
-
-              <ChangeRadar
-                className="shrink-0"
-                compact
-                sidebarData={sidebarData}
               />
 
               {sidebar.iconOnly ? null : (
@@ -1955,25 +2236,28 @@ export function GuiShell({
         ) : null}
 
         {sidebarMode === "collapsed" ? null : (
-          <button
-            aria-label="Resize sidebar"
-            className="group absolute top-0 right-0 z-10 h-full w-3 translate-x-1/2 cursor-col-resize touch-none"
+          <hr
+            aria-controls="gui-navigation-sidebar"
+            aria-label="Resize navigation sidebar"
+            aria-orientation="vertical"
+            aria-valuemax={MAX_SIDEBAR_WIDTH}
+            aria-valuemin={MIN_SIDEBAR_WIDTH}
+            aria-valuenow={sidebarWidth}
+            className={cx(
+              "absolute top-0 right-0 z-10 h-full w-3 translate-x-1/2 cursor-col-resize touch-none border-0 bg-linear-to-r from-transparent via-transparent to-transparent transition-colors",
+              isResizing
+                ? "via-taupe-400"
+                : "hover:via-taupe-300 focus-visible:via-taupe-300",
+            )}
             onKeyDown={handleResizeKeyDown}
             onPointerCancel={finishResize}
             onPointerDown={handleResizeStart}
             onPointerMove={handleResizeMove}
             onPointerUp={finishResize}
             ref={resizeHandleRef}
-            title="Resize sidebar"
-            type="button"
-          >
-            <div
-              className={cx(
-                "mx-auto h-full w-px bg-transparent transition-colors",
-                isResizing ? "bg-taupe-400" : "group-hover:bg-taupe-300",
-              )}
-            />
-          </button>
+            tabIndex={0}
+            title="Resize navigation sidebar"
+          />
         )}
       </div>
 
@@ -1982,6 +2266,71 @@ export function GuiShell({
           {children}
         </div>
       </main>
+
+      <div className="relative min-h-0">
+        <aside
+          className={cx(
+            "flex size-full min-h-0 flex-col overflow-hidden pb-8",
+            agentSidebarMode === "collapsed"
+              ? "items-center px-0 pt-6"
+              : "p-2 pl-0",
+          )}
+          id="gui-agent-sidebar"
+        >
+          {agentSidebarMode === "collapsed" ? (
+            <ChangeRadar
+              className="shrink-0"
+              mode="trigger"
+              onToggleSidebar={toggleAgentSidebar}
+              sidebarData={sidebarData}
+            />
+          ) : (
+            <ChangeRadar
+              className="min-h-0 flex-1"
+              headerActions={
+                <button
+                  aria-label={agentSidebarToggleLabel}
+                  className="flex size-8 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200/80 hover:text-taupe-900"
+                  onClick={toggleAgentSidebar}
+                  title={agentSidebarToggleLabel}
+                  type="button"
+                >
+                  <CaretDoubleRightIcon
+                    size={16}
+                    weight="bold"
+                  />
+                </button>
+              }
+              sidebarData={sidebarData}
+            />
+          )}
+        </aside>
+
+        {agentSidebarMode === "collapsed" ? null : (
+          <hr
+            aria-controls="gui-agent-sidebar"
+            aria-label="Resize agent sidebar"
+            aria-orientation="vertical"
+            aria-valuemax={MAX_AGENT_SIDEBAR_WIDTH}
+            aria-valuemin={MIN_AGENT_SIDEBAR_WIDTH}
+            aria-valuenow={agentSidebarWidth}
+            className={cx(
+              "absolute top-0 left-0 z-10 h-full w-3 -translate-x-1/2 cursor-col-resize touch-none border-0 bg-linear-to-r from-transparent via-transparent to-transparent transition-colors",
+              isAgentSidebarResizing
+                ? "via-taupe-400"
+                : "hover:via-taupe-300 focus-visible:via-taupe-300",
+            )}
+            onKeyDown={handleAgentSidebarResizeKeyDown}
+            onPointerCancel={finishAgentSidebarResize}
+            onPointerDown={handleAgentSidebarResizeStart}
+            onPointerMove={handleAgentSidebarResizeMove}
+            onPointerUp={finishAgentSidebarResize}
+            ref={agentResizeHandleRef}
+            tabIndex={0}
+            title="Resize agent sidebar"
+          />
+        )}
+      </div>
 
       <ChangeSpotlight />
 

@@ -211,6 +211,51 @@ export type Database = {
           },
         ]
       }
+      drain: {
+        Row: {
+          created_at: string
+          id: string
+          mappings: Json
+          name: string
+          source_id: string
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mappings?: Json
+          name?: string
+          source_id: string
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mappings?: Json
+          name?: string
+          source_id?: string
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drain_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "source"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "drain_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "table"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event: {
         Row: {
           actor_key_id: string | null
@@ -662,6 +707,89 @@ export type Database = {
           vault_secret_id?: string
         }
         Relationships: []
+      }
+      source: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          payload_schema: Json
+          project_id: string
+          updated_at: string
+          webhook_token: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name?: string
+          payload_schema?: Json
+          project_id: string
+          updated_at?: string
+          webhook_token?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          payload_schema?: Json
+          project_id?: string
+          updated_at?: string
+          webhook_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      source_event: {
+        Row: {
+          created_at: string
+          id: string
+          parse_error: string | null
+          parsed_payload: Json
+          project_id: string
+          raw_payload: Json
+          source_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          parse_error?: string | null
+          parsed_payload: Json
+          project_id: string
+          raw_payload: Json
+          source_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          parse_error?: string | null
+          parsed_payload?: Json
+          project_id?: string
+          raw_payload?: Json
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_event_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "source_event_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "source"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       table: {
         Row: {

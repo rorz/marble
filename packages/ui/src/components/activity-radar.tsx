@@ -1,10 +1,12 @@
 "use client";
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 import { cx } from "../utils/cx";
 import { MarbleBadge } from "./badge";
 import {
   MarbleContextPopover,
   type MarbleContextPopoverSection,
 } from "./context-popover";
+import { MarbleListRow } from "./list-row";
 import {
   MarbleProfileAttribution,
   type MarbleProfileAttributionProfile,
@@ -43,6 +45,24 @@ export type MarbleActivityRadarProps = {
   onOpenChange?: (isOpen: boolean) => void;
   onOpenFeed?: () => void;
   triggerClassName?: string;
+  unreadCount?: number;
+};
+
+export type MarbleActivityRadarTriggerProps = Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "children"
+> & {
+  batches: MarbleActivityRadarBatch[];
+  compact?: boolean;
+  slim?: boolean;
+  unreadCount?: number;
+};
+
+export type MarbleActivityRadarPanelProps = HTMLAttributes<HTMLDivElement> & {
+  actions?: ReactNode;
+  batches: MarbleActivityRadarBatch[];
+  emptyDescription?: string;
+  onMarkAllRead?: () => void;
   unreadCount?: number;
 };
 
@@ -89,6 +109,22 @@ function summarizeSegments(batches: MarbleActivityRadarBatch[]) {
       value: segmentTotals[tone],
     }))
     .filter((segment) => segment.value > 0);
+}
+
+function getRadarSummary(
+  batches: MarbleActivityRadarBatch[],
+  unreadCount: number,
+) {
+  const unreadBatches = batches.filter((batch) => batch.unread);
+  const reviewedBatches = batches.filter((batch) => !batch.unread);
+
+  return {
+    changedPlaceLabel: pluralize("place", unreadCount || batches.length),
+    hasUnread: unreadCount > 0,
+    headerSegments: summarizeSegments(batches),
+    reviewedBatches,
+    unreadBatches,
+  };
 }
 
 function ActivityMeter({
@@ -194,6 +230,25 @@ function ActivityUnreadBadge({ count }: { count: number }) {
   );
 }
 
+function ActivityBatchDescription({
+  batch,
+}: {
+  batch: MarbleActivityRadarBatch;
+}) {
+  return batch.actors && batch.actors.length > 0 ? (
+    <div className="space-y-1">
+      <MarbleProfileAttribution profiles={batch.actors} />
+      <div className="line-clamp-2 text-xs text-taupe-600">
+        {batch.description}
+      </div>
+    </div>
+  ) : (
+    <div className="line-clamp-2 text-xs text-taupe-600">
+      {batch.description}
+    </div>
+  );
+}
+
 function CaretDownGlyph({ className }: { className?: string }) {
   return (
     <svg
@@ -215,6 +270,253 @@ function CaretDownGlyph({ className }: { className?: string }) {
   );
 }
 
+export function MarbleActivityRadarTrigger({
+  batches,
+  className,
+  compact = false,
+  slim = false,
+  type = "button",
+  unreadCount = 0,
+  ...props
+}: MarbleActivityRadarTriggerProps) {
+  const { hasUnread, headerSegments } = getRadarSummary(batches, unreadCount);
+
+  if (slim) {
+    return (
+      <button
+        className={cx(
+          "relative flex size-6 items-center justify-center rounded-full bg-transparent text-taupe-500 transition-colors hover:bg-taupe-200/80 hover:text-taupe-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300",
+          className,
+        )}
+        type={type}
+        {...props}
+      >
+        <span
+          className={cx(
+            "pointer-events-none absolute rounded-full transition-all duration-200",
+            hasUnread
+              ? "size-4 bg-orange-200/70 blur-[6px]"
+              : "size-3 bg-taupe-300/70 blur-[4px]",
+          )}
+        />
+        <span
+          className={cx(
+            "relative block rounded-full transition-colors",
+            hasUnread ? "size-2 bg-orange-500" : "size-1.5 bg-taupe-500",
+          )}
+        />
+      </button>
+    );
+  }
+
+  return (
+    <button
+      className={cx(
+        compact
+          ? "size-9 rounded-xs bg-transparent p-1 text-taupe-700 hover:bg-taupe-200/80 hover:text-taupe-900"
+          : "flex w-full justify-start rounded-xs bg-transparent px-2.5 py-1.5 text-taupe-700 hover:bg-taupe-200/80 hover:text-taupe-900",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300",
+        className,
+      )}
+      type={type}
+      {...props}
+    >
+      <div
+        className={cx(
+          "flex min-w-0 items-center",
+          compact ? "justify-center" : "gap-2.5",
+        )}
+      >
+        <div className="relative">
+          <ActivityGlyph
+            pulse={hasUnread}
+            segments={headerSegments}
+          />
+          {hasUnread ? <ActivityUnreadBadge count={unreadCount} /> : null}
+        </div>
+        {compact ? null : (
+          <>
+            <div className="flex min-w-0 flex-1 flex-col text-left">
+              <span className="truncate font-medium text-sm text-taupe-900 tracking-tight">
+                Agent changesets
+              </span>
+              <span className="truncate text-[11px] text-taupe-500">
+                {hasUnread ? `${unreadCount} unreviewed` : "No pending review"}
+              </span>
+            </div>
+            <CaretDownGlyph className="ml-auto size-4 shrink-0 text-taupe-400" />
+          </>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function ActivityRadarPanelSection({
+  batches,
+  label,
+}: {
+  batches: MarbleActivityRadarBatch[];
+  label: string;
+}) {
+  if (batches.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="space-y-2">
+      <div className="px-1 font-medium text-[10px] text-taupe-500 uppercase tracking-[0.18em]">
+        {label}
+      </div>
+
+      <div className="overflow-hidden rounded-sm border border-taupe-200/80 bg-white/92">
+        {batches.map((batch) => (
+          <MarbleListRow
+            align="start"
+            aside={
+              <div className="w-12">
+                <ActivityMeter
+                  className="h-1.5 rounded-full border-taupe-200/80 bg-taupe-100 shadow-none"
+                  segments={batch.segments}
+                />
+              </div>
+            }
+            className={cx(
+              "min-h-20 bg-transparent",
+              batch.unread ? "bg-orange-50/60" : null,
+            )}
+            description={<ActivityBatchDescription batch={batch} />}
+            icon={
+              <ActivityGlyph
+                pulse={batch.unread}
+                segments={batch.segments}
+              />
+            }
+            key={batch.id}
+            meta={
+              <span
+                className={cx(
+                  "font-medium text-[11px]",
+                  batch.unread ? "text-orange-700" : "text-taupe-500",
+                )}
+              >
+                {batch.unread ? "New" : (batch.timestampLabel ?? "Earlier")}
+              </span>
+            }
+            onBlur={batch.onPreviewEnd}
+            onClick={batch.onSelect}
+            onFocus={batch.onPreviewStart}
+            onPointerEnter={batch.onPreviewStart}
+            onPointerLeave={batch.onPreviewEnd}
+            size="sm"
+            title={batch.label}
+            tone="orange"
+            wrapperClassName="border-taupe-200/80"
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export function MarbleActivityRadarPanel({
+  actions,
+  batches,
+  className,
+  emptyDescription = "No recent agent changes.",
+  onMarkAllRead,
+  unreadCount = 0,
+  ...props
+}: MarbleActivityRadarPanelProps) {
+  const {
+    changedPlaceLabel,
+    hasUnread,
+    headerSegments,
+    reviewedBatches,
+    unreadBatches,
+  } = getRadarSummary(batches, unreadCount);
+  const hasActions = Boolean((hasUnread && onMarkAllRead) || actions);
+  const reviewedSectionLabel = unreadBatches.length > 0 ? "Earlier" : "Recent";
+
+  return (
+    <div
+      className={cx(
+        "flex min-h-0 flex-col overflow-hidden rounded-sm border border-taupe-300/80 bg-[linear-gradient(180deg,rgba(248,245,238,0.96)_0%,rgba(255,255,255,0.96)_100%)] text-taupe-900 shadow-[0_12px_24px_rgba(84,57,26,0.08)]",
+        className,
+      )}
+      {...props}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-taupe-300/80 bg-linear-to-r from-taupe-100/95 via-white/90 to-white/70 px-3 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="relative">
+            <ActivityGlyph
+              pulse={hasUnread}
+              segments={headerSegments}
+            />
+            {hasUnread ? <ActivityUnreadBadge count={unreadCount} /> : null}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-semibold text-sm text-taupe-950">
+              Agent changesets
+            </div>
+            <p className="mt-0.5 text-xs text-taupe-600">
+              {batches.length > 0
+                ? hasUnread
+                  ? `${changedPlaceLabel} need review.`
+                  : `${changedPlaceLabel} changed recently.`
+                : emptyDescription}
+            </p>
+          </div>
+        </div>
+
+        {hasActions ? (
+          <div className="flex shrink-0 items-center gap-2">
+            {hasUnread && onMarkAllRead ? (
+              <button
+                className="rounded-xs px-2 py-1 font-medium text-[11px] text-orange-700 transition-colors hover:bg-orange-50 hover:text-orange-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+                onClick={onMarkAllRead}
+                type="button"
+              >
+                Mark all reviewed
+              </button>
+            ) : null}
+            {actions}
+          </div>
+        ) : null}
+      </div>
+
+      {headerSegments.length > 0 ? (
+        <div className="border-b border-taupe-200/80 px-3 py-2">
+          <ActivityMeter
+            className="h-1.5 rounded-full border-taupe-200/80 bg-taupe-100 shadow-none"
+            segments={headerSegments}
+          />
+        </div>
+      ) : null}
+
+      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        {batches.length > 0 ? (
+          <div className="space-y-3">
+            <ActivityRadarPanelSection
+              batches={unreadBatches}
+              label="New"
+            />
+            <ActivityRadarPanelSection
+              batches={reviewedBatches}
+              label={reviewedSectionLabel}
+            />
+          </div>
+        ) : (
+          <div className="flex h-full items-center justify-center px-4 text-center text-sm text-taupe-500">
+            {emptyDescription}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function MarbleActivityRadar({
   batches,
   className,
@@ -226,8 +528,8 @@ export function MarbleActivityRadar({
   triggerClassName,
   unreadCount = 0,
 }: MarbleActivityRadarProps) {
-  const unreadBatches = batches.filter((batch) => batch.unread);
-  const reviewedBatches = batches.filter((batch) => !batch.unread);
+  const { changedPlaceLabel, hasUnread, unreadBatches, reviewedBatches } =
+    getRadarSummary(batches, unreadCount);
   const visibleUnreadBatches = unreadBatches.slice(0, 4);
   const remainingVisibleSlots = Math.max(0, 6 - visibleUnreadBatches.length);
   const visibleReviewedBatches = reviewedBatches.slice(
@@ -239,22 +541,10 @@ export function MarbleActivityRadar({
     ...visibleReviewedBatches,
   ];
   const headerSegments = summarizeSegments(visibleBatches);
-  const hasUnread = unreadCount > 0;
   const sections: MarbleContextPopoverSection[] = [];
-  const changedPlaceLabel = pluralize("place", unreadCount || batches.length);
 
   const buildBatchItem = (batch: MarbleActivityRadarBatch) => ({
-    description:
-      batch.actors && batch.actors.length > 0 ? (
-        <div className="space-y-1">
-          <MarbleProfileAttribution profiles={batch.actors} />
-          <div className="truncate text-xs text-zinc-500">
-            {batch.description}
-          </div>
-        </div>
-      ) : (
-        batch.description
-      ),
+    description: <ActivityBatchDescription batch={batch} />,
     detail: (
       <div className="flex min-w-[3.5rem] flex-col items-end gap-1">
         <span
@@ -327,6 +617,7 @@ export function MarbleActivityRadar({
     <MarbleContextPopover
       align="start"
       ariaLabel="Open agent changesets"
+      asChild
       className={className}
       header={
         <div className="flex items-center gap-3 px-2 py-1.5">
@@ -359,40 +650,13 @@ export function MarbleActivityRadar({
       menuClassName="min-w-[22rem] max-w-[26rem] rounded-xs border border-orange-200/80 bg-white p-2 shadow-[0_18px_40px_rgba(84,57,26,0.12)]"
       onOpenChange={onOpenChange}
       sections={sections}
-      triggerClassName={cx(
-        compact
-          ? "size-9 rounded-xs bg-transparent p-1 text-taupe-700 hover:bg-taupe-200/80 hover:text-taupe-900"
-          : "w-full justify-start rounded-xs bg-transparent px-2.5 py-1.5 text-taupe-700 hover:bg-taupe-200/80 hover:text-taupe-900",
-        triggerClassName,
-      )}
     >
-      <div
-        className={cx(
-          "flex min-w-0 items-center",
-          compact ? "justify-center" : "gap-2.5",
-        )}
-      >
-        <div className="relative">
-          <ActivityGlyph
-            pulse={hasUnread}
-            segments={headerSegments}
-          />
-          {hasUnread ? <ActivityUnreadBadge count={unreadCount} /> : null}
-        </div>
-        {compact ? null : (
-          <>
-            <div className="flex min-w-0 flex-1 flex-col text-left">
-              <span className="truncate font-medium text-sm text-taupe-900 tracking-tight">
-                Agent changesets
-              </span>
-              <span className="truncate text-[11px] text-taupe-500">
-                {hasUnread ? `${unreadCount} unreviewed` : "No pending review"}
-              </span>
-            </div>
-            <CaretDownGlyph className="ml-auto size-4 shrink-0 text-taupe-400" />
-          </>
-        )}
-      </div>
+      <MarbleActivityRadarTrigger
+        batches={batches}
+        className={triggerClassName}
+        compact={compact}
+        unreadCount={unreadCount}
+      />
     </MarbleContextPopover>
   );
 }

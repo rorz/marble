@@ -15,6 +15,8 @@ It works because every changed thing is reduced to a small, canonical target key
 - `row:<id>`
 - `column:<id>`
 - `cell:<rowId>:<columnId>`
+- `source:<id>`
+- `drain:<id>`
 - `program:<id>`
 - `program-file:<programId>:<filename>`
 - `program-version:<id>`
@@ -197,6 +199,7 @@ When adding spotlight support for a new resource, follow this order:
    - operation-level detail target keys
 5. Ensure off-page hover preview has a sensible sidebar or ancestor fallback.
 6. Verify the tray, preview, and click-through all point at the real resource.
+7. If the resource is a project child, make sure the nested sidebar uses its own icon and the click-through lands on the child detail route, not a project-scoped split view.
 
 ## Complexity Budget
 
@@ -217,6 +220,7 @@ Before shipping changes here, verify all of the following:
 - clicking a changeset navigates to the real resource, not `/events`
 - hover preview works on the current page
 - off-page hover preview has a visible fallback, usually in the sidebar
+- project child resources preview and click through to their dedicated detail routes
 - exact targets win over broad wrappers
 - diff chips can narrow the active spotlight
 - clicking outside the spotlight exits review mode

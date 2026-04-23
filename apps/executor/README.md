@@ -20,7 +20,7 @@ This example provides two simple endpoints:
 ### Execute Python Code
 
 ```bash
-GET http://localhost:8787/run
+GET http://localhost:3087/run
 ```
 
 Runs `python -c "print(2 + 2)"` and returns:
@@ -35,7 +35,7 @@ Runs `python -c "print(2 + 2)"` and returns:
 ### File Operations
 
 ```bash
-GET http://localhost:8787/file
+GET http://localhost:3087/file
 ```
 
 Creates `/workspace/hello.txt`, reads it back, and returns:
@@ -68,10 +68,10 @@ The first run will build the Docker container (2-3 minutes). Subsequent runs are
 
 ```bash
 # Test command execution
-curl http://localhost:8787/run
+curl http://localhost:3087/run
 
 # Test file operations
-curl http://localhost:8787/file
+curl http://localhost:3087/file
 ```
 
 ## Deploy

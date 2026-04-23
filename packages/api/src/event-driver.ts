@@ -101,6 +101,10 @@ function normalizeEventRow(
     delete normalized.vault_secret_id;
   }
 
+  if (resource === "source") {
+    delete normalized.webhook_token;
+  }
+
   return normalized as Json;
 }
 

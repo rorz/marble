@@ -34,6 +34,7 @@ export const ApiResources = {
   cells: READ_UPDATE_OPERATIONS,
   column_dependencies: READ_OPERATIONS,
   columns: CRUD_OPERATIONS,
+  drains: CRUD_OPERATIONS,
   events: READ_OPERATIONS,
   keys: READ_CREATE_DELETE_OPERATIONS,
   profiles: READ_CREATE_UPDATE_OPERATIONS,
@@ -44,6 +45,8 @@ export const ApiResources = {
   projects: CRUD_OPERATIONS,
   rows: CRUD_OPERATIONS,
   secrets: CRUD_OPERATIONS,
+  source_events: READ_OPERATIONS,
+  sources: CRUD_OPERATIONS,
   tables: CRUD_OPERATIONS,
 } as const;
 
