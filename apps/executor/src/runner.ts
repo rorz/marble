@@ -1191,7 +1191,7 @@ export const resolveEnvironmentVariablesForRun = async (
   }
 
   const resolved = await resolveDeclaredEnvironmentVariables(supabase, {
-    columnId: run.cell.column.id,
+    columnId: run.cell.column_id,
     ownerUserId: profile.owner_user_id,
     programId: run.program_version.program_id,
     secretConfig: run.program_version.secret_config as Json | null | undefined,

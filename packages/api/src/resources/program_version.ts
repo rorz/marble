@@ -163,6 +163,9 @@ export async function findLatestPublishedProgramVersion(
     .select("*")
     .eq("program_id", programId)
     .not("published_at", "is", null)
+    .order("published_at", {
+      ascending: false,
+    })
     .order("version", {
       ascending: false,
     })

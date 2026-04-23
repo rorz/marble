@@ -737,7 +737,7 @@ async function executeStoredRunsInternal(
   for (const run of runs) {
     visitedCellIds.add(run.target_cell_id);
 
-    const columnId = run.cell.column.id;
+    const columnId = run.cell.column_id;
     const existingGroup = runsByColumnId.get(columnId);
 
     if (existingGroup) {
@@ -798,7 +798,7 @@ async function executeStoredRunsInternal(
         resolvableJobs[0].run,
       );
       const outputs = await executeAndValidateBatch(
-        getSandbox(c.env.Sandbox, resolvableJobs[0].run.cell.column.id),
+        getSandbox(c.env.Sandbox, resolvableJobs[0].run.cell.column_id),
         resolvableJobs[0].run.program_version.program_file,
         resolvableJobs.map((job) => ({
           key: job.run.id,
