@@ -12,8 +12,9 @@ import {
   MarblePane,
   MarblePaneEditableCrumb,
 } from "@marble/ui";
+import { FunnelIcon, PipeIcon, TableIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   buildPipeMappingDisplayRecords,
   buildPipeMappingSummary,
@@ -36,17 +37,32 @@ import {
   deleteProjectAction,
   renameProjectAction,
 } from "../actions";
+import { createPipeAction, createSourceAction } from "./sources/actions";
 
 type ProjectInfo = ProjectSourceWorkspaceData;
 type ProjectState = ProjectInfo["project"];
 type ProjectRecord = Awaited<ReturnType<typeof renameProjectAction>>;
 type TableRecord = Awaited<ReturnType<typeof createTableAction>>;
+type SourceRecord = Awaited<ReturnType<typeof createSourceAction>>;
+type PipeRecord = Awaited<ReturnType<typeof createPipeAction>>;
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
   year: "numeric",
 });
+
+function buildSectionHeading(label: string, count: number) {
+  return count > 0 ? `${label} (${count})` : label;
+}
+
+function ResourceEmptyStateIcon({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex size-14 items-center justify-center rounded-full border border-orange-200/40 bg-orange-50/35 text-orange-500/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]">
+      {children}
+    </div>
+  );
+}
 
 function sortTables(tables: ProjectState["tables"]) {
   return sortRows(tables, compareByUpdatedAtDesc);
@@ -67,6 +83,8 @@ export function ProjectPageView({
   >(null);
   const [nameDraft, setNameDraft] = useState(initialProject.project.name);
   const [savingName, setSavingName] = useState(false);
+  const [creatingSource, setCreatingSource] = useState(false);
+  const [creatingPipe, setCreatingPipe] = useState(false);
   const [creatingTable, setCreatingTable] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
   const [error, setError] = useState<null | string>(null);
@@ -99,16 +117,12 @@ export function ProjectPageView({
     );
   }
 
-  const buildSourceDetailHref = (sourceId?: string) => {
-    return sourceId
-      ? `/projects/${project.id}/sources/${sourceId}`
-      : `/projects/${project.id}/sources/new`;
+  const buildSourceDetailHref = (sourceId: string) => {
+    return `/projects/${project.id}/sources/${sourceId}`;
   };
 
-  const buildPipeDetailHref = (pipeId?: string) => {
-    return pipeId
-      ? `/projects/${project.id}/pipes/${pipeId}`
-      : `/projects/${project.id}/pipes/new`;
+  const buildPipeDetailHref = (pipeId: string) => {
+    return `/projects/${project.id}/pipes/${pipeId}`;
   };
 
   useEffect(() => {
@@ -255,6 +269,46 @@ export function ProjectPageView({
     }
   };
 
+  const handleCreateSource = async () => {
+    setCreatingSource(true);
+    setError(null);
+
+    try {
+      const source = (await createSourceAction(project.id)) as SourceRecord;
+      router.push(buildSourceDetailHref(source.id));
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+      setCreatingSource(false);
+    }
+  };
+
+  const handleCreatePipe = async () => {
+    const sourceId = sources[0]?.id;
+    const tableId = project.tables[0]?.id;
+
+    if (!sourceId || !tableId) {
+      setError(
+        "Create at least one source and one table before adding a pipe.",
+      );
+      return;
+    }
+
+    setCreatingPipe(true);
+    setError(null);
+
+    try {
+      const pipe = (await createPipeAction(project.id, {
+        mappings: [],
+        sourceId,
+        tableId,
+      })) as PipeRecord;
+      router.push(buildPipeDetailHref(pipe.id));
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+      setCreatingPipe(false);
+    }
+  };
+
   const handleDeleteProject = async () => {
     if (
       !window.confirm(
@@ -278,15 +332,6 @@ export function ProjectPageView({
 
   return (
     <MarblePane
-      actions={[
-        {
-          children: creatingTable ? "Creating" : "New table",
-          disabled: creatingTable,
-          id: "create-table",
-          onClick: handleCreateTable,
-          variant: "dark",
-        },
-      ]}
       crumbs={[
         {
           href: "/projects",
@@ -339,17 +384,17 @@ export function ProjectPageView({
         <div className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-xl tracking-tight text-zinc-950">Sources</h2>
-              <div className="text-sm text-zinc-500">
-                {sources.length} total
-              </div>
+              <h2 className="text-xl tracking-tight text-zinc-950">
+                {buildSectionHeading("Sources", sources.length)}
+              </h2>
             </div>
             <MarbleButton
-              onClick={() => router.push(buildSourceDetailHref())}
+              disabled={creatingSource}
+              onClick={() => void handleCreateSource()}
               size="sm"
               variant="light"
             >
-              New source
+              {creatingSource ? "Creating" : "New source"}
             </MarbleButton>
           </div>
 
@@ -357,7 +402,15 @@ export function ProjectPageView({
             {sources.length === 0 ? (
               <MarbleCardContent>
                 <MarbleEmptyState
-                  description="Create a source to start caching incoming webhook payloads."
+                  description="Create a source to capture incoming webhook payloads."
+                  icon={
+                    <ResourceEmptyStateIcon>
+                      <FunnelIcon
+                        size={26}
+                        weight="duotone"
+                      />
+                    </ResourceEmptyStateIcon>
+                  }
                   title="No sources yet"
                 />
               </MarbleCardContent>
@@ -365,7 +418,7 @@ export function ProjectPageView({
               <MarbleCardContent className="p-0">
                 {sources.map((source) => (
                   <MarbleListRow
-                    description={`${sourceEventCountBySourceId.get(source.id) ?? 0} cached events`}
+                    description={`${sourceEventCountBySourceId.get(source.id) ?? 0} events captured`}
                     key={source.id}
                     onClick={() =>
                       router.push(buildSourceDetailHref(source.id))
@@ -382,15 +435,17 @@ export function ProjectPageView({
         <div className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-xl tracking-tight text-zinc-950">Pipes</h2>
-              <div className="text-sm text-zinc-500">{pipes.length} total</div>
+              <h2 className="text-xl tracking-tight text-zinc-950">
+                {buildSectionHeading("Pipes", pipes.length)}
+              </h2>
             </div>
             <MarbleButton
-              onClick={() => router.push(buildPipeDetailHref())}
+              disabled={creatingPipe}
+              onClick={() => void handleCreatePipe()}
               size="sm"
               variant="light"
             >
-              New pipe
+              {creatingPipe ? "Creating" : "New pipe"}
             </MarbleButton>
           </div>
 
@@ -398,7 +453,15 @@ export function ProjectPageView({
             {pipes.length === 0 ? (
               <MarbleCardContent>
                 <MarbleEmptyState
-                  description="Create a pipe to map cached payloads into table inputs."
+                  description="Create a pipe to map captured payloads into table inputs."
+                  icon={
+                    <ResourceEmptyStateIcon>
+                      <PipeIcon
+                        size={26}
+                        weight="duotone"
+                      />
+                    </ResourceEmptyStateIcon>
+                  }
                   title="No pipes yet"
                 />
               </MarbleCardContent>
@@ -470,19 +533,34 @@ export function ProjectPageView({
         <div className="space-y-3">
           <div className="flex items-end justify-between gap-3">
             <div className="space-y-1">
-              <h2 className="text-xl tracking-tight text-zinc-950">Tables</h2>
-              <div className="text-sm text-zinc-500">
-                {project.table_count} total
-              </div>
+              <h2 className="text-xl tracking-tight text-zinc-950">
+                {buildSectionHeading("Tables", project.table_count)}
+              </h2>
             </div>
+            <MarbleButton
+              disabled={creatingTable}
+              onClick={handleCreateTable}
+              size="sm"
+              variant="light"
+            >
+              {creatingTable ? "Creating" : "New table"}
+            </MarbleButton>
           </div>
 
           <MarbleCard>
             {project.tables.length === 0 ? (
               <MarbleCardContent>
                 <MarbleEmptyState
-                  description="Create a table, then open it to start building."
-                  title="No tables in this project yet"
+                  description="Create a table to build rows and columns."
+                  icon={
+                    <ResourceEmptyStateIcon>
+                      <TableIcon
+                        size={26}
+                        weight="duotone"
+                      />
+                    </ResourceEmptyStateIcon>
+                  }
+                  title="No tables yet"
                 />
               </MarbleCardContent>
             ) : (

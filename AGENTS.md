@@ -17,13 +17,13 @@ Our development stack:
 > [!WARNING]
 >
 > 
-> You are STRICTLY FORBIDDEN from leaving behind or ignoring any linter warnings or typecheck errors. If `bun check` surfaces a warning or error, you MUST fix it immediately. Do not proceed or "fake out" on reporting your completion of a task until this is done. Fix the error, always.
+> You are STRICTLY FORBIDDEN from leaving behind or ignoring any linter warnings or typecheck errors. If `bun check` surfaces a warning or error, you MUST fix it immediately. Do not proceed or "fake out" on reporting your completion of a task until this is done. The only exception is when you are CERTAIN that your changes could not have possibly caused the `bun check` failure. If you use this exception, you must confirm with the user that you are ignoring the failed check because you have beyond reasonable doubt (threshold == super high) that someone else made those changes.
 
 ### NEVER
 1. Install a package at the root unless you are absolutely sure you know what you're doing.
 2. Install a package _without first_ adding it to the catalog (`catalog.base`) in the root package.json
 3. Install packages without asking for approval, or install packages that do simple shit you can just write a library file for yourself
-4. Report back to me without first running `bun check` and it showing a clean slate.
+4. Report back to me without first running `bun check` and either getting a clean slate or explicitly applying the `bun check` exception above.
 5. Create "single-use" scripts, packages, or apps.
 6. Create superfluous tooling functionality, such as tests for a module that's only just been created.
 7. "Deprecate" code paths, functions, or methods unless you are absolutely sure they are being heavily used or are structurally imperative for the entire system to function. Just delete "legacy" code... that's what Git is for.

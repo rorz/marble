@@ -1,6 +1,10 @@
 import type { ReactNode } from "react";
 import { cx } from "../utils/cx";
 import { MarbleButton, type MarbleButtonProps } from "./button";
+import {
+  MarbleContextPopover,
+  type MarbleContextPopoverItem,
+} from "./context-popover";
 
 export type MarblePaneCrumb = {
   href?: string;
@@ -16,6 +20,8 @@ export type MarblePaneProps = {
   children: ReactNode;
   crumbs?: MarblePaneCrumb[];
   description?: string;
+  disclosureActions?: MarbleContextPopoverItem[];
+  disclosureAriaLabel?: string;
   frame?: "normal" | "none";
   title?: string;
   width?: "Full" | "Narrow";
@@ -35,6 +41,8 @@ export function MarblePane({
   className,
   crumbs,
   description,
+  disclosureActions,
+  disclosureAriaLabel = "Open pane actions",
   frame = "normal",
   title,
   width = "Full",
@@ -45,7 +53,7 @@ export function MarblePane({
     <div className="flex size-full min-h-0 w-full flex-col">
       {crumbs ? (
         <div className="flex w-full items-center justify-between gap-1 border-b border-taupe-200 px-4 py-2">
-          <div className="flex items-center gap-1">
+          <div className="flex min-w-0 items-center gap-1">
             {crumbs.flatMap((crumb, index) => [
               typeof crumb.label === "string" ? (
                 crumb.href ? (
@@ -88,13 +96,24 @@ export function MarblePane({
             ])}
           </div>
 
-          {actions?.map((action) => (
-            <MarbleButton
-              key={action.id}
-              {...action}
-              size="sm"
-            />
-          ))}
+          {actions?.length || disclosureActions?.length ? (
+            <div className="flex shrink-0 items-center gap-2">
+              {actions?.map((action) => (
+                <MarbleButton
+                  key={action.id}
+                  {...action}
+                  size="sm"
+                />
+              ))}
+              {disclosureActions?.length ? (
+                <MarbleContextPopover
+                  ariaLabel={disclosureAriaLabel}
+                  items={disclosureActions}
+                  triggerClassName="text-zinc-300 hover:bg-transparent hover:text-zinc-500"
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

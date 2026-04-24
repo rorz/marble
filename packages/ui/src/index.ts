@@ -33,6 +33,8 @@ export {
   type MarbleCardHeaderAction,
   type MarbleCardHeaderProps,
   type MarbleCardProps,
+  MarbleCardSection,
+  type MarbleCardSectionProps,
   MarbleCardTitle,
   type MarbleCardTitleProps,
 } from "./components/card";
@@ -60,6 +62,10 @@ export {
   type MarbleContextPopoverProps,
   type MarbleContextPopoverSection,
 } from "./components/context-popover";
+export {
+  MarbleCopyField,
+  type MarbleCopyFieldProps,
+} from "./components/copy-field";
 export {
   MarbleDropzone,
   type MarbleDropzoneProps,

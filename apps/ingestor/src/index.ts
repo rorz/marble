@@ -105,6 +105,12 @@ async function materializePipe(
   },
   parsedPayload: QueueMessage["payload"],
 ) {
+  const mappings = pipeMappingSchema.array().parse(pipe.mappings);
+
+  if (mappings.length === 0) {
+    return;
+  }
+
   const supabase = db(env);
   const row = await callMarbleApi<{
     id: string;
@@ -114,7 +120,6 @@ async function materializePipe(
     },
     method: "POST",
   });
-  const mappings = pipeMappingSchema.array().parse(pipe.mappings);
   const { data: cells, error: cellError } = await supabase
     .from("cell")
     .select("id, column_id")

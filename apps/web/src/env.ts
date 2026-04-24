@@ -14,6 +14,7 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   },
   server: {
+    AI_GATEWAY_API_KEY: z.string().min(1).optional(),
     EXECUTOR_URL: z.string().url().default("http://localhost:3087"),
     MARBLE_EXECUTOR_URL: z
       .string()

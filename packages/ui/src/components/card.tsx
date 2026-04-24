@@ -95,6 +95,9 @@ const marbleCardHeaderActionsVariants = cva(
   "flex shrink-0 flex-wrap items-center gap-2 self-start",
 );
 const marbleCardContentVariants = cva("px-5 pb-5");
+const marbleCardSectionVariants = cva(
+  "border-t border-taupe-200 px-5 py-5 first:border-t-0",
+);
 const marbleCardFooterVariants = cva("flex items-center gap-3 px-5 pb-5 pt-2");
 const marbleCardTitleVariants = cva("font-semibold text-base text-zinc-900");
 const marbleCardDescriptionVariants = cva("text-sm text-zinc-600");
@@ -227,6 +230,23 @@ export function MarbleCardContent({
     >
       {children}
     </div>
+  );
+}
+
+export type MarbleCardSectionProps = HTMLAttributes<HTMLElement>;
+
+export function MarbleCardSection({
+  children,
+  className,
+  ...props
+}: MarbleCardSectionProps) {
+  return (
+    <section
+      className={cx(marbleCardSectionVariants(), className)}
+      {...props}
+    >
+      {children}
+    </section>
   );
 }
 

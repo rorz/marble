@@ -26,6 +26,7 @@ import {
   MarbleCardDescription,
   MarbleCardFooter,
   MarbleCardHeader,
+  MarbleCardSection,
   MarbleCardTitle,
   MarbleCommandDialog,
   MarbleCommandEmpty,
@@ -37,6 +38,7 @@ import {
   MarbleCommandSeparator,
   MarbleContextPopover,
   type MarbleContextPopoverSection,
+  MarbleCopyField,
   MarbleDropzone,
   MarbleEditableText,
   MarbleEmptyState,
@@ -879,6 +881,26 @@ export default function UiPage() {
                   </MarbleCardContent>
                 </MarbleCard>
 
+                <MarbleCard>
+                  <MarbleCardSection className="space-y-1">
+                    <MarbleCardTitle>Copy fields</MarbleCardTitle>
+                    <MarbleCardDescription>
+                      Clickable value rows for URLs, tokens, and operational
+                      identifiers.
+                    </MarbleCardDescription>
+                  </MarbleCardSection>
+                  <MarbleCardSection className="space-y-3">
+                    <MarbleCopyField
+                      label="Webhook endpoint"
+                      value="https://api.marble.local/webhooks/source_123"
+                    />
+                    <MarbleCopyField
+                      label="Webhook token"
+                      value="marble_whsec_8f31b4e0"
+                    />
+                  </MarbleCardSection>
+                </MarbleCard>
+
                 <MarbleCard tone="orange">
                   <MarbleCardHeader>
                     <MarbleCardTitle>Orange</MarbleCardTitle>
@@ -1226,6 +1248,13 @@ export default function UiPage() {
                       {
                         id: "pane-current",
                         label: "Untitled Project",
+                      },
+                    ]}
+                    disclosureActions={[
+                      {
+                        label: "Delete project",
+                        onSelect: () => marbleToast.message("Delete project"),
+                        tone: "danger",
                       },
                     ]}
                   >

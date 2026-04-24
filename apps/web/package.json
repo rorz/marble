@@ -11,6 +11,7 @@
     "@t3-oss/env-nextjs": "catalog:base",
     "ag-grid-community": "catalog:base",
     "ag-grid-react": "catalog:base",
+    "ai": "catalog:base",
     "hono": "catalog:base",
     "monaco-editor": "catalog:base",
     "next": "catalog:base",

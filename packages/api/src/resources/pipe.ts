@@ -41,13 +41,13 @@ const pipeMappingSchema = requestObject({
 });
 
 const pipeCreateSchema = requestObject({
-  mappings: z.array(pipeMappingSchema).min(1),
+  mappings: z.array(pipeMappingSchema).optional(),
   sourceId: uuidSchema.optional(),
   tableId: uuidSchema.optional(),
 });
 
 const pipePatchSchema = requestObject({
-  mappings: z.array(pipeMappingSchema).min(1).optional(),
+  mappings: z.array(pipeMappingSchema).optional(),
   sourceId: uuidSchema.optional(),
   tableId: uuidSchema.optional(),
 });
@@ -127,10 +127,6 @@ async function normalizeMappings(
   tableId: string,
   mappings: z.infer<typeof pipeMappingSchema>[],
 ) {
-  if (mappings.length === 0) {
-    throw new ApiError(400, "Pipe mappings must include at least one entry");
-  }
-
   const eligibleColumns = await listInputEligibleColumnsForTable(c, tableId);
   const eligibleColumnIds = new Set(eligibleColumns.map((column) => column.id));
   const seenColumnIds = new Set<string>();
@@ -219,7 +215,7 @@ async function createPipe(
     },
     explicitProjectId,
   );
-  const mappings = await normalizeMappings(c, table.id, body.mappings);
+  const mappings = await normalizeMappings(c, table.id, body.mappings ?? []);
 
   const pipe = await createRecord(c.var.supabase, "pipe", {
     mappings,

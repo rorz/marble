@@ -17,7 +17,7 @@
     "dangerously-splat": "bunx supabase db reset",
     "gen:program-seed": "bun run generate-seed.ts",
     "typecheck": "tsc --noEmit",
-    "typegen": "tmp=$(mktemp src/types.ts.XXXXXX) && supabase gen types typescript --local > \"$tmp\" && mv \"$tmp\" src/types.ts"
+    "typegen": "tmp=$(mktemp src/types.ts.XXXXXX) && supabase gen types typescript --local > \"$tmp\" && mv \"$tmp\" src/types.ts && biome format --write src/types.ts"
   },
   "type": "module",
   "version": "0.1.0"

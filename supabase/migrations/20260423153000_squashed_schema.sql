@@ -1155,6 +1155,10 @@ ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."source";
 
 
 
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."source_event";
+
+
+
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."pipe";
 
 

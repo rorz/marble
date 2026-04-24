@@ -37,6 +37,7 @@ import {
   RobotIcon,
   SidebarIcon,
   TableIcon,
+  XIcon,
 } from "@phosphor-icons/react";
 
 import Link from "next/link";
@@ -87,6 +88,10 @@ import {
 } from "./change-spotlight";
 import { createDefaultProfileAction } from "./profiles/actions";
 import { createProgram } from "./programs/actions";
+import {
+  createPipeAction,
+  createSourceAction,
+} from "./projects/[id]/sources/actions";
 import { createProjectAction, createTableAction } from "./projects/actions";
 
 type TreeCollectionKey = "programs" | "projects";
@@ -206,7 +211,10 @@ type CommandPaletteSection = {
   id: string;
   items: CommandPaletteItem[];
 };
-type CommandPalettePage = "create-table-project";
+type CommandPalettePage =
+  | "create-pipe-project"
+  | "create-source-project"
+  | "create-table-project";
 type SupportSheetView = "contact" | "handbook";
 
 const supportSheetWidthClassName = "w-[min(32rem,calc(100vw-1rem))]";
@@ -284,6 +292,25 @@ function collectCommandPaletteResources(
       node,
     ]),
   ]);
+}
+
+function findProjectChildNode(
+  projectNode: SidebarTreeNode,
+  kind: "source" | "table",
+) {
+  return projectNode.children.find((child) => child.kind === kind) ?? null;
+}
+
+function getPipeCreateDefaults(projectNode: SidebarTreeNode) {
+  const sourceNode = findProjectChildNode(projectNode, "source");
+  const tableNode = findProjectChildNode(projectNode, "table");
+
+  return sourceNode && tableNode
+    ? {
+        sourceId: sourceNode.id,
+        tableId: tableNode.id,
+      }
+    : null;
 }
 
 function isEditableTarget(target: EventTarget | null) {
@@ -608,8 +635,8 @@ function CommandPaletteSupportSheet({
         <SupportPanelSection title="Jump anywhere">
           <p>
             Open the palette with Cmd/Ctrl+K, then search for projects, tables,
-            programs, profiles, automations, or events to move without touching
-            the sidebar.
+            sources, pipes, programs, profiles, automations, or events to move
+            without touching the sidebar.
           </p>
         </SupportPanelSection>
 
@@ -888,8 +915,23 @@ export function GuiShell({
   const defaultTableProjectNode =
     selectedProjectNode ??
     (projectNodes.length === 1 ? (projectNodes[0]?.node ?? null) : null);
+  const defaultSourceProjectNode = defaultTableProjectNode;
+  const pipeProjectNodes = projectNodes.filter(
+    ({ node }) => getPipeCreateDefaults(node) !== null,
+  );
+  const defaultPipeProjectNode =
+    selectedProjectNode && getPipeCreateDefaults(selectedProjectNode)
+      ? selectedProjectNode
+      : pipeProjectNodes.length === 1
+        ? (pipeProjectNodes[0]?.node ?? null)
+        : null;
   const hasProjectTargetsForNewTable = projectNodes.length > 0;
+  const hasProjectTargetsForNewSource = projectNodes.length > 0;
+  const hasProjectTargetsForNewPipe = pipeProjectNodes.length > 0;
   const createTableDetail = defaultTableProjectNode?.label ?? "Choose project";
+  const createSourceDetail =
+    defaultSourceProjectNode?.label ?? "Choose project";
+  const createPipeDetail = defaultPipeProjectNode?.label ?? "Choose project";
   const handleCreateProjectFromCommandPalette = async () => {
     closeCommandPalette();
 
@@ -925,6 +967,66 @@ export function GuiShell({
     await handleCreateTableForProjectFromCommandPalette(
       defaultTableProjectNode.id,
     );
+  };
+  const handleCreateSourceForProjectFromCommandPalette = async (
+    projectId: string,
+  ) => {
+    closeCommandPalette();
+
+    try {
+      const source = await createSourceAction(projectId);
+      router.push(`/projects/${projectId}/sources/${source.id}`);
+    } catch (error) {
+      handleCommandPaletteError(error);
+    }
+  };
+  const handleCreateSourceFromCommandPalette = async () => {
+    if (!hasProjectTargetsForNewSource) {
+      return;
+    }
+
+    if (!defaultSourceProjectNode) {
+      pushCommandPalettePage("create-source-project");
+      return;
+    }
+
+    await handleCreateSourceForProjectFromCommandPalette(
+      defaultSourceProjectNode.id,
+    );
+  };
+  const handleCreatePipeForProjectFromCommandPalette = async (
+    projectNode: SidebarTreeNode,
+  ) => {
+    const defaults = getPipeCreateDefaults(projectNode);
+
+    if (!defaults) {
+      return;
+    }
+
+    closeCommandPalette();
+
+    try {
+      const pipe = await createPipeAction(projectNode.id, {
+        mappings: [],
+        sourceId: defaults.sourceId,
+        tableId: defaults.tableId,
+      });
+      router.push(`/projects/${projectNode.id}/pipes/${pipe.id}`);
+    } catch (error) {
+      handleCommandPaletteError(error);
+    }
+  };
+  const handleCreatePipeFromCommandPalette = async () => {
+    if (!hasProjectTargetsForNewPipe) {
+      return;
+    }
+
+    if (!defaultPipeProjectNode) {
+      pushCommandPalettePage("create-pipe-project");
+      return;
+    }
+
+    await handleCreatePipeForProjectFromCommandPalette(defaultPipeProjectNode);
   };
   const handleCreateProgramFromCommandPalette = async () => {
     closeCommandPalette();
@@ -1160,6 +1262,58 @@ export function GuiShell({
               },
             ]
           : []),
+        ...(hasProjectTargetsForNewSource
+          ? [
+              {
+                detail: createSourceDetail,
+                icon: (
+                  <FunnelIcon
+                    size={16}
+                    weight="duotone"
+                  />
+                ),
+                id: "command-palette-new-source",
+                keywords: [
+                  "create",
+                  "new",
+                  "source",
+                  "webhook",
+                  "ingest",
+                ],
+                label: defaultSourceProjectNode
+                  ? "New source"
+                  : "New source...",
+                onSelect: () => {
+                  void handleCreateSourceFromCommandPalette();
+                },
+              },
+            ]
+          : []),
+        ...(hasProjectTargetsForNewPipe
+          ? [
+              {
+                detail: createPipeDetail,
+                icon: (
+                  <PipeIcon
+                    size={16}
+                    weight="duotone"
+                  />
+                ),
+                id: "command-palette-new-pipe",
+                keywords: [
+                  "create",
+                  "new",
+                  "pipe",
+                  "mapping",
+                  "ingest",
+                ],
+                label: defaultPipeProjectNode ? "New pipe" : "New pipe...",
+                onSelect: () => {
+                  void handleCreatePipeFromCommandPalette();
+                },
+              },
+            ]
+          : []),
         {
           detail: "Create",
           icon: (
@@ -1257,6 +1411,58 @@ export function GuiShell({
           ],
           label: "Open tables",
           onSelect: () => navigateFromCommandPalette("/tables"),
+        },
+        {
+          detail: "/sources",
+          icon: (
+            <FunnelIcon
+              size={16}
+              weight="duotone"
+            />
+          ),
+          id: "command-palette-sources",
+          keywords: [
+            "source",
+            "webhook",
+            "ingest",
+          ],
+          label: "Open sources",
+          onSelect: () => navigateFromCommandPalette("/sources"),
+        },
+        {
+          detail: "/pipes",
+          icon: (
+            <PipeIcon
+              size={16}
+              weight="duotone"
+            />
+          ),
+          id: "command-palette-pipes",
+          keywords: [
+            "pipe",
+            "mapping",
+            "ingest",
+          ],
+          label: "Open pipes",
+          onSelect: () => navigateFromCommandPalette("/pipes"),
+        },
+        {
+          detail: "/secrets",
+          icon: (
+            <KeyIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "command-palette-secrets",
+          keywords: [
+            "credential",
+            "key",
+            "secret",
+            "vault",
+          ],
+          label: "Open secrets",
+          onSelect: () => navigateFromCommandPalette("/secrets"),
         },
       ],
     },
@@ -1376,6 +1582,72 @@ export function GuiShell({
       })),
     },
   ];
+  const createSourceProjectSections: CommandPaletteSection[] = [
+    {
+      heading: "Choose project",
+      id: "command-palette-create-source-project",
+      items: projectNodes.map(({ node }) => ({
+        detail: "Project",
+        icon: (
+          <BriefcaseMetalIcon
+            size={16}
+            weight="regular"
+          />
+        ),
+        id: `command-palette-new-source-project:${node.id}`,
+        keywords: [
+          "create",
+          "new",
+          "project",
+          "source",
+          "webhook",
+          node.id,
+        ],
+        label: node.label,
+        onSelect: () => {
+          void handleCreateSourceForProjectFromCommandPalette(node.id);
+        },
+      })),
+    },
+  ];
+  const createPipeProjectSections: CommandPaletteSection[] = [
+    {
+      heading: "Choose project",
+      id: "command-palette-create-pipe-project",
+      items: pipeProjectNodes.map(({ node }) => ({
+        detail: "Project",
+        icon: (
+          <BriefcaseMetalIcon
+            size={16}
+            weight="regular"
+          />
+        ),
+        id: `command-palette-new-pipe-project:${node.id}`,
+        keywords: [
+          "create",
+          "new",
+          "project",
+          "pipe",
+          "mapping",
+          node.id,
+        ],
+        label: node.label,
+        onSelect: () => {
+          void handleCreatePipeForProjectFromCommandPalette(node);
+        },
+      })),
+    },
+  ];
+  const createProjectSectionsByPage = {
+    "create-pipe-project": createPipeProjectSections,
+    "create-source-project": createSourceProjectSections,
+    "create-table-project": createTableProjectSections,
+  } satisfies Record<CommandPalettePage, CommandPaletteSection[]>;
+  const createResourceLabelByPage = {
+    "create-pipe-project": "pipe",
+    "create-source-project": "source",
+    "create-table-project": "table",
+  } satisfies Record<CommandPalettePage, string>;
   const normalizedCommandPaletteQuery = commandPaletteQuery.toLowerCase();
   const isSupportQuery =
     currentCommandPalettePage === null &&
@@ -1387,8 +1659,8 @@ export function GuiShell({
       "support",
     ].some((term) => normalizedCommandPaletteQuery.includes(term));
   const commandPaletteSections: CommandPaletteSection[] = (
-    currentCommandPalettePage === "create-table-project"
-      ? createTableProjectSections
+    currentCommandPalettePage !== null
+      ? createProjectSectionsByPage[currentCommandPalettePage]
       : isSupportQuery
         ? [
             supportCommandSection,
@@ -1400,17 +1672,19 @@ export function GuiShell({
           ]
   ).filter((section) => section.items.length > 0);
   const commandPaletteEmptyMessage =
-    currentCommandPalettePage === "create-table-project"
-      ? "No matching project for a new table."
+    currentCommandPalettePage !== null
+      ? `No matching project for a new ${
+          createResourceLabelByPage[currentCommandPalettePage]
+        }.`
       : "No matching command. Try `projects`, `rows`, `people`, or `help`.";
   const commandPaletteFooterPrimaryText =
-    currentCommandPalettePage === "create-table-project"
+    currentCommandPalettePage !== null
       ? "Enter creates in the selected project"
       : "Enter opens the selected item";
   const commandPaletteFooterSecondaryText =
     commandPaletteSupportSheet !== null
       ? "Esc closes the side panel first"
-      : currentCommandPalettePage === "create-table-project"
+      : currentCommandPalettePage !== null
         ? "Esc or Backspace returns to actions"
         : "Cmd/Ctrl+K toggles this menu";
   const projectIdByChildId = useMemo(() => {
@@ -2291,7 +2565,7 @@ export function GuiShell({
                   title={agentSidebarToggleLabel}
                   type="button"
                 >
-                  <CaretDoubleRightIcon
+                  <XIcon
                     size={16}
                     weight="bold"
                   />
@@ -2329,7 +2603,7 @@ export function GuiShell({
       </div>
 
       {agentSidebarMode === "collapsed" ? (
-        <div className="pointer-events-none absolute top-6 right-4 z-20">
+        <div className="pointer-events-none absolute right-2 bottom-2 z-20">
           <ChangeRadar
             className="pointer-events-auto shrink-0 opacity-80 transition-opacity hover:opacity-100"
             mode="trigger"

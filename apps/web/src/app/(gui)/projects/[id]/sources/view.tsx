@@ -7,26 +7,34 @@ import {
   MarbleButton,
   MarbleCard,
   MarbleCardContent,
+  MarbleCardFooter,
   MarbleCardHeader,
+  MarbleCardSection,
   MarbleCardTitle,
+  MarbleCopyField,
+  MarbleEditableText,
   MarbleEmptyState,
   MarbleFieldLabel,
-  MarbleInput,
   MarbleListRow,
   MarblePane,
+  MarblePaneEditableCrumb,
   MarbleSearchSelect,
   MarbleSelect,
   MarbleTextarea,
   marbleToast,
 } from "@marble/ui";
+import type { editor as MonacoEditorApi } from "monaco-editor";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { z } from "zod";
 import {
   buildPipeMappingSummary,
   buildPipeTitle,
   normalizePipeMappings,
 } from "../../../../../lib/pipe-display";
 import type { ProjectSourceWorkspaceData } from "../../../../../lib/source-data";
+import { createClient } from "../../../../../lib/supabase/browser";
 import {
   changeTargetKey,
   getChangeTargetProps,
@@ -34,9 +42,10 @@ import {
 import * as actions from "./actions";
 
 type SourceRecord = Database["public"]["Tables"]["source"]["Row"];
-type PipeMappingInput = Awaited<
-  Parameters<typeof actions.createPipeAction>[1]
->["mappings"][number];
+type SourceEventRecord = Database["public"]["Tables"]["source_event"]["Row"];
+type PipeMappingInput = NonNullable<
+  Parameters<typeof actions.createPipeAction>[1]["mappings"]
+>[number];
 type PipeMappingDraft = PipeMappingInput & {
   draftId: string;
 };
@@ -46,6 +55,15 @@ type PipePathCandidate = {
   preview: string;
 };
 type ProjectSourceDetailMode = "pipe" | "source";
+type SourceSchemaValidation =
+  | {
+      ok: true;
+      value: unknown;
+    }
+  | {
+      message: string;
+      ok: false;
+    };
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -62,8 +80,73 @@ const DEFAULT_SOURCE_SCHEMA_TEXT = JSON.stringify(
   2,
 );
 
+const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
+  loading: () => (
+    <div className="flex h-full items-center justify-center text-taupe-500 text-xs">
+      Loading editor...
+    </div>
+  ),
+  ssr: false,
+});
+
+const sourceSchemaEditorOptions = {
+  automaticLayout: true,
+  fontFamily:
+    '"Geist Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
+  fontSize: 13,
+  lineNumbersMinChars: 3,
+  minimap: {
+    enabled: false,
+  },
+  padding: {
+    top: 12,
+  },
+  renderWhitespace: "selection",
+  scrollBeyondLastLine: false,
+  smoothScrolling: true,
+  tabSize: 2,
+} satisfies MonacoEditorApi.IStandaloneEditorConstructionOptions;
+
 function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2);
+}
+
+function validateSourceSchemaText(value: string): SourceSchemaValidation {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(value);
+  } catch (error) {
+    return {
+      message:
+        error instanceof Error ? error.message : "Payload schema must be JSON.",
+      ok: false,
+    };
+  }
+
+  if (!isPlainObject(parsed)) {
+    return {
+      message: "Payload schema must be a JSON schema object.",
+      ok: false,
+    };
+  }
+
+  try {
+    z.fromJSONSchema(parsed as z.core.JSONSchema.Schema);
+  } catch (error) {
+    return {
+      message:
+        error instanceof Error
+          ? `Payload schema could not be compiled: ${error.message}`
+          : "Payload schema could not be compiled.",
+      ok: false,
+    };
+  }
+
+  return {
+    ok: true,
+    value: parsed,
+  };
 }
 
 function sortByCreatedAtDesc<
@@ -391,18 +474,6 @@ function resolveGeneratedJsonPath(value: unknown, path: string) {
   return currentValue;
 }
 
-function buildSourceCreateHref(projectId: string) {
-  return `/projects/${projectId}/sources/new`;
-}
-
-function buildSourceDetailHref(projectId: string, sourceId: string) {
-  return `/projects/${projectId}/sources/${sourceId}`;
-}
-
-function buildPipeCreateHref(projectId: string) {
-  return `/projects/${projectId}/pipes/new`;
-}
-
 function buildPipeDetailHref(projectId: string, pipeId: string) {
   return `/projects/${projectId}/pipes/${pipeId}`;
 }
@@ -411,13 +482,11 @@ export function ProjectSourceDetailPageView({
   initialData,
   initialPipeId = null,
   initialSourceId = null,
-  isCreating = false,
   mode,
 }: {
   initialData: ProjectSourceWorkspaceData;
   initialPipeId?: string | null;
   initialSourceId?: string | null;
-  isCreating?: boolean;
   mode: ProjectSourceDetailMode;
 }) {
   const router = useRouter();
@@ -433,22 +502,33 @@ export function ProjectSourceDetailPageView({
   const [pipes, setPipes] = useState(() =>
     sortByUpdatedAtDesc(initialData.pipes),
   );
-  const [currentSourceId, setCurrentSourceId] = useState(initialSourceId);
+  const currentSourceId = initialSourceId;
   const [currentPipeId, setCurrentPipeId] = useState(initialPipeId);
-  const [creatingSource, setCreatingSource] = useState(
-    mode === "source" && isCreating,
-  );
-  const [creatingPipe, setCreatingPipe] = useState(
-    mode === "pipe" && isCreating,
-  );
+  const [creatingNextPipe, setCreatingNextPipe] = useState(false);
   const [selectedSourceEventId, setSelectedSourceEventId] = useState<
     null | string
   >(null);
-  const [sourceNameDraft, setSourceNameDraft] = useState("");
+  const [sourceEditingSurface, setSourceEditingSurface] = useState<
+    null | "crumb" | "title"
+  >(null);
+  const [sourceNameDraft, setSourceNameDraft] = useState(() => {
+    const initialSource = initialSourceId
+      ? (initialData.sources.find((source) => source.id === initialSourceId) ??
+        null)
+      : null;
+
+    return sourceTitle(initialSource);
+  });
   const [sourceSchemaDraft, setSourceSchemaDraft] = useState(
     DEFAULT_SOURCE_SCHEMA_TEXT,
   );
   const [sourceError, setSourceError] = useState<null | string>(null);
+  const [sourceRenameError, setSourceRenameError] = useState<null | string>(
+    null,
+  );
+  const [sourceNamePending, setSourceNamePending] = useState(false);
+  const [sourceSchemaInferPending, setSourceSchemaInferPending] =
+    useState(false);
   const [sourcePending, setSourcePending] = useState(false);
   const [pipeSourceIdDraft, setPipeSourceIdDraft] = useState("");
   const [pipeTableIdDraft, setPipeTableIdDraft] = useState("");
@@ -615,6 +695,15 @@ export function ProjectSourceDetailPageView({
       pipePathCandidates,
     ],
   );
+  const sourceSchemaValidation = useMemo(
+    () => validateSourceSchemaText(sourceSchemaDraft),
+    [
+      sourceSchemaDraft,
+    ],
+  );
+  const sourceSchemaError = sourceSchemaValidation.ok
+    ? sourceError
+    : sourceSchemaValidation.message;
   const pipeMappingByColumnId = useMemo(
     () =>
       new Map(
@@ -642,24 +731,28 @@ export function ProjectSourceDetailPageView({
       return;
     }
 
-    if (creatingSource) {
-      setSourceNameDraft("");
-      setSourceSchemaDraft(DEFAULT_SOURCE_SCHEMA_TEXT);
-      setSourceError(null);
-      return;
-    }
-
     if (!selectedSource) {
       return;
     }
 
-    setSourceNameDraft(selectedSource.name);
     setSourceSchemaDraft(formatJson(selectedSource.payload_schema));
     setSourceError(null);
+    setSourceRenameError(null);
   }, [
-    creatingSource,
     mode,
     selectedSource,
+  ]);
+
+  useEffect(() => {
+    if (mode !== "source" || sourceEditingSurface !== null) {
+      return;
+    }
+
+    setSourceNameDraft(sourceTitle(selectedSource));
+  }, [
+    mode,
+    selectedSource,
+    sourceEditingSurface,
   ]);
 
   useEffect(() => {
@@ -674,15 +767,48 @@ export function ProjectSourceDetailPageView({
   ]);
 
   useEffect(() => {
-    if (mode !== "pipe") {
+    if (mode !== "source" || !currentSourceId) {
       return;
     }
 
-    if (creatingPipe) {
-      setPipeSourceIdDraft(firstSourceId);
-      setPipeTableIdDraft(firstTableId);
-      setPipeMappingsDraft([]);
-      setPipeError(null);
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`source-events:${currentSourceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          filter: `source_id=eq.${currentSourceId}`,
+          schema: "public",
+          table: "source_event",
+        },
+        (payload) => {
+          const nextEvent = payload.new as SourceEventRecord;
+
+          if (nextEvent.source_id !== currentSourceId) {
+            return;
+          }
+
+          setSourceEvents((current) =>
+            sortByCreatedAtDesc([
+              nextEvent,
+              ...current.filter((event) => event.id !== nextEvent.id),
+            ]).slice(0, 120),
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [
+    currentSourceId,
+    mode,
+  ]);
+
+  useEffect(() => {
+    if (mode !== "pipe") {
       return;
     }
 
@@ -699,9 +825,6 @@ export function ProjectSourceDetailPageView({
     );
     setPipeError(null);
   }, [
-    creatingPipe,
-    firstSourceId,
-    firstTableId,
     mode,
     selectedPipe,
   ]);
@@ -746,7 +869,7 @@ export function ProjectSourceDetailPageView({
   const handleAutoMapPipeColumns = () => {
     if (pipePathCandidates.length === 0) {
       setPipeError(
-        "Auto-map needs source schema fields or a cached valid parsed event.",
+        "Auto-map needs source schema fields or a captured valid parsed event.",
       );
       return;
     }
@@ -806,13 +929,60 @@ export function ProjectSourceDetailPageView({
     );
   };
 
-  const handleSaveSource = async () => {
-    let payloadSchema: unknown;
+  const stopEditingSourceName = () => {
+    setSourceEditingSurface(null);
+    setSourceNameDraft(sourceTitle(selectedSource));
+  };
+
+  const commitSourceName = async () => {
+    if (!selectedSource) {
+      stopEditingSourceName();
+      return;
+    }
+
+    const currentName = sourceTitle(selectedSource);
+    const nextName = sourceNameDraft.trim() || "Untitled Source";
+
+    if (nextName === currentName) {
+      setSourceEditingSurface(null);
+      setSourceNameDraft(currentName);
+      return;
+    }
+
+    setSourceNamePending(true);
+    setSourceRenameError(null);
 
     try {
-      payloadSchema = JSON.parse(sourceSchemaDraft);
-    } catch {
-      setSourceError("Payload schema must be valid JSON.");
+      const updated = await actions.updateSourceAction(
+        projectId,
+        selectedSource.id,
+        {
+          name: nextName,
+        },
+      );
+
+      setSources((current) =>
+        sortByUpdatedAtDesc(
+          current.map((source) =>
+            source.id === updated.id ? updated : source,
+          ),
+        ),
+      );
+      setSourceEditingSurface(null);
+      setSourceNameDraft(sourceTitle(updated));
+      marbleToast.success("Source renamed");
+    } catch (error) {
+      setSourceRenameError(
+        error instanceof Error ? error.message : String(error),
+      );
+    } finally {
+      setSourceNamePending(false);
+    }
+  };
+
+  const handleSaveSource = async () => {
+    if (!sourceSchemaValidation.ok) {
+      setSourceError(sourceSchemaValidation.message);
       return;
     }
 
@@ -820,25 +990,6 @@ export function ProjectSourceDetailPageView({
     setSourceError(null);
 
     try {
-      if (creatingSource) {
-        const created = await actions.createSourceAction(projectId, {
-          name: sourceNameDraft.trim() || undefined,
-          payloadSchema,
-        });
-
-        setSources((current) =>
-          sortByUpdatedAtDesc([
-            created,
-            ...current,
-          ]),
-        );
-        setCreatingSource(false);
-        setCurrentSourceId(created.id);
-        router.replace(buildSourceDetailHref(projectId, created.id));
-        marbleToast.success("Source created");
-        return;
-      }
-
       if (!selectedSource) {
         throw new Error("Select a source before saving.");
       }
@@ -847,8 +998,7 @@ export function ProjectSourceDetailPageView({
         projectId,
         selectedSource.id,
         {
-          name: sourceNameDraft.trim() || undefined,
-          payloadSchema,
+          payloadSchema: sourceSchemaValidation.value,
         },
       );
 
@@ -864,6 +1014,30 @@ export function ProjectSourceDetailPageView({
       setSourceError(error instanceof Error ? error.message : String(error));
     } finally {
       setSourcePending(false);
+    }
+  };
+
+  const handleInferSourceSchema = async () => {
+    if (!selectedSourceEvent) {
+      setSourceError("Select an event before inferring a schema.");
+      return;
+    }
+
+    setSourceSchemaInferPending(true);
+    setSourceError(null);
+
+    try {
+      const inferredSchema = await actions.inferSourceSchemaFromEventAction(
+        projectId,
+        selectedSourceEvent.id,
+      );
+
+      setSourceSchemaDraft(formatJson(inferredSchema));
+      marbleToast.success("Schema inferred from selected event");
+    } catch (error) {
+      setSourceError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSourceSchemaInferPending(false);
     }
   };
 
@@ -930,26 +1104,6 @@ export function ProjectSourceDetailPageView({
     setPipeError(null);
 
     try {
-      if (creatingPipe) {
-        const created = await actions.createPipeAction(projectId, {
-          mappings,
-          sourceId: pipeSourceIdDraft,
-          tableId: pipeTableIdDraft,
-        });
-
-        setPipes((current) =>
-          sortByUpdatedAtDesc([
-            created,
-            ...current,
-          ]),
-        );
-        setCreatingPipe(false);
-        setCurrentPipeId(created.id);
-        router.replace(buildPipeDetailHref(projectId, created.id));
-        marbleToast.success("Pipe created");
-        return;
-      }
-
       if (!selectedPipe) {
         throw new Error("Select a pipe before saving.");
       }
@@ -974,6 +1128,40 @@ export function ProjectSourceDetailPageView({
       setPipeError(error instanceof Error ? error.message : String(error));
     } finally {
       setPipePending(false);
+    }
+  };
+
+  const handleCreatePipe = async () => {
+    if (!firstSourceId || !firstTableId) {
+      setPipeError(
+        "Create at least one source and one table before adding a pipe.",
+      );
+      return;
+    }
+
+    setCreatingNextPipe(true);
+    setPipeError(null);
+
+    try {
+      const created = await actions.createPipeAction(projectId, {
+        mappings: [],
+        sourceId: firstSourceId,
+        tableId: firstTableId,
+      });
+
+      setPipes((current) =>
+        sortByUpdatedAtDesc([
+          created,
+          ...current,
+        ]),
+      );
+      setCurrentPipeId(created.id);
+      router.push(buildPipeDetailHref(projectId, created.id));
+      marbleToast.success("Pipe created");
+    } catch (error) {
+      setPipeError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setCreatingNextPipe(false);
     }
   };
 
@@ -1008,9 +1196,7 @@ export function ProjectSourceDetailPageView({
     }
   };
 
-  const sourcePageTitle = creatingSource
-    ? "New source"
-    : sourceTitle(selectedSource);
+  const sourcePageTitle = sourceNameDraft;
   const pipeSourceLabel =
     sourceLabelById.get(pipeSourceIdDraft) ?? "Choose source";
   const pipeTableLabel = tableLabelById.get(pipeTableIdDraft) ?? "Choose table";
@@ -1022,21 +1208,17 @@ export function ProjectSourceDetailPageView({
     pipeMappingsDraft,
     pipeColumnLabelById,
   );
-  const pipePageTitle =
-    creatingPipe && !pipeSourceIdDraft && !pipeTableIdDraft
-      ? "New pipe"
-      : pipeDraftTitle;
+  const pipePageTitle = pipeDraftTitle;
   const pageTitle = mode === "source" ? sourcePageTitle : pipePageTitle;
   const paneTargetKey =
     mode === "source"
-      ? creatingSource || !selectedSource
+      ? !selectedSource
         ? changeTargetKey.project(projectId)
         : changeTargetKey.source(selectedSource.id)
-      : creatingPipe || !selectedPipe
+      : !selectedPipe
         ? changeTargetKey.project(projectId)
         : changeTargetKey.pipe(selectedPipe.id);
-  const pipeHeaderSummary =
-    pipePageTitle === "New pipe" ? pipeDraftTitle : pipeMappingSummary;
+  const pipeHeaderSummary = pipeMappingSummary;
   const latestPipeSourceEventLabel = latestPipeSourceEvent
     ? DATE_TIME_FORMATTER.format(new Date(latestPipeSourceEvent.created_at))
     : null;
@@ -1047,19 +1229,29 @@ export function ProjectSourceDetailPageView({
     : latestPipeSourceEventLabel
       ? `Schema has no concrete fields yet · Falling back to valid event ${latestPipeSourceEventLabel}`
       : pipeSchemaPathCandidates.length > 0
-        ? "Schema is broad, so field suggestions unlock after a valid parsed event lands"
-        : "Add source schema fields or cache a valid parsed event to unlock suggestions";
+        ? "Schema is broad, so field suggestions unlock after a valid captured event lands"
+        : "Add source schema fields or capture a valid parsed event to unlock suggestions";
+  const paneDisclosureActions =
+    mode === "source"
+      ? [
+          {
+            disabled: sourcePending || !selectedSource,
+            label: "Delete source",
+            onSelect: () => void handleDeleteSource(),
+            tone: "danger" as const,
+          },
+        ]
+      : [
+          {
+            disabled: pipePending || !selectedPipe,
+            label: "Delete pipe",
+            onSelect: () => void handleDeletePipe(),
+            tone: "danger" as const,
+          },
+        ];
 
   return (
     <MarblePane
-      actions={[
-        {
-          children: "Back to project",
-          id: "back-to-project",
-          onClick: () => router.push(`/projects/${projectId}`),
-          variant: "light",
-        },
-      ]}
       crumbs={[
         {
           href: "/projects",
@@ -1073,21 +1265,51 @@ export function ProjectSourceDetailPageView({
         },
         {
           id: mode,
-          label: pageTitle,
+          label:
+            mode === "source" ? (
+              <MarblePaneEditableCrumb
+                disabled={!selectedSource || sourceNamePending}
+                editing={sourceEditingSurface === "crumb"}
+                onCancel={stopEditingSourceName}
+                onChange={setSourceNameDraft}
+                onCommit={() => void commitSourceName()}
+                onEdit={() => setSourceEditingSurface("crumb")}
+                value={sourceNameDraft}
+              />
+            ) : (
+              pageTitle
+            ),
         },
       ]}
+      disclosureActions={paneDisclosureActions}
+      disclosureAriaLabel="Open resource actions"
     >
       <div
         className="flex min-h-0 flex-1 flex-col gap-5"
         {...getChangeTargetProps(paneTargetKey)}
       >
         <div className="space-y-3">
-          <h1 className="text-4xl tracking-tight text-zinc-950">{pageTitle}</h1>
+          {mode === "source" ? (
+            <MarbleEditableText
+              className="-mx-1 rounded-sm px-1 text-left text-4xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
+              disabled={!selectedSource || sourceNamePending}
+              editing={sourceEditingSurface === "title"}
+              onCancel={stopEditingSourceName}
+              onChange={setSourceNameDraft}
+              onCommit={() => void commitSourceName()}
+              onEdit={() => setSourceEditingSurface("title")}
+              value={sourceNameDraft}
+            />
+          ) : (
+            <h1 className="text-4xl tracking-tight text-zinc-950">
+              {pageTitle}
+            </h1>
+          )}
 
           {mode === "source" ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
-              <span>{selectedSourceEvents.length} cached events</span>
-              {!creatingSource && selectedSource ? (
+              <span>{selectedSourceEvents.length} events captured</span>
+              {selectedSource ? (
                 <span className="font-mono text-xs text-zinc-400">
                   {selectedSource.id}
                 </span>
@@ -1096,7 +1318,7 @@ export function ProjectSourceDetailPageView({
           ) : (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
               <span>{pipeHeaderSummary}</span>
-              {!creatingPipe && selectedPipe ? (
+              {selectedPipe ? (
                 <span className="font-mono text-xs text-zinc-400">
                   {selectedPipe.id}
                 </span>
@@ -1105,140 +1327,125 @@ export function ProjectSourceDetailPageView({
           )}
         </div>
 
+        {mode === "source" && sourceRenameError ? (
+          <MarbleAlert tone="error">{sourceRenameError}</MarbleAlert>
+        ) : null}
+
         {mode === "source" ? (
-          <div className="grid min-h-0 flex-1 gap-5 xl:grid-cols-[minmax(22rem,0.95fr)_minmax(0,1.15fr)]">
+          <div className="grid min-h-0 flex-1 items-stretch gap-5 xl:grid-cols-[minmax(22rem,0.95fr)_minmax(0,1.15fr)]">
             <MarbleCard
-              className="min-h-0"
+              className="flex h-full min-h-0"
               tone="subtle"
             >
-              <MarbleCardHeader
-                actions={
-                  creatingSource
-                    ? undefined
-                    : [
-                        {
-                          children: "New source",
-                          onClick: () =>
-                            router.push(buildSourceCreateHref(projectId)),
-                          variant: "light",
-                        },
-                      ]
-                }
-              >
+              <MarbleCardHeader>
                 <MarbleCardTitle>Source settings</MarbleCardTitle>
               </MarbleCardHeader>
-              <MarbleCardContent className="space-y-4">
-                {sourceError ? (
-                  <MarbleAlert tone="error">{sourceError}</MarbleAlert>
+              <MarbleCardSection className="space-y-3">
+                <MarbleCardTitle>Webhook</MarbleCardTitle>
+                <MarbleCopyField
+                  label="Webhook endpoint"
+                  value={
+                    selectedSource
+                      ? webhookEndpoint(
+                          initialData.webhookBaseUrl,
+                          selectedSource,
+                        )
+                      : null
+                  }
+                />
+                <MarbleCopyField
+                  label="Webhook token"
+                  value={selectedSource?.webhook_token ?? null}
+                />
+              </MarbleCardSection>
+              <MarbleCardSection className="flex min-h-0 flex-1 flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <MarbleCardTitle>Payload schema</MarbleCardTitle>
+                  <MarbleButton
+                    disabled={
+                      !selectedSourceEvent ||
+                      sourcePending ||
+                      sourceSchemaInferPending
+                    }
+                    onClick={() => void handleInferSourceSchema()}
+                    size="xs"
+                    variant="light"
+                  >
+                    {sourceSchemaInferPending
+                      ? "Inferring"
+                      : "Infer from selected event"}
+                  </MarbleButton>
+                </div>
+                {sourceSchemaError ? (
+                  <MarbleAlert tone="error">{sourceSchemaError}</MarbleAlert>
                 ) : null}
 
-                <div className="space-y-1.5">
-                  <MarbleFieldLabel>Name</MarbleFieldLabel>
-                  <MarbleInput
-                    onChange={(event) => setSourceNameDraft(event.target.value)}
-                    placeholder="Untitled Source"
-                    value={sourceNameDraft}
-                    wrapperClassName="w-full"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <MarbleFieldLabel>Payload schema</MarbleFieldLabel>
-                  <MarbleTextarea
-                    className="min-h-[14rem] font-mono text-xs"
-                    onChange={(event) =>
-                      setSourceSchemaDraft(event.target.value)
-                    }
-                    value={sourceSchemaDraft}
-                    wrapperClassName="w-full"
-                  />
-                  <div className="text-[11px] text-zinc-500">
-                    Default is a JSON schema object. Leave it broad if you just
-                    want a source cache first.
+                <div className="flex min-h-[18rem] flex-1 flex-col gap-1.5">
+                  <MarbleFieldLabel>Schema</MarbleFieldLabel>
+                  <div className="min-h-0 flex-1 overflow-hidden rounded-xs border border-taupe-200 bg-white shadow-sm shadow-zinc-950/10">
+                    <MonacoEditor
+                      height="100%"
+                      language="json"
+                      loading={
+                        <div className="flex h-full items-center justify-center text-taupe-500 text-xs">
+                          Loading editor...
+                        </div>
+                      }
+                      onChange={(value) => {
+                        setSourceSchemaDraft(value ?? "");
+                        setSourceError(null);
+                      }}
+                      options={sourceSchemaEditorOptions}
+                      path={
+                        selectedSource
+                          ? `source://${selectedSource.id}/payload-schema.json`
+                          : "source://payload-schema.json"
+                      }
+                      theme="vs"
+                      value={sourceSchemaDraft}
+                    />
                   </div>
                 </div>
-
-                <div className="space-y-1.5">
-                  <MarbleFieldLabel>Webhook endpoint</MarbleFieldLabel>
-                  <MarbleInput
-                    readOnly
-                    value={
-                      selectedSource
-                        ? webhookEndpoint(
-                            initialData.webhookBaseUrl,
-                            selectedSource,
-                          )
-                        : "Save the source first to get a webhook endpoint."
-                    }
-                    wrapperClassName="w-full"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <MarbleFieldLabel>Webhook token</MarbleFieldLabel>
-                  <MarbleInput
-                    readOnly
-                    value={
-                      selectedSource?.webhook_token ??
-                      "Save the source first to get a webhook token."
-                    }
-                    wrapperClassName="w-full"
-                  />
-                  <div className="text-[11px] text-zinc-500">
-                    Send it as `Authorization: Bearer &lt;token&gt;` or
-                    `X-Marble-Webhook-Token`.
-                  </div>
-                </div>
-
-                <MarbleAlert tone="neutral">
-                  Source events keep both the raw payload and the parsed
-                  payload. Parse errors are cached, not fatal.
-                </MarbleAlert>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <MarbleButton
-                    disabled={sourcePending}
-                    onClick={() => void handleSaveSource()}
-                    variant="dark"
-                  >
-                    {sourcePending
-                      ? "Saving"
-                      : creatingSource
-                        ? "Create source"
-                        : "Save source"}
-                  </MarbleButton>
-
-                  {!creatingSource ? (
-                    <MarbleButton
-                      disabled={sourcePending || !selectedSource}
-                      onClick={() => void handleDeleteSource()}
-                      variant="red"
-                    >
-                      Delete
-                    </MarbleButton>
-                  ) : null}
-                </div>
-              </MarbleCardContent>
+              </MarbleCardSection>
+              <MarbleCardFooter className="justify-end border-t border-taupe-200 pt-4">
+                <MarbleButton
+                  disabled={
+                    sourcePending ||
+                    sourceSchemaInferPending ||
+                    !sourceSchemaValidation.ok
+                  }
+                  onClick={() => void handleSaveSource()}
+                  variant="dark"
+                >
+                  {sourcePending ? "Saving" : "Save schema"}
+                </MarbleButton>
+              </MarbleCardFooter>
             </MarbleCard>
 
-            <MarbleCard className="min-h-0">
+            <MarbleCard className="flex h-full min-h-0">
               <MarbleCardHeader>
-                <MarbleCardTitle>Recent cached events</MarbleCardTitle>
+                <MarbleCardTitle className="inline-flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="size-2 rounded-full bg-taupe-800 animate-pulse"
+                  />
+                  Live event preview
+                </MarbleCardTitle>
               </MarbleCardHeader>
               <MarbleCardContent className="flex min-h-0 flex-1 flex-col gap-4">
-                {creatingSource || !selectedSource ? (
+                {!selectedSource ? (
                   <MarbleEmptyState
-                    description="Create the source first. Once it exists, incoming webhook payloads will show up here."
-                    title="No source events yet"
+                    description="Select a source to inspect captured webhook payloads."
+                    title="No source selected"
                   />
                 ) : selectedSourceEvents.length === 0 ? (
                   <MarbleEmptyState
-                    description="Post JSON to the webhook and the raw and parsed payloads will land here."
-                    title="No events for this source yet"
+                    description="Post JSON to the webhook endpoint to preview the latest payload."
+                    title="No events captured yet"
                   />
                 ) : (
-                  <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.28fr)]">
-                    <div className="min-h-0 overflow-y-auto rounded-xs border border-taupe-200">
+                  <div className="grid h-full min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.28fr)]">
+                    <div className="h-full min-h-0 overflow-y-auto rounded-xs border border-taupe-200">
                       {selectedSourceEvents.map((event) => (
                         <MarbleListRow
                           active={selectedSourceEvent?.id === event.id}
@@ -1306,7 +1513,7 @@ export function ProjectSourceDetailPageView({
                       ) : (
                         <MarbleEmptyState
                           description="Select an event to inspect its payload."
-                          title="Choose a cached event"
+                          title="Choose a captured event"
                         />
                       )}
                     </div>
@@ -1322,18 +1529,14 @@ export function ProjectSourceDetailPageView({
               tone="subtle"
             >
               <MarbleCardHeader
-                actions={
-                  creatingPipe
-                    ? undefined
-                    : [
-                        {
-                          children: "New pipe",
-                          onClick: () =>
-                            router.push(buildPipeCreateHref(projectId)),
-                          variant: "light",
-                        },
-                      ]
-                }
+                actions={[
+                  {
+                    children: creatingNextPipe ? "Creating" : "New pipe",
+                    disabled: creatingNextPipe,
+                    onClick: () => void handleCreatePipe(),
+                    variant: "light",
+                  },
+                ]}
               >
                 <MarbleCardTitle>Pipe settings</MarbleCardTitle>
               </MarbleCardHeader>
@@ -1519,22 +1722,8 @@ export function ProjectSourceDetailPageView({
                     onClick={() => void handleSavePipe()}
                     variant="dark"
                   >
-                    {pipePending
-                      ? "Saving"
-                      : creatingPipe
-                        ? "Create pipe"
-                        : "Save pipe"}
+                    {pipePending ? "Saving" : "Save pipe"}
                   </MarbleButton>
-
-                  {!creatingPipe ? (
-                    <MarbleButton
-                      disabled={pipePending || !selectedPipe}
-                      onClick={() => void handleDeletePipe()}
-                      variant="red"
-                    >
-                      Delete
-                    </MarbleButton>
-                  ) : null}
                 </div>
 
                 {pipeCreateDisabled ? (
