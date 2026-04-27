@@ -2,7 +2,7 @@ export type {
   ApiResourceName,
   ApiResourceOperationsByName,
   CrudOperation,
-} from "./api-resources.js";
+} from "./api-resources";
 export {
   ApiResourceNames,
   ApiResources,
@@ -12,12 +12,12 @@ export {
   apiResourceSegment,
   CRUD_OPERATIONS,
   supportsResourceOperation,
-} from "./api-resources.js";
+} from "./api-resources";
 export type {
   ProgramManifest,
   ProgramManifestSecretDeclaration,
   ProgramSecretConfig,
-} from "./program-manifest.js";
+} from "./program-manifest";
 export {
   ENVIRONMENT_VARIABLE_NAME_PATTERN,
   listProgramSecretDeclarationsFromFiles,
@@ -27,7 +27,7 @@ export {
   parseProgramManifest,
   parseProgramManifestFileContent,
   parseProgramSecretConfig,
-} from "./program-manifest.js";
-export { resolveColumnConfig, resolveColumnOutputSchema } from "./resolvers.js";
-export type { JsonValue } from "./schemas.js";
-export * as Schemas from "./schemas.js";
+} from "./program-manifest";
+export { resolveColumnConfig, resolveColumnOutputSchema } from "./resolvers";
+export type { JsonValue } from "./schemas";
+export * as Schemas from "./schemas";

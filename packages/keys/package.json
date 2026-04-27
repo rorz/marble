@@ -8,9 +8,7 @@
     "typescript": "catalog:base"
   },
   "exports": {
-    ".": {
-      "default": "./src/index.ts"
-    }
+    ".": "./src/index.ts"
   },
   "name": "@marble/keys",
   "private": true,

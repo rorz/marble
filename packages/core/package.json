@@ -9,10 +9,7 @@
     "vitest": "catalog:base"
   },
   "exports": {
-    ".": {
-      "default": "./dist/index.js",
-      "types": "./src/index.ts"
-    }
+    ".": "./src/index.ts"
   },
   "name": "@marble/core",
   "private": true,

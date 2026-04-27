@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "compatibility_date": "2026-04-12",
+  "compatibility_date": "2026-04-27",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/index.ts",
   "name": "marble-ingestor",
@@ -27,5 +27,11 @@
       }
     ]
   },
+  "routes": [
+    {
+      "custom_domain": true,
+      "pattern": "in.marble.zone"
+    }
+  ],
   "upload_source_maps": true
 }

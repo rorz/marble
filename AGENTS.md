@@ -37,6 +37,20 @@ Our development stack:
 4. Start with larger files (ideally a single file) first, clearly demarcated and modularized within the file, instead of lots of modular files. This helps your human mentally grapple and contain the changes you are making before deciding how to modularize them.
 5. Use the web to research a topic or standard -- even if you think you know it well, such as (but not limited to): database or provider documentation; service best practices; package version numbers.
 
+## Package Manifests
+
+1. Keep dependency maps alphabetized. Biome's package JSON sorting is useful for `dependencies`, `devDependencies`, catalog entries, and similar unordered maps.
+2. For private workspace packages whose runtime and type entrypoint are the same TypeScript source file, prefer a direct string export:
+   ```json
+   {
+     "exports": {
+       ".": "./src/index.ts"
+     }
+   }
+   ```
+3. Do not represent that same-source pattern as a conditional export object with `types` and `default`. Conditional export key order is semantic, while Biome sorts JSON object keys alphabetically.
+4. Do not add a `./types` subpath as a workaround for typing the root entrypoint. A `./types` export is only appropriate when it is an intentional public subpath, not a fake declaration channel for `"."`.
+
 ## Database Workflow
 
 IMPORTANT!! You **must** read [Internal Database Guide](./docs/internal/database-guide.md) before making any database schema, migration, or seed changes.
