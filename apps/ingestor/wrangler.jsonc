@@ -33,5 +33,14 @@
       "pattern": "in.marble.zone"
     }
   ],
+  "secrets": {
+    "required": ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"]
+  },
+  "services": [
+    {
+      "binding": "MARBLE_EXECUTOR",
+      "service": "marble-executor"
+    }
+  ],
   "upload_source_maps": true
 }

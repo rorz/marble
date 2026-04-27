@@ -3,7 +3,6 @@ import { createClient, type Json } from "@marble/supabase";
 import { Hono } from "hono";
 import { JSONPath } from "jsonpath-plus";
 import { z } from "zod";
-import { getEnv } from "./env";
 
 const httpApp = new Hono<{
   Bindings: Env;
@@ -27,11 +26,7 @@ const pipeMappingSchema = z.object({
 });
 
 function db(env: Env) {
-  const parsedEnv = getEnv(env as unknown as Record<string, unknown>);
-  return createClient(
-    parsedEnv.SUPABASE_URL,
-    parsedEnv.SUPABASE_SERVICE_ROLE_KEY,
-  );
+  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
 function valueToManualInput(value: unknown) {
@@ -69,7 +64,6 @@ async function callMarbleApi<T>(
     method?: string;
   } = {},
 ) {
-  const parsedEnv = getEnv(env as unknown as Record<string, unknown>);
   const response = await marbleApi.fetch(
     new Request(new URL(path, "https://marble.internal"), {
       body:
@@ -80,9 +74,9 @@ async function callMarbleApi<T>(
       method: options.method ?? "GET",
     }),
     {
-      MARBLE_EXECUTOR_URL: parsedEnv.MARBLE_EXECUTOR_URL,
-      SUPABASE_SERVICE_ROLE_KEY: parsedEnv.SUPABASE_SERVICE_ROLE_KEY,
-      SUPABASE_URL: parsedEnv.SUPABASE_URL,
+      MARBLE_EXECUTOR: env.MARBLE_EXECUTOR,
+      SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
+      SUPABASE_URL: env.SUPABASE_URL,
     },
   );
   const text = await response.text();

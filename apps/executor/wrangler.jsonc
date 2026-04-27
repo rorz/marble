@@ -44,6 +44,9 @@
       "pattern": "exec.marble.zone"
     }
   ],
+  "secrets": {
+    "required": ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"]
+  },
   "upload_source_maps": true,
   "vars": {
     "SANDBOX_TRANSPORT": "websocket"

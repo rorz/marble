@@ -3,8 +3,13 @@ import type { Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { z } from "zod";
 
+export type ExecutorTransport = {
+  fetch: typeof fetch;
+};
+
 export type ApiEnv = {
   Bindings: {
+    MARBLE_EXECUTOR?: ExecutorTransport;
     MARBLE_EXECUTOR_URL?: string;
     MARBLE_INGESTOR_URL?: string;
     SUPABASE_SERVICE_ROLE_KEY: string;

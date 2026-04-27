@@ -122,27 +122,7 @@ function forwardExecutorHeaders(c: ApiContext) {
   );
 }
 
-async function proxyExecutorRequest(
-  c: ApiContext,
-  options: {
-    body: unknown;
-    path: string;
-    search: string;
-  },
-) {
-  const env = getEnv(c.env);
-  const response = await fetch(
-    executorEndpointUrl(
-      env.MARBLE_EXECUTOR_URL || "http://localhost:3087",
-      options.path,
-      options.search,
-    ),
-    {
-      body: JSON.stringify(options.body),
-      headers: forwardExecutorHeaders(c),
-      method: "POST",
-    },
-  );
+async function readExecutorResponse(response: Response) {
   const text = await response.text();
 
   try {
@@ -161,6 +141,52 @@ async function proxyExecutorRequest(
       status: response.status as 200 | 400 | 401 | 404 | 500,
     };
   }
+}
+
+async function proxyExecutorRequest(
+  c: ApiContext,
+  options: {
+    body: unknown;
+    path: string;
+    search: string;
+  },
+) {
+  const body = JSON.stringify(options.body);
+  const headers = forwardExecutorHeaders(c);
+
+  if (c.env.MARBLE_EXECUTOR) {
+    const response = await c.env.MARBLE_EXECUTOR.fetch(
+      new Request(
+        executorEndpointUrl(
+          "https://executor.marble.internal",
+          options.path,
+          options.search,
+        ),
+        {
+          body,
+          headers,
+          method: "POST",
+        },
+      ),
+    );
+    return readExecutorResponse(response);
+  }
+
+  const env = getEnv(c.env);
+  const request = new Request(
+    executorEndpointUrl(
+      env.MARBLE_EXECUTOR_URL || "http://localhost:3087",
+      options.path,
+      options.search,
+    ),
+    {
+      body,
+      headers,
+      method: "POST",
+    },
+  );
+  const response = await fetch(request);
+  return readExecutorResponse(response);
 }
 
 async function executeStoredRun(

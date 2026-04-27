@@ -3,7 +3,6 @@
   "globalDependencies": ["tsconfig.json"],
   "globalEnv": [
     "EXECUTOR_URL",
-    "EXECUTOR_BEARER_TOKEN",
     "INIT_CWD",
     "MARBLE_API_KEY",
     "MARBLE_API_URL",

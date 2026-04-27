@@ -10,7 +10,6 @@ import { type RequestIdVariables, requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
 import { validator } from "hono/validator";
 import { z } from "zod";
-import { getEnv } from "./env.js";
 import {
   executeAndValidate,
   executeAndValidateBatch,
@@ -29,24 +28,17 @@ import {
 
 export { Sandbox } from "@cloudflare/sandbox";
 
-type ExecutorBindings = Env & {
-  EXECUTOR_BEARER_TOKEN?: string;
-  SUPABASE_SERVICE_ROLE_KEY?: string;
-  SUPABASE_URL?: string;
-};
-
 type ExecutorEnv = {
-  Bindings: ExecutorBindings;
+  Bindings: Env;
   Variables: RequestIdVariables & {
     auth:
       | {
           keyId?: string;
           profileId?: string;
-          type: "api-key" | "executor-token" | "forwarded";
+          type: "api-key" | "forwarded";
           userId?: string;
         }
       | undefined;
-    parsedEnv: ReturnType<typeof getEnv>;
     supabase: SupabaseClient;
   };
 };
@@ -167,11 +159,9 @@ const zodValidator = <
 
 const envMiddleware = createMiddleware<ExecutorEnv>(async (c, next) => {
   try {
-    const parsedEnv = getEnv(c.env as unknown as Record<string, unknown>);
-    c.set("parsedEnv", parsedEnv);
     c.set(
       "supabase",
-      createClient(parsedEnv.SUPABASE_URL, parsedEnv.SUPABASE_SERVICE_ROLE_KEY),
+      createClient(c.env.SUPABASE_URL, c.env.SUPABASE_SERVICE_ROLE_KEY),
     );
   } catch (error) {
     throw httpError(500, "INTERNAL ERROR: Database misconfigured!", error);
@@ -208,24 +198,15 @@ const authMiddleware = createMiddleware<ExecutorEnv>(async (c, next) => {
     return;
   }
 
-  const configuredToken = c.var.parsedEnv.EXECUTOR_BEARER_TOKEN;
   const presentedToken = getApiKeyTokenFromHeaders(c.req.raw.headers);
 
-  if (!configuredToken && !presentedToken) {
+  if (!presentedToken) {
     await next();
     return;
   }
 
   if (!presentedToken) {
     throw httpError(401, "Missing authorization header");
-  }
-
-  if (configuredToken && presentedToken === configuredToken) {
-    c.set("auth", {
-      type: "executor-token",
-    });
-    await next();
-    return;
   }
 
   const keyAuth = await resolveApiKeyAuth(c.var.supabase, presentedToken);
