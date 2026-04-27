@@ -67,7 +67,7 @@
         "ai": "catalog:base",
         "hono": "catalog:base",
         "monaco-editor": "catalog:base",
-        "next": "catalog:base",
+        "next": "16.2.4",
         "prismjs": "catalog:base",
         "react": "catalog:base",
         "react-dom": "catalog:base",
