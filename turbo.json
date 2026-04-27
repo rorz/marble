@@ -23,6 +23,10 @@
       "cache": false,
       "dependsOn": ["^build"]
     },
+    "deploy": {
+      "cache": false,
+      "dependsOn": ["^deploy"]
+    },
     "dev": {
       "cache": false,
       "persistent": true
