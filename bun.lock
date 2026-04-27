@@ -182,6 +182,9 @@
       },
     },
   },
+  "catalog": {
+    "next": "16.2.4",
+  },
   "catalogs": {
     "base": {
       "@biomejs/biome": "^2",
