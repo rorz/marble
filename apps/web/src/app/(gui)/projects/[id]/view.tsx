@@ -14,7 +14,7 @@ import {
 } from "@marble/ui";
 import { FunnelIcon, PipeIcon, TableIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   buildPipeMappingDisplayRecords,
   buildPipeMappingSummary,
@@ -82,7 +82,6 @@ export function ProjectPageView({
     null | "crumb" | "title"
   >(null);
   const [nameDraft, setNameDraft] = useState(initialProject.project.name);
-  const [savingName, setSavingName] = useState(false);
   const [creatingSource, setCreatingSource] = useState(false);
   const [creatingPipe, setCreatingPipe] = useState(false);
   const [creatingTable, setCreatingTable] = useState(false);
@@ -90,6 +89,10 @@ export function ProjectPageView({
   const [error, setError] = useState<null | string>(null);
   const sources = sortRows(initialProject.sources, compareByUpdatedAtDesc);
   const pipes = sortRows(initialProject.pipes, compareByCreatedAtDesc);
+  const projectRef = useRef(project);
+  projectRef.current = project;
+  const renameRequestRef = useRef(0);
+  const renameInFlightRef = useRef(false);
   const sourceNameById = new Map(
     sources.map((source) => [
       source.id,
@@ -230,30 +233,62 @@ export function ProjectPageView({
 
   const commitName = async () => {
     const nextName = nameDraft.trim() || "Untitled Project";
+    const previousProject = projectRef.current;
 
-    if (nextName === project.name) {
+    if (nextName === previousProject.name) {
       setEditingSurface(null);
-      setNameDraft(project.name);
+      setNameDraft(previousProject.name);
       return;
     }
 
-    setSavingName(true);
+    const requestId = renameRequestRef.current + 1;
+    renameRequestRef.current = requestId;
+    renameInFlightRef.current = true;
     setError(null);
+    setEditingSurface(null);
+    setNameDraft(nextName);
+    setProject((current) => ({
+      ...current,
+      name: nextName,
+    }));
 
     try {
-      const updated = await renameProjectAction(project.id, nextName);
+      const updated = await renameProjectAction(previousProject.id, nextName);
+      if (renameRequestRef.current !== requestId) {
+        return;
+      }
+
       setProject((current) => ({
         ...current,
         name: updated.name,
         updated_at: updated.updated_at,
       }));
       setNameDraft(updated.name);
-      setEditingSurface(null);
     } catch (caughtError) {
+      if (renameRequestRef.current !== requestId) {
+        return;
+      }
+
+      setProject((current) => ({
+        ...current,
+        name: previousProject.name,
+        updated_at: previousProject.updated_at,
+      }));
+      setNameDraft(previousProject.name);
       setError(getErrorMessage(caughtError));
     } finally {
-      setSavingName(false);
+      if (renameRequestRef.current === requestId) {
+        renameInFlightRef.current = false;
+      }
     }
+  };
+
+  const startEditingName = (surface: "crumb" | "title") => {
+    if (renameInFlightRef.current) {
+      return;
+    }
+
+    setEditingSurface(surface);
   };
 
   const handleCreateTable = async () => {
@@ -342,12 +377,12 @@ export function ProjectPageView({
           id: "project-name",
           label: (
             <MarblePaneEditableCrumb
-              disabled={savingName}
+              disabled={false}
               editing={editingSurface === "crumb"}
               onCancel={stopEditing}
               onChange={setNameDraft}
               onCommit={() => void commitName()}
-              onEdit={() => setEditingSurface("crumb")}
+              onEdit={() => startEditingName("crumb")}
               value={nameDraft}
             />
           ),
@@ -361,12 +396,12 @@ export function ProjectPageView({
         >
           <MarbleEditableText
             className="-mx-1 rounded-sm px-1 text-left text-4xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
-            disabled={savingName}
+            disabled={false}
             editing={editingSurface === "title"}
             onCancel={stopEditing}
             onChange={setNameDraft}
             onCommit={() => void commitName()}
-            onEdit={() => setEditingSurface("title")}
+            onEdit={() => startEditingName("title")}
             value={nameDraft}
           />
 

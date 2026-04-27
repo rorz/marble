@@ -51,16 +51,12 @@ export async function createProjectAction() {
 }
 
 export async function renameProjectAction(projectId: string, name: string) {
-  await requireOwnedProject(projectId);
-
   const project = await callMarbleApi<ProjectRow>(`/projects/${projectId}`, {
     body: {
       name: name.trim() || "Untitled Project",
     },
     method: "PATCH",
   });
-
-  revalidatePath("/projects");
 
   return project;
 }

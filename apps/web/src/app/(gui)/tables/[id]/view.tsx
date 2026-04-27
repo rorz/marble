@@ -1205,7 +1205,6 @@ export default function TablePageView({
     null | "crumb" | "title"
   >(null);
   const [nameDraft, setNameDraft] = useState(initialTablePageData.table.name);
-  const [savingName, setSavingName] = useState(false);
   const [renameError, setRenameError] = useState<null | string>(null);
   const [inspectedCell, setInspectedCell] = useState<InspectedCell | null>(
     null,
@@ -1228,6 +1227,8 @@ export default function TablePageView({
   rowsRef.current = rows;
   const tableRef = useRef(table);
   tableRef.current = table;
+  const renameRequestRef = useRef(0);
+  const renameInFlightRef = useRef(false);
 
   const refreshReferenceColumns = useCallback(async () => {
     setReferenceColumns(await listReferenceableColumns());
@@ -2147,32 +2148,57 @@ export default function TablePageView({
 
   const commitName = useCallback(async () => {
     const nextName = nameDraft.trim() || "Untitled Table";
+    const previousTable = tableRef.current;
 
-    if (nextName === selectedTableName) {
+    if (nextName === previousTable.name) {
       setEditingSurface(null);
-      setNameDraft(selectedTableName);
+      setNameDraft(previousTable.name);
       return;
     }
 
-    setSavingName(true);
+    const requestId = renameRequestRef.current + 1;
+    renameRequestRef.current = requestId;
+    renameInFlightRef.current = true;
     setRenameError(null);
+    setEditingSurface(null);
+    setNameDraft(nextName);
+    mergeTable({
+      name: nextName,
+    });
 
     try {
-      const updated = await updateTableName(selectedTable.id, nextName);
+      const updated = await updateTableName(previousTable.id, nextName);
+      if (renameRequestRef.current !== requestId) {
+        return;
+      }
+
       mergeTable(updated);
-      setEditingSurface(null);
       setNameDraft(updated.name);
     } catch (error) {
+      if (renameRequestRef.current !== requestId) {
+        return;
+      }
+
+      mergeTable(previousTable);
+      setNameDraft(previousTable.name);
       setRenameError(getErrorMessage(error));
     } finally {
-      setSavingName(false);
+      if (renameRequestRef.current === requestId) {
+        renameInFlightRef.current = false;
+      }
     }
   }, [
     mergeTable,
     nameDraft,
-    selectedTable,
-    selectedTableName,
   ]);
+
+  const startEditingName = useCallback((surface: "crumb" | "title") => {
+    if (renameInFlightRef.current) {
+      return;
+    }
+
+    setEditingSurface(surface);
+  }, []);
 
   const matchChangeTarget = useCallback(
     (descriptor: ChangeTargetDescriptor) => {
@@ -2375,12 +2401,12 @@ export default function TablePageView({
           id: "table",
           label: (
             <MarblePaneEditableCrumb
-              disabled={savingName}
+              disabled={false}
               editing={editingSurface === "crumb"}
               onCancel={stopEditingName}
               onChange={setNameDraft}
               onCommit={() => void commitName()}
-              onEdit={() => setEditingSurface("crumb")}
+              onEdit={() => startEditingName("crumb")}
               value={nameDraft}
             />
           ),
@@ -2398,13 +2424,13 @@ export default function TablePageView({
               <div className="flex flex-col items-start gap-1">
                 <EditableName
                   className="-mx-1 max-w-full rounded-sm px-1 text-left font-medium text-xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
-                  disabled={savingName}
+                  disabled={false}
                   editing={editingSurface === "title"}
                   name={nameDraft}
                   onCancel={stopEditingName}
                   onChange={setNameDraft}
                   onCommit={() => void commitName()}
-                  onEdit={() => setEditingSurface("title")}
+                  onEdit={() => startEditingName("title")}
                 />
                 <span className="text-xs text-zinc-500">
                   Last updated{" "}

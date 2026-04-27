@@ -1,7 +1,6 @@
 "use server";
 
 import type { Database } from "@marble/supabase";
-import { revalidatePath } from "next/cache";
 import { requireUser } from "../../../../lib/auth";
 import { callMarbleApi } from "../../../../lib/marble-api";
 import {
@@ -122,20 +121,12 @@ async function loadColumn(columnId: string) {
 }
 
 export async function updateTableName(id: string, name: string) {
-  const table = await requireOwnedTable(id);
-  const updated = await callMarbleApi<TableRow>(`/tables/${id}`, {
+  return callMarbleApi<TableRow>(`/tables/${id}`, {
     body: {
       name: name.trim() || "Untitled Table",
     },
     method: "PATCH",
   });
-
-  revalidatePath("/projects");
-  revalidatePath(`/projects/${table.project_id}`);
-  revalidatePath(`/projects/${table.project_id}/tables/${id}`);
-  revalidatePath(`/tables/${id}`);
-
-  return updated;
 }
 
 // ── Programs ────────────────────────────────────────────

@@ -504,6 +504,7 @@ function SidebarNavRow({
             onToggle?.();
           }
         }}
+        prefetch={false}
         title={title}
       >
         {showIconSlot ? (

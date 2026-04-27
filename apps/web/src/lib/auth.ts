@@ -2,25 +2,23 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { createClient } from "./supabase/server";
 
+type CurrentUser = {
+  id: string;
+};
+
 export async function getCurrentUser() {
   const supabase = await createClient();
   const { data: claimsData, error: claimsError } =
     await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
 
-  if (claimsError || !claimsData?.claims?.sub) {
+  if (claimsError || !userId) {
     return null;
   }
 
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    return null;
-  }
-
-  return user;
+  return {
+    id: userId,
+  } satisfies CurrentUser;
 }
 
 export async function redirectIfAuthenticated() {
