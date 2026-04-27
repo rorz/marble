@@ -66,6 +66,8 @@ import {
   type SidebarTreeState,
   updateSidebarTreeStateForKey,
 } from "../../lib/gui-sidebar";
+import { callMarbleClient } from "../../lib/marble-client";
+import { createDefaultProgram } from "../../lib/program-client";
 import { getErrorMessage, type RealtimePayload } from "../../lib/realtime-crud";
 import {
   applySidebarMutation,
@@ -86,13 +88,6 @@ import {
   parseChangeTargetKey,
   useChangeSpotlightPreviewTargetKeys,
 } from "./change-spotlight";
-import { createDefaultProfileAction } from "./profiles/actions";
-import { createProgram } from "./programs/actions";
-import {
-  createPipeAction,
-  createSourceAction,
-} from "./projects/[id]/sources/actions";
-import { createProjectAction, createTableAction } from "./projects/actions";
 
 type TreeCollectionKey = "programs" | "projects";
 type SidebarGroup = {
@@ -105,6 +100,50 @@ type SidebarGroup = {
     path: `/${string}`;
   }[];
 }[];
+
+function createProject() {
+  return callMarbleClient<ProjectRow>("/projects", {
+    method: "POST",
+  });
+}
+
+function createTable(projectId: string) {
+  return callMarbleClient<TableRow>(`/projects/${projectId}/tables`, {
+    method: "POST",
+  });
+}
+
+function createSource(projectId: string) {
+  return callMarbleClient<SourceRow>(`/projects/${projectId}/sources`, {
+    method: "POST",
+  });
+}
+
+function createPipe(
+  projectId: string,
+  input: {
+    mappings: never[];
+    sourceId: string;
+    tableId: string;
+  },
+) {
+  return callMarbleClient<PipeRow>(`/projects/${projectId}/pipes`, {
+    body: input,
+    method: "POST",
+  });
+}
+
+function createDefaultProfile() {
+  return callMarbleClient<ProfileRow>("/profiles", {
+    body: {
+      externalName: null,
+      icon: "🤖",
+      name: "Untitled Agent",
+      type: "Agent",
+    },
+    method: "POST",
+  });
+}
 
 const navigationGroups: SidebarGroup = [
   {
@@ -198,6 +237,7 @@ type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type SourceRow = Database["public"]["Tables"]["source"]["Row"];
 type PipeRow = Database["public"]["Tables"]["pipe"]["Row"];
 type TableRow = Database["public"]["Tables"]["table"]["Row"];
+type ProfileRow = Database["public"]["Tables"]["profile"]["Row"];
 type CommandPaletteItem = {
   detail: string;
   icon: ReactNode;
@@ -937,7 +977,7 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const project = await createProjectAction();
+      const project = await createProject();
       router.push(`/projects/${project.id}`);
     } catch (error) {
       handleCommandPaletteError(error);
@@ -949,7 +989,7 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const table = await createTableAction(projectId);
+      const table = await createTable(projectId);
       router.push(`/projects/${projectId}/tables/${table.id}`);
     } catch (error) {
       handleCommandPaletteError(error);
@@ -975,7 +1015,7 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const source = await createSourceAction(projectId);
+      const source = await createSource(projectId);
       router.push(`/projects/${projectId}/sources/${source.id}`);
     } catch (error) {
       handleCommandPaletteError(error);
@@ -1007,7 +1047,7 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const pipe = await createPipeAction(projectNode.id, {
+      const pipe = await createPipe(projectNode.id, {
         mappings: [],
         sourceId: defaults.sourceId,
         tableId: defaults.tableId,
@@ -1033,7 +1073,7 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const { programId } = await createProgram();
+      const { programId } = await createDefaultProgram();
       router.push(`/programs/${programId}`);
     } catch (error) {
       handleCommandPaletteError(error);
@@ -1043,7 +1083,7 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const profile = await createDefaultProfileAction();
+      const profile = await createDefaultProfile();
       router.push(`/profiles?edit=${profile.id}`);
     } catch (error) {
       handleCommandPaletteError(error);

@@ -59,6 +59,8 @@ import {
   useRef,
   useState,
 } from "react";
+import { callMarbleClient } from "../../../lib/marble-client";
+import { createDefaultProgram } from "../../../lib/program-client";
 import {
   ENVIRONMENT_VARIABLE_NAME_PATTERN,
   type ProgramManifestSecretDeclaration,
@@ -70,6 +72,7 @@ import { changeTargetKey, getChangeTargetProps } from "../change-spotlight";
 import * as actions from "./actions";
 
 type FullProgram = Awaited<ReturnType<typeof actions.listPrograms>>[number];
+type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type ProgramVersionRow = Database["public"]["Tables"]["program_version"]["Row"];
 type ProgramFileRow = Database["public"]["Tables"]["program_file"]["Row"];
 type ProgramVersionWithFiles = FullProgram["program_version"][number];
@@ -281,6 +284,30 @@ function normalizeProgramVersionMutation(
     ...version,
     program_file: version.program_file ?? version.files ?? [],
   } satisfies ProgramVersionWithFiles;
+}
+
+function renameProgram(programId: string, name: string) {
+  return callMarbleClient<ProgramRow>(`/programs/${programId}`, {
+    body: {
+      name,
+    },
+    method: "PATCH",
+  });
+}
+
+function updateProgramSecretBindings(
+  programId: string,
+  bindings: SecretBindingInput[],
+) {
+  return callMarbleClient<SecretBindingInput[]>(
+    `/programs/${programId}/secrets`,
+    {
+      body: {
+        bindings,
+      },
+      method: "PUT",
+    },
+  );
 }
 
 function normalizeStoredProgramSecretConfig(secretConfig: unknown) {
@@ -1095,7 +1122,6 @@ export function ProgramsPageView({
     null | "crumb" | "title"
   >(null);
   const [renameError, setRenameError] = useState<null | string>(null);
-  const [savingName, setSavingName] = useState(false);
 
   const [files, setFiles] = useState<EditableProgramFile[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
@@ -1592,7 +1618,7 @@ export function ProgramsPageView({
       setSavingProgramSecrets(true);
 
       try {
-        const savedBindings = await actions.updateProgramSecretBindings(
+        const savedBindings = await updateProgramSecretBindings(
           selectedProgram.id,
           secretBindingMapToEntries(nextBindings),
         );
@@ -1834,21 +1860,22 @@ export function ProgramsPageView({
       return selectedProgram.name;
     }
 
-    setSavingName(true);
     setRenameError(null);
+    setEditingSurface(null);
+    setProgName(nextName);
+    updateSelectedProgramName(nextName);
 
     try {
-      const updated = await actions.renameProgram(selectedProgram.id, nextName);
+      const updated = await renameProgram(selectedProgram.id, nextName);
 
       updateSelectedProgramName(updated.name);
       setProgName(updated.name);
-      setEditingSurface(null);
       return updated.name;
     } catch (error) {
+      updateSelectedProgramName(selectedProgram.name);
+      setProgName(selectedProgram.name);
       setRenameError(error instanceof Error ? error.message : String(error));
       throw error;
-    } finally {
-      setSavingName(false);
     }
   }, [
     progName,
@@ -2436,7 +2463,7 @@ export function ProgramsPageView({
       upsertProgramVersion(selectedProgram.id, publishedVersion);
 
       if (nextName !== selectedProgram.name) {
-        const updatedProgram = await actions.renameProgram(
+        const updatedProgram = await renameProgram(
           selectedProgram.id,
           nextName,
         );
@@ -2526,7 +2553,7 @@ export function ProgramsPageView({
     setCreateError(null);
 
     try {
-      const { programId } = await actions.createProgram();
+      const { programId } = await createDefaultProgram();
       router.push(`/programs/${programId}`);
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : String(error));
@@ -2738,7 +2765,7 @@ export function ProgramsPageView({
           label:
             !isDraftProgram && selectedProgram ? (
               <MarblePaneEditableCrumb
-                disabled={savingName}
+                disabled={false}
                 editing={editingSurface === "crumb"}
                 onCancel={() => {
                   setEditingSurface(null);
@@ -3013,7 +3040,7 @@ export function ProgramsPageView({
                 <div className="min-w-0 flex-1 space-y-2">
                   <MarbleEditableText
                     className="-mx-1 rounded-sm px-1 text-left text-3xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
-                    disabled={savingName || viewingHistoricalVersion}
+                    disabled={viewingHistoricalVersion}
                     editing={editingSurface === "title"}
                     onCancel={() => {
                       setEditingSurface(null);

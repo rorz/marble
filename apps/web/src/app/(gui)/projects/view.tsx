@@ -1,5 +1,6 @@
 "use client";
 
+import type { Database } from "@marble/supabase";
 import {
   MarbleAlert,
   MarbleButton,
@@ -11,6 +12,7 @@ import {
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { callMarbleClient } from "../../../lib/marble-client";
 import {
   compareByUpdatedAtDesc,
   getErrorMessage,
@@ -20,15 +22,24 @@ import {
   upsertRow,
 } from "../../../lib/realtime-crud";
 import { createClient } from "../../../lib/supabase/browser";
-import { createProjectAction, deleteProjectAction } from "./actions";
 
-type ProjectRecord = Awaited<ReturnType<typeof createProjectAction>>;
+type ProjectRecord = Database["public"]["Tables"]["project"]["Row"];
 type ProjectSummary = Awaited<
   ReturnType<typeof import("./actions").listProjects>
 >[number];
-type TableRecord = Awaited<
-  ReturnType<typeof import("./actions").createTableAction>
->;
+type TableRecord = Database["public"]["Tables"]["table"]["Row"];
+
+function createProject() {
+  return callMarbleClient<ProjectRecord>("/projects", {
+    method: "POST",
+  });
+}
+
+function deleteProject(projectId: string) {
+  return callMarbleClient(`/projects/${projectId}`, {
+    method: "DELETE",
+  });
+}
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -170,7 +181,7 @@ export function ProjectsPageView({
     setError(null);
 
     try {
-      const project = await createProjectAction();
+      const project = await createProject();
       const committedProject = {
         ...project,
         table_count: 0,
@@ -198,7 +209,7 @@ export function ProjectsPageView({
     setError(null);
 
     try {
-      await deleteProjectAction(project.id);
+      await deleteProject(project.id);
       setProjects((current) => removeRow(current, project.id));
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));

@@ -1,5 +1,6 @@
 import type { Json, SupabaseClient } from "@marble/supabase";
 import { ApiError } from "./core";
+import { logSlowOperation, now } from "./perf";
 
 const EVENT_CONTEXT_KEY = Symbol.for("marble.api.event-context");
 export type EventSource = "CLI" | "RAW_API" | "WEB_APP";
@@ -108,7 +109,7 @@ function normalizeEventRow(
   return normalized as Json;
 }
 
-function getEventContext(supabase: SupabaseClient) {
+export function getEventContext(supabase: SupabaseClient) {
   return (supabase as EventfulSupabaseClient)[EVENT_CONTEXT_KEY];
 }
 
@@ -129,6 +130,7 @@ export async function writeEventRecord(
     resource: string;
   },
 ) {
+  const startedAt = now();
   if (input.resource === "event") {
     return;
   }
@@ -168,4 +170,8 @@ export async function writeEventRecord(
   if (error) {
     throw new ApiError(500, error.message);
   }
+
+  logSlowOperation("event.write", startedAt, {
+    requestId: context.requestId,
+  });
 }

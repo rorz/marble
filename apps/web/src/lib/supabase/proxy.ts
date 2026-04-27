@@ -73,20 +73,8 @@ export async function updateSession(request: NextRequest) {
 
   const { data: claimsData, error: claimsError } =
     await supabase.auth.getClaims();
-  let signedIn = Boolean(claimsData?.claims?.sub);
-  let shouldClearAuthCookies = Boolean(claimsError);
-
-  if (signedIn) {
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    if (userError || !user) {
-      signedIn = false;
-      shouldClearAuthCookies = true;
-    }
-  }
+  const signedIn = Boolean(claimsData?.claims?.sub);
+  const shouldClearAuthCookies = Boolean(claimsError);
 
   const authCookieNames = shouldClearAuthCookies
     ? getSupabaseAuthCookieNames(request.cookies.getAll())

@@ -1,6 +1,7 @@
 import type { Database, SupabaseClient } from "@marble/supabase";
 import { ApiError, requireById, requiredValue } from "./core";
 import { writeEventRecord } from "./event-driver";
+import { getSupabaseRequestId, logSlowOperation, now } from "./perf";
 
 export type DbTableName = keyof Database["public"]["Tables"];
 type DbTable<Name extends DbTableName> = Database["public"]["Tables"][Name];
@@ -359,16 +360,23 @@ export async function updateRecord<Name extends DbTableName>(
   table: Name,
   id: string,
   values: DbUpdate<Name>,
+  options: {
+    before?: DbRow<Name>;
+  } = {},
 ): Promise<DbRow<Name>> {
-  const before = await requireById<DbRow<Name>>(
-    supabase
-      .from(table as never)
-      .select("*")
-      .eq("id" as never, id as never)
-      .maybeSingle() as never,
-    table,
-    id,
-  );
+  const startedAt = now();
+  const requestId = getSupabaseRequestId(supabase);
+  const before =
+    options.before ??
+    (await requireById<DbRow<Name>>(
+      supabase
+        .from(table as never)
+        .select("*")
+        .eq("id" as never, id as never)
+        .maybeSingle() as never,
+      table,
+      id,
+    ));
 
   const { data, error } = await supabase
     .from(table as never)
@@ -386,6 +394,10 @@ export async function updateRecord<Name extends DbTableName>(
     before: before as Record<string, unknown>,
     operation: "Update",
     resource: table,
+  });
+
+  logSlowOperation(`data.update.${String(table)}`, startedAt, {
+    requestId,
   });
 
   return data as DbRow<Name>;

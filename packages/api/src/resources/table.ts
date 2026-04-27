@@ -193,7 +193,7 @@ export function mountTableResource(app: Hono<ApiEnv>) {
       idParam: "tableId",
       patch: {
         handler: async (c, id, body) => {
-          await requireAccessibleTable(c.var.supabase, {
+          const existing = await requireAccessibleTable(c.var.supabase, {
             authenticatedProfileId: c.var.auth?.profileId,
             tableId: id,
             userId: c.var.auth?.userId,
@@ -203,19 +203,27 @@ export function mountTableResource(app: Hono<ApiEnv>) {
             body.projectId,
           ]);
 
-          return updateRecord(c.var.supabase, "table", id, {
-            name: body.name,
-            project_id:
-              body.projectId === undefined
-                ? undefined
-                : (
-                    await requireAccessibleProject(c.var.supabase, {
-                      authenticatedProfileId: c.var.auth?.profileId,
-                      projectId: body.projectId,
-                      userId: c.var.auth?.userId,
-                    })
-                  ).id,
-          });
+          return updateRecord(
+            c.var.supabase,
+            "table",
+            id,
+            {
+              name: body.name,
+              project_id:
+                body.projectId === undefined
+                  ? undefined
+                  : (
+                      await requireAccessibleProject(c.var.supabase, {
+                        authenticatedProfileId: c.var.auth?.profileId,
+                        projectId: body.projectId,
+                        userId: c.var.auth?.userId,
+                      })
+                    ).id,
+            },
+            {
+              before: existing,
+            },
+          );
         },
         schema: tableWriteSchema,
       },

@@ -39,6 +39,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { callMarbleClient } from "../../../lib/marble-client";
 import {
   compareByCreatedAtDesc,
   getErrorMessage,
@@ -51,13 +52,6 @@ import {
 } from "../../../lib/realtime-crud";
 import { createClient } from "../../../lib/supabase/browser";
 import { changeTargetKey, getChangeTargetProps } from "../change-spotlight";
-import {
-  createProfileAction,
-  createProfileKeyAction,
-  deleteProfileAction,
-  revokeProfileKeyAction,
-  updateProfileAction,
-} from "./actions";
 import {
   AGENT_PROFILE_ICON_OPTIONS,
   AGENT_PROVIDER_OPTIONS,
@@ -96,6 +90,70 @@ function readProfileDraft(formData: FormData) {
         : DEFAULT_AGENT_PROFILE_ICON,
     name,
   } satisfies Pick<ProfileRecord, "external_name" | "icon" | "name">;
+}
+
+function profileDraftToApiBody(draft: ReturnType<typeof readProfileDraft>) {
+  return {
+    externalName: draft.external_name,
+    icon: draft.icon,
+    name: draft.name,
+  };
+}
+
+function createProfile(draft: ReturnType<typeof readProfileDraft>) {
+  return callMarbleClient<ProfileRecord>("/profiles", {
+    body: {
+      ...profileDraftToApiBody(draft),
+      type: "Agent",
+    },
+    method: "POST",
+  });
+}
+
+function updateProfile(
+  profileId: string,
+  draft: ReturnType<typeof readProfileDraft>,
+) {
+  return callMarbleClient<ProfileRecord>(`/profiles/${profileId}`, {
+    body: profileDraftToApiBody(draft),
+    method: "PATCH",
+  });
+}
+
+function deleteProfile(profileId: string) {
+  return callMarbleClient(`/profiles/${profileId}`, {
+    method: "DELETE",
+  });
+}
+
+async function createProfileKey(profile: ManagedProfileRecord) {
+  const created = await callMarbleClient<{
+    key: ProfileKeyRecord;
+    token: string;
+  }>("/keys", {
+    body: {
+      ownerProfileId: profile.id,
+    },
+    method: "POST",
+  });
+
+  return {
+    key: created.key,
+    profileId: profile.id,
+    profileName: profile.name,
+    token: created.token,
+  };
+}
+
+async function revokeProfileKey(keyId: string) {
+  await callMarbleClient(`/keys/${keyId}`, {
+    method: "DELETE",
+  });
+
+  return {
+    id: keyId,
+    revokedAt: new Date().toISOString(),
+  };
 }
 
 function compareByCreatedAtAsc(
@@ -736,7 +794,7 @@ export function ProfilesPageView({
     setCreatePending(true);
     setError(null);
 
-    void createProfileAction(formData)
+    void createProfile(draft)
       .then((createdProfile) => {
         setProfiles((current) => upsertProfile(current, createdProfile));
         setIsCreateModalOpen(false);
@@ -754,11 +812,20 @@ export function ProfilesPageView({
   };
 
   const handleUpdate = async (profileId: string, formData: FormData) => {
+    let draft: ReturnType<typeof readProfileDraft>;
+
+    try {
+      draft = readProfileDraft(formData);
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+      return;
+    }
+
     setSavingId(profileId);
     setError(null);
 
     try {
-      const updatedProfile = await updateProfileAction(profileId, formData);
+      const updatedProfile = await updateProfile(profileId, draft);
       setProfiles((current) => upsertProfile(current, updatedProfile));
       closeEditModal();
     } catch (caughtError) {
@@ -781,7 +848,7 @@ export function ProfilesPageView({
     setError(null);
 
     try {
-      await deleteProfileAction(profile.id);
+      await deleteProfile(profile.id);
       setProfiles((current) => removeRow(current, profile.id));
       setEditingId((current) => (current === profile.id ? null : current));
     } catch (caughtError) {
@@ -796,7 +863,7 @@ export function ProfilesPageView({
     setError(null);
 
     try {
-      const created = await createProfileKeyAction(profile.id);
+      const created = await createProfileKey(profile);
       setProfiles((current) =>
         current.map((entry) =>
           entry.id === created.profileId
@@ -851,7 +918,7 @@ export function ProfilesPageView({
     setError(null);
 
     try {
-      const revoked = await revokeProfileKeyAction(key.id);
+      const revoked = await revokeProfileKey(key.id);
       setProfiles((current) =>
         current.map((entry) =>
           entry.id === profile.id

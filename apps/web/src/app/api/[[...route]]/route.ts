@@ -8,12 +8,17 @@ import {
 } from "../../../lib/supabase/service-role";
 
 async function forward(req: Request) {
+  const startedAt = performance.now();
+  const requestId =
+    req.headers.get("x-marble-request-id")?.trim() || crypto.randomUUID();
+  const timings: string[] = [];
   const apiKeyToken = getApiKeyTokenFromHeaders(req.headers);
   let authContext: {
     keyId?: string;
     profileId?: string;
     userId?: string;
   } | null = null;
+  const authStartedAt = performance.now();
 
   if (apiKeyToken) {
     const keyAuth = await resolveApiKeyAuth(
@@ -22,7 +27,7 @@ async function forward(req: Request) {
     );
 
     if (!keyAuth) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         {
           error: "Unauthorized",
         },
@@ -30,6 +35,8 @@ async function forward(req: Request) {
           status: 401,
         },
       );
+      response.headers.set("x-marble-request-id", requestId);
+      return response;
     }
 
     authContext = {
@@ -49,16 +56,24 @@ async function forward(req: Request) {
       );
     }
 
+    const profileStartedAt = performance.now();
+    const profileId = await maybeResolveOwnedProfileId(user.id);
+    timings.push(
+      `profile;dur=${Math.round(performance.now() - profileStartedAt)}`,
+    );
+
     authContext = {
-      profileId: await maybeResolveOwnedProfileId(user.id),
+      profileId,
       userId: user.id,
     };
   }
+  timings.push(`auth;dur=${Math.round(performance.now() - authStartedAt)}`);
 
   const url = new URL(req.url);
   url.pathname = url.pathname.replace(/^\/api(?=\/|$)/, "") || "/";
 
   const forwardedReq = new Request(url, req);
+  forwardedReq.headers.set("x-marble-request-id", requestId);
 
   if (authContext) {
     forwardedReq.headers.delete("Authorization");
@@ -82,7 +97,24 @@ async function forward(req: Request) {
     }
   }
 
-  return getMarbleApi().fetch(forwardedReq);
+  const apiStartedAt = performance.now();
+  const apiResponse = await getMarbleApi().fetch(forwardedReq);
+  timings.push(`api;dur=${Math.round(performance.now() - apiStartedAt)}`);
+  timings.push(`total;dur=${Math.round(performance.now() - startedAt)}`);
+
+  const response = new Response(apiResponse.body, apiResponse);
+  const apiServerTiming = response.headers.get("Server-Timing");
+  response.headers.set(
+    "Server-Timing",
+    [
+      apiServerTiming,
+      timings.join(", "),
+    ]
+      .filter(Boolean)
+      .join(", "),
+  );
+  response.headers.set("x-marble-request-id", requestId);
+  return response;
 }
 
 export const GET = forward;

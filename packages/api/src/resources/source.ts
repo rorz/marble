@@ -230,7 +230,7 @@ export function mountSourceResource(app: Hono<ApiEnv>) {
       idParam: "sourceId",
       patch: {
         handler: async (c, id, body) => {
-          await requireAccessibleSource(c.var.supabase, {
+          const existing = await requireAccessibleSource(c.var.supabase, {
             authenticatedProfileId: c.var.auth?.profileId,
             sourceId: id,
             userId: c.var.auth?.userId,
@@ -243,13 +243,21 @@ export function mountSourceResource(app: Hono<ApiEnv>) {
 
           return serializeSource(
             c,
-            (await updateRecord(c.var.supabase, "source", id, {
-              name: body.name,
-              payload_schema:
-                body.payloadSchema === undefined
-                  ? undefined
-                  : normalizePayloadSchema(body.payloadSchema),
-            })) as SourceRow,
+            (await updateRecord(
+              c.var.supabase,
+              "source",
+              id,
+              {
+                name: body.name,
+                payload_schema:
+                  body.payloadSchema === undefined
+                    ? undefined
+                    : normalizePayloadSchema(body.payloadSchema),
+              },
+              {
+                before: existing,
+              },
+            )) as SourceRow,
           );
         },
         schema: sourceWriteSchema,

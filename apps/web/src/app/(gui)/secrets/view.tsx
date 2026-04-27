@@ -17,9 +17,11 @@ import {
 } from "@marble/ui";
 import { KeyIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import * as actions from "./actions";
+import { callMarbleClient } from "../../../lib/marble-client";
 
-type SecretRecord = Awaited<ReturnType<typeof actions.listSecrets>>[number];
+type SecretRecord = Awaited<
+  ReturnType<typeof import("./actions").listSecrets>
+>[number];
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -37,6 +39,36 @@ function sortSecrets(secrets: SecretRecord[]) {
       new Date(right.updated_at).getTime() -
         new Date(left.updated_at).getTime(),
   );
+}
+
+function createSecret(input: { name: string; value: string }) {
+  return callMarbleClient<SecretRecord>("/secrets", {
+    body: {
+      category: "UserDefined",
+      name: input.name,
+      value: input.value,
+    },
+    method: "POST",
+  });
+}
+
+function updateSecret(
+  secretId: string,
+  input: {
+    name?: string;
+    value?: string;
+  },
+) {
+  return callMarbleClient<SecretRecord>(`/secrets/${secretId}`, {
+    body: input,
+    method: "PATCH",
+  });
+}
+
+function deleteSecret(secretId: string) {
+  return callMarbleClient(`/secrets/${secretId}`, {
+    method: "DELETE",
+  });
 }
 
 export function SecretsPageView({
@@ -110,7 +142,7 @@ export function SecretsPageView({
 
     try {
       if (creating) {
-        const created = await actions.createSecret({
+        const created = await createSecret({
           name: trimmedName,
           value: draftValue,
         });
@@ -140,7 +172,7 @@ export function SecretsPageView({
         return;
       }
 
-      const updated = await actions.updateSecret(selectedSecret.id, {
+      const updated = await updateSecret(selectedSecret.id, {
         ...(hasNameChange
           ? {
               name: trimmedName,
@@ -182,7 +214,7 @@ export function SecretsPageView({
     setFormError(null);
 
     try {
-      await actions.deleteSecret(selectedSecret.id);
+      await deleteSecret(selectedSecret.id);
       const remainingSecrets = secrets.filter(
         (secret) => secret.id !== selectedSecret.id,
       );

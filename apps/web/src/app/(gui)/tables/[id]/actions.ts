@@ -19,13 +19,10 @@ import {
 } from "../../../../lib/supabase/service-role";
 
 type CellRow = Database["public"]["Tables"]["cell"]["Row"];
-type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
-type DependencyRow = Database["public"]["Tables"]["column_dependency"]["Row"];
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
 type ProgramFileRow = Database["public"]["Tables"]["program_file"]["Row"];
 type ProgramVersionRow = Database["public"]["Tables"]["program_version"]["Row"];
 type RowRow = Database["public"]["Tables"]["row"]["Row"];
-type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type FullProgram = ProgramRow & {
   program_version: (Pick<
     ProgramVersionRow,
@@ -33,15 +30,6 @@ type FullProgram = ProgramRow & {
   > & {
     program_file: Pick<ProgramFileRow, "content" | "filename" | "filetype">[];
   })[];
-};
-type SecretBindingInput = {
-  envName: string;
-  secretId: string;
-};
-type RunExecutionResult = {
-  output: unknown;
-  runId: string;
-  success: boolean;
 };
 
 const SUPABASE_SELECT_PAGE_SIZE = 1000;
@@ -68,19 +56,6 @@ async function listCurrentUserOwnedProfileIds() {
   return listOwnedProfileIds(user.id);
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function isRowBatchResult(value: unknown): value is {
-  cells: CellRow[];
-  rows: RowRow[];
-} {
-  return (
-    isRecord(value) && Array.isArray(value.rows) && Array.isArray(value.cells)
-  );
-}
-
 async function selectAllPages<T>(
   fetchPage: (
     from: number,
@@ -104,29 +79,6 @@ async function selectAllPages<T>(
       return records;
     }
   }
-}
-
-async function loadColumn(columnId: string) {
-  const { data, error } = await db()
-    .from("column")
-    .select("*, program_version(*, program!program_version_program_id_fkey(*))")
-    .eq("id", columnId)
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
-export async function updateTableName(id: string, name: string) {
-  return callMarbleApi<TableRow>(`/tables/${id}`, {
-    body: {
-      name: name.trim() || "Untitled Table",
-    },
-    method: "PATCH",
-  });
 }
 
 // ── Programs ────────────────────────────────────────────
@@ -274,159 +226,4 @@ export async function loadTablePageData(tableId: string) {
 export async function listReferenceableColumns() {
   const user = await requireUser();
   return listReferenceableColumnsForUser(user.id);
-}
-
-// ── Columns ─────────────────────────────────────────────
-
-export async function createColumn(input: {
-  table_id: string;
-  name: string;
-  program_id: string;
-  input_template: string;
-  run_condition: boolean;
-}) {
-  const created = await callMarbleApi<
-    ColumnRow & {
-      cells: CellRow[];
-      dependencies: DependencyRow[];
-    }
-  >("/columns", {
-    body: {
-      inputTemplate: input.input_template,
-      name: input.name,
-      programVersionId: input.program_id,
-      runCondition: input.run_condition,
-      tableId: input.table_id,
-    },
-    method: "POST",
-  });
-
-  return {
-    cells: created.cells,
-    column: await loadColumn(created.id),
-    dependencies: created.dependencies,
-  };
-}
-
-export async function updateColumn(input: {
-  columnId: string;
-  name?: string;
-  program_id?: string;
-  input_template?: string;
-  run_condition?: boolean;
-}) {
-  await callMarbleApi(`/columns/${input.columnId}`, {
-    body: {
-      ...(input.input_template === undefined
-        ? {}
-        : {
-            inputTemplate: input.input_template,
-          }),
-      ...(input.name === undefined
-        ? {}
-        : {
-            name: input.name,
-          }),
-      ...(input.program_id === undefined
-        ? {}
-        : {
-            programVersionId: input.program_id,
-          }),
-      ...(input.run_condition === undefined
-        ? {}
-        : {
-            runCondition: input.run_condition,
-          }),
-    },
-    method: "PATCH",
-  });
-
-  return loadColumn(input.columnId);
-}
-
-export async function updateColumnSecretBindings(
-  columnId: string,
-  bindings: SecretBindingInput[],
-) {
-  return callMarbleApi<SecretBindingInput[]>(`/columns/${columnId}/secrets`, {
-    body: {
-      bindings,
-    },
-    method: "PUT",
-  });
-}
-
-export async function deleteColumn(columnId: string) {
-  await callMarbleApi(`/columns/${columnId}`, {
-    method: "DELETE",
-  });
-}
-
-// ── Rows ────────────────────────────────────────────────
-
-export async function createRows(tableId: string, count = 1) {
-  const requestId = crypto.randomUUID();
-  const created = await callMarbleApi<
-    | RowRow
-    | {
-        cells: CellRow[];
-        rows: RowRow[];
-      }
-  >(`/tables/${tableId}/rows`, {
-    body: {
-      count,
-    },
-    method: "POST",
-    requestId,
-  });
-
-  if (isRowBatchResult(created)) {
-    return created;
-  }
-
-  const cells = await callMarbleApi<CellRow[]>(`/rows/${created.id}/cells`, {
-    requestId,
-  });
-
-  return {
-    cells,
-    rows: [
-      created,
-    ],
-  };
-}
-
-export async function deleteRow(rowId: string) {
-  await callMarbleApi(`/rows/${rowId}`, {
-    method: "DELETE",
-  });
-}
-
-// ── Cells ───────────────────────────────────────────────
-
-export async function updateCellManualInput(cellId: string, value: string) {
-  return callMarbleApi<CellRow>(`/cells/${cellId}`, {
-    body: {
-      manualInput: value,
-    },
-    method: "PATCH",
-  });
-}
-
-// ── Execution ───────────────────────────────────────────
-
-export async function executeRun(input: {
-  cellId: string;
-  cellValue?: string;
-}): Promise<RunExecutionResult> {
-  return callMarbleApi<RunExecutionResult>(`/cells/${input.cellId}/run`, {
-    body: {
-      ...(input.cellValue === undefined
-        ? {}
-        : {
-            manualInput: input.cellValue,
-          }),
-    },
-    method: "POST",
-  });
 }

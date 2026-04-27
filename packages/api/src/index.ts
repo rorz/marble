@@ -19,6 +19,7 @@ import {
 } from "./core";
 import { createRecord, getRecord, updateRecord } from "./data";
 import { attachEventContext, type EventSource } from "./event-driver";
+import { now } from "./perf";
 import {
   requireAccessibleCell,
   requireAccessibleProgramRun,
@@ -322,6 +323,7 @@ export function createMarbleApi(config: MarbleApiConfig) {
   const app = new Hono<ApiEnv>();
 
   app.use("*", async (c, next) => {
+    const startedAt = now();
     const authHeader = c.req.header("Authorization");
     const forwardedProfileId =
       c.req.header("x-marble-auth-profile-id")?.trim() || undefined;
@@ -409,6 +411,12 @@ export function createMarbleApi(config: MarbleApiConfig) {
     );
 
     await next();
+
+    c.header("x-marble-request-id", requestId);
+    c.header(
+      "Server-Timing",
+      `marble-api;dur=${Math.round(now() - startedAt)}`,
+    );
   });
 
   app.get(

@@ -28,6 +28,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
+import { callMarbleClient } from "../../../../../lib/marble-client";
 import {
   buildPipeMappingSummary,
   buildPipeTitle,
@@ -43,9 +44,11 @@ import * as actions from "./actions";
 
 type SourceRecord = Database["public"]["Tables"]["source"]["Row"];
 type SourceEventRecord = Database["public"]["Tables"]["source_event"]["Row"];
-type PipeMappingInput = NonNullable<
-  Parameters<typeof actions.createPipeAction>[1]["mappings"]
->[number];
+type PipeRecord = Database["public"]["Tables"]["pipe"]["Row"];
+type PipeMappingInput = {
+  columnId: string;
+  jsonPath: string;
+};
 type PipeMappingDraft = PipeMappingInput & {
   draftId: string;
 };
@@ -478,6 +481,59 @@ function buildPipeDetailHref(projectId: string, pipeId: string) {
   return `/projects/${projectId}/pipes/${pipeId}`;
 }
 
+function updateSource(
+  sourceId: string,
+  input: {
+    name?: string;
+    payloadSchema?: unknown;
+  },
+) {
+  return callMarbleClient<SourceRecord>(`/sources/${sourceId}`, {
+    body: input,
+    method: "PATCH",
+  });
+}
+
+function deleteSource(sourceId: string) {
+  return callMarbleClient(`/sources/${sourceId}`, {
+    method: "DELETE",
+  });
+}
+
+function createPipe(
+  projectId: string,
+  input: {
+    mappings?: PipeMappingInput[];
+    sourceId: string;
+    tableId: string;
+  },
+) {
+  return callMarbleClient<PipeRecord>(`/projects/${projectId}/pipes`, {
+    body: input,
+    method: "POST",
+  });
+}
+
+function updatePipe(
+  pipeId: string,
+  input: {
+    mappings?: PipeMappingInput[];
+    sourceId?: string;
+    tableId?: string;
+  },
+) {
+  return callMarbleClient<PipeRecord>(`/pipes/${pipeId}`, {
+    body: input,
+    method: "PATCH",
+  });
+}
+
+function deletePipe(pipeId: string) {
+  return callMarbleClient(`/pipes/${pipeId}`, {
+    method: "DELETE",
+  });
+}
+
 export function ProjectSourceDetailPageView({
   initialData,
   initialPipeId = null,
@@ -526,7 +582,6 @@ export function ProjectSourceDetailPageView({
   const [sourceRenameError, setSourceRenameError] = useState<null | string>(
     null,
   );
-  const [sourceNamePending, setSourceNamePending] = useState(false);
   const [sourceSchemaInferPending, setSourceSchemaInferPending] =
     useState(false);
   const [sourcePending, setSourcePending] = useState(false);
@@ -949,17 +1004,27 @@ export function ProjectSourceDetailPageView({
       return;
     }
 
-    setSourceNamePending(true);
     setSourceRenameError(null);
+    setSourceEditingSurface(null);
+    setSourceNameDraft(nextName);
+    setSources((current) =>
+      sortByUpdatedAtDesc(
+        current.map((source) =>
+          source.id === selectedSource.id
+            ? {
+                ...source,
+                name: nextName,
+                updated_at: new Date().toISOString(),
+              }
+            : source,
+        ),
+      ),
+    );
 
     try {
-      const updated = await actions.updateSourceAction(
-        projectId,
-        selectedSource.id,
-        {
-          name: nextName,
-        },
-      );
+      const updated = await updateSource(selectedSource.id, {
+        name: nextName,
+      });
 
       setSources((current) =>
         sortByUpdatedAtDesc(
@@ -968,15 +1033,20 @@ export function ProjectSourceDetailPageView({
           ),
         ),
       );
-      setSourceEditingSurface(null);
       setSourceNameDraft(sourceTitle(updated));
       marbleToast.success("Source renamed");
     } catch (error) {
+      setSources((current) =>
+        sortByUpdatedAtDesc(
+          current.map((source) =>
+            source.id === selectedSource.id ? selectedSource : source,
+          ),
+        ),
+      );
+      setSourceNameDraft(currentName);
       setSourceRenameError(
         error instanceof Error ? error.message : String(error),
       );
-    } finally {
-      setSourceNamePending(false);
     }
   };
 
@@ -994,13 +1064,9 @@ export function ProjectSourceDetailPageView({
         throw new Error("Select a source before saving.");
       }
 
-      const updated = await actions.updateSourceAction(
-        projectId,
-        selectedSource.id,
-        {
-          payloadSchema: sourceSchemaValidation.value,
-        },
-      );
+      const updated = await updateSource(selectedSource.id, {
+        payloadSchema: sourceSchemaValidation.value,
+      });
 
       setSources((current) =>
         sortByUpdatedAtDesc(
@@ -1054,7 +1120,7 @@ export function ProjectSourceDetailPageView({
     setSourceError(null);
 
     try {
-      await actions.deleteSourceAction(projectId, selectedSource.id);
+      await deleteSource(selectedSource.id);
       setSources((current) =>
         current.filter((source) => source.id !== selectedSource.id),
       );
@@ -1108,15 +1174,11 @@ export function ProjectSourceDetailPageView({
         throw new Error("Select a pipe before saving.");
       }
 
-      const updated = await actions.updatePipeAction(
-        projectId,
-        selectedPipe.id,
-        {
-          mappings,
-          sourceId: pipeSourceIdDraft,
-          tableId: pipeTableIdDraft,
-        },
-      );
+      const updated = await updatePipe(selectedPipe.id, {
+        mappings,
+        sourceId: pipeSourceIdDraft,
+        tableId: pipeTableIdDraft,
+      });
 
       setPipes((current) =>
         sortByUpdatedAtDesc(
@@ -1143,7 +1205,7 @@ export function ProjectSourceDetailPageView({
     setPipeError(null);
 
     try {
-      const created = await actions.createPipeAction(projectId, {
+      const created = await createPipe(projectId, {
         mappings: [],
         sourceId: firstSourceId,
         tableId: firstTableId,
@@ -1183,7 +1245,7 @@ export function ProjectSourceDetailPageView({
     setPipeError(null);
 
     try {
-      await actions.deletePipeAction(projectId, selectedPipe.id);
+      await deletePipe(selectedPipe.id);
       setPipes((current) =>
         current.filter((pipe) => pipe.id !== selectedPipe.id),
       );
@@ -1268,7 +1330,7 @@ export function ProjectSourceDetailPageView({
           label:
             mode === "source" ? (
               <MarblePaneEditableCrumb
-                disabled={!selectedSource || sourceNamePending}
+                disabled={!selectedSource}
                 editing={sourceEditingSurface === "crumb"}
                 onCancel={stopEditingSourceName}
                 onChange={setSourceNameDraft}
@@ -1292,7 +1354,7 @@ export function ProjectSourceDetailPageView({
           {mode === "source" ? (
             <MarbleEditableText
               className="-mx-1 rounded-sm px-1 text-left text-4xl tracking-tight text-zinc-950 transition-colors hover:text-orange-600"
-              disabled={!selectedSource || sourceNamePending}
+              disabled={!selectedSource}
               editing={sourceEditingSurface === "title"}
               onCancel={stopEditingSourceName}
               onChange={setSourceNameDraft}

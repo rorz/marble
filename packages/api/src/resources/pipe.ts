@@ -369,15 +369,23 @@ export function mountPipeResource(app: Hono<ApiEnv>) {
             tableId: nextTableId,
           });
 
-          return updateRecord(c.var.supabase, "pipe", id, {
-            mappings:
-              body.mappings === undefined
-                ? undefined
-                : await normalizeMappings(c, scope.table.id, body.mappings),
-            source_id:
-              body.sourceId === undefined ? undefined : scope.source.id,
-            table_id: body.tableId === undefined ? undefined : scope.table.id,
-          });
+          return updateRecord(
+            c.var.supabase,
+            "pipe",
+            id,
+            {
+              mappings:
+                body.mappings === undefined
+                  ? undefined
+                  : await normalizeMappings(c, scope.table.id, body.mappings),
+              source_id:
+                body.sourceId === undefined ? undefined : scope.source.id,
+              table_id: body.tableId === undefined ? undefined : scope.table.id,
+            },
+            {
+              before: existing,
+            },
+          );
         },
         schema: pipePatchSchema,
       },

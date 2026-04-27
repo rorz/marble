@@ -465,14 +465,22 @@ export function mountColumnResource(app: Hono<ApiEnv>) {
             );
           }
 
-          const data = await updateRecord(c.var.supabase, "column", id, {
-            idx: body.idx,
-            input_template: inputTemplate,
-            name: body.name,
-            output_schema: parsedOutputSchema.data as Json,
-            program_version_id: programVersionId,
-            run_condition: parsedRunCondition.data,
-          });
+          const data = await updateRecord(
+            c.var.supabase,
+            "column",
+            id,
+            {
+              idx: body.idx,
+              input_template: inputTemplate,
+              name: body.name,
+              output_schema: parsedOutputSchema.data as Json,
+              program_version_id: programVersionId,
+              run_condition: parsedRunCondition.data,
+            },
+            {
+              before: existing,
+            },
+          );
 
           if (inputTemplate !== undefined) {
             await replaceColumnDependencies(c.var.supabase, id, inputTemplate);

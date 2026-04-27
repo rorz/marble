@@ -250,9 +250,17 @@ export function mountRowResource(app: Hono<ApiEnv>) {
             body.idx,
           ]);
 
-          return updateRecord(c.var.supabase, "row", id, {
-            idx: body.idx,
-          });
+          return updateRecord(
+            c.var.supabase,
+            "row",
+            id,
+            {
+              idx: body.idx,
+            },
+            {
+              before: existing,
+            },
+          );
         },
         schema: rowPatchSchema,
       },

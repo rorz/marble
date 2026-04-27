@@ -149,7 +149,7 @@ export function mountProjectResource(app: Hono<ApiEnv>) {
       idParam: "projectId",
       patch: {
         handler: async (c, id, body) => {
-          await requireAccessibleProject(c.var.supabase, {
+          const existing = await requireAccessibleProject(c.var.supabase, {
             authenticatedProfileId: c.var.auth?.profileId,
             projectId: id,
             userId: c.var.auth?.userId,
@@ -160,18 +160,26 @@ export function mountProjectResource(app: Hono<ApiEnv>) {
             body.ownerProfileId,
           ]);
 
-          return updateRecord(c.var.supabase, "project", id, {
-            folder_path: body.folderPath,
-            name: body.name,
-            owner_profile_id:
-              body.ownerProfileId === undefined
-                ? undefined
-                : await resolveProjectOwnerProfileId(c.var.supabase, {
-                    authenticatedProfileId: c.var.auth?.profileId,
-                    ownerProfileId: body.ownerProfileId,
-                    userId: c.var.auth?.userId,
-                  }),
-          });
+          return updateRecord(
+            c.var.supabase,
+            "project",
+            id,
+            {
+              folder_path: body.folderPath,
+              name: body.name,
+              owner_profile_id:
+                body.ownerProfileId === undefined
+                  ? undefined
+                  : await resolveProjectOwnerProfileId(c.var.supabase, {
+                      authenticatedProfileId: c.var.auth?.profileId,
+                      ownerProfileId: body.ownerProfileId,
+                      userId: c.var.auth?.userId,
+                    }),
+            },
+            {
+              before: existing,
+            },
+          );
         },
         schema: projectWriteSchema,
       },

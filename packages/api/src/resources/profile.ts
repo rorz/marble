@@ -8,8 +8,10 @@ import {
 } from "../core";
 import {
   createRecord,
+  deleteRecord,
   getRecord,
   listRecordsFromQuery,
+  successResponse,
   updateRecord,
 } from "../data";
 import {
@@ -195,6 +197,27 @@ export function mountProfileResource(app: Hono<ApiEnv>) {
       path: "/profiles",
     },
     item: {
+      delete: {
+        handler: async (c, id) => {
+          const profile = await requireAccessibleProfile(c.var.supabase, {
+            authenticatedProfileId: c.var.auth?.userId
+              ? undefined
+              : c.var.auth?.profileId,
+            profileId: id,
+            userId: c.var.auth?.userId,
+          });
+
+          if (c.var.auth?.userId && profile.type !== "Agent") {
+            throw new ApiError(
+              403,
+              "The automatic human profile cannot be deleted here.",
+            );
+          }
+
+          await deleteRecord(c.var.supabase, "profile", id);
+          return successResponse();
+        },
+      },
       get: {
         handler: (c, id) =>
           requireAccessibleProfile(c.var.supabase, {
@@ -208,13 +231,18 @@ export function mountProfileResource(app: Hono<ApiEnv>) {
       idParam: "profileId",
       patch: {
         handler: async (c, id, body) => {
-          await requireAccessibleProfile(c.var.supabase, {
+          const existing = await requireAccessibleProfile(c.var.supabase, {
             authenticatedProfileId: c.var.auth?.userId
               ? undefined
               : c.var.auth?.profileId,
             profileId: id,
             userId: c.var.auth?.userId,
           });
+
+          if (c.var.auth?.userId && existing.type !== "Agent") {
+            throw new ApiError(403, "Only agent profiles can be edited here.");
+          }
+
           requireAnyDefined([
             body.externalName,
             body.icon,
@@ -222,12 +250,20 @@ export function mountProfileResource(app: Hono<ApiEnv>) {
             body.type,
           ]);
 
-          return updateRecord(c.var.supabase, "profile", id, {
-            external_name: body.externalName,
-            icon: body.icon,
-            name: body.name,
-            type: body.type,
-          });
+          return updateRecord(
+            c.var.supabase,
+            "profile",
+            id,
+            {
+              external_name: body.externalName,
+              icon: body.icon,
+              name: body.name,
+              type: body.type,
+            },
+            {
+              before: existing,
+            },
+          );
         },
         schema: profileUpdateSchema,
       },

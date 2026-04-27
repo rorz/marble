@@ -1,5 +1,6 @@
 "use client";
 
+import type { Database } from "@marble/supabase";
 import {
   MarbleAlert,
   MarbleBadge,
@@ -15,6 +16,7 @@ import {
 import { FunnelIcon, PipeIcon, TableIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { callMarbleClient } from "../../../../lib/marble-client";
 import {
   buildPipeMappingDisplayRecords,
   buildPipeMappingSummary,
@@ -32,19 +34,13 @@ import {
 import type { ProjectSourceWorkspaceData } from "../../../../lib/source-data";
 import { createClient } from "../../../../lib/supabase/browser";
 import { changeTargetKey, getChangeTargetProps } from "../../change-spotlight";
-import {
-  createTableAction,
-  deleteProjectAction,
-  renameProjectAction,
-} from "../actions";
-import { createPipeAction, createSourceAction } from "./sources/actions";
 
 type ProjectInfo = ProjectSourceWorkspaceData;
 type ProjectState = ProjectInfo["project"];
-type ProjectRecord = Awaited<ReturnType<typeof renameProjectAction>>;
-type TableRecord = Awaited<ReturnType<typeof createTableAction>>;
-type SourceRecord = Awaited<ReturnType<typeof createSourceAction>>;
-type PipeRecord = Awaited<ReturnType<typeof createPipeAction>>;
+type ProjectRecord = Database["public"]["Tables"]["project"]["Row"];
+type TableRecord = Database["public"]["Tables"]["table"]["Row"];
+type SourceRecord = Database["public"]["Tables"]["source"]["Row"];
+type PipeRecord = Database["public"]["Tables"]["pipe"]["Row"];
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -68,6 +64,47 @@ function sortTables(tables: ProjectState["tables"]) {
   return sortRows(tables, compareByUpdatedAtDesc);
 }
 
+function renameProject(projectId: string, name: string) {
+  return callMarbleClient<ProjectRecord>(`/projects/${projectId}`, {
+    body: {
+      name: name.trim() || "Untitled Project",
+    },
+    method: "PATCH",
+  });
+}
+
+function createTable(projectId: string) {
+  return callMarbleClient<TableRecord>(`/projects/${projectId}/tables`, {
+    method: "POST",
+  });
+}
+
+function createSource(projectId: string) {
+  return callMarbleClient<SourceRecord>(`/projects/${projectId}/sources`, {
+    method: "POST",
+  });
+}
+
+function createPipe(
+  projectId: string,
+  input: {
+    mappings: never[];
+    sourceId: string;
+    tableId: string;
+  },
+) {
+  return callMarbleClient<PipeRecord>(`/projects/${projectId}/pipes`, {
+    body: input,
+    method: "POST",
+  });
+}
+
+function deleteProject(projectId: string) {
+  return callMarbleClient(`/projects/${projectId}`, {
+    method: "DELETE",
+  });
+}
+
 export function ProjectPageView({
   initialProject,
 }: {
@@ -78,6 +115,12 @@ export function ProjectPageView({
     ...initialProject.project,
     tables: sortTables(initialProject.project.tables),
   });
+  const [sources, setSources] = useState(() =>
+    sortRows(initialProject.sources, compareByUpdatedAtDesc),
+  );
+  const [pipes, setPipes] = useState(() =>
+    sortRows(initialProject.pipes, compareByCreatedAtDesc),
+  );
   const [editingSurface, setEditingSurface] = useState<
     null | "crumb" | "title"
   >(null);
@@ -87,10 +130,10 @@ export function ProjectPageView({
   const [creatingTable, setCreatingTable] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
   const [error, setError] = useState<null | string>(null);
-  const sources = sortRows(initialProject.sources, compareByUpdatedAtDesc);
-  const pipes = sortRows(initialProject.pipes, compareByCreatedAtDesc);
   const projectRef = useRef(project);
   projectRef.current = project;
+  const sourcesRef = useRef(sources);
+  sourcesRef.current = sources;
   const renameRequestRef = useRef(0);
   const renameInFlightRef = useRef(false);
   const sourceNameById = new Map(
@@ -217,9 +260,81 @@ export function ProjectPageView({
       )
       .subscribe();
 
+    const sourceChannel = supabase
+      .channel(`project:${project.id}:sources`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "source",
+        },
+        (payload) => {
+          const change = payload as RealtimePayload<SourceRecord>;
+
+          setSources((current) => {
+            if (
+              change.eventType === "DELETE" &&
+              change.old.project_id === project.id &&
+              typeof change.old.id === "string"
+            ) {
+              return removeRow(current, change.old.id);
+            }
+
+            const next = change.new as SourceRecord;
+
+            if (next.project_id !== project.id) {
+              return current;
+            }
+
+            return upsertRow(current, next, compareByUpdatedAtDesc);
+          });
+        },
+      )
+      .subscribe();
+
+    const pipeChannel = supabase
+      .channel(`project:${project.id}:pipes`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pipe",
+        },
+        (payload) => {
+          const change = payload as RealtimePayload<PipeRecord>;
+
+          setPipes((current) => {
+            if (
+              change.eventType === "DELETE" &&
+              typeof change.old.id === "string"
+            ) {
+              return removeRow(current, change.old.id);
+            }
+
+            const next = change.new as PipeRecord;
+            const belongsToProject =
+              projectRef.current.tables.some(
+                (table) => table.id === next.table_id,
+              ) ||
+              sourcesRef.current.some((source) => source.id === next.source_id);
+
+            if (!belongsToProject) {
+              return current;
+            }
+
+            return upsertRow(current, next, compareByCreatedAtDesc);
+          });
+        },
+      )
+      .subscribe();
+
     return () => {
       void supabase.removeChannel(projectChannel);
       void supabase.removeChannel(tableChannel);
+      void supabase.removeChannel(sourceChannel);
+      void supabase.removeChannel(pipeChannel);
     };
   }, [
     project.id,
@@ -253,7 +368,7 @@ export function ProjectPageView({
     }));
 
     try {
-      const updated = await renameProjectAction(previousProject.id, nextName);
+      const updated = await renameProject(previousProject.id, nextName);
       if (renameRequestRef.current !== requestId) {
         return;
       }
@@ -296,7 +411,7 @@ export function ProjectPageView({
     setError(null);
 
     try {
-      const table = await createTableAction(project.id);
+      const table = await createTable(project.id);
       router.push(`/projects/${project.id}/tables/${table.id}`);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
@@ -309,7 +424,10 @@ export function ProjectPageView({
     setError(null);
 
     try {
-      const source = (await createSourceAction(project.id)) as SourceRecord;
+      const source = await createSource(project.id);
+      setSources((current) =>
+        upsertRow(current, source, compareByUpdatedAtDesc),
+      );
       router.push(buildSourceDetailHref(source.id));
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
@@ -332,11 +450,12 @@ export function ProjectPageView({
     setError(null);
 
     try {
-      const pipe = (await createPipeAction(project.id, {
+      const pipe = await createPipe(project.id, {
         mappings: [],
         sourceId,
         tableId,
-      })) as PipeRecord;
+      });
+      setPipes((current) => upsertRow(current, pipe, compareByCreatedAtDesc));
       router.push(buildPipeDetailHref(pipe.id));
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
@@ -357,7 +476,7 @@ export function ProjectPageView({
     setError(null);
 
     try {
-      await deleteProjectAction(project.id);
+      await deleteProject(project.id);
       router.push("/projects");
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));

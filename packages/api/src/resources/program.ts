@@ -225,7 +225,7 @@ export function mountProgramResource(app: Hono<ApiEnv>) {
       idParam: "programId",
       patch: {
         handler: async (c, id, body) => {
-          await getRecord(c.var.supabase, "program", id);
+          const existing = await getRecord(c.var.supabase, "program", id);
           requireAnyDefined([
             body.firstParty,
             body.forkedFromVersionId,
@@ -241,15 +241,23 @@ export function mountProgramResource(app: Hono<ApiEnv>) {
             );
           }
 
-          return updateRecord(c.var.supabase, "program", id, {
-            first_party: body.firstParty,
-            forked_from_version_id: body.forkedFromVersionId,
-            name: body.name,
-            owner_profile_id: await validateOwnerProfileId(c.var.supabase, {
-              authenticatedProfileId: c.var.auth?.profileId,
-              ownerProfileId: body.ownerProfileId,
-            }),
-          });
+          return updateRecord(
+            c.var.supabase,
+            "program",
+            id,
+            {
+              first_party: body.firstParty,
+              forked_from_version_id: body.forkedFromVersionId,
+              name: body.name,
+              owner_profile_id: await validateOwnerProfileId(c.var.supabase, {
+                authenticatedProfileId: c.var.auth?.profileId,
+                ownerProfileId: body.ownerProfileId,
+              }),
+            },
+            {
+              before: existing,
+            },
+          );
         },
         schema: programPatchSchema,
       },

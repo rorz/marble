@@ -1,5 +1,6 @@
 "use client";
 
+import type { Database } from "@marble/supabase";
 import {
   cx,
   MarbleAlert,
@@ -48,6 +49,7 @@ import {
   useState,
 } from "react";
 import Editor from "react-simple-code-editor";
+import { callMarbleClient } from "@/lib/marble-client";
 import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 import {
   type ChangeTargetDescriptor,
@@ -55,18 +57,7 @@ import {
   getChangeTargetProps,
   useChangeSpotlightResolver,
 } from "../../change-spotlight";
-import {
-  createColumn,
-  createRows,
-  deleteColumn,
-  deleteRow,
-  executeRun,
-  listReferenceableColumns,
-  updateColumn,
-  updateColumnSecretBindings,
-  updateProgramOutputSchema,
-  updateTableName,
-} from "./actions";
+import { listReferenceableColumns, updateProgramOutputSchema } from "./actions";
 
 ModuleRegistry.registerModules([
   AllCommunityModule,
@@ -81,6 +72,8 @@ type Program = InitialTablePageData["programs"][number];
 type TableInfo = InitialTablePageData["table"];
 type ReferenceableColumn = InitialTablePageData["referenceColumns"][number];
 type Column = InitialTablePageData["columns"][number];
+type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
+type DependencyRow = Database["public"]["Tables"]["column_dependency"]["Row"];
 type Row = InitialTablePageData["rows"][number];
 type Cell = InitialTablePageData["cells"][number];
 type SecretRecord = InitialTablePageData["secrets"][number];
@@ -88,9 +81,24 @@ type ProgramSecretBindingMap = InitialTablePageData["programSecretBindings"];
 type ColumnSecretBindingMap = InitialTablePageData["columnSecretBindings"];
 type ProgramSecretDeclarationsByProgramId =
   InitialTablePageData["programSecretDeclarations"];
-type SecretBindingInput = Awaited<
-  ReturnType<typeof updateColumnSecretBindings>
->[number];
+type SecretBindingInput = {
+  envName: string;
+  secretId: string;
+};
+type RowBatchResult = {
+  cells: Cell[];
+  rows: Row[];
+};
+type TableRow = Database["public"]["Tables"]["table"]["Row"];
+type ColumnCreateResult = ColumnRow & {
+  cells: Cell[];
+  dependencies: DependencyRow[];
+};
+type RunExecutionResult = {
+  output: unknown;
+  runId: string;
+  success: boolean;
+};
 
 type SidebarMode =
   | {
@@ -122,6 +130,182 @@ type ConfirmState = {
   confirmLabel: string;
   onConfirm: () => void;
 } | null;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isRowBatchResult(value: unknown): value is RowBatchResult {
+  return (
+    isRecord(value) && Array.isArray(value.rows) && Array.isArray(value.cells)
+  );
+}
+
+function updateTableName(id: string, name: string) {
+  return callMarbleClient<TableRow>(`/tables/${id}`, {
+    body: {
+      name: name.trim() || "Untitled Table",
+    },
+    method: "PATCH",
+  });
+}
+
+async function createRows(tableId: string, count = 1): Promise<RowBatchResult> {
+  const requestId = crypto.randomUUID();
+  const created = await callMarbleClient<Row | RowBatchResult>(
+    `/tables/${tableId}/rows`,
+    {
+      body: {
+        count,
+      },
+      method: "POST",
+      requestId,
+    },
+  );
+
+  if (isRowBatchResult(created)) {
+    return created;
+  }
+
+  const cells = await callMarbleClient<Cell[]>(`/rows/${created.id}/cells`, {
+    requestId,
+  });
+
+  return {
+    cells,
+    rows: [
+      created,
+    ],
+  };
+}
+
+function deleteColumn(columnId: string) {
+  return callMarbleClient(`/columns/${columnId}`, {
+    method: "DELETE",
+  });
+}
+
+function deleteRow(rowId: string) {
+  return callMarbleClient(`/rows/${rowId}`, {
+    method: "DELETE",
+  });
+}
+
+function executeRun(input: {
+  cellId: string;
+  cellValue?: string;
+}): Promise<RunExecutionResult> {
+  return callMarbleClient<RunExecutionResult>(`/cells/${input.cellId}/run`, {
+    body: {
+      ...(input.cellValue === undefined
+        ? {}
+        : {
+            manualInput: input.cellValue,
+          }),
+    },
+    method: "POST",
+  });
+}
+
+function findProgramVersionForColumn(
+  programs: Program[],
+  programVersionId: string,
+): Column["program_version"] | null {
+  for (const program of programs) {
+    for (const version of program.program_version ?? []) {
+      if (version.id === programVersionId) {
+        return {
+          ...version,
+          created_at: "",
+          program,
+          program_id: program.id,
+          published_at: null,
+          updated_at: "",
+        } as unknown as Column["program_version"];
+      }
+    }
+  }
+
+  return null;
+}
+
+function hydrateColumnRow(column: ColumnRow, programs: Program[]): Column {
+  return {
+    ...column,
+    program_version: findProgramVersionForColumn(
+      programs,
+      column.program_version_id,
+    ),
+  } as Column;
+}
+
+function createColumn(input: {
+  input_template: string;
+  name: string;
+  program_id: string;
+  run_condition: boolean;
+  table_id: string;
+}) {
+  return callMarbleClient<ColumnCreateResult>("/columns", {
+    body: {
+      inputTemplate: input.input_template,
+      name: input.name,
+      programVersionId: input.program_id,
+      runCondition: input.run_condition,
+      tableId: input.table_id,
+    },
+    method: "POST",
+  });
+}
+
+function updateColumn(input: {
+  columnId: string;
+  input_template?: string;
+  name?: string;
+  program_id?: string;
+  run_condition?: boolean;
+}) {
+  return callMarbleClient<ColumnRow>(`/columns/${input.columnId}`, {
+    body: {
+      ...(input.input_template === undefined
+        ? {}
+        : {
+            inputTemplate: input.input_template,
+          }),
+      ...(input.name === undefined
+        ? {}
+        : {
+            name: input.name,
+          }),
+      ...(input.program_id === undefined
+        ? {}
+        : {
+            programVersionId: input.program_id,
+          }),
+      ...(input.run_condition === undefined
+        ? {}
+        : {
+            runCondition: input.run_condition,
+          }),
+    },
+    method: "PATCH",
+  });
+}
+
+function updateColumnSecretBindings(
+  columnId: string,
+  bindings: SecretBindingInput[],
+) {
+  return callMarbleClient<SecretBindingInput[]>(
+    `/columns/${columnId}/secrets`,
+    {
+      body: {
+        bindings,
+      },
+      method: "PUT",
+    },
+  );
+}
 
 type GridContext = {
   runCell: (columnId: string, rowId: string) => void;
@@ -1944,13 +2128,14 @@ export default function TablePageView({
       run_condition: boolean;
     }) => {
       if (!selectedTableId) return;
-      const { column, cells: newCells } = await createColumn({
+      const { cells: newCells, ...column } = await createColumn({
         table_id: selectedTableId,
         ...input,
       });
+      const hydratedColumn = hydrateColumnRow(column, programs);
       setColumns((prev) => {
         const next = mergeRecordsById(prev, [
-          column as unknown as Column,
+          hydratedColumn,
         ]).sort((a, b) => a.idx - b.idx);
         columnsRef.current = next;
         return next;
@@ -1965,6 +2150,7 @@ export default function TablePageView({
     [
       refreshReferenceColumns,
       selectedTableId,
+      programs,
     ],
   );
 
@@ -1977,7 +2163,7 @@ export default function TablePageView({
       run_condition?: boolean;
       secretBindings?: SecretBindingInput[];
     }) => {
-      const updated = await updateColumn(input);
+      const updated = hydrateColumnRow(await updateColumn(input), programs);
 
       if (input.secretBindings) {
         const savedBindings = await updateColumnSecretBindings(
@@ -1992,12 +2178,13 @@ export default function TablePageView({
       }
 
       setColumns((prev) =>
-        prev.map((c) => (c.id === updated.id ? (updated as Column) : c)),
+        prev.map((c) => (c.id === updated.id ? updated : c)),
       );
       await refreshReferenceColumns();
     },
     [
       refreshReferenceColumns,
+      programs,
     ],
   );
 
