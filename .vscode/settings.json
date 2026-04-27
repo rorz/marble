@@ -1,11 +1,12 @@
 {
   "cSpell.words": [
-    "Automations",
+    "automations",
     "bunx",
     "opencode",
     "supabase",
     "turborepo",
-    "vercel"
+    "vercel",
+    "ingestor"
   ],
   "js/ts.tsdk.path": "node_modules/typescript/lib"
 }

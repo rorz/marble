@@ -4,7 +4,6 @@
     "@marble/api": "workspace:*",
     "@marble/core": "workspace:*",
     "@marble/supabase": "workspace:*",
-    "@t3-oss/env-core": "catalog:base",
     "hono": "catalog:base",
     "jsonpath-plus": "catalog:base",
     "zod": "catalog:base"

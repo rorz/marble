@@ -21,7 +21,6 @@ import {
   successResponse,
   updateRecord,
 } from "../data";
-import { getEnv } from "../env";
 import {
   listAccessibleProjectIds,
   requireAccessibleProject,
@@ -86,8 +85,7 @@ function normalizePayloadSchema(payloadSchema: unknown): Json {
 }
 
 function serializeSource(c: ApiContext, source: SourceRow) {
-  const webhookBaseUrl =
-    getEnv(c.env).MARBLE_INGESTOR_URL?.replace(/\/$/, "") ?? null;
+  const webhookBaseUrl = c.var.runtime.ingestor?.url ?? null;
 
   return {
     ...source,

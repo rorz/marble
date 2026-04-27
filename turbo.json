@@ -2,13 +2,10 @@
   "$schema": "https://turborepo.dev/schema.json",
   "globalDependencies": ["tsconfig.json"],
   "globalEnv": [
-    "EXECUTOR_URL",
-    "INIT_CWD",
     "MARBLE_API_KEY",
     "MARBLE_API_URL",
     "MARBLE_EXECUTOR_URL",
     "MARBLE_INGESTOR_URL",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     "NEXT_PUBLIC_SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",

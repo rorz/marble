@@ -1,11 +1,11 @@
 import "server-only";
 import type { Database } from "@marble/supabase";
-import { env } from "@/env";
 import {
   getOwnedProjectForUser,
   listReferenceableColumnsForUser,
   type ReferenceableColumn,
 } from "./project-data";
+import { getMarbleIngestorBaseUrl } from "./server-config";
 import { createServiceRoleClient } from "./supabase/service-role";
 
 type SourceRow = Database["public"]["Tables"]["source"]["Row"];
@@ -91,6 +91,6 @@ export async function getProjectSourceWorkspaceData(
     project,
     sourceEvents: (sourceEventResult.data ?? []) as SourceEventRow[],
     sources,
-    webhookBaseUrl: env.MARBLE_INGESTOR_URL.replace(/\/$/, ""),
+    webhookBaseUrl: getMarbleIngestorBaseUrl(),
   } satisfies ProjectSourceWorkspaceData;
 }

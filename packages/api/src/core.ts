@@ -4,17 +4,34 @@ import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { z } from "zod";
 
 export type ExecutorTransport = {
-  fetch: typeof fetch;
+  fetch(request: Request): Promise<Response>;
+};
+
+export type MarbleApiConfig = {
+  executor: {
+    transport?: ExecutorTransport;
+    url: string;
+  };
+  ingestor?: {
+    url: string;
+  };
+  supabase: {
+    serviceRoleKey: string;
+    url: string;
+  };
+};
+
+export type MarbleApiRuntime = MarbleApiConfig & {
+  executor: {
+    transport?: ExecutorTransport;
+    url: string;
+  };
+  ingestor?: {
+    url: string;
+  };
 };
 
 export type ApiEnv = {
-  Bindings: {
-    MARBLE_EXECUTOR?: ExecutorTransport;
-    MARBLE_EXECUTOR_URL?: string;
-    MARBLE_INGESTOR_URL?: string;
-    SUPABASE_SERVICE_ROLE_KEY: string;
-    SUPABASE_URL: string;
-  };
   Variables: {
     auth:
       | {
@@ -24,6 +41,8 @@ export type ApiEnv = {
           type: "api-key" | "forwarded";
         }
       | undefined;
+    runtime: MarbleApiRuntime;
+    serviceRoleSupabase: SupabaseClient;
     supabase: SupabaseClient;
   };
 };

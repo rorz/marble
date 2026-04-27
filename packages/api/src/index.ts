@@ -10,13 +10,14 @@ import { z } from "zod";
 import {
   type ApiContext,
   type ApiEnv,
+  type MarbleApiConfig,
+  type MarbleApiRuntime,
   parseJsonBody,
   readJsonBody,
   requiredParam,
   route,
 } from "./core";
 import { createRecord, getRecord, updateRecord } from "./data";
-import { getEnv } from "./env";
 import { attachEventContext, type EventSource } from "./event-driver";
 import {
   requireAccessibleCell,
@@ -41,7 +42,8 @@ import { mountSourceResource } from "./resources/source";
 import { mountSourceEventResource } from "./resources/source_event";
 import { mountTableResource } from "./resources/table";
 
-const app = new Hono<ApiEnv>();
+export type { MarbleApiConfig } from "./core";
+
 const resourceMounts = {
   cells: mountCellResource,
   column_dependencies: mountColumnDependencyResource,
@@ -61,6 +63,27 @@ const resourceMounts = {
   sources: mountSourceResource,
   tables: mountTableResource,
 } satisfies Record<ApiResourceName, (app: Hono<ApiEnv>) => void>;
+
+function trimTrailingSlash(value: string) {
+  return value.replace(/\/$/, "");
+}
+
+function createMarbleApiRuntime(config: MarbleApiConfig): MarbleApiRuntime {
+  return {
+    executor: {
+      transport: config.executor.transport,
+      url: trimTrailingSlash(config.executor.url),
+    },
+    ...(config.ingestor
+      ? {
+          ingestor: {
+            url: trimTrailingSlash(config.ingestor.url),
+          },
+        }
+      : {}),
+    supabase: config.supabase,
+  };
+}
 
 function executorEndpointUrl(baseUrl: string, path: string, search: string) {
   const endpoint = new URL(baseUrl);
@@ -153,39 +176,19 @@ async function proxyExecutorRequest(
 ) {
   const body = JSON.stringify(options.body);
   const headers = forwardExecutorHeaders(c);
+  const executor = c.var.runtime.executor;
 
-  if (c.env.MARBLE_EXECUTOR) {
-    const response = await c.env.MARBLE_EXECUTOR.fetch(
-      new Request(
-        executorEndpointUrl(
-          "https://executor.marble.internal",
-          options.path,
-          options.search,
-        ),
-        {
-          body,
-          headers,
-          method: "POST",
-        },
-      ),
-    );
-    return readExecutorResponse(response);
-  }
-
-  const env = getEnv(c.env);
   const request = new Request(
-    executorEndpointUrl(
-      env.MARBLE_EXECUTOR_URL || "http://localhost:3087",
-      options.path,
-      options.search,
-    ),
+    executorEndpointUrl(executor.url, options.path, options.search),
     {
       body,
       headers,
       method: "POST",
     },
   );
-  const response = await fetch(request);
+  const response = executor.transport
+    ? await executor.transport.fetch(request)
+    : await fetch(request);
   return readExecutorResponse(response);
 }
 
@@ -314,180 +317,190 @@ function resolveEventSource(options: {
   );
 }
 
-app.use("*", async (c, next) => {
-  const env = getEnv(c.env);
-  const authHeader = c.req.header("Authorization");
-  const forwardedProfileId =
-    c.req.header("x-marble-auth-profile-id")?.trim() || undefined;
-  const forwardedKeyId =
-    c.req.header("x-marble-auth-key-id")?.trim() || undefined;
-  const forwardedUserId =
-    c.req.header("x-marble-auth-user-id")?.trim() || undefined;
-  const requestedActorSource =
-    c.req.header("x-marble-actor-source")?.trim() || undefined;
-  const requestId =
-    c.req.header("x-marble-request-id")?.trim() || crypto.randomUUID();
-  let actorProfileId = forwardedProfileId;
-  let actorKeyId = forwardedKeyId;
+export function createMarbleApi(config: MarbleApiConfig) {
+  const runtime = createMarbleApiRuntime(config);
+  const app = new Hono<ApiEnv>();
 
-  if (!forwardedProfileId) {
-    const apiKeyToken = getApiKeyTokenFromHeaders(c.req.raw.headers);
+  app.use("*", async (c, next) => {
+    const authHeader = c.req.header("Authorization");
+    const forwardedProfileId =
+      c.req.header("x-marble-auth-profile-id")?.trim() || undefined;
+    const forwardedKeyId =
+      c.req.header("x-marble-auth-key-id")?.trim() || undefined;
+    const forwardedUserId =
+      c.req.header("x-marble-auth-user-id")?.trim() || undefined;
+    const requestedActorSource =
+      c.req.header("x-marble-actor-source")?.trim() || undefined;
+    const requestId =
+      c.req.header("x-marble-request-id")?.trim() || crypto.randomUUID();
+    const serviceRoleSupabase = createClient(
+      runtime.supabase.url,
+      runtime.supabase.serviceRoleKey,
+    );
+    let actorProfileId = forwardedProfileId;
+    let actorKeyId = forwardedKeyId;
 
-    if (apiKeyToken) {
-      const keyAuth = await resolveApiKeyAuth(
-        createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY),
-        apiKeyToken,
-      );
+    if (!forwardedProfileId) {
+      const apiKeyToken = getApiKeyTokenFromHeaders(c.req.raw.headers);
 
-      if (keyAuth) {
-        actorProfileId = keyAuth.owner_profile_id;
-        actorKeyId = keyAuth.id;
-        c.set("auth", {
-          keyId: keyAuth.id,
-          profileId: keyAuth.owner_profile_id,
-          type: "api-key",
-        });
+      if (apiKeyToken) {
+        const keyAuth = await resolveApiKeyAuth(
+          serviceRoleSupabase,
+          apiKeyToken,
+        );
+
+        if (keyAuth) {
+          actorProfileId = keyAuth.owner_profile_id;
+          actorKeyId = keyAuth.id;
+          c.set("auth", {
+            keyId: keyAuth.id,
+            profileId: keyAuth.owner_profile_id,
+            type: "api-key",
+          });
+        }
       }
+    } else if (forwardedProfileId || forwardedKeyId || forwardedUserId) {
+      c.set("auth", {
+        ...(forwardedKeyId
+          ? {
+              keyId: forwardedKeyId,
+            }
+          : {}),
+        ...(forwardedProfileId
+          ? {
+              profileId: forwardedProfileId,
+            }
+          : {}),
+        ...(forwardedUserId
+          ? {
+              userId: forwardedUserId,
+            }
+          : {}),
+        type: "forwarded",
+      });
     }
-  } else if (forwardedProfileId || forwardedKeyId || forwardedUserId) {
-    c.set("auth", {
-      ...(forwardedKeyId
-        ? {
-            keyId: forwardedKeyId,
-          }
-        : {}),
-      ...(forwardedProfileId
-        ? {
-            profileId: forwardedProfileId,
-          }
-        : {}),
-      ...(forwardedUserId
-        ? {
-            userId: forwardedUserId,
-          }
-        : {}),
-      type: "forwarded",
+
+    const source = resolveEventSource({
+      actorKeyId,
+      forwardedUserId,
+      requestedActorSource,
     });
+    const supabase = authHeader
+      ? createClient(runtime.supabase.url, runtime.supabase.serviceRoleKey, {
+          global: {
+            headers: {
+              Authorization: authHeader,
+            },
+          },
+        })
+      : createClient(runtime.supabase.url, runtime.supabase.serviceRoleKey);
+
+    c.set("runtime", runtime);
+    c.set("serviceRoleSupabase", serviceRoleSupabase);
+    c.set(
+      "supabase",
+      attachEventContext(supabase, {
+        actorKeyId,
+        actorProfileId,
+        requestId,
+        source,
+        userId: forwardedUserId,
+      }),
+    );
+
+    await next();
+  });
+
+  app.get(
+    "/",
+    route(async (c) =>
+      c.json({
+        resources: Object.fromEntries(
+          ApiResourceNames.map((resourceName) => [
+            resourceName,
+            apiResourcePath(resourceName),
+          ]),
+        ),
+      }),
+    ),
+  );
+
+  for (const resourceName of ApiResourceNames) {
+    resourceMounts[resourceName](app);
   }
 
-  const source = resolveEventSource({
-    actorKeyId,
-    forwardedUserId,
-    requestedActorSource,
-  });
-  const supabase = authHeader
-    ? createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
-      })
-    : createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  mountSecretBindingRoutes(app);
 
-  c.set(
-    "supabase",
-    attachEventContext(supabase, {
-      actorKeyId,
-      actorProfileId,
-      requestId,
-      source,
-      userId: forwardedUserId,
+  app.post(
+    "/test",
+    route(async (c) => {
+      const requestUrl = new URL(c.req.url);
+      const { payload, status } = await proxyExecutorRequest(c, {
+        body: await readJsonBody(c),
+        path: "/test",
+        search: requestUrl.search,
+      });
+
+      return c.json(payload, {
+        status,
+      });
     }),
   );
 
-  await next();
-});
+  app.post(
+    "/program-runs/:runId/execute",
+    route(async (c) => {
+      const runId = requiredParam(c, "runId");
+      const run = await requireAccessibleProgramRun(c.var.supabase, {
+        authenticatedProfileId: c.var.auth?.profileId,
+        runId,
+        userId: c.var.auth?.userId,
+      });
 
-app.get(
-  "/",
-  route(async (c) =>
-    c.json({
-      resources: Object.fromEntries(
-        ApiResourceNames.map((resourceName) => [
-          resourceName,
-          apiResourcePath(resourceName),
-        ]),
-      ),
+      return executeStoredRun(c, {
+        cellId: run.target_cell_id,
+        runId,
+      });
     }),
-  ),
-);
+  );
 
-for (const resourceName of ApiResourceNames) {
-  resourceMounts[resourceName](app);
+  app.post(
+    "/cells/:cellId/run",
+    route(async (c) => {
+      const cellId = requiredParam(c, "cellId");
+      const body = await parseJsonBody(c, cellRunBodySchema);
+      const run = await createPendingStoredRun(c, {
+        cellId,
+        manualInput: body.manualInput,
+      });
+
+      return executeStoredRun(c, {
+        cellId,
+        runId: run.runId,
+        setPendingState: false,
+      });
+    }),
+  );
+
+  app.post(
+    "/cells/run",
+    route(async (c) => {
+      const body = await parseJsonBody(c, batchCellRunBodySchema);
+      const cellIds = Array.from(new Set(body.cellIds));
+      const runs = await Promise.all(
+        cellIds.map((cellId) =>
+          createPendingStoredRun(c, {
+            cellId,
+            manualInput: body.manualInput,
+          }),
+        ),
+      );
+
+      return executeStoredRuns(c, {
+        runIds: runs.map((run) => run.runId),
+      });
+    }),
+  );
+
+  return app;
 }
-
-mountSecretBindingRoutes(app);
-
-app.post(
-  "/test",
-  route(async (c) => {
-    const requestUrl = new URL(c.req.url);
-    const { payload, status } = await proxyExecutorRequest(c, {
-      body: await readJsonBody(c),
-      path: "/test",
-      search: requestUrl.search,
-    });
-
-    return c.json(payload, {
-      status,
-    });
-  }),
-);
-
-app.post(
-  "/program-runs/:runId/execute",
-  route(async (c) => {
-    const runId = requiredParam(c, "runId");
-    const run = await requireAccessibleProgramRun(c.var.supabase, {
-      authenticatedProfileId: c.var.auth?.profileId,
-      runId,
-      userId: c.var.auth?.userId,
-    });
-
-    return executeStoredRun(c, {
-      cellId: run.target_cell_id,
-      runId,
-    });
-  }),
-);
-
-app.post(
-  "/cells/:cellId/run",
-  route(async (c) => {
-    const cellId = requiredParam(c, "cellId");
-    const body = await parseJsonBody(c, cellRunBodySchema);
-    const run = await createPendingStoredRun(c, {
-      cellId,
-      manualInput: body.manualInput,
-    });
-
-    return executeStoredRun(c, {
-      cellId,
-      runId: run.runId,
-      setPendingState: false,
-    });
-  }),
-);
-
-app.post(
-  "/cells/run",
-  route(async (c) => {
-    const body = await parseJsonBody(c, batchCellRunBodySchema);
-    const cellIds = Array.from(new Set(body.cellIds));
-    const runs = await Promise.all(
-      cellIds.map((cellId) =>
-        createPendingStoredRun(c, {
-          cellId,
-          manualInput: body.manualInput,
-        }),
-      ),
-    );
-
-    return executeStoredRuns(c, {
-      runIds: runs.map((run) => run.runId),
-    });
-  }),
-);
-
-export default app;

@@ -1,4 +1,4 @@
-import marbleApi from "@marble/api";
+import { createMarbleApi } from "@marble/api";
 import { createClient, type Json } from "@marble/supabase";
 import { Hono } from "hono";
 import { JSONPath } from "jsonpath-plus";
@@ -25,8 +25,32 @@ const pipeMappingSchema = z.object({
   jsonPath: z.string().trim().min(1),
 });
 
+const marbleApiByEnv = new WeakMap<Env, ReturnType<typeof createMarbleApi>>();
+
 function db(env: Env) {
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+function getInternalMarbleApi(env: Env) {
+  const existing = marbleApiByEnv.get(env);
+
+  if (existing) {
+    return existing;
+  }
+
+  const api = createMarbleApi({
+    executor: {
+      transport: env.MARBLE_EXECUTOR,
+      url: "https://executor.marble.internal",
+    },
+    supabase: {
+      serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
+      url: env.SUPABASE_URL,
+    },
+  });
+
+  marbleApiByEnv.set(env, api);
+  return api;
 }
 
 function valueToManualInput(value: unknown) {
@@ -64,7 +88,7 @@ async function callMarbleApi<T>(
     method?: string;
   } = {},
 ) {
-  const response = await marbleApi.fetch(
+  const response = await getInternalMarbleApi(env).fetch(
     new Request(new URL(path, "https://marble.internal"), {
       body:
         options.body === undefined ? undefined : JSON.stringify(options.body),
@@ -73,11 +97,6 @@ async function callMarbleApi<T>(
       },
       method: options.method ?? "GET",
     }),
-    {
-      MARBLE_EXECUTOR: env.MARBLE_EXECUTOR,
-      SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
-      SUPABASE_URL: env.SUPABASE_URL,
-    },
   );
   const text = await response.text();
 

@@ -14,14 +14,18 @@ import {
 import { Command } from "commander";
 import dotenv from "dotenv";
 import { MarbleClient } from "./client.js";
-import { env } from "./env.js";
+import { readCliEnv } from "./env.js";
 
 dotenv.config({
   path: path.resolve(process.cwd(), ".env"),
 });
 
-const invocationCwd = env.INIT_CWD || process.cwd();
-const client = new MarbleClient();
+const invocationCwd = process.cwd();
+const env = readCliEnv(process.env);
+const client = new MarbleClient({
+  apiKey: env.MARBLE_API_KEY,
+  apiUrl: env.MARBLE_API_URL,
+});
 const rootCommand = new Command();
 
 type JsonObject = Record<string, unknown>;

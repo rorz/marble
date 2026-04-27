@@ -4,11 +4,11 @@
   "tasks": {
     "build": {
       "env": [
-        "SUPABASE_URL",
-        "SUPABASE_SERVICE_ROLE_KEY",
         "MARBLE_EXECUTOR_URL",
         "MARBLE_INGESTOR_URL",
-        "EXECUTOR_URL"
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY"
       ],
       "inputs": ["$TURBO_DEFAULT$", ".env.local", "$TURBO_ROOT$/.env"],
       "outputs": [".next/**", "!.next/cache/**"]

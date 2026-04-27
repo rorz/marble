@@ -1,29 +1,15 @@
 import "server-only";
 import { createClient } from "@marble/supabase";
-import { env } from "@/env";
-
-function requireServiceRoleCredentials() {
-  const url = env.SUPABASE_URL;
-  const key = env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !key) {
-    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
-  }
-
-  return {
-    key,
-    url,
-  };
-}
+import { getServiceRoleSupabaseConfig } from "../server-config";
 
 export function createServiceRoleClient(headers?: Record<string, string>) {
-  const { key, url } = requireServiceRoleCredentials();
+  const config = getServiceRoleSupabaseConfig();
 
   if (!headers) {
-    return createClient(url, key);
+    return createClient(config.url, config.serviceRoleKey);
   }
 
-  return createClient(url, key, {
+  return createClient(config.url, config.serviceRoleKey, {
     global: {
       headers,
     },

@@ -5,7 +5,6 @@ import {
   apiResourcePath,
   supportsResourceOperation,
 } from "@marble/core";
-import { env } from "./env.js";
 
 type EntityWithId = {
   id: string;
@@ -98,13 +97,12 @@ export class MarbleClient {
   private apiUrl: string;
   private apiKey?: string;
 
-  constructor(opts?: {
+  constructor(opts: {
     apiKey?: string;
-    apiUrl?: string;
+    apiUrl: string;
   }) {
-    this.apiUrl =
-      opts?.apiUrl || env.MARBLE_API_URL || "https://marble.kenobi.tech/api";
-    this.apiKey = opts?.apiKey || env.MARBLE_API_KEY;
+    this.apiUrl = opts.apiUrl.replace(/\/$/, "");
+    this.apiKey = opts.apiKey;
   }
 
   private assertSupported(resource: ApiResourceName, operation: string) {

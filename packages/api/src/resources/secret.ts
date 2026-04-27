@@ -1,5 +1,4 @@
 import type { Tables } from "@marble/supabase";
-import { createClient } from "@marble/supabase";
 import type { Hono } from "hono";
 import { z } from "zod";
 import {
@@ -51,7 +50,7 @@ function toPublicSecret(secret: SecretRow): PublicSecretRow {
 }
 
 function serviceRoleDb(c: ApiContext) {
-  return createClient(c.env.SUPABASE_URL, c.env.SUPABASE_SERVICE_ROLE_KEY);
+  return c.var.serviceRoleSupabase;
 }
 
 async function resolveAuthenticatedOwnerUserId(c: ApiContext) {

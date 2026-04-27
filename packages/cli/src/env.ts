@@ -1,15 +1,17 @@
 import { createEnv } from "@t3-oss/env-core";
-import * as dotenv from "dotenv";
 import { z } from "zod";
 
-dotenv.config();
+const server = {
+  MARBLE_API_KEY: z.string().min(1),
+  MARBLE_API_URL: z.url(),
+};
 
-export const env = createEnv({
-  emptyStringAsUndefined: true,
-  runtimeEnv: process.env,
-  server: {
-    INIT_CWD: z.string().optional(),
-    MARBLE_API_KEY: z.string().optional(),
-    MARBLE_API_URL: z.string().url().default("https://marble.kenobi.tech/api"),
-  },
-});
+export function readCliEnv(runtimeEnv: Record<string, string | undefined>) {
+  return createEnv({
+    emptyStringAsUndefined: true,
+    runtimeEnv,
+    server,
+  });
+}
+
+export type CliEnv = ReturnType<typeof readCliEnv>;

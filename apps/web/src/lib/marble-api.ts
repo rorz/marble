@@ -1,7 +1,7 @@
 import "server-only";
-import app from "@marble/api";
-import { env } from "@/env";
+import { createMarbleApi } from "@marble/api";
 import { requireUser } from "./auth";
+import { getMarbleApiConfig } from "./server-config";
 import { maybeResolveOwnedProfileId } from "./supabase/service-role";
 
 type MarbleApiMethod = "DELETE" | "GET" | "PATCH" | "POST" | "PUT";
@@ -14,6 +14,13 @@ type CallMarbleApiOptions = {
   requestId?: string;
   requireActorProfile?: boolean;
 };
+
+let marbleApi: ReturnType<typeof createMarbleApi> | undefined;
+
+export function getMarbleApi() {
+  marbleApi ??= createMarbleApi(getMarbleApiConfig());
+  return marbleApi;
+}
 
 async function resolveForwardedProfileId(
   userId: string,
@@ -62,18 +69,12 @@ export async function callMarbleApi<T>(
     headers.set("Content-Type", "application/json");
   }
 
-  const response = await app.fetch(
+  const response = await getMarbleApi().fetch(
     new Request(new URL(path, "http://marble.local"), {
       body,
       headers,
       method: options.method ?? (body === undefined ? "GET" : "POST"),
     }),
-    {
-      MARBLE_EXECUTOR_URL: env.MARBLE_EXECUTOR_URL || env.EXECUTOR_URL,
-      MARBLE_INGESTOR_URL: env.MARBLE_INGESTOR_URL,
-      SUPABASE_SERVICE_ROLE_KEY: env.SUPABASE_SERVICE_ROLE_KEY,
-      SUPABASE_URL: env.SUPABASE_URL,
-    },
   );
   const text = await response.text();
 

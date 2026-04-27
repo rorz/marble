@@ -5,7 +5,6 @@
     "@marble/keys": "workspace:*",
     "@marble/lib": "workspace:",
     "@marble/supabase": "workspace:",
-    "@t3-oss/env-core": "catalog:base",
     "hono": "catalog:base",
     "nanoid": "catalog:base",
     "zod": "catalog:base"

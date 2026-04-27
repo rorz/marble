@@ -3,26 +3,19 @@ import { z } from "zod";
 
 export const env = createEnv({
   client: {
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
-    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
-    NEXT_PUBLIC_SUPABASE_URL: z.string().url(),
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: z
+      .string()
+      .startsWith("sb_publishable_"),
+    NEXT_PUBLIC_SUPABASE_URL: z.url(),
   },
   experimental__runtimeEnv: {
-    NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   },
   server: {
-    AI_GATEWAY_API_KEY: z.string().min(1).optional(),
-    EXECUTOR_URL: z.string().url().default("http://localhost:3087"),
-    MARBLE_EXECUTOR_URL: z
-      .string()
-      .url()
-      .default("http://localhost:3087")
-      .optional(),
-    MARBLE_INGESTOR_URL: z.string().url(),
-    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
-    SUPABASE_URL: z.string().url(),
+    MARBLE_EXECUTOR_URL: z.url(),
+    MARBLE_INGESTOR_URL: z.url(),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1), // TODO: Change to secret key
   },
 });

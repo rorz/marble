@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { getSupabaseAuthCookieNames } from "./auth-cookies";
-import { getSupabaseBrowserKey, getSupabaseUrl } from "./config";
+import { supabasePublicConfig } from "./public-config";
 
 const PROTECTED_PATHS = [
   "/profiles",
@@ -43,8 +43,8 @@ export async function updateSession(request: NextRequest) {
   });
 
   const supabase = createServerClient(
-    getSupabaseUrl(),
-    getSupabaseBrowserKey(),
+    supabasePublicConfig.url,
+    supabasePublicConfig.publishableKey,
     {
       cookies: {
         getAll() {

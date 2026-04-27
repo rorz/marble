@@ -4,7 +4,6 @@ import type { Database } from "@marble/supabase";
 import { generateObject } from "ai";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { env } from "@/env";
 import { requireUser } from "../../../../../lib/auth";
 import { callMarbleApi } from "../../../../../lib/marble-api";
 
@@ -90,10 +89,6 @@ export async function inferSourceSchemaFromEventAction(
   sourceEventId: string,
 ) {
   await requireUser();
-
-  if (!env.AI_GATEWAY_API_KEY) {
-    throw new Error("AI_GATEWAY_API_KEY is required to infer source schemas.");
-  }
 
   const sourceEvent = await callMarbleApi<SourceEventRow>(
     `/source-events/${sourceEventId}`,
