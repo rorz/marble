@@ -1028,6 +1028,43 @@ export type Database = {
       [_ in never]: never;
     };
   };
+  testing: {
+    Tables: {
+      tags: {
+        Row: {
+          created_at: string;
+          id: string;
+          updated_at: string;
+          value: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+          value?: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          updated_at?: string;
+          value?: string;
+        };
+        Relationships: [];
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
 };
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">;
@@ -1191,5 +1228,8 @@ export const Constants = {
         "Managed",
       ],
     },
+  },
+  testing: {
+    Enums: {},
   },
 } as const;

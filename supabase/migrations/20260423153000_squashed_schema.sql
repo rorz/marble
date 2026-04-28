@@ -23,6 +23,12 @@ CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
 COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 
+CREATE SCHEMA IF NOT EXISTS "testing";
+
+
+ALTER SCHEMA "testing" OWNER TO "postgres";
+
+
 
 CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
 
@@ -305,6 +311,17 @@ CREATE TABLE IF NOT EXISTS "public"."cell" (
 ALTER TABLE "public"."cell" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "testing"."tags" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "value" character varying DEFAULT ''::character varying NOT NULL
+);
+
+
+ALTER TABLE "testing"."tags" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."column" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
@@ -555,6 +572,10 @@ ALTER TABLE ONLY "public"."cell"
     ADD CONSTRAINT "cell_pkey" PRIMARY KEY ("id");
 
 
+ALTER TABLE ONLY "testing"."tags"
+    ADD CONSTRAINT "tags_pkey" PRIMARY KEY ("id");
+
+
 
 ALTER TABLE ONLY "public"."cell"
     ADD CONSTRAINT "cell_row_id_column_id_key" UNIQUE ("row_id", "column_id");
@@ -750,6 +771,9 @@ CREATE INDEX "table_project_created_at_idx" ON "public"."table" USING "btree" ("
 
 
 CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."cell" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "testing"."tags" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
 
@@ -1064,8 +1088,20 @@ CREATE POLICY "Users can view pipes in their own projects" ON "public"."pipe" FO
 CREATE POLICY "Users can view their own secrets" ON "public"."secret" FOR SELECT USING (("owner_user_id" = "auth"."uid"()));
 
 
+CREATE POLICY "Anyone can create testing tags" ON "testing"."tags" FOR INSERT TO "anon", "authenticated" WITH CHECK (true);
+
+
+CREATE POLICY "Anyone can update testing tags" ON "testing"."tags" FOR UPDATE TO "anon", "authenticated" USING (true) WITH CHECK (true);
+
+
+CREATE POLICY "Anyone can view testing tags" ON "testing"."tags" FOR SELECT TO "anon", "authenticated" USING (true);
+
+
 
 ALTER TABLE "public"."cell" ENABLE ROW LEVEL SECURITY;
+
+
+ALTER TABLE "testing"."tags" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."column" ENABLE ROW LEVEL SECURITY;
@@ -1130,6 +1166,9 @@ ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."cell";
 
 
+ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "testing"."tags";
+
+
 
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."column";
 
@@ -1178,6 +1217,12 @@ GRANT USAGE ON SCHEMA "public" TO "postgres";
 GRANT USAGE ON SCHEMA "public" TO "anon";
 GRANT USAGE ON SCHEMA "public" TO "authenticated";
 GRANT USAGE ON SCHEMA "public" TO "service_role";
+
+
+GRANT USAGE ON SCHEMA "testing" TO "postgres";
+GRANT USAGE ON SCHEMA "testing" TO "anon";
+GRANT USAGE ON SCHEMA "testing" TO "authenticated";
+GRANT USAGE ON SCHEMA "testing" TO "service_role";
 
 
 
@@ -1398,6 +1443,11 @@ GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "service_role";
 GRANT ALL ON TABLE "public"."cell" TO "anon";
 GRANT ALL ON TABLE "public"."cell" TO "authenticated";
 GRANT ALL ON TABLE "public"."cell" TO "service_role";
+
+
+GRANT ALL ON TABLE "testing"."tags" TO "anon";
+GRANT ALL ON TABLE "testing"."tags" TO "authenticated";
+GRANT ALL ON TABLE "testing"."tags" TO "service_role";
 
 
 
