@@ -322,6 +322,29 @@ CREATE TABLE IF NOT EXISTS "testing"."tags" (
 ALTER TABLE "testing"."tags" OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "testing"."broadcast_tag_changes"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+BEGIN
+  PERFORM realtime.broadcast_changes(
+    'testing:tags:' || COALESCE(NEW.id, OLD.id)::TEXT,
+    TG_OP,
+    TG_OP,
+    TG_TABLE_NAME,
+    TG_TABLE_SCHEMA,
+    NEW,
+    OLD
+  );
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION "testing"."broadcast_tag_changes"() OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "public"."column" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
@@ -776,6 +799,9 @@ CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."cell" FOR 
 CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "testing"."tags" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
+CREATE OR REPLACE TRIGGER "broadcast_tag_changes" AFTER INSERT OR DELETE OR UPDATE ON "testing"."tags" FOR EACH ROW EXECUTE FUNCTION "testing"."broadcast_tag_changes"();
+
+
 
 CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."column" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
@@ -1095,6 +1121,9 @@ CREATE POLICY "Anyone can update testing tags" ON "testing"."tags" FOR UPDATE TO
 
 
 CREATE POLICY "Anyone can view testing tags" ON "testing"."tags" FOR SELECT TO "anon", "authenticated" USING (true);
+
+
+CREATE POLICY "Anyone can receive testing tag broadcasts" ON "realtime"."messages" FOR SELECT TO "anon", "authenticated" USING ((( SELECT "realtime"."topic"() AS "topic") ~~ 'testing:tags:%'::"text") AND ("extension" = 'broadcast'::"text"));
 
 
 
@@ -1422,6 +1451,11 @@ GRANT ALL ON FUNCTION "public"."secret_store_update"("p_secret_id" "uuid", "p_na
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "anon";
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "service_role";
+
+
+GRANT ALL ON FUNCTION "testing"."broadcast_tag_changes"() TO "anon";
+GRANT ALL ON FUNCTION "testing"."broadcast_tag_changes"() TO "authenticated";
+GRANT ALL ON FUNCTION "testing"."broadcast_tag_changes"() TO "service_role";
 
 
 

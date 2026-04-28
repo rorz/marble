@@ -29,6 +29,7 @@ Our development stack:
 7. "Deprecate" code paths, functions, or methods unless you are absolutely sure they are being heavily used or are structurally imperative for the entire system to function. Just delete "legacy" code... that's what Git is for.
 8. **EXTREME WARNING**: NEVER, EVER run `bun run dangerously-splat` (or any script that resets/destroys the database) without explicitly and separately asking for permission first.
 9. **EXTREME WARNING**: NEVER, EVER use `npx` to run scripts or binaries. You must ONLY use `bun`, `bunx`, or invoke binaries like `supabase` directly.
+10. Start a dev server unless the user explicitly asks you to. Nor should you volunteer status updates that a dev server "was not started". Only mention dev-server execution when it is imperatively necessary or explicitly requested.
 
 ### ALWAYS
 1. Run `bun check` after every checkpoint, and at the very least when you "think" you are ready and done with a task.
