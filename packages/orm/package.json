@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "@marble/supabase": "workspace:*",
+    "zod": "catalog:base"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:base",
+    "typescript": "catalog:base"
+  },
+  "main": "src/index.ts",
+  "name": "@marble/orm",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "1.0.0"
+}

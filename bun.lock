@@ -143,6 +143,18 @@
       "name": "@marble/lib",
       "version": "1.0.0",
     },
+    "packages/orm": {
+      "name": "@marble/orm",
+      "version": "1.0.0",
+      "dependencies": {
+        "@marble/supabase": "workspace:*",
+        "zod": "catalog:base",
+      },
+      "devDependencies": {
+        "@types/node": "catalog:base",
+        "typescript": "catalog:base",
+      },
+    },
     "packages/ui": {
       "name": "@marble/ui",
       "version": "1.0.0",
@@ -417,6 +429,8 @@
     "@marble/keys": ["@marble/keys@workspace:packages/keys"],
 
     "@marble/lib": ["@marble/lib@workspace:packages/lib"],
+
+    "@marble/orm": ["@marble/orm@workspace:packages/orm"],
 
     "@marble/supabase": ["@marble/supabase@workspace:supabase"],
 
@@ -895,6 +909,8 @@
     "@marble/ingestor/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@marble/keys/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@marble/orm/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@marble/supabase/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
