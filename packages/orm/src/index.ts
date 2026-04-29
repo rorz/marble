@@ -1,18 +1,24 @@
 export { MarbleClient } from "./client";
 export { SupabaseDriver } from "./drivers/supabase";
 export {
+  type CreateProjectInput,
   ProjectCollection,
-  ProjectRecord,
+  type ProjectCollectionApi,
+  type UpdateProjectInput,
 } from "./resources/project";
-export { TableCollection, TableRecord } from "./resources/table";
+export {
+  type CreateTableInput,
+  type ListTablesInput,
+  TableCollection,
+  type TableCollectionApi,
+  type UpdateTableInput,
+} from "./resources/table";
 export type {
-  CallableCollection,
   CreateParams,
   Entity,
   ListParams,
   ResourceContext,
   ResourceDriver,
-  ResourceIdentity,
   ResourceOptions,
   ResourceRow,
   UpdateParams,

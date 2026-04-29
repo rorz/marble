@@ -1,26 +1,33 @@
 import {
-  type CallableCollection,
   CollectionResource,
   type CreateParams,
   type Entity,
-  RecordResource,
-  type ResourceIdentity,
   type UpdateParams,
 } from "../types";
-import { TableCollection, type TableRecord } from "./table";
 
-type CreateProjectInput = Partial<
+export type CreateProjectInput = Partial<
   Pick<CreateParams<"project">, "folderPath" | "name">
 >;
 
-type UpdateProjectInput = Partial<
+export type UpdateProjectInput = Partial<
   Pick<UpdateParams<"project">, "folderPath" | "name">
 >;
 
-export class ProjectCollection extends CollectionResource<
-  "project",
-  ProjectRecord
-> {
+export type ProjectCollectionApi = {
+  readonly create: (input?: CreateProjectInput) => Promise<Entity<"project">>;
+  readonly delete: (id: string) => Promise<Entity<"project">>;
+  readonly get: (id: string) => Promise<Entity<"project">>;
+  readonly list: () => Promise<Entity<"project">[]>;
+  readonly update: (
+    id: string,
+    input: UpdateProjectInput,
+  ) => Promise<Entity<"project">>;
+};
+
+export class ProjectCollection
+  extends CollectionResource<"project">
+  implements ProjectCollectionApi
+{
   public readonly tableName = "project" as const;
 
   public readonly create = (
@@ -32,43 +39,24 @@ export class ProjectCollection extends CollectionResource<
       ownerProfileId: this.context.profileId,
     });
 
-  public readonly delete = this.defineDelete();
+  public readonly delete = (id: string): Promise<Entity<"project">> =>
+    this.deleteRecord(id, this.ownerScope());
+
+  public readonly get = (id: string): Promise<Entity<"project">> =>
+    this.getRecord(id, this.ownerScope());
 
   public readonly list = (): Promise<Entity<"project">[]> =>
-    this.listRecords({
+    this.listRecords(this.ownerScope());
+
+  public readonly update = (
+    id: string,
+    input: UpdateProjectInput,
+  ): Promise<Entity<"project">> =>
+    this.updateRecord(id, input, this.ownerScope());
+
+  private ownerScope(): Pick<Entity<"project">, "ownerProfileId"> {
+    return {
       ownerProfileId: this.context.profileId,
-    });
-
-  public readonly retrieve = this.defineRetrieve();
-
-  public readonly update = this.defineUpdate<
-    {
-      id: string;
-    } & UpdateProjectInput
-  >((input) => ({
-    folderPath: input.folderPath,
-    name: input.name,
-  }));
-
-  public tablesForProject(
-    projectId: string,
-  ): CallableCollection<TableRecord, TableCollection> {
-    return this.createScopedCallableCollection(TableCollection, {
-      projectId,
-    });
+    };
   }
-
-  protected override createRecordResource(
-    identity: ResourceIdentity<"project">,
-  ): ProjectRecord {
-    return new ProjectRecord(this, identity);
-  }
-}
-
-export class ProjectRecord extends RecordResource<
-  "project",
-  UpdateProjectInput,
-  ProjectCollection
-> {
-  public readonly tables = this.collection.tablesForProject(this.id);
 }

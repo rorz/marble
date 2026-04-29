@@ -2,72 +2,52 @@ import {
   CollectionResource,
   type CreateParams,
   type Entity,
-  type ListParams,
-  RecordResource,
-  type ResourceIdentity,
   type UpdateParams,
 } from "../types";
 
-type TableScope = Partial<Pick<ListParams<"table">, "projectId">>;
+export type CreateTableInput = Pick<CreateParams<"table">, "projectId"> &
+  Partial<Pick<CreateParams<"table">, "name">>;
 
-type CreateTableInput = Partial<Pick<CreateParams<"table">, "name">> &
-  Partial<Pick<CreateParams<"table">, "projectId">>;
+export type ListTablesInput = Pick<Entity<"table">, "projectId">;
 
-type UpdateTableInput = Partial<Pick<UpdateParams<"table">, "name">>;
+export type UpdateTableInput = Partial<Pick<UpdateParams<"table">, "name">>;
 
-export class TableCollection extends CollectionResource<"table", TableRecord> {
+export type TableCollectionApi = {
+  readonly create: (input: CreateTableInput) => Promise<Entity<"table">>;
+  readonly delete: (id: string) => Promise<Entity<"table">>;
+  readonly get: (id: string) => Promise<Entity<"table">>;
+  readonly list: (input: ListTablesInput) => Promise<Entity<"table">[]>;
+  readonly update: (
+    id: string,
+    input: UpdateTableInput,
+  ) => Promise<Entity<"table">>;
+};
+
+export class TableCollection
+  extends CollectionResource<"table">
+  implements TableCollectionApi
+{
   public readonly tableName = "table" as const;
 
   public readonly create = (
-    input: CreateTableInput = {},
+    input: CreateTableInput,
   ): Promise<Entity<"table">> =>
     this.createRecord({
       name: input.name ?? "Untitled Table",
-      projectId: this.requireProjectId(input.projectId),
+      projectId: input.projectId,
     });
 
-  public readonly delete = this.defineDelete();
+  public readonly delete = (id: string): Promise<Entity<"table">> =>
+    this.deleteRecord(id);
 
-  public readonly list = (input: TableScope = {}): Promise<Entity<"table">[]> =>
+  public readonly get = (id: string): Promise<Entity<"table">> =>
+    this.getRecord(id);
+
+  public readonly list = (input: ListTablesInput): Promise<Entity<"table">[]> =>
     this.listRecords(input);
 
-  public readonly retrieve = this.defineRetrieve();
-
-  public readonly update = this.defineUpdate<
-    {
-      id: string;
-    } & UpdateTableInput
-  >((input) => ({
-    name: input.name,
-  }));
-
-  protected override createRecordResource(
-    identity: ResourceIdentity<"table">,
-  ): TableRecord {
-    return new TableRecord(this, identity);
-  }
-
-  private requireProjectId(projectId?: string): string {
-    const scopedProjectId = this.scope.projectId;
-
-    if (scopedProjectId !== undefined) {
-      if (projectId !== undefined && projectId !== scopedProjectId) {
-        throw new Error("Cannot create a table outside the scoped project.");
-      }
-
-      return scopedProjectId;
-    }
-
-    if (projectId === undefined) {
-      throw new Error("projectId is required to create a table.");
-    }
-
-    return projectId;
-  }
+  public readonly update = (
+    id: string,
+    input: UpdateTableInput,
+  ): Promise<Entity<"table">> => this.updateRecord(id, input);
 }
-
-export class TableRecord extends RecordResource<
-  "table",
-  UpdateTableInput,
-  TableCollection
-> {}
