@@ -53,6 +53,8 @@ export type ListParams<T extends TableName> = Partial<Entity<T>>;
 export type ResourceIdInput = {
   id: string;
 };
+export type ResourceIdentity<T extends TableWithIdName> = ResourceIdInput &
+  ListParams<T>;
 export type UpdateParams<T extends TableName> = Camelize<DbUpdate<T>>;
 
 function toCamelKey(key: string) {
@@ -128,7 +130,9 @@ export interface ResourceDriver {
 
   delete<T extends TableWithIdName>(
     tableName: T,
-    id: string,
+    where: Partial<DbRow<T>> & {
+      id: string;
+    },
   ): Promise<DbRow<T>>;
 
   list<T extends TableWithIdName>(
@@ -138,12 +142,16 @@ export interface ResourceDriver {
 
   retrieve<T extends TableWithIdName>(
     tableName: T,
-    id: string,
+    where: Partial<DbRow<T>> & {
+      id: string;
+    },
   ): Promise<DbRow<T>>;
 
   update<T extends TableWithIdName>(
     tableName: T,
-    id: string,
+    where: Partial<DbRow<T>> & {
+      id: string;
+    },
     values: DbUpdate<T>,
   ): Promise<DbRow<T>>;
 }
@@ -154,56 +162,152 @@ export type ResourceContext = {
   profileId: string;
 };
 
-export abstract class Resource<T extends TableWithIdName> {
+export type ResourceOptions = {
+  context: ResourceContext;
+  driver: ResourceDriver;
+};
+
+export type CallableCollection<TRecord, TCollection> = TCollection &
+  ((id: string) => TRecord);
+
+export function callableCollection<
+  TRecord,
+  TCollection extends {
+    record: (id: string) => TRecord;
+  },
+>(collection: TCollection): CallableCollection<TRecord, TCollection> {
+  const callable = (id: string) => collection.record(id);
+
+  return new Proxy(callable, {
+    get(target, property, receiver) {
+      if (property in collection) {
+        const value = Reflect.get(collection, property, collection);
+
+        return typeof value === "function" ? value.bind(collection) : value;
+      }
+
+      return Reflect.get(target, property, receiver);
+    },
+  }) as CallableCollection<TRecord, TCollection>;
+}
+
+export abstract class CollectionResource<
+  T extends TableWithIdName,
+  TRecord = RecordResource<T>,
+> {
   // --- Setup ---
 
   public abstract readonly tableName: T;
 
   public constructor(
-    private readonly driver: ResourceDriver,
-    protected readonly context: ResourceContext,
+    private readonly options: ResourceOptions,
+    protected readonly scope: ListParams<T> = {},
   ) {}
+
+  protected get context() {
+    return this.options.context;
+  }
+
+  public readonly record = (id: string): TRecord =>
+    this.createRecordResource(this.buildIdentity(id));
 
   // --- Driver methods ---
 
   protected async createRecord(values: CreateParams<T>): Promise<Entity<T>> {
-    const row = await this.driver.create(this.tableName, toDbInsert(values));
+    const row = await this.options.driver.create(
+      this.tableName,
+      toDbInsert(values),
+    );
 
     return toCamelKeys(row);
   }
 
   protected async listRecords(where?: ListParams<T>): Promise<Entity<T>[]> {
-    const rows = await this.driver.list(
+    const rows = await this.options.driver.list(
       this.tableName,
-      where === undefined ? undefined : toDbWhere(where),
+      toDbWhere(this.applyScope(where)),
     );
 
     return rows.map((row) => toCamelKeys(row));
   }
 
-  protected async retrieveRecord(id: string): Promise<Entity<T>> {
-    const row = await this.driver.retrieve(this.tableName, id);
+  public async retrieveByIdentity(
+    identity: ResourceIdentity<T>,
+  ): Promise<Entity<T>> {
+    const row = await this.options.driver.retrieve(
+      this.tableName,
+      toDbWhere(identity as ListParams<T>) as Partial<DbRow<T>> & {
+        id: string;
+      },
+    );
 
     return toCamelKeys(row);
   }
 
-  protected async updateRecord(
-    id: string,
+  public async updateByIdentity(
+    identity: ResourceIdentity<T>,
     values: UpdateParams<T>,
   ): Promise<Entity<T>> {
-    const row = await this.driver.update(
+    const row = await this.options.driver.update(
       this.tableName,
-      id,
+      toDbWhere(identity as ListParams<T>) as Partial<DbRow<T>> & {
+        id: string;
+      },
       toDbUpdate(values),
     );
 
     return toCamelKeys(row);
   }
 
-  protected async deleteRecord(id: string): Promise<Entity<T>> {
-    const row = await this.driver.delete(this.tableName, id);
+  public async deleteByIdentity(
+    identity: ResourceIdentity<T>,
+  ): Promise<Entity<T>> {
+    const row = await this.options.driver.delete(
+      this.tableName,
+      toDbWhere(identity as ListParams<T>) as Partial<DbRow<T>> & {
+        id: string;
+      },
+    );
 
     return toCamelKeys(row);
+  }
+
+  protected createScopedCollection<TScope, TCollection extends object>(
+    Collection: new (options: ResourceOptions, scope: TScope) => TCollection,
+    scope: TScope,
+  ): TCollection {
+    return new Collection(this.options, scope);
+  }
+
+  protected createScopedCallableCollection<
+    TScope,
+    TChildRecord,
+    TCollection extends {
+      record: (id: string) => TChildRecord;
+    },
+  >(
+    Collection: new (options: ResourceOptions, scope: TScope) => TCollection,
+    scope: TScope,
+  ): CallableCollection<TChildRecord, TCollection> {
+    return callableCollection(this.createScopedCollection(Collection, scope));
+  }
+
+  protected createRecordResource(identity: ResourceIdentity<T>): TRecord {
+    return new RecordResource(this, identity) as TRecord;
+  }
+
+  private applyScope(where: ListParams<T> = {}): ListParams<T> {
+    return {
+      ...where,
+      ...this.scope,
+    };
+  }
+
+  private buildIdentity(id: string): ResourceIdentity<T> {
+    return {
+      ...this.scope,
+      id,
+    } as ResourceIdentity<T>;
   }
 
   // --- "Define" methods ---
@@ -221,16 +325,44 @@ export abstract class Resource<T extends TableWithIdName> {
   }
 
   protected defineRetrieve(): (input: ResourceIdInput) => Promise<Entity<T>> {
-    return (input) => this.retrieveRecord(input.id);
+    return (input) => this.retrieveByIdentity(this.buildIdentity(input.id));
   }
 
   protected defineUpdate<UpdateInput extends ResourceIdInput>(
     buildValues: (input: UpdateInput) => UpdateParams<T>,
   ): (input: UpdateInput) => Promise<Entity<T>> {
-    return (input) => this.updateRecord(input.id, buildValues(input));
+    return (input) =>
+      this.updateByIdentity(this.buildIdentity(input.id), buildValues(input));
   }
 
   protected defineDelete(): (input: ResourceIdInput) => Promise<Entity<T>> {
-    return (input) => this.deleteRecord(input.id);
+    return (input) => this.deleteByIdentity(this.buildIdentity(input.id));
   }
+}
+
+export class RecordResource<
+  T extends TableWithIdName,
+  TUpdateInput = UpdateParams<T>,
+  TCollection extends CollectionResource<T, unknown> = CollectionResource<
+    T,
+    unknown
+  >,
+> {
+  public readonly id: string;
+
+  public constructor(
+    protected readonly collection: TCollection,
+    protected readonly identity: ResourceIdentity<T>,
+  ) {
+    this.id = identity.id;
+  }
+
+  public readonly delete = (): Promise<Entity<T>> =>
+    this.collection.deleteByIdentity(this.identity);
+
+  public readonly retrieve = (): Promise<Entity<T>> =>
+    this.collection.retrieveByIdentity(this.identity);
+
+  public readonly update = (input: TUpdateInput): Promise<Entity<T>> =>
+    this.collection.updateByIdentity(this.identity, input as UpdateParams<T>);
 }

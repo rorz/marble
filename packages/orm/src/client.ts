@@ -1,13 +1,26 @@
-import { ProjectResource } from "./resources/project";
-import type { ResourceContext, ResourceDriver } from "./types";
+import { SupabaseDriver } from "./drivers/supabase";
+import { ProjectCollection, type ProjectRecord } from "./resources/project";
+import { TableCollection, type TableRecord } from "./resources/table";
+import {
+  type CallableCollection,
+  callableCollection,
+  type ResourceOptions,
+} from "./types";
 
 export class MarbleClient {
-  readonly projects: ProjectResource;
+  readonly projects: CallableCollection<ProjectRecord, ProjectCollection>;
 
-  constructor(options: {
-    driver: ResourceDriver;
-    context: ResourceContext;
-  }) {
-    this.projects = new ProjectResource(options.driver, options.context);
+  readonly tables: CallableCollection<TableRecord, TableCollection>;
+
+  constructor(options: ResourceOptions) {
+    this.projects = callableCollection(new ProjectCollection(options));
+    this.tables = callableCollection(new TableCollection(options));
   }
 }
+
+const marbleClient = new MarbleClient({
+  context: {
+    profileId: "sldkfj",
+  },
+  driver: new SupabaseDriver(null),
+});

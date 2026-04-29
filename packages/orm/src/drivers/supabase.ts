@@ -52,14 +52,14 @@ export class SupabaseDriver implements ResourceDriver {
 
   public async retrieve<T extends TableWithIdName>(
     tableName: T,
-    id: string,
+    where: Partial<DbRow<T>> & {
+      id: string;
+    },
   ): Promise<DbRow<T>> {
     const { data, error } = await this.supabase
       .from<T, Database["public"]["Tables"][T]>(tableName)
       .select<"*", DbRow<T>>("*")
-      .match({
-        id,
-      })
+      .match(where)
       .single();
 
     if (error) {
@@ -67,7 +67,7 @@ export class SupabaseDriver implements ResourceDriver {
     }
 
     if (data === null) {
-      throw new Error(`No ${tableName} row was found with id ${id}.`);
+      throw new Error(`No ${tableName} row was found matching identity.`);
     }
 
     return data;
@@ -75,15 +75,15 @@ export class SupabaseDriver implements ResourceDriver {
 
   public async update<T extends TableWithIdName>(
     tableName: T,
-    id: string,
+    where: Partial<DbRow<T>> & {
+      id: string;
+    },
     values: DbUpdate<T>,
   ): Promise<DbRow<T>> {
     const { data, error } = await this.supabase
       .from<T, Database["public"]["Tables"][T]>(tableName)
       .update<DbUpdate<T>>(values)
-      .match({
-        id,
-      })
+      .match(where)
       .select<"*", DbRow<T>>("*")
       .single();
 
@@ -92,7 +92,7 @@ export class SupabaseDriver implements ResourceDriver {
     }
 
     if (data === null) {
-      throw new Error(`No ${tableName} row was found with id ${id}.`);
+      throw new Error(`No ${tableName} row was found matching identity.`);
     }
 
     return data;
@@ -100,14 +100,14 @@ export class SupabaseDriver implements ResourceDriver {
 
   public async delete<T extends TableWithIdName>(
     tableName: T,
-    id: string,
+    where: Partial<DbRow<T>> & {
+      id: string;
+    },
   ): Promise<DbRow<T>> {
     const { data, error } = await this.supabase
       .from<T, Database["public"]["Tables"][T]>(tableName)
       .delete()
-      .match({
-        id,
-      })
+      .match(where)
       .select<"*", DbRow<T>>("*")
       .single();
 
@@ -116,7 +116,7 @@ export class SupabaseDriver implements ResourceDriver {
     }
 
     if (data === null) {
-      throw new Error(`No ${tableName} row was found with id ${id}.`);
+      throw new Error(`No ${tableName} row was found matching identity.`);
     }
 
     return data;
