@@ -16,6 +16,13 @@ export type DbRow<T extends TableName> =
     ? DbTable<T>["Row"]
     : never;
 
+export type DbUpdate<T extends TableName> =
+  DbTable<T> extends {
+    Update: unknown;
+  }
+    ? DbTable<T>["Update"]
+    : never;
+
 export type TableWithIdName = {
   [Name in TableName]: DbRow<Name> extends {
     id: string;
@@ -42,6 +49,11 @@ export type Snakeize<T> = {
 
 export type CreateParams<T extends TableName> = Camelize<DbInsert<T>>;
 export type Entity<T extends TableName> = Camelize<DbRow<T>>;
+export type ListParams<T extends TableName> = Partial<Entity<T>>;
+export type ResourceIdInput = {
+  id: string;
+};
+export type UpdateParams<T extends TableName> = Camelize<DbUpdate<T>>;
 
 function toCamelKey(key: string) {
   return key.replace(/_([a-z0-9])/g, (_, character: string) =>
@@ -83,15 +95,56 @@ export function toSnakeKeys(value: Record<string, unknown>) {
   return mapObjectKeys(value, toSnakeKey);
 }
 
+function toDbKeys(value: Record<string, unknown>) {
+  return mapObjectKeys(value, toSnakeKey);
+}
+
+export function toDbInsert<T extends TableName>(
+  values: CreateParams<T>,
+): DbInsert<T>;
+export function toDbInsert(values: Record<string, unknown>) {
+  return toDbKeys(values);
+}
+
+export function toDbUpdate<T extends TableName>(
+  values: UpdateParams<T>,
+): DbUpdate<T>;
+export function toDbUpdate(values: Record<string, unknown>) {
+  return toDbKeys(values);
+}
+
+export function toDbWhere<T extends TableName>(
+  where: ListParams<T>,
+): Partial<DbRow<T>>;
+export function toDbWhere(where: Record<string, unknown>) {
+  return toDbKeys(where);
+}
+
 export interface ResourceDriver {
   create<T extends TableWithIdName>(
     tableName: T,
     values: DbInsert<T>,
   ): Promise<DbRow<T>>;
 
+  delete<T extends TableWithIdName>(
+    tableName: T,
+    id: string,
+  ): Promise<DbRow<T>>;
+
+  list<T extends TableWithIdName>(
+    tableName: T,
+    where?: Partial<DbRow<T>>,
+  ): Promise<DbRow<T>[]>;
+
   retrieve<T extends TableWithIdName>(
     tableName: T,
     id: string,
+  ): Promise<DbRow<T>>;
+
+  update<T extends TableWithIdName>(
+    tableName: T,
+    id: string,
+    values: DbUpdate<T>,
   ): Promise<DbRow<T>>;
 }
 
@@ -106,7 +159,7 @@ export abstract class Resource<T extends TableWithIdName> {
 
   public abstract readonly tableName: T;
 
-  protected constructor(
+  public constructor(
     private readonly driver: ResourceDriver,
     protected readonly context: ResourceContext,
   ) {}
@@ -114,9 +167,18 @@ export abstract class Resource<T extends TableWithIdName> {
   // --- Driver methods ---
 
   protected async createRecord(values: CreateParams<T>): Promise<Entity<T>> {
-    const row = await this.driver.create(this.tableName, toSnakeKeys(values));
+    const row = await this.driver.create(this.tableName, toDbInsert(values));
 
     return toCamelKeys(row);
+  }
+
+  protected async listRecords(where?: ListParams<T>): Promise<Entity<T>[]> {
+    const rows = await this.driver.list(
+      this.tableName,
+      where === undefined ? undefined : toDbWhere(where),
+    );
+
+    return rows.map((row) => toCamelKeys(row));
   }
 
   protected async retrieveRecord(id: string): Promise<Entity<T>> {
@@ -124,6 +186,26 @@ export abstract class Resource<T extends TableWithIdName> {
 
     return toCamelKeys(row);
   }
+
+  protected async updateRecord(
+    id: string,
+    values: UpdateParams<T>,
+  ): Promise<Entity<T>> {
+    const row = await this.driver.update(
+      this.tableName,
+      id,
+      toDbUpdate(values),
+    );
+
+    return toCamelKeys(row);
+  }
+
+  protected async deleteRecord(id: string): Promise<Entity<T>> {
+    const row = await this.driver.delete(this.tableName, id);
+
+    return toCamelKeys(row);
+  }
+
   // --- "Define" methods ---
 
   protected defineCreate<CreateInput>(
@@ -132,7 +214,23 @@ export abstract class Resource<T extends TableWithIdName> {
     return (input) => this.createRecord(buildValues(input));
   }
 
-  protected defineRetrieve(): (id: string) => Promise<Entity<T>> {
-    return (id) => this.retrieveRecord(id);
+  protected defineList<ListInput>(
+    buildWhere: (input: ListInput) => ListParams<T>,
+  ): (input: ListInput) => Promise<Entity<T>[]> {
+    return (input) => this.listRecords(buildWhere(input));
+  }
+
+  protected defineRetrieve(): (input: ResourceIdInput) => Promise<Entity<T>> {
+    return (input) => this.retrieveRecord(input.id);
+  }
+
+  protected defineUpdate<UpdateInput extends ResourceIdInput>(
+    buildValues: (input: UpdateInput) => UpdateParams<T>,
+  ): (input: UpdateInput) => Promise<Entity<T>> {
+    return (input) => this.updateRecord(input.id, buildValues(input));
+  }
+
+  protected defineDelete(): (input: ResourceIdInput) => Promise<Entity<T>> {
+    return (input) => this.deleteRecord(input.id);
   }
 }
