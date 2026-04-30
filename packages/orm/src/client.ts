@@ -7,7 +7,6 @@ import type { ResourceOptions } from "./types";
 
 export class MarbleClient {
   readonly projects: ProjectCollectionApi;
-
   readonly tables: TableCollectionApi;
 
   constructor(options: ResourceOptions) {
