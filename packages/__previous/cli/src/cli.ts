@@ -10,7 +10,7 @@ import {
   type CrudOperation,
   ENVIRONMENT_VARIABLE_NAME_PATTERN,
   supportsResourceOperation,
-} from "@marble/core";
+} from "@marble/old-core";
 import { Command } from "commander";
 import dotenv from "dotenv";
 import { MarbleClient } from "./client.js";

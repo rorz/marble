@@ -1,4 +1,4 @@
-import { createMarbleApi } from "@marble/api";
+import { createMarbleApi } from "@marble/old-api";
 import { createClient, type Json } from "@marble/supabase";
 import { Hono } from "hono";
 import { JSONPath } from "jsonpath-plus";

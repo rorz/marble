@@ -1,4 +1,4 @@
-import { Schemas } from "@marble/core";
+import { Schemas } from "@marble/old-core";
 import type { Database, Json } from "@marble/supabase";
 import type { Hono } from "hono";
 import { z } from "zod";

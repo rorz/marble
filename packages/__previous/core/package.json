@@ -11,7 +11,7 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "name": "@marble/core",
+  "name": "@marble/old-core",
   "private": true,
   "scripts": {
     "build": "tsc",

@@ -1,16 +1,16 @@
 {
   "dependencies": {
-    "@marble/supabase": "workspace:*",
-    "zod": "catalog:base"
+    "@marble/contracts": "workspace:*",
+    "@orpc/client": "catalog:base",
+    "@orpc/contract": "catalog:base"
   },
   "devDependencies": {
-    "@types/node": "catalog:base",
     "typescript": "catalog:base"
   },
   "exports": {
     ".": "./src/index.ts"
   },
-  "name": "@marble/store",
+  "name": "@marble/sdk",
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit"

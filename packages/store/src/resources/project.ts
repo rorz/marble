@@ -11,11 +11,13 @@ export type UpdateProjectInput = Partial<
   Pick<UpdateParams<"project">, "folderPath" | "name">
 >;
 
+export type ListProjectsInput = Partial<Pick<Project, "name">>;
+
 export type ProjectCollectionApi = {
   readonly create: (input?: CreateProjectInput) => Promise<Project>;
   readonly delete: (id: string) => Promise<Project>;
   readonly get: (id: string) => Promise<Project>;
-  readonly list: () => Promise<Project[]>;
+  readonly list: (input?: ListProjectsInput) => Promise<Project[]>;
   readonly update: (id: string, input: UpdateProjectInput) => Promise<Project>;
 };
 
@@ -43,8 +45,9 @@ export class ProjectCollection implements ProjectCollectionApi {
       ownerProfileId: this.ownerProfileId,
     });
 
-  public readonly list = () =>
+  public readonly list = (input: ListProjectsInput = {}) =>
     this.deps.db.list("project", {
+      name: input.name,
       ownerProfileId: this.ownerProfileId,
     });
 

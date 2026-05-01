@@ -4,7 +4,7 @@ import {
   apiResourceLabel,
   apiResourcePath,
   supportsResourceOperation,
-} from "@marble/core";
+} from "@marble/old-core";
 
 type EntityWithId = {
   id: string;

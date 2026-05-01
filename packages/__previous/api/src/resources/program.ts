@@ -1,4 +1,4 @@
-import { ProgramSecretConfigSchema } from "@marble/core";
+import { ProgramSecretConfigSchema } from "@marble/old-core";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { type ApiEnv, mountResource, requireAnyDefined } from "../core";

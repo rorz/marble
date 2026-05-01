@@ -1,6 +1,6 @@
 import { getSandbox } from "@cloudflare/sandbox";
-import { type JsonValue, Schemas } from "@marble/core";
 import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
+import { type JsonValue, Schemas } from "@marble/old-core";
 import { createClient, type Json, type SupabaseClient } from "@marble/supabase";
 import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";

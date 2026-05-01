@@ -1,4 +1,4 @@
-import { ENVIRONMENT_VARIABLE_NAME_PATTERN } from "@marble/core";
+import { ENVIRONMENT_VARIABLE_NAME_PATTERN } from "@marble/old-core";
 import type { Tables } from "@marble/supabase";
 import type { Hono } from "hono";
 import { z } from "zod";

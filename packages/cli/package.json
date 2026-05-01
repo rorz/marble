@@ -1,29 +1,31 @@
 {
   "bin": {
-    "marble-old": "./dist/cli.js"
+    "marble": "./dist/cli.js"
   },
-  "devDependencies": {
-    "@marble/old-core": "workspace:*",
+  "dependencies": {
+    "@marble/sdk": "workspace:*",
     "@t3-oss/env-core": "catalog:base",
-    "@types/node": "catalog:base",
     "commander": "catalog:base",
     "dotenv": "catalog:base",
-    "typescript": "catalog:base",
     "zod": "catalog:base"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:base",
+    "typescript": "catalog:base"
+  },
+  "exports": {
+    ".": "./src/index.ts"
   },
   "files": [
     "dist/cli.js"
   ],
-  "name": "@marble/old-cli",
+  "name": "@marble/cli",
   "private": true,
   "scripts": {
     "build": "bun build ./src/cli.ts --target=node --outfile ./dist/cli.js",
-    "dev": "bun build ./src/cli.ts --target=node --outfile ./dist/cli.js --watch",
     "install:local": "bun link",
-    "prepublishOnly": "bun run build",
-    "start": "node ./dist/cli.js",
     "typecheck": "tsc --noEmit"
   },
   "type": "module",
-  "version": "0.0.3"
+  "version": "1.0.0"
 }

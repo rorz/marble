@@ -1,7 +1,7 @@
 {
   "dependencies": {
-    "@marble/core": "workspace:*",
     "@marble/keys": "workspace:*",
+    "@marble/old-core": "workspace:*",
     "@marble/supabase": "workspace:*",
     "hono": "catalog:base",
     "zod": "catalog:base"
@@ -11,7 +11,8 @@
     "typescript": "catalog:base"
   },
   "main": "src/index.ts",
-  "name": "@marble/api",
+  "name": "@marble/old-api",
+  "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

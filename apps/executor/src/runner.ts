@@ -1,11 +1,11 @@
 import type { Sandbox } from "@cloudflare/sandbox";
+import { assert } from "@marble/lib/assert";
 import {
   type JsonValue,
   parseProgramSecretConfig,
   resolveColumnConfig,
   Schemas,
-} from "@marble/core";
-import { assert } from "@marble/lib/assert";
+} from "@marble/old-core";
 import type { Json, SupabaseClient, Tables } from "@marble/supabase";
 import { z } from "zod";
 import {

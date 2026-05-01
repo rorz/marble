@@ -137,8 +137,10 @@ export type ResourceActions = {
   runCell?: (cellId: string, input?: CellRunInput) => Promise<CellRunResult>;
 };
 
-export type MarbleClientOptions = {
+export type MarbleStoreOptions = {
   actions?: ResourceActions;
   context: ResourceContext;
   supabase: SupabaseClient;
 };
+
+export type MarbleClientOptions = MarbleStoreOptions;

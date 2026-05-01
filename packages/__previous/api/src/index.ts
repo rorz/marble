@@ -1,9 +1,9 @@
+import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
 import {
   type ApiResourceName,
   ApiResourceNames,
   apiResourcePath,
-} from "@marble/core";
-import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
+} from "@marble/old-core";
 import { createClient, type Json } from "@marble/supabase";
 import { Hono } from "hono";
 import { z } from "zod";

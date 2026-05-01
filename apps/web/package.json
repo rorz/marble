@@ -1,8 +1,8 @@
 {
   "dependencies": {
     "@heroicons/react": "catalog:base",
-    "@marble/api": "workspace:*",
     "@marble/keys": "workspace:*",
+    "@marble/old-api": "workspace:*",
     "@marble/supabase": "workspace:*",
     "@marble/ui": "workspace:*",
     "@monaco-editor/react": "catalog:base",

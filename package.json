@@ -30,6 +30,9 @@
         "@cloudflare/sandbox": "^0.8.6",
         "@heroicons/react": "^2.2.0",
         "@monaco-editor/react": "4.7.0",
+        "@orpc/client": "^1.14.0",
+        "@orpc/contract": "^1.14.0",
+        "@orpc/server": "^1.14.0",
         "@phosphor-icons/react": "^2.1.1",
         "@postgres-language-server/cli": "^0.23.0",
         "@radix-ui/react-dialog": "^1.1.6",
@@ -73,6 +76,7 @@
     },
     "packages": [
       "packages/*",
+      "packages/__previous/*",
       "apps/*",
       "supabase",
       ".agents/skills/*"

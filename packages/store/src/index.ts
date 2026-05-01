@@ -1,4 +1,4 @@
-export { MarbleClient } from "./client";
+export { createMarbleStore, MarbleClient, MarbleStore } from "./client";
 export {
   type Cell,
   CellCollection,
@@ -15,6 +15,7 @@ export {
 } from "./resources/column";
 export {
   type CreateProjectInput,
+  type ListProjectsInput,
   type Project,
   ProjectCollection,
   type ProjectCollectionApi,
@@ -43,6 +44,7 @@ export type {
   Entity,
   ListParams,
   MarbleClientOptions,
+  MarbleStoreOptions,
   ResourceActions,
   ResourceContext,
   ResourceRow,

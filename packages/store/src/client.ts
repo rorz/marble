@@ -7,16 +7,16 @@ import {
 } from "./resources/project";
 import { RowCollection, type RowCollectionApi } from "./resources/row";
 import { TableCollection, type TableCollectionApi } from "./resources/table";
-import type { MarbleClientOptions } from "./types";
+import type { MarbleStoreOptions } from "./types";
 
-export class MarbleClient {
+export class MarbleStore {
   readonly cells: CellCollectionApi;
   readonly columns: ColumnCollectionApi;
   readonly projects: ProjectCollectionApi;
   readonly rows: RowCollectionApi;
   readonly tables: TableCollectionApi;
 
-  constructor(options: MarbleClientOptions) {
+  constructor(options: MarbleStoreOptions) {
     const deps = createResourceDeps(options);
 
     this.cells = new CellCollection(deps);
@@ -26,3 +26,8 @@ export class MarbleClient {
     this.tables = new TableCollection(deps);
   }
 }
+
+export const createMarbleStore = (options: MarbleStoreOptions) =>
+  new MarbleStore(options);
+
+export class MarbleClient extends MarbleStore {}
