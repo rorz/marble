@@ -1,4 +1,9 @@
-import type { Database, TableName, Tables } from "@marble/supabase";
+import type {
+  Database,
+  SupabaseClient,
+  TableName,
+  Tables,
+} from "@marble/supabase";
 
 type DbTable<T extends TableName> = Database["public"]["Tables"][T];
 
@@ -92,9 +97,8 @@ export function toSnakeKeys(value: Record<string, unknown>) {
   return mapObjectKeys(value, toSnakeKey);
 }
 
-function toDbKeys(value: Record<string, unknown>) {
-  return mapObjectKeys(value, toSnakeKey);
-}
+const toDbKeys = (value: Record<string, unknown>) =>
+  mapObjectKeys(value, toSnakeKey);
 
 export function toDbInsert<T extends TableName>(
   values: CreateParams<T>,
@@ -110,134 +114,31 @@ export function toDbUpdate(values: Record<string, unknown>) {
   return toDbKeys(values);
 }
 
-export function toDbWhere<T extends TableName>(
-  where: ListParams<T>,
-): Partial<DbRow<T>>;
-export function toDbWhere(where: Record<string, unknown>) {
-  return toDbKeys(where);
-}
-
-export interface ResourceDriver {
-  create<T extends TableWithIdName>(
-    tableName: T,
-    values: DbInsert<T>,
-  ): Promise<DbRow<T>>;
-
-  delete<T extends TableWithIdName>(
-    tableName: T,
-    where: Partial<DbRow<T>> & {
-      id: string;
-    },
-  ): Promise<DbRow<T>>;
-
-  list<T extends TableWithIdName>(
-    tableName: T,
-    where?: Partial<DbRow<T>>,
-  ): Promise<DbRow<T>[]>;
-
-  retrieve<T extends TableWithIdName>(
-    tableName: T,
-    where: Partial<DbRow<T>> & {
-      id: string;
-    },
-  ): Promise<DbRow<T>>;
-
-  update<T extends TableWithIdName>(
-    tableName: T,
-    where: Partial<DbRow<T>> & {
-      id: string;
-    },
-    values: DbUpdate<T>,
-  ): Promise<DbRow<T>>;
-}
-
 export type ResourceRow<Name extends TableName> = Tables<Name>;
 
 export type ResourceContext = {
   profileId: string;
 };
 
-export type ResourceOptions = {
-  context: ResourceContext;
-  driver: ResourceDriver;
+export type CellRunInput = {
+  manualInput?: string | null;
 };
 
-export abstract class CollectionResource<T extends TableWithIdName> {
-  public abstract readonly tableName: T;
+export type CellRunResult = {
+  cellId?: string;
+  error?: boolean;
+  message?: string;
+  output: unknown;
+  runId: string;
+  success: boolean;
+};
 
-  public constructor(private readonly options: ResourceOptions) {}
+export type ResourceActions = {
+  runCell?: (cellId: string, input?: CellRunInput) => Promise<CellRunResult>;
+};
 
-  protected get context() {
-    return this.options.context;
-  }
-
-  protected async createRecord(values: CreateParams<T>): Promise<Entity<T>> {
-    const row = await this.options.driver.create(
-      this.tableName,
-      toDbInsert(values),
-    );
-
-    return toCamelKeys(row);
-  }
-
-  protected async listRecords(where?: ListParams<T>): Promise<Entity<T>[]> {
-    const rows = await this.options.driver.list(
-      this.tableName,
-      toDbWhere(where ?? {}),
-    );
-
-    return rows.map((row) => toCamelKeys(row));
-  }
-
-  protected async getRecord(
-    id: string,
-    where?: ListParams<T>,
-  ): Promise<Entity<T>> {
-    const row = await this.options.driver.retrieve(
-      this.tableName,
-      this.buildIdentity(id, where),
-    );
-
-    return toCamelKeys(row);
-  }
-
-  protected async updateRecord(
-    id: string,
-    values: UpdateParams<T>,
-    where?: ListParams<T>,
-  ): Promise<Entity<T>> {
-    const row = await this.options.driver.update(
-      this.tableName,
-      this.buildIdentity(id, where),
-      toDbUpdate(values),
-    );
-
-    return toCamelKeys(row);
-  }
-
-  protected async deleteRecord(
-    id: string,
-    where?: ListParams<T>,
-  ): Promise<Entity<T>> {
-    const row = await this.options.driver.delete(
-      this.tableName,
-      this.buildIdentity(id, where),
-    );
-
-    return toCamelKeys(row);
-  }
-
-  private buildIdentity(
-    id: string,
-    where: ListParams<T> = {},
-  ): Partial<DbRow<T>> & {
-    id: string;
-  } {
-    return toDbWhere({
-      ...where,
-      id,
-    } as ListParams<T>) as Partial<DbRow<T>> & {
-      id: string;
-    };
-  }
-}
+export type MarbleClientOptions = {
+  actions?: ResourceActions;
+  context: ResourceContext;
+  supabase: SupabaseClient;
+};

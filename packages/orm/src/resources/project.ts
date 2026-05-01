@@ -1,9 +1,7 @@
-import {
-  CollectionResource,
-  type CreateParams,
-  type Entity,
-  type UpdateParams,
-} from "../types";
+import type { ResourceDeps } from "../db";
+import type { CreateParams, Entity, UpdateParams } from "../types";
+
+export type Project = Entity<"project">;
 
 export type CreateProjectInput = Partial<
   Pick<CreateParams<"project">, "folderPath" | "name">
@@ -14,49 +12,44 @@ export type UpdateProjectInput = Partial<
 >;
 
 export type ProjectCollectionApi = {
-  readonly create: (input?: CreateProjectInput) => Promise<Entity<"project">>;
-  readonly delete: (id: string) => Promise<Entity<"project">>;
-  readonly get: (id: string) => Promise<Entity<"project">>;
-  readonly list: () => Promise<Entity<"project">[]>;
-  readonly update: (
-    id: string,
-    input: UpdateProjectInput,
-  ) => Promise<Entity<"project">>;
+  readonly create: (input?: CreateProjectInput) => Promise<Project>;
+  readonly delete: (id: string) => Promise<Project>;
+  readonly get: (id: string) => Promise<Project>;
+  readonly list: () => Promise<Project[]>;
+  readonly update: (id: string, input: UpdateProjectInput) => Promise<Project>;
 };
 
-export class ProjectCollection
-  extends CollectionResource<"project">
-  implements ProjectCollectionApi
-{
-  public readonly tableName = "project" as const;
+export class ProjectCollection implements ProjectCollectionApi {
+  private readonly ownerProfileId: string;
 
-  public readonly create = (
-    input: CreateProjectInput = {},
-  ): Promise<Entity<"project">> =>
-    this.createRecord({
+  public constructor(private readonly deps: ResourceDeps) {
+    this.ownerProfileId = deps.context.profileId;
+  }
+
+  public readonly create = (input: CreateProjectInput = {}) =>
+    this.deps.db.insert("project", {
       folderPath: input.folderPath ?? [],
       name: input.name ?? "Untitled Project",
-      ownerProfileId: this.context.profileId,
+      ownerProfileId: this.ownerProfileId,
     });
 
-  public readonly delete = (id: string): Promise<Entity<"project">> =>
-    this.deleteRecord(id, this.ownerScope());
+  public readonly delete = (id: string) =>
+    this.deps.db.delete("project", id, {
+      ownerProfileId: this.ownerProfileId,
+    });
 
-  public readonly get = (id: string): Promise<Entity<"project">> =>
-    this.getRecord(id, this.ownerScope());
+  public readonly get = (id: string) =>
+    this.deps.db.get("project", id, {
+      ownerProfileId: this.ownerProfileId,
+    });
 
-  public readonly list = (): Promise<Entity<"project">[]> =>
-    this.listRecords(this.ownerScope());
+  public readonly list = () =>
+    this.deps.db.list("project", {
+      ownerProfileId: this.ownerProfileId,
+    });
 
-  public readonly update = (
-    id: string,
-    input: UpdateProjectInput,
-  ): Promise<Entity<"project">> =>
-    this.updateRecord(id, input, this.ownerScope());
-
-  private ownerScope(): Pick<Entity<"project">, "ownerProfileId"> {
-    return {
-      ownerProfileId: this.context.profileId,
-    };
-  }
+  public readonly update = (id: string, input: UpdateProjectInput) =>
+    this.deps.db.update("project", id, input, {
+      ownerProfileId: this.ownerProfileId,
+    });
 }
