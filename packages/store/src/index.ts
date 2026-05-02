@@ -1,4 +1,5 @@
 export { createMarbleStore, MarbleClient, MarbleStore } from "./client";
+export type { ListOptions, ListOrder } from "./db";
 export {
   type Cell,
   CellCollection,
@@ -16,9 +17,9 @@ export {
 export {
   type CreateProjectInput,
   type DeleteProjectInput,
-  type GetMostRecentProjectInput,
   type GetProjectInput,
   type ListProjectsInput,
+  type ListProjectsOptions,
   type Project,
   ProjectCollection,
   type ProjectCollectionApi,

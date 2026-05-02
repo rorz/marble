@@ -25,6 +25,16 @@ export type ResourceDeps = {
   db: SupabaseDb;
 };
 
+export type ListOrder<T extends TableWithIdName> = {
+  ascending?: boolean;
+  column: keyof Entity<T> & string;
+};
+
+export type ListOptions<T extends TableWithIdName> = {
+  limit?: number;
+  orderBy?: ListOrder<T>[];
+};
+
 export type SupabaseDb = {
   delete: <T extends TableWithIdName>(
     tableName: T,
@@ -43,6 +53,7 @@ export type SupabaseDb = {
   list: <T extends TableWithIdName>(
     tableName: T,
     where?: ListParams<T>,
+    options?: ListOptions<T>,
   ) => Promise<Entity<T>[]>;
   first: <T extends TableWithIdName>(
     tableName: T,
@@ -163,7 +174,7 @@ export const createSupabaseDb = (supabase: SupabaseClient): SupabaseDb => ({
 
     return toCamelKeys(data);
   },
-  list: async (tableName, where = {}) => {
+  list: async (tableName, where = {}, options = {}) => {
     const request = supabase
       .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
         tableName,
@@ -171,9 +182,21 @@ export const createSupabaseDb = (supabase: SupabaseClient): SupabaseDb => ({
       .select<"*", DbRow<typeof tableName>>("*");
 
     const match = toSupabaseMatch(where);
-    const { data, error } = await (Object.keys(match).length === 0
-      ? request
-      : request.match(match));
+    let filteredRequest =
+      Object.keys(match).length === 0 ? request : request.match(match);
+
+    for (const order of options.orderBy ?? []) {
+      filteredRequest = filteredRequest.order(
+        toSnakeKey(order.column) as never,
+        {
+          ascending: order.ascending ?? true,
+        },
+      );
+    }
+
+    const { data, error } = await (options.limit === undefined
+      ? filteredRequest
+      : filteredRequest.limit(options.limit));
 
     throwSupabaseError(error);
 

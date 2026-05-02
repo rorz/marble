@@ -1,4 +1,4 @@
-import type { ResourceDeps } from "../db";
+import type { ListOptions, ResourceDeps } from "../db";
 import type { CreateParams, Entity, UpdateParams } from "../types";
 
 export type Project = Entity<"project">;
@@ -15,9 +15,8 @@ export type GetProjectInput = {
   projectId: string;
 };
 
-export type GetMostRecentProjectInput = Record<string, never>;
-
 export type ListProjectsInput = Partial<Pick<Project, "name">>;
+export type ListProjectsOptions = ListOptions<"project">;
 
 export type UpdateProjectInput = {
   projectId: string;
@@ -28,10 +27,10 @@ export type ProjectCollectionApi = {
   readonly create: (input?: CreateProjectInput) => Promise<Project>;
   readonly delete: (input: DeleteProjectInput) => Promise<Project>;
   readonly get: (input: GetProjectInput) => Promise<Project>;
-  readonly getMostRecentProject: (
-    input?: GetMostRecentProjectInput,
-  ) => Promise<Project | null>;
-  readonly list: (input?: ListProjectsInput) => Promise<Project[]>;
+  readonly list: (
+    input?: ListProjectsInput,
+    options?: ListProjectsOptions,
+  ) => Promise<Project[]>;
   readonly update: (input: UpdateProjectInput) => Promise<Project>;
 };
 
@@ -59,22 +58,18 @@ export class ProjectCollection implements ProjectCollectionApi {
       ownerProfileId: this.ownerProfileId,
     });
 
-  public readonly getMostRecentProject = (_input?: GetMostRecentProjectInput) =>
-    this.deps.db.first("project", {
-      orderBy: {
-        ascending: false,
-        column: "createdAt",
-      },
-      where: {
+  public readonly list = (
+    input: ListProjectsInput = {},
+    options?: ListProjectsOptions,
+  ) =>
+    this.deps.db.list(
+      "project",
+      {
+        name: input.name,
         ownerProfileId: this.ownerProfileId,
       },
-    });
-
-  public readonly list = (input: ListProjectsInput = {}) =>
-    this.deps.db.list("project", {
-      name: input.name,
-      ownerProfileId: this.ownerProfileId,
-    });
+      options,
+    );
 
   public readonly update = ({ projectId, values }: UpdateProjectInput) =>
     this.deps.db.update("project", projectId, values, {

@@ -15,7 +15,26 @@ export const projectsRouter = {
     context.store.projects.get(input),
   ),
   getMostRecentProject: os.projects.getMostRecentProject.handler(
-    ({ context, input }) => context.store.projects.getMostRecentProject(input),
+    async ({ context }) => {
+      const projects = await context.store.projects.list(
+        {},
+        {
+          limit: 1,
+          orderBy: [
+            {
+              ascending: false,
+              column: "createdAt",
+            },
+            {
+              ascending: false,
+              column: "id",
+            },
+          ],
+        },
+      );
+
+      return projects[0] ?? null;
+    },
   ),
   list: os.projects.list.handler(({ context, input }) =>
     context.store.projects.list(input),
