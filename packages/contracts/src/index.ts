@@ -1,22 +1,8 @@
-import { projectsContract } from "./projects";
+import { projectsContract } from "./orpc";
 
-export type {
-  CreateProjectInput,
-  DeleteProjectInput,
-  GetProjectInput,
-  ListProjectsInput,
-  Project,
-  UpdateProjectInput,
-} from "./projects";
-export {
-  CreateProjectInputSchema,
-  DeleteProjectInputSchema,
-  GetProjectInputSchema,
-  ListProjectsInputSchema,
-  ProjectSchema,
-  projectsContract,
-  UpdateProjectInputSchema,
-} from "./projects";
+export { projectsContract } from "./orpc";
+export * from "./resources/define";
+export * from "./resources/projects";
 
 export const contract = {
   projects: projectsContract,

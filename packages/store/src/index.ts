@@ -15,6 +15,9 @@ export {
 } from "./resources/column";
 export {
   type CreateProjectInput,
+  type DeleteProjectInput,
+  type GetMostRecentProjectInput,
+  type GetProjectInput,
   type ListProjectsInput,
   type Project,
   ProjectCollection,

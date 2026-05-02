@@ -1,6 +1,7 @@
 export type {
   CreateProjectInput,
   DeleteProjectInput,
+  GetMostRecentProjectInput,
   GetProjectInput,
   ListProjectsInput,
   Project,

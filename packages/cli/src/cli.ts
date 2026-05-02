@@ -101,6 +101,12 @@ projectsCommand
     printJson(project);
   });
 
+projectsCommand.command("get-most-recent").action(async () => {
+  const project = await getMarbleClient().projects.getMostRecentProject();
+
+  printJson(project);
+});
+
 projectsCommand
   .command("list")
   .option("--name <name>", "Filter projects by exact name")

@@ -7,18 +7,32 @@ export type CreateProjectInput = Partial<
   Pick<CreateParams<"project">, "folderPath" | "name">
 >;
 
-export type UpdateProjectInput = Partial<
-  Pick<UpdateParams<"project">, "folderPath" | "name">
->;
+export type DeleteProjectInput = {
+  projectId: string;
+};
+
+export type GetProjectInput = {
+  projectId: string;
+};
+
+export type GetMostRecentProjectInput = Record<string, never>;
 
 export type ListProjectsInput = Partial<Pick<Project, "name">>;
 
+export type UpdateProjectInput = {
+  projectId: string;
+  values: Partial<Pick<UpdateParams<"project">, "folderPath" | "name">>;
+};
+
 export type ProjectCollectionApi = {
   readonly create: (input?: CreateProjectInput) => Promise<Project>;
-  readonly delete: (id: string) => Promise<Project>;
-  readonly get: (id: string) => Promise<Project>;
+  readonly delete: (input: DeleteProjectInput) => Promise<Project>;
+  readonly get: (input: GetProjectInput) => Promise<Project>;
+  readonly getMostRecentProject: (
+    input?: GetMostRecentProjectInput,
+  ) => Promise<Project | null>;
   readonly list: (input?: ListProjectsInput) => Promise<Project[]>;
-  readonly update: (id: string, input: UpdateProjectInput) => Promise<Project>;
+  readonly update: (input: UpdateProjectInput) => Promise<Project>;
 };
 
 export class ProjectCollection implements ProjectCollectionApi {
@@ -35,14 +49,25 @@ export class ProjectCollection implements ProjectCollectionApi {
       ownerProfileId: this.ownerProfileId,
     });
 
-  public readonly delete = (id: string) =>
-    this.deps.db.delete("project", id, {
+  public readonly delete = ({ projectId }: DeleteProjectInput) =>
+    this.deps.db.delete("project", projectId, {
       ownerProfileId: this.ownerProfileId,
     });
 
-  public readonly get = (id: string) =>
-    this.deps.db.get("project", id, {
+  public readonly get = ({ projectId }: GetProjectInput) =>
+    this.deps.db.get("project", projectId, {
       ownerProfileId: this.ownerProfileId,
+    });
+
+  public readonly getMostRecentProject = (_input?: GetMostRecentProjectInput) =>
+    this.deps.db.first("project", {
+      orderBy: {
+        ascending: false,
+        column: "createdAt",
+      },
+      where: {
+        ownerProfileId: this.ownerProfileId,
+      },
     });
 
   public readonly list = (input: ListProjectsInput = {}) =>
@@ -51,8 +76,8 @@ export class ProjectCollection implements ProjectCollectionApi {
       ownerProfileId: this.ownerProfileId,
     });
 
-  public readonly update = (id: string, input: UpdateProjectInput) =>
-    this.deps.db.update("project", id, input, {
+  public readonly update = ({ projectId, values }: UpdateProjectInput) =>
+    this.deps.db.update("project", projectId, values, {
       ownerProfileId: this.ownerProfileId,
     });
 }

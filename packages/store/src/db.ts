@@ -11,7 +11,13 @@ import type {
   TableWithIdName,
   UpdateParams,
 } from "./types";
-import { toCamelKeys, toDbInsert, toDbUpdate, toSnakeKeys } from "./types";
+import {
+  toCamelKeys,
+  toDbInsert,
+  toDbUpdate,
+  toSnakeKey,
+  toSnakeKeys,
+} from "./types";
 
 export type ResourceDeps = {
   actions: ResourceActions;
@@ -38,6 +44,16 @@ export type SupabaseDb = {
     tableName: T,
     where?: ListParams<T>,
   ) => Promise<Entity<T>[]>;
+  first: <T extends TableWithIdName>(
+    tableName: T,
+    options: {
+      orderBy: {
+        ascending?: boolean;
+        column: keyof Entity<T> & string;
+      };
+      where?: ListParams<T>;
+    },
+  ) => Promise<Entity<T> | null>;
   update: <T extends TableWithIdName>(
     tableName: T,
     id: string,
@@ -91,6 +107,27 @@ export const createSupabaseDb = (supabase: SupabaseClient): SupabaseDb => ({
     }
 
     return toCamelKeys(data);
+  },
+  first: async (tableName, options) => {
+    const request = supabase
+      .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
+        tableName,
+      )
+      .select<"*", DbRow<typeof tableName>>("*");
+
+    const match = toSupabaseMatch(options.where ?? {});
+    const filteredRequest =
+      Object.keys(match).length === 0 ? request : request.match(match);
+    const { data, error } = await filteredRequest
+      .order(toSnakeKey(options.orderBy.column) as never, {
+        ascending: options.orderBy.ascending ?? true,
+      })
+      .limit(1)
+      .maybeSingle();
+
+    throwSupabaseError(error);
+
+    return data === null ? null : toCamelKeys(data);
   },
   get: async (tableName, id, where) => {
     const { data, error } = await supabase

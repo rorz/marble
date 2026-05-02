@@ -63,7 +63,7 @@ function toCamelKey(key: string) {
   );
 }
 
-function toSnakeKey(key: string) {
+export function toSnakeKey(key: string) {
   return key.replace(/[A-Z]/g, (character) => `_${character.toLowerCase()}`);
 }
 

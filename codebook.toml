@@ -1,0 +1,16 @@
+# This is for the Codebook spellchecking LSP
+#
+dictionaries = [
+    "en_us",
+    "en_gb",
+]
+words = [
+    "automations",
+    "bunx",
+    "dotenv",
+    "ingestor",
+    "opencode",
+    "supabase",
+    "turborepo",
+    "vercel",
+]

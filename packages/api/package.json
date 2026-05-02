@@ -4,7 +4,9 @@
     "@marble/keys": "workspace:*",
     "@marble/store": "workspace:*",
     "@marble/supabase": "workspace:*",
+    "@orpc/openapi": "catalog:base",
     "@orpc/server": "catalog:base",
+    "@orpc/zod": "catalog:base",
     "hono": "catalog:base"
   },
   "devDependencies": {

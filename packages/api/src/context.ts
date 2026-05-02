@@ -24,6 +24,10 @@ export type ApiAuth =
       profileId: string;
       type: "forwarded";
       userId?: string;
+    }
+  | {
+      profileId: string;
+      type: "public-docs";
     };
 
 export type ApiContext = {
@@ -31,6 +35,8 @@ export type ApiContext = {
   requestId: string;
   store: MarbleStore;
 };
+
+const OPENAPI_DOCS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
 
 export function createMarbleApiRuntime(
   config: MarbleApiConfig,
@@ -97,6 +103,26 @@ export async function createApiContext(
     store: createMarbleStore({
       context: {
         profileId: auth.profileId,
+      },
+      supabase: runtime.serviceRoleSupabase,
+    }),
+  };
+}
+
+export function createOpenApiDocsContext(
+  request: Request,
+  runtime: MarbleApiRuntime,
+): ApiContext {
+  return {
+    auth: {
+      profileId: OPENAPI_DOCS_PROFILE_ID,
+      type: "public-docs",
+    },
+    requestId:
+      request.headers.get("x-marble-request-id") ?? crypto.randomUUID(),
+    store: createMarbleStore({
+      context: {
+        profileId: OPENAPI_DOCS_PROFILE_ID,
       },
       supabase: runtime.serviceRoleSupabase,
     }),

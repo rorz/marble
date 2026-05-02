@@ -90,6 +90,19 @@ This monorepo uses Turborepo for pretty much everything. This means that you mus
 - Not only _use_ root package and `turbo *` scripts exclusively, but;
 - You **must** ALWAYS update, check, and reflect on any changes that are necessary to the various config files in our repo. Bad things happen when the `turbo.json` files throughout the repository aren't kept in constant symbiosis with the rest of the repo.
 
+## Data Interface Governance
+
+IMPORTANT!! You **must** read [Data Interface Definitions](./docs/internal/data-interface-definitions.md) before adding, removing, renaming, or exposing any data operation in `packages/contracts`, `packages/api`, `packages/sdk`, `packages/cli`, or `packages/store`.
+
+### Interface Rules
+
+1. The data interface almanac is the semantic source of truth for allowed public data operations. Absence is intentional. Do not infer generic CRUD just because a table exists.
+2. A public API operation, SDK method, CLI command, or store resource method may only exist if that resource and operation are listed in the almanac. Do not maintain separate surface matrices unless a resource explicitly needs an exception.
+3. If an operation is not listed, stop. Either do not add it, or update the almanac in the same change with a short rationale explaining why the operation belongs on that resource.
+4. Prefer named product actions over generic methods when the behavior has domain meaning. For example, `cells.setManualValue()` is preferable to `cells.update()`.
+5. Do not expose child-resource lifecycle methods when lifecycle is owned by a parent action. For example, do not add `cells.create()` or `cells.delete()` unless the almanac explicitly allows it; cell materialization and deletion should normally happen through row, column, or table flows.
+6. Any agent changing data interfaces must explicitly report which resource, operation, and surfaces changed, and whether the operation was already present in the almanac.
+
 ## Introducing A New Resource Type
 
 If you add or reshape a top-level resource, you are not done when the migration and one route compile. You must audit the entire resource surface before reporting completion.

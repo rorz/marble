@@ -1,10 +1,14 @@
 import { forwardMarbleApiRequest } from "../../../lib/api-route-forwarding";
-import { getMarbleApi } from "../../../lib/marble-api";
+import { getMarbleApiV2 } from "../../../lib/marble-api";
 
 async function forward(req: Request) {
   return forwardMarbleApiRequest(req, {
-    api: getMarbleApi(),
-    stripPathPrefix: "/api",
+    api: getMarbleApiV2(),
+    publicPaths: [
+      "/openapi",
+      "/openapi/spec.json",
+    ],
+    stripPathPrefix: "/api-v2",
   });
 }
 
