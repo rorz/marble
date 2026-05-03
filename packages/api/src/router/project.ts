@@ -1,10 +1,7 @@
-import { contract } from "@marble/contracts";
-import { implement } from "@orpc/server";
-import type { ApiContext } from "./context";
+import { os } from "../server";
+import type { RouterResourcePart } from "../types";
 
-const os = implement(contract).$context<ApiContext>();
-
-export const projectsRouter = {
+export const projectRouter = {
   create: os.projects.create.handler(({ context, input }) =>
     context.store.projects.create(input),
   ),
@@ -42,10 +39,4 @@ export const projectsRouter = {
   update: os.projects.update.handler(({ context, input }) =>
     context.store.projects.update(input),
   ),
-};
-
-export const router = os.router({
-  projects: projectsRouter,
-});
-
-export type MarbleRouter = typeof router;
+} satisfies RouterResourcePart<"projects">;

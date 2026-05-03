@@ -1,30 +1,20 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
-import { createRouterClient } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { Hono } from "hono";
 import {
-  type ApiContext,
   createApiContext,
   createMarbleApiRuntime,
   createOpenApiDocsContext,
   type MarbleApiConfig,
 } from "./context";
-import { router } from "./projects";
+import { marbleRouter } from "./router";
 
 export type { ApiAuth, ApiContext, MarbleApiConfig } from "./context";
 export { createApiContext, createMarbleApiRuntime } from "./context";
-export type { MarbleRouter } from "./projects";
-export { router } from "./projects";
 
-export function createMarbleRouterClient(context: ApiContext) {
-  return createRouterClient(router, {
-    context,
-  });
-}
-
-function errorResponse(error: unknown) {
+const errorResponse = (error: unknown) => {
   if (
     typeof error === "object" &&
     error !== null &&
@@ -52,7 +42,7 @@ function errorResponse(error: unknown) {
       status: 500,
     },
   );
-}
+};
 
 function isOpenApiDocsPath(request: Request) {
   const pathname = new URL(request.url).pathname;
@@ -62,13 +52,11 @@ function isOpenApiDocsPath(request: Request) {
 export function createMarbleApi(config: MarbleApiConfig) {
   const runtime = createMarbleApiRuntime(config);
   const app = new Hono();
-  const openApiHandler = new OpenAPIHandler(router, {
+  const openApiHandler = new OpenAPIHandler(marbleRouter, {
     plugins: [
       new OpenAPIReferencePlugin({
         docsPath: "/openapi",
-        schemaConverters: [
-          new ZodToJsonSchemaConverter(),
-        ],
+        schemaConverters: [new ZodToJsonSchemaConverter()],
         specGenerateOptions: {
           info: {
             title: "Marble Data API",
@@ -79,7 +67,7 @@ export function createMarbleApi(config: MarbleApiConfig) {
       }),
     ],
   });
-  const rpcHandler = new RPCHandler(router);
+  const rpcHandler = new RPCHandler(marbleRouter);
 
   app.get("/", (c) =>
     c.json({
