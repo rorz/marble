@@ -23,7 +23,7 @@ const GETRouteFor = (singularNoun: string, pluralNoun: string) => ({
 export const tableOperations = defineResourceOperations({
   get: {
     input: z.object({
-      id: z.uuidv4(),
+      id: z.uuidv7(),
     }),
     output: TableSchema.nullable(),
     route: GETRouteFor("table", "tables"),
