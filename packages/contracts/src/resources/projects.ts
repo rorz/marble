@@ -57,7 +57,7 @@ export const projectOperations = defineResourceOperations({
     // NOTE:  This is a non-serious (non-production) perforation
     //        in order to test what the contract definition -> RPC is like
     //
-    input: z.object({}).nullable(),
+    input: z.object({}),
     output: ProjectSchema.nullable(),
     route: {
       description:

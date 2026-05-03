@@ -1,9 +1,7 @@
 import z from "zod";
 import { defineResourceOperations } from "../helpers";
 
-const tags = [
-  "Tables",
-] as const;
+const tags = ["Tables"] as const;
 
 const TableSchema = z.object({
   createdAt: z.iso.datetime(),
@@ -17,7 +15,7 @@ const TableSchema = z.object({
 const GETRouteFor = (singularNoun: string, pluralNoun: string) => ({
   method: "GET" as const,
   operationId: `${pluralNoun}.get`,
-  path: `/${pluralNoun}/{${singularNoun}Id}` as `/${string}`,
+  path: `/${pluralNoun}/{id}` as `/${string}`,
   summary: `Get a ${singularNoun}`,
   tags,
 });
@@ -25,7 +23,7 @@ const GETRouteFor = (singularNoun: string, pluralNoun: string) => ({
 export const tableOperations = defineResourceOperations({
   get: {
     input: z.object({
-      tableId: z.uuidv4(),
+      id: z.uuidv4(),
     }),
     output: TableSchema.nullable(),
     route: GETRouteFor("table", "tables"),
@@ -33,7 +31,7 @@ export const tableOperations = defineResourceOperations({
   list: {
     input: z
       .object({
-        name: z.string().optional(),
+        projectId: z.uuidv4().optional(),
       })
       .optional(),
     output: z.array(TableSchema),

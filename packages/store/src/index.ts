@@ -1,4 +1,4 @@
-export { createMarbleStore, MarbleClient, MarbleStore } from "./client";
+export { MarbleStore } from "./client";
 export type { ListOptions, ListOrder } from "./db";
 export {
   type Cell,
@@ -33,14 +33,7 @@ export {
   type RowCollectionApi,
   type UpdateRowInput,
 } from "./resources/row";
-export {
-  type CreateTableInput,
-  type ListTablesInput,
-  type Table,
-  TableCollection,
-  type TableCollectionApi,
-  type UpdateTableInput,
-} from "./resources/table";
+export { TableCollection } from "./resources/table";
 export type {
   CellRunInput,
   CellRunResult,

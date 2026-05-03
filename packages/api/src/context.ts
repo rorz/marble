@@ -1,5 +1,5 @@
 import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
-import { createMarbleStore, type MarbleStore } from "@marble/store";
+import { MarbleStore } from "@marble/store";
 import { createClient, type SupabaseClient } from "@marble/supabase";
 import { ORPCError } from "@orpc/server";
 
@@ -100,7 +100,7 @@ export async function createApiContext(
     auth,
     requestId:
       request.headers.get("x-marble-request-id") ?? crypto.randomUUID(),
-    store: createMarbleStore({
+    store: new MarbleStore({
       context: {
         profileId: auth.profileId,
       },
@@ -120,7 +120,7 @@ export function createOpenApiDocsContext(
     },
     requestId:
       request.headers.get("x-marble-request-id") ?? crypto.randomUUID(),
-    store: createMarbleStore({
+    store: new MarbleStore({
       context: {
         profileId: OPENAPI_DOCS_PROFILE_ID,
       },

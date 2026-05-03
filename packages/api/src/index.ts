@@ -1,5 +1,6 @@
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
+import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { Hono } from "hono";
@@ -44,6 +45,21 @@ const errorResponse = (error: unknown) => {
   );
 };
 
+const shouldLogOrpcError = (error: unknown) =>
+  !(error instanceof ORPCError) ||
+  error.code === "INTERNAL_SERVER_ERROR" ||
+  error.cause !== undefined;
+
+const logOrpcError = (error: unknown) => {
+  if (!shouldLogOrpcError(error)) return;
+
+  console.error("[marble-api] oRPC request failed", error);
+
+  if (error instanceof Error && error.cause !== undefined) {
+    console.error("[marble-api] oRPC error cause", error.cause);
+  }
+};
+
 function isOpenApiDocsPath(request: Request) {
   const pathname = new URL(request.url).pathname;
   return pathname === "/openapi" || pathname === "/openapi/spec.json";
@@ -53,6 +69,9 @@ export function createMarbleApi(config: MarbleApiConfig) {
   const runtime = createMarbleApiRuntime(config);
   const app = new Hono();
   const openApiHandler = new OpenAPIHandler(marbleRouter, {
+    interceptors: [
+      onError(logOrpcError),
+    ],
     plugins: [
       new OpenAPIReferencePlugin({
         docsPath: "/openapi",
@@ -69,7 +88,11 @@ export function createMarbleApi(config: MarbleApiConfig) {
       }),
     ],
   });
-  const rpcHandler = new RPCHandler(marbleRouter);
+  const rpcHandler = new RPCHandler(marbleRouter, {
+    interceptors: [
+      onError(logOrpcError),
+    ],
+  });
 
   app.get("/", (c) =>
     c.json({
