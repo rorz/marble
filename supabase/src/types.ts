@@ -1105,7 +1105,7 @@ export type Tables<
       : never
     : never;
 
-export type TablesInsert<
+type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | {
@@ -1132,7 +1132,7 @@ export type TablesInsert<
       : never
     : never;
 
-export type TablesUpdate<
+type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | {
@@ -1178,7 +1178,7 @@ export type Enums<
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never;
 
-export type CompositeTypes<
+type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | {
@@ -1197,7 +1197,7 @@ export type CompositeTypes<
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never;
 
-export const Constants = {
+const Constants = {
   graphql_public: {
     Enums: {},
   },
