@@ -6,7 +6,6 @@
     "@marble/old-core": "workspace:*",
     "@marble/supabase": "workspace:",
     "hono": "catalog:base",
-    "nanoid": "catalog:base",
     "zod": "catalog:base"
   },
   "description": "A minimal example of using the Sandbox SDK",

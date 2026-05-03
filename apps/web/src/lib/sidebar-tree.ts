@@ -186,7 +186,7 @@ export function upsertSidebarChild(
   );
 }
 
-export function removeSidebarChild(
+function removeSidebarChild(
   nodes: SidebarTreeNode[],
   parentId: string,
   childId: string,

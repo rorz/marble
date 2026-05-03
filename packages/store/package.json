@@ -1,7 +1,6 @@
 {
   "dependencies": {
-    "@marble/supabase": "workspace:*",
-    "zod": "catalog:base"
+    "@marble/supabase": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:base",

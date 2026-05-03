@@ -2,7 +2,7 @@ import "server-only";
 import type { MarbleApiConfig } from "@marble/old-api";
 import { env } from "@/env";
 
-export type ServiceRoleSupabaseConfig = {
+type ServiceRoleSupabaseConfig = {
   serviceRoleKey: string;
   url: string;
 };

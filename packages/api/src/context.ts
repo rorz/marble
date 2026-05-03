@@ -10,7 +10,7 @@ export type MarbleApiConfig = {
   };
 };
 
-export type MarbleApiRuntime = {
+type MarbleApiRuntime = {
   serviceRoleSupabase: SupabaseClient;
 };
 
@@ -65,7 +65,7 @@ function requireForwardedAuth(request: Request): ApiAuth {
   };
 }
 
-export async function resolveApiAuth(
+async function resolveApiAuth(
   request: Request,
   runtime: MarbleApiRuntime,
 ): Promise<ApiAuth> {

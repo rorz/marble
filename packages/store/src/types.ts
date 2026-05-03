@@ -45,10 +45,10 @@ type CamelToSnake<S extends string> = S extends `${infer H}${infer R}`
     : `_${Lowercase<H>}${CamelToSnake<R>}`
   : S;
 
-export type Camelize<T> = {
+type Camelize<T> = {
   [K in keyof T as K extends string ? SnakeToCamel<K> : K]: T[K];
 };
-export type Snakeize<T> = {
+type Snakeize<T> = {
   [K in keyof T as K extends string ? CamelToSnake<K> : K]: T[K];
 };
 

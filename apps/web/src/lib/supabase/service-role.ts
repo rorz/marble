@@ -16,7 +16,7 @@ export function createServiceRoleClient(headers?: Record<string, string>) {
   });
 }
 
-export async function resolveOwnedProfileId(userId: string) {
+async function resolveOwnedProfileId(userId: string) {
   const { data, error } = await createServiceRoleClient()
     .from("profile")
     .select("id")

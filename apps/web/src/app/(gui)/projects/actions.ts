@@ -11,7 +11,7 @@ export async function listProjects() {
   return listProjectSummariesForUser(user.id);
 }
 
-export async function loadProject(projectId: string) {
+async function loadProject(projectId: string) {
   const user = await requireUser();
   const project = await getOwnedProjectForUser(user.id, projectId);
 

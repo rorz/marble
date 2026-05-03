@@ -1,9 +1,11 @@
 import z from "zod";
 import { defineResourceOperations } from "../helpers";
 
-const tags = ["Tables"] as const;
+const tags = [
+  "Tables",
+] as const;
 
-export const TableSchema = z.object({
+const TableSchema = z.object({
   createdAt: z.iso.datetime(),
   id: z.uuidv4(),
   name: z.string(),
@@ -12,7 +14,7 @@ export const TableSchema = z.object({
 });
 
 // TODO: Consider if this could be a factory
-export const GETRouteFor = (singularNoun: string, pluralNoun: string) => ({
+const GETRouteFor = (singularNoun: string, pluralNoun: string) => ({
   method: "GET" as const,
   operationId: `${pluralNoun}.get`,
   path: `/${pluralNoun}/{${singularNoun}Id}` as `/${string}`,

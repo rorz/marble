@@ -96,7 +96,7 @@ async function nextProgramVersionNumber(
   return (data?.version ?? 0) + 1;
 }
 
-export async function listProgramVersionFiles(
+async function listProgramVersionFiles(
   supabase: SupabaseClient,
   versionId: string,
 ) {
@@ -117,7 +117,7 @@ export async function listProgramVersionFiles(
   );
 }
 
-export async function getProgramVersionWithFiles(
+async function getProgramVersionWithFiles(
   supabase: SupabaseClient,
   id: string,
 ) {
@@ -132,7 +132,7 @@ export async function getProgramVersionWithFiles(
   };
 }
 
-export async function findProgramDraftVersion(
+async function findProgramDraftVersion(
   supabase: SupabaseClient,
   programId: string,
 ) {
@@ -154,7 +154,7 @@ export async function findProgramDraftVersion(
   return data;
 }
 
-export async function findLatestPublishedProgramVersion(
+async function findLatestPublishedProgramVersion(
   supabase: SupabaseClient,
   programId: string,
 ) {

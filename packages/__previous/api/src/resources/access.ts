@@ -7,7 +7,7 @@ import {
   listRecordsInColumn,
 } from "../data";
 
-export type AccessOptions = {
+type AccessOptions = {
   authenticatedProfileId?: string;
   userId?: string;
 };
@@ -175,7 +175,7 @@ export async function listAccessibleSourceIds(
   return sources.map((source) => source.id);
 }
 
-export async function listAccessibleSourceEventIds(
+async function listAccessibleSourceEventIds(
   supabase: SupabaseClient,
   options: AccessOptions,
 ) {
@@ -205,7 +205,7 @@ export async function listAccessibleSourceEventIds(
   return events.map((event) => event.id);
 }
 
-export async function listAccessiblePipeIds(
+async function listAccessiblePipeIds(
   supabase: SupabaseClient,
   options: AccessOptions,
 ) {

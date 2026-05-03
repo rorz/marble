@@ -56,7 +56,9 @@ export function createMarbleApi(config: MarbleApiConfig) {
     plugins: [
       new OpenAPIReferencePlugin({
         docsPath: "/openapi",
-        schemaConverters: [new ZodToJsonSchemaConverter()],
+        schemaConverters: [
+          new ZodToJsonSchemaConverter(),
+        ],
         specGenerateOptions: {
           info: {
             title: "Marble Data API",

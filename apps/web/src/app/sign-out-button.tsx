@@ -48,7 +48,7 @@ export function useSignOut() {
   };
 }
 
-export default function SignOutButton() {
+function SignOutButton() {
   const { error, pending, signOut } = useSignOut();
 
   return (

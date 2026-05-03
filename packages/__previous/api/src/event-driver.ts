@@ -5,7 +5,7 @@ import { logSlowOperation, now } from "./perf";
 const EVENT_CONTEXT_KEY = Symbol.for("marble.api.event-context");
 export type EventSource = "CLI" | "RAW_API" | "WEB_APP";
 
-export type EventContext = {
+type EventContext = {
   actorKeyId?: string;
   actorProfileId?: string;
   requestId: string;

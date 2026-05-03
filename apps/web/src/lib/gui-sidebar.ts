@@ -7,10 +7,10 @@ export const AGENT_SIDEBAR_MODE_COOKIE_NAME = "gui-agent-sidebar-mode";
 export const AGENT_SIDEBAR_WIDTH_COOKIE_NAME = "gui-agent-sidebar-width";
 
 export const COLLAPSED_SIDEBAR_WIDTH = 44;
-export const DEFAULT_SIDEBAR_WIDTH = 260;
+const DEFAULT_SIDEBAR_WIDTH = 260;
 export const MIN_SIDEBAR_WIDTH = 190;
 export const MAX_SIDEBAR_WIDTH = 380;
-export const DEFAULT_AGENT_SIDEBAR_WIDTH = 320;
+const DEFAULT_AGENT_SIDEBAR_WIDTH = 320;
 export const COLLAPSED_AGENT_SIDEBAR_WIDTH = 0;
 export const MIN_AGENT_SIDEBAR_WIDTH = 260;
 export const MAX_AGENT_SIDEBAR_WIDTH = 520;

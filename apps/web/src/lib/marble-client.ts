@@ -12,7 +12,7 @@ type ErrorPayload = {
   error?: string;
 };
 
-export class MarbleClientError extends Error {
+class MarbleClientError extends Error {
   details?: unknown;
   requestId: string;
   status: number;

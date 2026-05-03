@@ -5,7 +5,7 @@ const SUPABASE_AUTH_COOKIE_PATTERNS = [
   /^supabase-auth-token-code-verifier(?:\.\d+)?$/,
 ];
 
-export function isSupabaseAuthCookieName(name: string): boolean {
+function isSupabaseAuthCookieName(name: string): boolean {
   return SUPABASE_AUTH_COOKIE_PATTERNS.some((pattern) => pattern.test(name));
 }
 

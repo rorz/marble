@@ -23,7 +23,7 @@ export function MarbleSheet({ children, ...props }: MarbleSheetProps) {
   return <DialogPrimitive.Root {...props}>{children}</DialogPrimitive.Root>;
 }
 
-export type MarbleSheetCloseProps = ButtonHTMLAttributes<HTMLButtonElement>;
+type MarbleSheetCloseProps = ButtonHTMLAttributes<HTMLButtonElement>;
 
 export function MarbleSheetClose({
   children,

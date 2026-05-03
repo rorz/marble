@@ -35,7 +35,7 @@ export type ListOptions<T extends TableWithIdName> = {
   orderBy?: ListOrder<T>[];
 };
 
-export type SupabaseDb = {
+type SupabaseDb = {
   delete: <T extends TableWithIdName>(
     tableName: T,
     id: string,
@@ -100,7 +100,7 @@ const identityWhere = <T extends TableWithIdName>(
     id: string;
   };
 
-export const createSupabaseDb = (supabase: SupabaseClient): SupabaseDb => ({
+const createSupabaseDb = (supabase: SupabaseClient): SupabaseDb => ({
   delete: async (tableName, id, where) => {
     const { data, error } = await supabase
       .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(

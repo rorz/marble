@@ -1,7 +1,5 @@
 {
-  "dependencies": {
-    "marble-cli": "link:marble-cli"
-  },
+  "dependencies": {},
   "name": "@marble/wizard",
   "private": true,
   "scripts": {

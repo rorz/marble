@@ -75,7 +75,7 @@ export const ProgramSecretConfigSchema = z
     }
   });
 
-export const ProgramManifestSchema = z
+const ProgramManifestSchema = z
   .object({
     marble: z
       .object({

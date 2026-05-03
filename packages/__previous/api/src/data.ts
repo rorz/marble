@@ -3,9 +3,9 @@ import { ApiError, requireById, requiredValue } from "./core";
 import { writeEventRecord } from "./event-driver";
 import { getSupabaseRequestId, logSlowOperation, now } from "./perf";
 
-export type DbTableName = keyof Database["public"]["Tables"];
+type DbTableName = keyof Database["public"]["Tables"];
 type DbTable<Name extends DbTableName> = Database["public"]["Tables"][Name];
-export type DbInsert<Name extends DbTableName> = DbTable<Name>["Insert"];
+type DbInsert<Name extends DbTableName> = DbTable<Name>["Insert"];
 export type DbRow<Name extends DbTableName> = DbTable<Name>["Row"];
 export type DbUpdate<Name extends DbTableName> = DbTable<Name>["Update"];
 type QueryValue = boolean | number | string;
@@ -528,7 +528,7 @@ export async function getRecord<
   );
 }
 
-export async function nextIndex(
+async function nextIndex(
   supabase: SupabaseClient,
   tableName: "column" | "row",
   tableId: string,

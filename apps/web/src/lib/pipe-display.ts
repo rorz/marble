@@ -1,9 +1,9 @@
-export type PipeMappingRecord = {
+type PipeMappingRecord = {
   columnId: string;
   jsonPath: string;
 };
 
-export type PipeMappingDisplayRecord = PipeMappingRecord & {
+type PipeMappingDisplayRecord = PipeMappingRecord & {
   columnLabel: string;
   jsonPathLabel: string;
 };

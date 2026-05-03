@@ -109,7 +109,7 @@ export const formatZodIssues = (issues: z.ZodIssue[]): string =>
     .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
     .join("; ");
 
-export const createFailureState = (
+const createFailureState = (
   errorType: string,
   message: string,
   detail?: Json,
@@ -872,10 +872,7 @@ async function resolveExecutionInputFromContext(
   };
 }
 
-export const loadStoredRun = async (
-  supabase: SupabaseClient,
-  runId: string,
-) => {
+const loadStoredRun = async (supabase: SupabaseClient, runId: string) => {
   const { data, error } = await supabase
     .from("program_run")
     .select(STORED_RUN_SELECT)

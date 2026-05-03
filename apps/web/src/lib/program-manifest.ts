@@ -10,7 +10,7 @@ const environmentVariableNameSchema = z
     "Environment variable names must be valid shell identifiers.",
   );
 
-export const ProgramSecretDeclarationSchema = z.object({
+const ProgramSecretDeclarationSchema = z.object({
   description: z.string().trim().min(1).optional(),
   env: environmentVariableNameSchema,
   label: z.string().trim().min(1),
@@ -38,7 +38,7 @@ const programSecretDeclarationInputSchema = z.union([
     })),
 ]);
 
-export const ProgramSecretConfigSchema = z
+const ProgramSecretConfigSchema = z
   .array(programSecretDeclarationInputSchema)
   .superRefine((secrets, ctx) => {
     const seenEnvNames = new Set<string>();
@@ -141,7 +141,7 @@ export function parseProgramManifestFileContent(content: string) {
   return parseProgramManifest(JSON.parse(content) as unknown);
 }
 
-export function listProgramSecretDeclarationsFromManifest(input: unknown) {
+function listProgramSecretDeclarationsFromManifest(input: unknown) {
   return parseProgramManifest(input).marble?.secrets ?? [];
 }
 

@@ -6,4 +6,4 @@ export const marbleRouter = os.router({
   projects: projectRouter,
   tables: tableRouter,
 });
-export type MarbleRouter = typeof marbleRouter;
+type MarbleRouter = typeof marbleRouter;

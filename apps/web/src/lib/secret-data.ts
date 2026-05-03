@@ -24,7 +24,7 @@ type ProgramFileLike = Pick<
   "content" | "filename"
 >;
 
-export type SecretRecord = SecretRow;
+type SecretRecord = SecretRow;
 export type SecretBindingMap = Record<string, Record<string, string>>;
 
 type ProgramWithVersionsLike = {

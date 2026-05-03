@@ -3,7 +3,7 @@ import type { Context, Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { z } from "zod";
 
-export type ExecutorTransport = {
+type ExecutorTransport = {
   fetch(request: Request): Promise<Response>;
 };
 
@@ -64,7 +64,7 @@ export class ApiError extends Error {
   }
 }
 
-export type MutationResult = {
+type MutationResult = {
   data: unknown;
   location?: string;
   status?: ContentfulStatusCode;
@@ -118,7 +118,7 @@ type ItemSpec<UpdateSchema extends z.ZodTypeAny | undefined = undefined> = {
   path: string;
 };
 
-export type ResourceSpec<
+type ResourceSpec<
   QuerySchema extends z.ZodTypeAny | undefined = undefined,
   CreateSchema extends z.ZodTypeAny | undefined = undefined,
   UpdateSchema extends z.ZodTypeAny | undefined = undefined,
@@ -176,7 +176,7 @@ export function route(
   };
 }
 
-export function created(
+function created(
   c: ApiContext,
   result: MutationResult,
   fallbackLocation: string,
@@ -222,7 +222,7 @@ export async function parseJsonBody<T extends z.ZodTypeAny>(
   return parsed.data;
 }
 
-export function parseQuery<T extends z.ZodTypeAny>(
+function parseQuery<T extends z.ZodTypeAny>(
   c: ApiContext,
   schema: T,
 ): z.infer<T> {

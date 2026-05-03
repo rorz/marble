@@ -129,7 +129,7 @@ function extractDependenciesFromTemplate(template: string) {
   return Array.from(sourceColumnIds);
 }
 
-export async function replaceColumnDependencies(
+async function replaceColumnDependencies(
   supabase: SupabaseClient,
   columnId: string,
   inputTemplate: string,

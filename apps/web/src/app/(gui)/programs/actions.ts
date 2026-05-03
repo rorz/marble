@@ -44,12 +44,12 @@ type SecretBindingInput = {
   secretId: string;
 };
 
-export type FullProgram = Program & {
+type FullProgram = Program & {
   program_version: (ProgramVersion & {
     program_file: ProgramFile[];
   })[];
 };
-export type ProgramsPageData = {
+type ProgramsPageData = {
   programSecretBindings: SecretBindingMap;
   programs: FullProgram[];
   secrets: Awaited<ReturnType<typeof listSecretsForUser>>;
@@ -245,7 +245,7 @@ export async function publishDraftVersion(
   });
 }
 
-export async function createProgram() {
+async function createProgram() {
   const files = createDefaultProgramFiles(DEFAULT_PROGRAM_NAME);
   const program = await callMarbleApi<
     Program & {
@@ -272,7 +272,7 @@ export async function createProgram() {
   };
 }
 
-export async function renameProgram(programId: string, name: string) {
+async function renameProgram(programId: string, name: string) {
   return callMarbleApi<Program>(`/programs/${programId}`, {
     body: {
       name,

@@ -18,7 +18,7 @@ const CHANGE_SPOTLIGHT_VISIBLE_PREVIEW_LIMIT = 10;
 const CHANGE_SPOTLIGHT_VISIBLE_MS = 4_500;
 const CHANGE_SPOTLIGHT_VISIBLE_SECONDARY_LIMIT = 6;
 
-export type ChangeSpotlightQueueGroup = {
+type ChangeSpotlightQueueGroup = {
   description?: string;
   detailItems?: MarbleReviewNavigatorDetailItem[];
   href: string;
@@ -120,7 +120,7 @@ export type ChangeTargetDescriptor =
       tableId: string;
     };
 
-export type ChangeSpotlightResolver = {
+type ChangeSpotlightResolver = {
   findElement?: (descriptor: ChangeTargetDescriptor) => HTMLElement | null;
   match: (descriptor: ChangeTargetDescriptor) => boolean;
   reveal?: (
@@ -874,7 +874,7 @@ function buildPreviewTargetKeys(targetKeys: string[]) {
   ]);
 }
 
-export function queueChangeSpotlight(targetKeys: string[]) {
+function queueChangeSpotlight(targetKeys: string[]) {
   queueChangeSpotlightDeck([
     {
       href: "",

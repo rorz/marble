@@ -83,7 +83,7 @@ async function selectAllPages<T>(
 
 // ── Programs ────────────────────────────────────────────
 
-export async function listProgramsForEditor(): Promise<FullProgram[]> {
+async function listProgramsForEditor(): Promise<FullProgram[]> {
   const ownedProfileIds = await listCurrentUserOwnedProfileIds();
   const supabase = db();
 
@@ -136,7 +136,7 @@ export async function updateProgramOutputSchema(
 
 // ── Table data (columns + rows + cells) ─────────────────
 
-export async function loadTableData(tableId: string) {
+async function loadTableData(tableId: string) {
   const user = await requireUser();
   const supabase = db();
 

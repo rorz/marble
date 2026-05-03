@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { defineResourceOperations } from "../helpers";
 
-export const ProjectSchema = z.object({
+const ProjectSchema = z.object({
   createdAt: z.string(),
   folderPath: z.array(z.string()),
   id: z.uuidv4(),
@@ -10,24 +10,24 @@ export const ProjectSchema = z.object({
   updatedAt: z.string(),
 });
 
-export const CreateProjectInputSchema = z.object({
+const CreateProjectInputSchema = z.object({
   folderPath: z.array(z.string()).optional(),
   name: z.string().optional(),
 });
 
-export const ListProjectsInputSchema = z
+const ListProjectsInputSchema = z
   .object({
     name: z.string().optional(),
   })
   .optional();
 
-export const GetProjectInputSchema = z.object({
+const GetProjectInputSchema = z.object({
   projectId: z.uuidv4(),
 });
 
-export const GetMostRecentProjectInputSchema = z.object({}).optional();
+const GetMostRecentProjectInputSchema = z.object({}).optional();
 
-export const UpdateProjectInputSchema = z.object({
+const UpdateProjectInputSchema = z.object({
   projectId: z.uuidv4(),
   values: z.object({
     folderPath: z.array(z.string()).optional(),
@@ -35,11 +35,13 @@ export const UpdateProjectInputSchema = z.object({
   }),
 });
 
-export const DeleteProjectInputSchema = z.object({
+const DeleteProjectInputSchema = z.object({
   projectId: z.uuidv4(),
 });
 
-const projectTags = ["Projects"] as const;
+const projectTags = [
+  "Projects",
+] as const;
 
 export const projectOperations = defineResourceOperations({
   create: {
@@ -115,13 +117,13 @@ export const projectOperations = defineResourceOperations({
   },
 });
 
-export type ProjectOperationName = keyof typeof projectOperations;
-export type CreateProjectInput = z.infer<typeof CreateProjectInputSchema>;
-export type DeleteProjectInput = z.infer<typeof DeleteProjectInputSchema>;
-export type GetMostRecentProjectInput = z.infer<
+type ProjectOperationName = keyof typeof projectOperations;
+type CreateProjectInput = z.infer<typeof CreateProjectInputSchema>;
+type DeleteProjectInput = z.infer<typeof DeleteProjectInputSchema>;
+type GetMostRecentProjectInput = z.infer<
   typeof GetMostRecentProjectInputSchema
 >;
-export type GetProjectInput = z.infer<typeof GetProjectInputSchema>;
-export type ListProjectsInput = z.infer<typeof ListProjectsInputSchema>;
-export type Project = z.infer<typeof ProjectSchema>;
-export type UpdateProjectInput = z.infer<typeof UpdateProjectInputSchema>;
+type GetProjectInput = z.infer<typeof GetProjectInputSchema>;
+type ListProjectsInput = z.infer<typeof ListProjectsInputSchema>;
+type Project = z.infer<typeof ProjectSchema>;
+type UpdateProjectInput = z.infer<typeof UpdateProjectInputSchema>;

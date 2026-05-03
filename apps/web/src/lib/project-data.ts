@@ -10,16 +10,16 @@ type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
 type ProgramVersionRow = Database["public"]["Tables"]["program_version"]["Row"];
 
-export type TableInfo = TableRow & {
+type TableInfo = TableRow & {
   project_folder_path: string[];
   project_name: string;
 };
 
-export type ProjectSummary = ProjectRow & {
+type ProjectSummary = ProjectRow & {
   table_count: number;
 };
 
-export type ProjectInfo = ProjectRow & {
+type ProjectInfo = ProjectRow & {
   table_count: number;
   tables: TableInfo[];
 };
@@ -129,7 +129,7 @@ async function listOwnedProjectsAndTables(userId: string) {
   };
 }
 
-export async function listOwnedTablesForUser(userId: string) {
+async function listOwnedTablesForUser(userId: string) {
   return (await listOwnedProjectsAndTables(userId)).tables;
 }
 
