@@ -1,6 +1,7 @@
 {
   "exports": {
-    "./assert": "./assert/index.ts"
+    "./assert": "./assert/index.ts",
+    "./string": "./string/index.ts"
   },
   "name": "@marble/lib",
   "type": "module",

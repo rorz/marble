@@ -1,4 +1,5 @@
 import type { MarbleContract } from "@marble/contracts";
+import { trimTrailingSlash } from "@marble/lib/string";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
@@ -9,13 +10,9 @@ export type MarbleClientOptions = {
   fetch?: typeof fetch;
 };
 
-function trimTrailingSlash(value: string) {
-  return value.replace(/\/$/, "");
-}
-
 export class MarbleClient {
   readonly projects: ContractRouterClient<MarbleContract>["projects"];
-  readonly rpc: ContractRouterClient<MarbleContract>;
+  readonly tables: ContractRouterClient<MarbleContract>["tables"];
 
   constructor(options: MarbleClientOptions) {
     const link = new RPCLink({
@@ -31,10 +28,10 @@ export class MarbleClient {
       url: `${trimTrailingSlash(options.apiUrl)}/rpc`,
     });
 
-    this.rpc = createORPCClient(link) as ContractRouterClient<MarbleContract>;
-    this.projects = this.rpc.projects;
+    const rpcClient = createORPCClient(
+      link,
+    ) as ContractRouterClient<MarbleContract>;
+    this.projects = rpcClient.projects;
+    this.tables = rpcClient.tables;
   }
 }
-
-export const createMarbleClient = (options: MarbleClientOptions) =>
-  new MarbleClient(options);

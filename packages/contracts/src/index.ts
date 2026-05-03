@@ -1,11 +1,10 @@
-import { projectsContract } from "./orpc";
+import { createORPCResourceContract } from "./helpers";
+import { projectOperations } from "./resources/projects";
+import { tableOperations } from "./resources/table";
 
-export { projectsContract } from "./orpc";
-export * from "./resources/define";
-export * from "./resources/projects";
-
-export const contract = {
-  projects: projectsContract,
+export const marbleContract = {
+  projects: createORPCResourceContract(projectOperations),
+  tables: createORPCResourceContract(tableOperations),
 };
 
-export type MarbleContract = typeof contract;
+export type MarbleContract = typeof marbleContract;

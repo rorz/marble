@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineResourceOperations } from "./define";
+import { defineResourceOperations } from "../helpers";
 
 export const ProjectSchema = z.object({
   createdAt: z.string(),
@@ -39,9 +39,7 @@ export const DeleteProjectInputSchema = z.object({
   projectId: z.uuidv4(),
 });
 
-const projectTags = [
-  "Projects",
-] as const;
+const projectTags = ["Projects"] as const;
 
 export const projectOperations = defineResourceOperations({
   create: {
@@ -78,6 +76,9 @@ export const projectOperations = defineResourceOperations({
     },
   },
   getMostRecentProject: {
+    // NOTE:  This is a non-serious (non-production) perforation
+    //        in order to test what the contract definition -> RPC is like
+    //
     input: GetMostRecentProjectInputSchema,
     output: ProjectSchema.nullable(),
     route: {
