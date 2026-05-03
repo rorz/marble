@@ -7,6 +7,11 @@ type IdObject = {
   id: string;
 };
 
+type InsertRowsInput = IdObject & {
+  idx: number;
+  quantity: number;
+};
+
 export class TableCollection {
   public constructor(private readonly deps: ResourceDeps) {}
 
@@ -24,6 +29,14 @@ export class TableCollection {
 
   public readonly get = (input: IdObject) =>
     this.deps.db.get("table", input.id);
+
+  public readonly insertRows = (input: InsertRowsInput) =>
+    this.deps.db.insertTableRows({
+      idx: input.idx,
+      ownerProfileId: this.deps.context.profileId,
+      quantity: input.quantity,
+      tableId: input.id,
+    });
 
   public readonly list = (input: Partial<Pick<Table, "projectId">> = {}) =>
     this.deps.db.list("table", input);

@@ -25,10 +25,10 @@ Marble exposes product actions, not raw table access. Use REST-shaped CRUD only 
 
 Rules:
 
-- Prefer parent-owned actions when an operation changes a parent-owned aggregate. Row insertion belongs at `tables.rows.add`, not `rows.create`, because the table owns row order and cell materialization.
-- Prefer object inputs for every public operation. Do not add positional signatures such as `tables.rows.add(count, idx)`. Use `{ tableId, count?, idx? }`.
+- Prefer parent-owned actions when an operation changes a parent-owned aggregate. Row insertion belongs at `tables.insertRows`, not `rows.create`, because the table owns row order and cell materialization.
+- Prefer object inputs for every public operation. Do not add positional signatures such as `tables.insertRows(quantity, idx)`. Use `{ id, idx, quantity }`.
 - The contract shape is the public operation. The API handler should mostly map contract input to store action. The store owns persistence semantics.
-- Handles may provide ergonomic sugar, but they should not become the canonical contract. A table handle may call `table.rows.add({ count })`; internally it should inject `tableId` into the canonical `{ tableId, count? }` input.
+- Handles may provide ergonomic sugar, but they should not become the canonical contract. A table handle may call `table.insertRows({ idx, quantity })`; internally it should inject the table ID into the canonical `{ id, idx, quantity }` input.
 - Use named actions when behavior has domain meaning. Prefer `cells.setManualValue()` over `cells.update()`.
 - For OpenAPI-compatible HTTP routes, prefer readable static subpaths over generic buckets. Use `GET /projects/most-recent`, not `GET /projects/actions/get-most-recent-project`.
 - Do not invent route namespaces to avoid impossible ID collisions. If a resource ID is UUID-shaped, a static segment such as `most-recent` cannot collide with a valid ID; rely on route specificity and input validation.
@@ -59,17 +59,18 @@ Allowed operations:
 - `get` - Read one table.
 - `update` - Rename a table.
 - `delete` - Delete a table and its owned grid data.
-- `rows.add` - Add one or more rows to a table and materialize cells for each existing column.
+- `insertRows` - Insert one or more rows at a row index and materialize cells for each existing column.
 
-`tables.rows.add` rules:
+`tables.insertRows` rules:
 
-- Canonical input is `{ tableId, count?, idx? }`.
-- `count` defaults to `1`.
-- If `idx` is omitted, append after the current max row index.
-- If `idx` is provided, only one row may be added.
+- Canonical input is `{ id, idx, quantity }`, where `id` is the table ID.
+- `idx` is required and must be non-negative.
+- `quantity` is required and must be positive.
+- Existing rows with `idx >= input.idx` must shift by `quantity`.
 - The operation must materialize cells for all existing columns on the table.
-- The operation must not leave partial rows if cell materialization fails.
-- The store may implement this in TypeScript during a spike, but the durable implementation should bias toward an atomic Postgres RPC.
+- The operation must not leave partial rows if row shifting or cell materialization fails.
+- The operation returns aggregate counts, not inserted row and cell payloads.
+- The durable implementation should use an atomic Postgres RPC.
 
 ## rows
 
@@ -82,7 +83,7 @@ Allowed operations:
 - `update` - Reindex a row.
 - `delete` - Delete a row and its cells.
 
-Prefer `tables.rows.add` over `rows.create` for public row insertion. Add `rows.create` only if there is a clear use case for creating a row outside the table aggregate action.
+Prefer `tables.insertRows` over `rows.create` for public row insertion. Add `rows.create` only if there is a clear use case for creating a row outside the table aggregate action.
 
 ## columns
 

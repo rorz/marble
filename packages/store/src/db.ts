@@ -35,6 +35,23 @@ export type ListOptions<T extends TableWithIdName> = {
   orderBy?: ListOrder<T>[];
 };
 
+type InsertTableRowsInput = {
+  idx: number;
+  ownerProfileId: string;
+  quantity: number;
+  tableId: string;
+};
+
+type InsertTableRowsResult = {
+  cellCount: number;
+  rowCount: number;
+};
+
+type TableInsertRowsRpcResult = {
+  cellCount: number;
+  rowCount: number;
+};
+
 type SupabaseDb = {
   delete: <T extends TableWithIdName>(
     tableName: T,
@@ -65,6 +82,9 @@ type SupabaseDb = {
       where?: ListParams<T>;
     },
   ) => Promise<Entity<T> | null>;
+  insertTableRows: (
+    input: InsertTableRowsInput,
+  ) => Promise<InsertTableRowsResult>;
   update: <T extends TableWithIdName>(
     tableName: T,
     id: string,
@@ -81,6 +101,23 @@ const throwSupabaseError = (
   if (error) {
     throw new Error(error.message);
   }
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const parseTableInsertRowsResult = (
+  value: unknown,
+): TableInsertRowsRpcResult => {
+  if (
+    !isRecord(value) ||
+    typeof value.rowCount !== "number" ||
+    typeof value.cellCount !== "number"
+  ) {
+    throw new Error("table_insert_rows returned an unexpected payload.");
+  }
+
+  return value as TableInsertRowsRpcResult;
 };
 
 const toSupabaseMatch = <T extends TableWithIdName>(
@@ -173,6 +210,20 @@ const createSupabaseDb = (supabase: SupabaseClient): SupabaseDb => ({
     }
 
     return toCamelKeys(data);
+  },
+  insertTableRows: async (input) => {
+    const { data, error } = await supabase.rpc("table_insert_rows", {
+      p_idx: input.idx,
+      p_owner_profile_id: input.ownerProfileId,
+      p_quantity: input.quantity,
+      p_table_id: input.tableId,
+    });
+
+    throwSupabaseError(error);
+
+    const result = parseTableInsertRowsResult(data);
+
+    return result;
   },
   list: async (tableName, where = {}, options = {}) => {
     const request = supabase

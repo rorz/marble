@@ -30,6 +30,24 @@ export const tableOperations = defineResourceOperations({
     output: TableSchema.nullable(),
     route: GETRouteFor("table", "tables"),
   },
+  insertRows: {
+    input: z.object({
+      id: z.uuidv4().describe("The ID of the table to insert rows into."),
+      idx: z.int().nonnegative(),
+      quantity: z.int().positive(),
+    }),
+    output: z.object({
+      cellCount: z.number().int().nonnegative(),
+      rowCount: z.number().int().nonnegative(),
+    }),
+    route: {
+      method: "POST",
+      operationId: "tables.insertRows",
+      path: "/tables/{id}/rows/insert",
+      summary: "Insert rows",
+      tags,
+    },
+  },
   list: {
     input: z
       .object({

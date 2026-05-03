@@ -591,6 +591,89 @@ CREATE TABLE IF NOT EXISTS "public"."table" (
 ALTER TABLE "public"."table" OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+DECLARE
+  shifted_row_offset BIGINT;
+  target_table_id UUID;
+  inserted_result JSONB;
+BEGIN
+  IF p_idx < 0 THEN
+    RAISE EXCEPTION 'Row insertion index must be non-negative'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF p_quantity < 1 THEN
+    RAISE EXCEPTION 'Row insertion quantity must be positive'
+      USING ERRCODE = '22023';
+  END IF;
+
+  SELECT target_table.id
+  INTO target_table_id
+  FROM public."table" AS target_table
+  JOIN public."project" AS project
+    ON project.id = target_table.project_id
+  WHERE target_table.id = p_table_id
+    AND project.owner_profile_id = p_owner_profile_id
+  FOR UPDATE OF target_table;
+
+  IF target_table_id IS NULL THEN
+    RAISE EXCEPTION 'Table % was not found for profile %', p_table_id, p_owner_profile_id
+      USING ERRCODE = 'P0002';
+  END IF;
+
+  SELECT COALESCE(MAX(row_record.idx), -1) + p_quantity + 1
+  INTO shifted_row_offset
+  FROM public."row" AS row_record
+  WHERE row_record.table_id = p_table_id;
+
+  UPDATE public."row" AS row_record
+  SET idx = row_record.idx + shifted_row_offset
+  WHERE row_record.table_id = p_table_id
+    AND row_record.idx >= p_idx;
+
+  UPDATE public."row" AS row_record
+  SET idx = row_record.idx - shifted_row_offset + p_quantity
+  WHERE row_record.table_id = p_table_id
+    AND row_record.idx >= p_idx + shifted_row_offset;
+
+  WITH inserted_rows AS (
+    INSERT INTO public."row" (table_id, idx)
+    SELECT
+      p_table_id,
+      p_idx + inserted_row.row_offset
+    FROM generate_series(0, p_quantity - 1) AS inserted_row(row_offset)
+    ORDER BY inserted_row.row_offset
+    RETURNING *
+  ),
+  inserted_cells AS (
+    INSERT INTO public."cell" (column_id, row_id)
+    SELECT
+      table_column.id,
+      inserted_rows.id
+    FROM inserted_rows
+    JOIN public."column" AS table_column
+      ON table_column.table_id = p_table_id
+    RETURNING *
+  )
+  SELECT jsonb_build_object(
+    'rowCount',
+    (SELECT COUNT(*) FROM inserted_rows),
+    'cellCount',
+    (SELECT COUNT(*) FROM inserted_cells)
+  )
+  INTO inserted_result;
+
+  RETURN inserted_result;
+END
+$$;
+
+
+ALTER FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) OWNER TO "postgres";
+
+
 ALTER TABLE ONLY "public"."cell"
     ADD CONSTRAINT "cell_pkey" PRIMARY KEY ("id");
 
@@ -1451,6 +1534,10 @@ GRANT ALL ON FUNCTION "public"."secret_store_update"("p_secret_id" "uuid", "p_na
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "anon";
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) TO "service_role";
 
 
 GRANT ALL ON FUNCTION "testing"."broadcast_tag_changes"() TO "anon";

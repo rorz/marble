@@ -1016,6 +1016,15 @@ export type Database = {
           isSetofReturn: false;
         };
       };
+      table_insert_rows: {
+        Args: {
+          p_idx: number;
+          p_owner_profile_id: string;
+          p_quantity: number;
+          p_table_id: string;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       data_operation: "Create" | "Read" | "Update" | "Delete";
