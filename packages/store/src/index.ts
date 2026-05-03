@@ -14,17 +14,7 @@ export {
   type ListColumnsInput,
   type UpdateColumnInput,
 } from "./resources/column";
-export {
-  type CreateProjectInput,
-  type DeleteProjectInput,
-  type GetProjectInput,
-  type ListProjectsInput,
-  type ListProjectsOptions,
-  type Project,
-  ProjectCollection,
-  type ProjectCollectionApi,
-  type UpdateProjectInput,
-} from "./resources/project";
+export { ProjectCollection } from "./resources/project";
 export {
   type CreateRowInput,
   type ListRowsInput,

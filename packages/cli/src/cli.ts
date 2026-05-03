@@ -102,7 +102,7 @@ projectsCommand
   });
 
 projectsCommand.command("get-most-recent").action(async () => {
-  const project = await getMarbleClient().projects.getMostRecentProject();
+  const project = await getMarbleClient().projects.getMostRecentProject({});
 
   printJson(project);
 });
