@@ -1,9 +1,7 @@
 import { z } from "zod";
-import { defineResourceOperations } from "../helpers";
+import { defineResourceOperations } from "../../helpers";
 
-const tags = [
-  "Projects",
-] as const;
+const tags = ["Projects"] as const;
 
 const ProjectSchema = z.object({
   createdAt: z.string(),
@@ -25,7 +23,7 @@ export const projectOperations = defineResourceOperations({
       method: "POST",
       operationId: "projects.create",
       path: "/projects",
-      summary: "Create a project",
+      summary: "Creates a project",
       tags,
     },
   },

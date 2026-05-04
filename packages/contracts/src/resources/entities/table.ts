@@ -1,9 +1,7 @@
 import z from "zod";
-import { defineResourceOperations } from "../helpers";
+import { defineResourceOperations } from "../../helpers";
 
-const tags = [
-  "Tables",
-] as const;
+const tags = ["Tables"] as const;
 
 const TableSchema = z.object({
   createdAt: z.iso.datetime(),
