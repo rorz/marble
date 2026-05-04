@@ -1,5 +1,6 @@
 import type { ResourceDeps } from "../db";
 import type { CreateParams, Entity, UpdateParams } from "../types";
+import { ResourceAccess } from "./access";
 
 type Table = Entity<"table">;
 
@@ -12,23 +13,37 @@ type InsertRowsInput = IdObject & {
   quantity: number;
 };
 
-export class TableCollection {
-  public constructor(private readonly deps: ResourceDeps) {}
+type ListTablesInput = Pick<Table, "projectId">;
 
-  public readonly create = (
+type UpdateTableInput = IdObject & {
+  values: Partial<Pick<UpdateParams<"table">, "name">>;
+};
+
+export class TableCollection {
+  private readonly access: ResourceAccess;
+
+  public constructor(private readonly deps: ResourceDeps) {
+    this.access = new ResourceAccess(deps);
+  }
+
+  public readonly create = async (
     input: Pick<CreateParams<"table">, "projectId"> &
       Partial<Pick<CreateParams<"table">, "name">>,
-  ) =>
-    this.deps.db.insert("table", {
+  ) => {
+    await this.access.requireProject(input.projectId);
+
+    return this.deps.db.insert("table", {
       name: input.name ?? "Untitled Table",
       projectId: input.projectId,
     });
+  };
 
-  public readonly delete = (input: IdObject) =>
-    this.deps.db.delete("table", input.id);
+  public readonly delete = async (input: IdObject) => {
+    const table = await this.access.requireTable(input.id);
+    return this.deps.db.delete("table", table.id);
+  };
 
-  public readonly get = (input: IdObject) =>
-    this.deps.db.get("table", input.id);
+  public readonly get = (input: IdObject) => this.access.requireTable(input.id);
 
   public readonly insertRows = (input: InsertRowsInput) =>
     this.deps.db.insertTableRows({
@@ -38,11 +53,13 @@ export class TableCollection {
       tableId: input.id,
     });
 
-  public readonly list = (input: Partial<Pick<Table, "projectId">> = {}) =>
-    this.deps.db.list("table", input);
+  public readonly list = async (input: ListTablesInput) => {
+    await this.access.requireProject(input.projectId);
+    return this.deps.db.list("table", input);
+  };
 
-  public readonly update = (
-    id: string,
-    input: Partial<Pick<UpdateParams<"table">, "name">>,
-  ) => this.deps.db.update("table", id, input);
+  public readonly update = async (input: UpdateTableInput) => {
+    const table = await this.access.requireTable(input.id);
+    return this.deps.db.update("table", table.id, input.values);
+  };
 }

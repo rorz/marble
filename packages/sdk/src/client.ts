@@ -11,7 +11,10 @@ export type MarbleClientOptions = {
 };
 
 export class MarbleClient {
+  readonly pipes: ContractRouterClient<MarbleContract>["pipes"];
   readonly projects: ContractRouterClient<MarbleContract>["projects"];
+  readonly sourceEvents: ContractRouterClient<MarbleContract>["sourceEvents"];
+  readonly sources: ContractRouterClient<MarbleContract>["sources"];
   readonly tables: ContractRouterClient<MarbleContract>["tables"];
 
   constructor(options: MarbleClientOptions) {
@@ -31,7 +34,10 @@ export class MarbleClient {
     const rpcClient = createORPCClient(
       link,
     ) as ContractRouterClient<MarbleContract>;
+    this.pipes = rpcClient.pipes;
     this.projects = rpcClient.projects;
+    this.sourceEvents = rpcClient.sourceEvents;
+    this.sources = rpcClient.sources;
     this.tables = rpcClient.tables;
   }
 }

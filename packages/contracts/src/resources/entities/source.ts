@@ -1,23 +1,29 @@
-import z from "zod";
+import { z } from "zod";
 import { defineResourceOperations } from "../../helpers";
-import { baseEntitySchema } from "../base";
+import { baseEntitySchema, jsonValueSchema } from "../base";
 
-const tags = ["Sources"] as const;
+const tags = [
+  "Sources",
+] as const;
 
 const SourceSchema = z.object({
   ...baseEntitySchema.shape,
   name: z.string(),
-  payloadSchema: z.json(),
-  projectId: z.uuidv7(),
+  payloadSchema: jsonValueSchema,
+  projectId: baseEntitySchema.shape.id,
   webhookToken: z.string(),
 });
 
 export const sourceOperations = defineResourceOperations({
   create: {
-    input: SourceSchema.pick({
-      name: true,
-      payloadSchema: true,
-      projectId: true,
+    input: SourceSchema.omit({
+      createdAt: true,
+      id: true,
+      updatedAt: true,
+      webhookToken: true,
+    }).extend({
+      name: SourceSchema.shape.name.optional(),
+      payloadSchema: SourceSchema.shape.payloadSchema.optional(),
     }),
     output: SourceSchema,
     route: {
@@ -28,11 +34,24 @@ export const sourceOperations = defineResourceOperations({
       tags,
     },
   },
+  delete: {
+    input: SourceSchema.pick({
+      id: true,
+    }),
+    output: SourceSchema,
+    route: {
+      method: "DELETE",
+      operationId: "sources.delete",
+      path: "/sources/{id}",
+      summary: "Delete a source",
+      tags,
+    },
+  },
   get: {
     input: SourceSchema.pick({
       id: true,
     }),
-    output: SourceSchema.nullable(),
+    output: SourceSchema,
     route: {
       method: "GET",
       operationId: "sources.get",
@@ -42,21 +61,14 @@ export const sourceOperations = defineResourceOperations({
     },
   },
   list: {
-    input: z
-      .object({
-        ...SourceSchema.pick({
-          projectId: true,
-        }).shape,
-        createdAfter: z.iso.datetime(),
-        createdBefore: z.iso.datetime(),
-      })
-      .partial()
-      .optional(),
+    input: SourceSchema.pick({
+      projectId: true,
+    }),
     output: z.array(SourceSchema),
     route: {
       method: "GET",
       operationId: "sources.list",
-      path: "/sources/{id}",
+      path: "/sources",
       summary: "List sources",
       tags,
     },
@@ -64,8 +76,11 @@ export const sourceOperations = defineResourceOperations({
   update: {
     input: SourceSchema.pick({
       id: true,
-      name: true,
-      payloadSchema: true,
+    }).extend({
+      values: SourceSchema.pick({
+        name: true,
+        payloadSchema: true,
+      }).partial(),
     }),
     output: SourceSchema,
     route: {

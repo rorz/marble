@@ -14,6 +14,7 @@ export {
   type ListColumnsInput,
   type UpdateColumnInput,
 } from "./resources/column";
+export { PipeCollection } from "./resources/pipe";
 export { ProjectCollection } from "./resources/project";
 export {
   type CreateRowInput,
@@ -23,6 +24,8 @@ export {
   type RowCollectionApi,
   type UpdateRowInput,
 } from "./resources/row";
+export { SourceCollection } from "./resources/source";
+export { SourceEventCollection } from "./resources/source-event";
 export { TableCollection } from "./resources/table";
 export type {
   CellRunInput,

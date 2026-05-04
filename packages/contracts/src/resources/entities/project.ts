@@ -1,23 +1,28 @@
 import { z } from "zod";
 import { defineResourceOperations } from "../../helpers";
+import { baseEntitySchema } from "../base";
 
-const tags = ["Projects"] as const;
+const tags = [
+  "Projects",
+] as const;
 
 const ProjectSchema = z.object({
-  createdAt: z.string(),
+  ...baseEntitySchema.shape,
   folderPath: z.array(z.string()),
-  id: z.uuidv4(),
   name: z.string(),
-  ownerProfileId: z.uuidv4(),
-  updatedAt: z.string(),
+  ownerProfileId: baseEntitySchema.shape.id,
+});
+
+const projectIdInputSchema = z.object({
+  projectId: ProjectSchema.shape.id,
 });
 
 export const projectOperations = defineResourceOperations({
   create: {
-    input: z.object({
-      folderPath: z.array(z.string()).optional(),
-      name: z.string().optional(),
-    }),
+    input: ProjectSchema.pick({
+      folderPath: true,
+      name: true,
+    }).partial(),
     output: ProjectSchema,
     route: {
       method: "POST",
@@ -28,9 +33,7 @@ export const projectOperations = defineResourceOperations({
     },
   },
   delete: {
-    input: z.object({
-      projectId: z.uuidv4(),
-    }),
+    input: projectIdInputSchema,
     output: ProjectSchema,
     route: {
       method: "DELETE",
@@ -41,9 +44,7 @@ export const projectOperations = defineResourceOperations({
     },
   },
   get: {
-    input: z.object({
-      projectId: z.uuidv4(),
-    }),
+    input: projectIdInputSchema,
     output: ProjectSchema,
     route: {
       method: "GET",
@@ -70,10 +71,10 @@ export const projectOperations = defineResourceOperations({
     },
   },
   list: {
-    input: z
-      .object({
-        name: z.string().optional(),
-      })
+    input: ProjectSchema.pick({
+      name: true,
+    })
+      .partial()
       .optional(),
     output: z.array(ProjectSchema),
     route: {
@@ -85,12 +86,11 @@ export const projectOperations = defineResourceOperations({
     },
   },
   update: {
-    input: z.object({
-      projectId: z.uuidv4(),
-      values: z.object({
-        folderPath: z.array(z.string()).optional(),
-        name: z.string().optional(),
-      }),
+    input: projectIdInputSchema.extend({
+      values: ProjectSchema.pick({
+        folderPath: true,
+        name: true,
+      }).partial(),
     }),
     output: ProjectSchema,
     route: {
