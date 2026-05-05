@@ -1,95 +1,130 @@
 import "server-only";
-import type { Database } from "@marble/supabase";
 import {
-  getOwnedProjectForUser,
-  listReferenceableColumnsForUser,
-  type ReferenceableColumn,
-} from "./project-data";
+  type MarbleColumn,
+  type MarblePipe,
+  type MarbleSource,
+  type MarbleSourceEvent,
+  type ProjectInfo,
+  type ProjectInputColumn,
+  type ProjectTable,
+  projectTableFromSdkTable,
+} from "./marble-resources";
+import { createServerMarbleSdkForProject } from "./marble-sdk-server";
 import { getMarbleIngestorBaseUrl } from "./server-config";
-import { createServiceRoleClient } from "./supabase/service-role";
-
-type SourceRow = Database["public"]["Tables"]["source"]["Row"];
-type SourceEventRow = Database["public"]["Tables"]["source_event"]["Row"];
-type PipeRow = Database["public"]["Tables"]["pipe"]["Row"];
 
 export type ProjectSourceWorkspaceData = {
-  pipes: PipeRow[];
-  inputColumns: ReferenceableColumn[];
-  project: NonNullable<Awaited<ReturnType<typeof getOwnedProjectForUser>>>;
-  sourceEvents: SourceEventRow[];
-  sources: SourceRow[];
+  inputColumns: ProjectInputColumn[];
+  pipes: MarblePipe[];
+  project: ProjectInfo;
+  sourceEvents: MarbleSourceEvent[];
+  sources: MarbleSource[];
   webhookBaseUrl: string;
 };
 
-function db() {
-  return createServiceRoleClient();
+function dedupePipes(pipes: MarblePipe[]) {
+  return Array.from(
+    new Map(
+      pipes.map((pipe) => [
+        pipe.id,
+        pipe,
+      ]),
+    ).values(),
+  );
 }
 
-export async function getProjectSourceWorkspaceData(
-  userId: string,
-  projectId: string,
-) {
-  const project = await getOwnedProjectForUser(userId, projectId);
+function hasAllowManualInput(outputSchema: unknown) {
+  if (!outputSchema || typeof outputSchema !== "object") {
+    return false;
+  }
 
-  if (!project) {
+  const flags = (
+    outputSchema as {
+      flags?: {
+        allowManualInput?: boolean;
+      };
+    }
+  ).flags;
+
+  return flags?.allowManualInput === true;
+}
+
+function toProjectInputColumn(
+  column: MarbleColumn,
+  table: ProjectTable,
+): ProjectInputColumn {
+  return {
+    allowManualInput: true,
+    id: column.id,
+    label: `${table.projectName} / ${table.name} / ${column.name}`,
+    name: column.name,
+    projectId: table.projectId,
+    projectName: table.projectName,
+    tableId: table.id,
+    tableName: table.name,
+  };
+}
+
+export async function getProjectSourceWorkspaceData(projectId: string) {
+  const resolved = await createServerMarbleSdkForProject(projectId);
+
+  if (!resolved) {
     return null;
   }
 
-  const supabase = db();
-  const { data: sourceData, error: sourceError } = await supabase
-    .from("source")
-    .select("*")
-    .eq("project_id", projectId)
-    .order("created_at", {
-      ascending: false,
-    });
-
-  if (sourceError) {
-    throw sourceError;
-  }
-
-  const sources = (sourceData ?? []) as SourceRow[];
-  const sourceIds = sources.map((source) => source.id);
-  const [sourceEventResult, pipeResult, inputColumns] = await Promise.all([
-    supabase
-      .from("source_event")
-      .select("*")
-      .eq("project_id", projectId)
-      .order("created_at", {
-        ascending: false,
-      })
-      .limit(120),
-    sourceIds.length === 0
-      ? Promise.resolve({
-          data: [],
-          error: null,
-        })
-      : supabase
-          .from("pipe")
-          .select("*")
-          .in("source_id", sourceIds)
-          .order("created_at", {
-            ascending: false,
-          }),
-    listReferenceableColumnsForUser(userId),
+  const { project, sdk } = resolved;
+  const [tables, sources, sourceEvents] = await Promise.all([
+    sdk.tables.list({
+      projectId,
+    }),
+    sdk.sources.list({
+      projectId,
+    }),
+    sdk.sourceEvents.list({
+      limit: 120,
+      projectId,
+    }),
   ]);
-
-  if (sourceEventResult.error) {
-    throw sourceEventResult.error;
-  }
-
-  if (pipeResult.error) {
-    throw pipeResult.error;
-  }
+  const projectTables = tables.map((table) =>
+    projectTableFromSdkTable(table, project),
+  );
+  const tableById = new Map(
+    projectTables.map((table) => [
+      table.id,
+      table,
+    ]),
+  );
+  const tableColumns = await Promise.all(
+    projectTables.map((table) =>
+      sdk.columns.list({
+        tableId: table.id,
+      }),
+    ),
+  );
+  const sourcePipes = await Promise.all(
+    sources.map((source) =>
+      sdk.pipes.list({
+        sourceId: source.id,
+      }),
+    ),
+  );
 
   return {
-    inputColumns: inputColumns.filter(
-      (column) =>
-        column.project_id === projectId && column.allow_manual_input === true,
-    ),
-    pipes: (pipeResult.data ?? []) as PipeRow[],
-    project,
-    sourceEvents: (sourceEventResult.data ?? []) as SourceEventRow[],
+    inputColumns: tableColumns.flat().flatMap((column) => {
+      const table = tableById.get(column.tableId);
+
+      return table && hasAllowManualInput(column.outputSchema)
+        ? [
+            toProjectInputColumn(column, table),
+          ]
+        : [];
+    }),
+    pipes: dedupePipes(sourcePipes.flat()),
+    project: {
+      ...project,
+      tableCount: tables.length,
+      tables: projectTables,
+    },
+    sourceEvents,
     sources,
     webhookBaseUrl: getMarbleIngestorBaseUrl(),
   } satisfies ProjectSourceWorkspaceData;

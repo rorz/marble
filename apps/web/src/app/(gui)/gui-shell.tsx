@@ -67,6 +67,7 @@ import {
   updateSidebarTreeStateForKey,
 } from "../../lib/gui-sidebar";
 import { callMarbleClient } from "../../lib/marble-client";
+import { useMarbleSdk } from "../../lib/marble-sdk-client";
 import { createDefaultProgram } from "../../lib/program-client";
 import { getErrorMessage, type RealtimePayload } from "../../lib/realtime-crud";
 import {
@@ -100,38 +101,6 @@ type SidebarGroup = {
     path: `/${string}`;
   }[];
 }[];
-
-function createProject() {
-  return callMarbleClient<ProjectRow>("/projects", {
-    method: "POST",
-  });
-}
-
-function createTable(projectId: string) {
-  return callMarbleClient<TableRow>(`/projects/${projectId}/tables`, {
-    method: "POST",
-  });
-}
-
-function createSource(projectId: string) {
-  return callMarbleClient<SourceRow>(`/projects/${projectId}/sources`, {
-    method: "POST",
-  });
-}
-
-function createPipe(
-  projectId: string,
-  input: {
-    mappings: never[];
-    sourceId: string;
-    tableId: string;
-  },
-) {
-  return callMarbleClient<PipeRow>(`/projects/${projectId}/pipes`, {
-    body: input,
-    method: "POST",
-  });
-}
 
 function createDefaultProfile() {
   return callMarbleClient<ProfileRow>("/profiles", {
@@ -747,6 +716,7 @@ export function GuiShell({
   const sidebar = sidebarModes[sidebarMode];
   const ToggleIcon = sidebar.toggleIcon;
   const router = useRouter();
+  const sdk = useMarbleSdk();
   const {
     error: signOutError,
     pending: signOutPending,
@@ -977,7 +947,7 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const project = await createProject();
+      const project = await sdk.projects.create({});
       router.push(`/projects/${project.id}`);
     } catch (error) {
       handleCommandPaletteError(error);
@@ -989,7 +959,9 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const table = await createTable(projectId);
+      const table = await sdk.tables.create({
+        projectId,
+      });
       router.push(`/projects/${projectId}/tables/${table.id}`);
     } catch (error) {
       handleCommandPaletteError(error);
@@ -1015,7 +987,9 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const source = await createSource(projectId);
+      const source = await sdk.sources.create({
+        projectId,
+      });
       router.push(`/projects/${projectId}/sources/${source.id}`);
     } catch (error) {
       handleCommandPaletteError(error);
@@ -1047,7 +1021,7 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const pipe = await createPipe(projectNode.id, {
+      const pipe = await sdk.pipes.create({
         mappings: [],
         sourceId: defaults.sourceId,
         tableId: defaults.tableId,

@@ -63,12 +63,18 @@ async function resolveSupabaseClientProfileId(supabase: SupabaseClient) {
 }
 
 export function createSupabaseClientRouterClient({
+  profileId: explicitProfileId,
   supabase,
 }: {
+  profileId?: string;
   supabase: SupabaseClient;
 }) {
   let profileId: Promise<string> | null = null;
   const getProfileId = () => {
+    if (explicitProfileId) {
+      return Promise.resolve(explicitProfileId);
+    }
+
     profileId ??= resolveSupabaseClientProfileId(supabase);
     return profileId;
   };

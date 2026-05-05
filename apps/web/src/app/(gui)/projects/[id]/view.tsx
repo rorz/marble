@@ -16,15 +16,22 @@ import {
 import { FunnelIcon, PipeIcon, TableIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { callMarbleClient } from "../../../../lib/marble-client";
+import {
+  pipeFromDatabaseRow,
+  projectFromDatabaseRow,
+  projectTableFromSdkTable,
+  sourceFromDatabaseRow,
+  tableFromDatabaseRow,
+} from "../../../../lib/marble-resources";
+import { useMarbleSdk } from "../../../../lib/marble-sdk-client";
 import {
   buildPipeMappingDisplayRecords,
   buildPipeMappingSummary,
   buildPipeTitle,
 } from "../../../../lib/pipe-display";
 import {
-  compareByCreatedAtDesc,
-  compareByUpdatedAtDesc,
+  compareByCreatedAtCamelDesc,
+  compareByUpdatedAtCamelDesc,
   getErrorMessage,
   type RealtimePayload,
   removeRow,
@@ -61,48 +68,7 @@ function ResourceEmptyStateIcon({ children }: { children: ReactNode }) {
 }
 
 function sortTables(tables: ProjectState["tables"]) {
-  return sortRows(tables, compareByUpdatedAtDesc);
-}
-
-function renameProject(projectId: string, name: string) {
-  return callMarbleClient<ProjectRecord>(`/projects/${projectId}`, {
-    body: {
-      name: name.trim() || "Untitled Project",
-    },
-    method: "PATCH",
-  });
-}
-
-function createTable(projectId: string) {
-  return callMarbleClient<TableRecord>(`/projects/${projectId}/tables`, {
-    method: "POST",
-  });
-}
-
-function createSource(projectId: string) {
-  return callMarbleClient<SourceRecord>(`/projects/${projectId}/sources`, {
-    method: "POST",
-  });
-}
-
-function createPipe(
-  projectId: string,
-  input: {
-    mappings: never[];
-    sourceId: string;
-    tableId: string;
-  },
-) {
-  return callMarbleClient<PipeRecord>(`/projects/${projectId}/pipes`, {
-    body: input,
-    method: "POST",
-  });
-}
-
-function deleteProject(projectId: string) {
-  return callMarbleClient(`/projects/${projectId}`, {
-    method: "DELETE",
-  });
+  return sortRows(tables, compareByUpdatedAtCamelDesc);
 }
 
 export function ProjectPageView({
@@ -111,15 +77,18 @@ export function ProjectPageView({
   initialProject: ProjectInfo;
 }) {
   const router = useRouter();
+  const sdk = useMarbleSdk({
+    profileId: initialProject.project.ownerProfileId,
+  });
   const [project, setProject] = useState<ProjectState>({
     ...initialProject.project,
     tables: sortTables(initialProject.project.tables),
   });
   const [sources, setSources] = useState(() =>
-    sortRows(initialProject.sources, compareByUpdatedAtDesc),
+    sortRows(initialProject.sources, compareByUpdatedAtCamelDesc),
   );
   const [pipes, setPipes] = useState(() =>
-    sortRows(initialProject.pipes, compareByCreatedAtDesc),
+    sortRows(initialProject.pipes, compareByCreatedAtCamelDesc),
   );
   const [editingSurface, setEditingSurface] = useState<
     null | "crumb" | "title"
@@ -158,8 +127,8 @@ export function ProjectPageView({
 
   for (const sourceEvent of initialProject.sourceEvents) {
     sourceEventCountBySourceId.set(
-      sourceEvent.source_id,
-      (sourceEventCountBySourceId.get(sourceEvent.source_id) ?? 0) + 1,
+      sourceEvent.sourceId,
+      (sourceEventCountBySourceId.get(sourceEvent.sourceId) ?? 0) + 1,
     );
   }
 
@@ -190,7 +159,7 @@ export function ProjectPageView({
             return;
           }
 
-          const next = change.new as ProjectRecord;
+          const next = projectFromDatabaseRow(change.new as ProjectRecord);
 
           if (next.id !== project.id) {
             return;
@@ -199,7 +168,7 @@ export function ProjectPageView({
           setProject((current) => ({
             ...current,
             ...next,
-            table_count: current.table_count,
+            tableCount: current.tableCount,
             tables: current.tables,
           }));
           setNameDraft(next.name);
@@ -229,30 +198,26 @@ export function ProjectPageView({
 
               return {
                 ...current,
-                table_count: tables.length,
+                tableCount: tables.length,
                 tables,
               };
             }
 
-            const next = change.new as TableRecord;
+            const next = tableFromDatabaseRow(change.new as TableRecord);
 
-            if (next.project_id !== current.id) {
+            if (next.projectId !== current.id) {
               return current;
             }
 
             const tables = upsertRow(
               current.tables,
-              {
-                ...next,
-                project_folder_path: current.folder_path,
-                project_name: current.name,
-              },
-              compareByUpdatedAtDesc,
+              projectTableFromSdkTable(next, current),
+              compareByUpdatedAtCamelDesc,
             );
 
             return {
               ...current,
-              table_count: tables.length,
+              tableCount: tables.length,
               tables,
             };
           });
@@ -281,13 +246,13 @@ export function ProjectPageView({
               return removeRow(current, change.old.id);
             }
 
-            const next = change.new as SourceRecord;
+            const next = sourceFromDatabaseRow(change.new as SourceRecord);
 
-            if (next.project_id !== project.id) {
+            if (next.projectId !== project.id) {
               return current;
             }
 
-            return upsertRow(current, next, compareByUpdatedAtDesc);
+            return upsertRow(current, next, compareByUpdatedAtCamelDesc);
           });
         },
       )
@@ -313,18 +278,18 @@ export function ProjectPageView({
               return removeRow(current, change.old.id);
             }
 
-            const next = change.new as PipeRecord;
+            const next = pipeFromDatabaseRow(change.new as PipeRecord);
             const belongsToProject =
               projectRef.current.tables.some(
-                (table) => table.id === next.table_id,
+                (table) => table.id === next.tableId,
               ) ||
-              sourcesRef.current.some((source) => source.id === next.source_id);
+              sourcesRef.current.some((source) => source.id === next.sourceId);
 
             if (!belongsToProject) {
               return current;
             }
 
-            return upsertRow(current, next, compareByCreatedAtDesc);
+            return upsertRow(current, next, compareByCreatedAtCamelDesc);
           });
         },
       )
@@ -368,7 +333,12 @@ export function ProjectPageView({
     }));
 
     try {
-      const updated = await renameProject(previousProject.id, nextName);
+      const updated = await sdk.projects.update({
+        projectId: previousProject.id,
+        values: {
+          name: nextName,
+        },
+      });
       if (renameRequestRef.current !== requestId) {
         return;
       }
@@ -376,7 +346,7 @@ export function ProjectPageView({
       setProject((current) => ({
         ...current,
         name: updated.name,
-        updated_at: updated.updated_at,
+        updatedAt: updated.updatedAt,
       }));
       setNameDraft(updated.name);
     } catch (caughtError) {
@@ -387,7 +357,7 @@ export function ProjectPageView({
       setProject((current) => ({
         ...current,
         name: previousProject.name,
-        updated_at: previousProject.updated_at,
+        updatedAt: previousProject.updatedAt,
       }));
       setNameDraft(previousProject.name);
       setError(getErrorMessage(caughtError));
@@ -411,7 +381,9 @@ export function ProjectPageView({
     setError(null);
 
     try {
-      const table = await createTable(project.id);
+      const table = await sdk.tables.create({
+        projectId: project.id,
+      });
       router.push(`/projects/${project.id}/tables/${table.id}`);
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
@@ -424,9 +396,11 @@ export function ProjectPageView({
     setError(null);
 
     try {
-      const source = await createSource(project.id);
+      const source = await sdk.sources.create({
+        projectId: project.id,
+      });
       setSources((current) =>
-        upsertRow(current, source, compareByUpdatedAtDesc),
+        upsertRow(current, source, compareByUpdatedAtCamelDesc),
       );
       router.push(buildSourceDetailHref(source.id));
     } catch (caughtError) {
@@ -450,12 +424,14 @@ export function ProjectPageView({
     setError(null);
 
     try {
-      const pipe = await createPipe(project.id, {
+      const pipe = await sdk.pipes.create({
         mappings: [],
         sourceId,
         tableId,
       });
-      setPipes((current) => upsertRow(current, pipe, compareByCreatedAtDesc));
+      setPipes((current) =>
+        upsertRow(current, pipe, compareByCreatedAtCamelDesc),
+      );
       router.push(buildPipeDetailHref(pipe.id));
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
@@ -476,7 +452,9 @@ export function ProjectPageView({
     setError(null);
 
     try {
-      await deleteProject(project.id);
+      await sdk.projects.delete({
+        projectId: project.id,
+      });
       router.push("/projects");
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));
@@ -525,11 +503,11 @@ export function ProjectPageView({
           />
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
-            <span>{project.table_count} tables</span>
+            <span>{project.tableCount} tables</span>
             <span>{sources.length} sources</span>
             <span>{pipes.length} pipes</span>
-            <span>{project.folder_path.join(" / ") || "Root"}</span>
-            <span>{DATE_FORMATTER.format(new Date(project.updated_at))}</span>
+            <span>{project.folderPath.join(" / ") || "Root"}</span>
+            <span>{DATE_FORMATTER.format(new Date(project.updatedAt))}</span>
           </div>
         </div>
 
@@ -672,8 +650,8 @@ export function ProjectPageView({
                       key={pipe.id}
                       onClick={() => router.push(buildPipeDetailHref(pipe.id))}
                       title={buildPipeTitle({
-                        sourceLabel: sourceNameById.get(pipe.source_id),
-                        tableLabel: tableLabelById.get(pipe.table_id),
+                        sourceLabel: sourceNameById.get(pipe.sourceId),
+                        tableLabel: tableLabelById.get(pipe.tableId),
                       })}
                       {...getChangeTargetProps(changeTargetKey.pipe(pipe.id))}
                     />
@@ -688,7 +666,7 @@ export function ProjectPageView({
           <div className="flex items-end justify-between gap-3">
             <div className="space-y-1">
               <h2 className="text-xl tracking-tight text-zinc-950">
-                {buildSectionHeading("Tables", project.table_count)}
+                {buildSectionHeading("Tables", project.tableCount)}
               </h2>
             </div>
             <MarbleButton
@@ -721,7 +699,7 @@ export function ProjectPageView({
               <MarbleCardContent className="p-0">
                 {project.tables.map((table) => (
                   <MarbleListRow
-                    description={`Updated ${DATE_FORMATTER.format(new Date(table.updated_at))}`}
+                    description={`Updated ${DATE_FORMATTER.format(new Date(table.updatedAt))}`}
                     key={table.id}
                     onClick={() =>
                       router.push(`/projects/${project.id}/tables/${table.id}`)

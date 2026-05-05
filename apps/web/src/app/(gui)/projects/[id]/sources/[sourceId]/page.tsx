@@ -9,9 +9,9 @@ export default async function ProjectSourcePage(props: {
     sourceId: string;
   }>;
 }) {
-  const user = await requireUser();
+  await requireUser();
   const { id, sourceId } = await props.params;
-  const data = await getProjectSourceWorkspaceData(user.id, id);
+  const data = await getProjectSourceWorkspaceData(id);
 
   if (data === null || !data.sources.some((source) => source.id === sourceId)) {
     notFound();

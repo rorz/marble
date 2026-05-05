@@ -1,12 +1,9 @@
 "use server";
 
-import type { Database } from "@marble/supabase";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { requireUser } from "../../../../../lib/auth";
-import { callMarbleApi } from "../../../../../lib/marble-api";
-
-type SourceEventRow = Database["public"]["Tables"]["source_event"]["Row"];
+import { createServerMarbleSdk } from "../../../../../lib/marble-sdk-server";
 
 const SOURCE_SCHEMA_INFERENCE_MODEL = "google/gemini-3.1-flash-lite-preview";
 
@@ -55,15 +52,12 @@ export async function inferSourceSchemaFromEventAction(
 ) {
   await requireUser();
 
-  const sourceEvent = await callMarbleApi<SourceEventRow>(
-    `/source-events/${sourceEventId}`,
-    {
-      method: "GET",
-      requestId: crypto.randomUUID(),
-    },
-  );
+  const sdk = await createServerMarbleSdk();
+  const sourceEvent = await sdk.sourceEvents.get({
+    id: sourceEventId,
+  });
 
-  if (sourceEvent.project_id !== projectId) {
+  if (sourceEvent.projectId !== projectId) {
     throw new Error("Selected event does not belong to this project.");
   }
 
@@ -81,7 +75,7 @@ export async function inferSourceSchemaFromEventAction(
       "Do not include markdown.",
       "",
       "Selected event payload:",
-      JSON.stringify(sourceEvent.raw_payload, null, 2),
+      JSON.stringify(sourceEvent.rawPayload, null, 2),
     ].join("\n"),
     schema: inferredSourceSchemaResultSchema,
   });

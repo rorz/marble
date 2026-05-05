@@ -24,6 +24,26 @@ export function compareByUpdatedAtDesc<
   );
 }
 
+export function compareByCreatedAtCamelDesc<
+  T extends {
+    createdAt: string;
+  },
+>(left: T, right: T) {
+  return (
+    new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+  );
+}
+
+export function compareByUpdatedAtCamelDesc<
+  T extends {
+    updatedAt: string;
+  },
+>(left: T, right: T) {
+  return (
+    new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
+  );
+}
+
 export function sortRows<T>(rows: T[], compare: (left: T, right: T) => number) {
   return [
     ...rows,

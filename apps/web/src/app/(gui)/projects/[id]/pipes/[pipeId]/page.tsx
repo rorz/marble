@@ -9,9 +9,9 @@ export default async function ProjectPipePage(props: {
     id: string;
   }>;
 }) {
-  const user = await requireUser();
+  await requireUser();
   const { pipeId, id } = await props.params;
-  const data = await getProjectSourceWorkspaceData(user.id, id);
+  const data = await getProjectSourceWorkspaceData(id);
 
   if (data === null || !data.pipes.some((pipe) => pipe.id === pipeId)) {
     notFound();

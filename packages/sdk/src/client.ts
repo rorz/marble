@@ -14,6 +14,7 @@ export type MarbleClientDriver =
     }
   | {
       client: SupabaseClient;
+      profileId?: string;
       type: "supabase";
     };
 
@@ -38,6 +39,7 @@ function createHostedApiClient(options: { apiKey?: string; apiUrl: string }) {
 }
 
 export class MarbleClient {
+  readonly columns: ContractRouterClient<MarbleContract>["columns"];
   readonly pipes: ContractRouterClient<MarbleContract>["pipes"];
   readonly projects: ContractRouterClient<MarbleContract>["projects"];
   readonly sourceEvents: ContractRouterClient<MarbleContract>["sourceEvents"];
@@ -49,9 +51,11 @@ export class MarbleClient {
       options.driver.type === "api"
         ? createHostedApiClient(options.driver)
         : (createSupabaseClientRouterClient({
+            profileId: options.driver.profileId,
             supabase: options.driver.client,
           }) as ContractRouterClient<MarbleContract>);
 
+    this.columns = rpcClient.columns;
     this.pipes = rpcClient.pipes;
     this.projects = rpcClient.projects;
     this.sourceEvents = rpcClient.sourceEvents;

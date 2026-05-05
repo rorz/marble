@@ -28,7 +28,8 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { callMarbleClient } from "../../../../../lib/marble-client";
+import { sourceEventFromDatabaseRow } from "../../../../../lib/marble-resources";
+import { useMarbleSdk } from "../../../../../lib/marble-sdk-client";
 import {
   buildPipeMappingSummary,
   buildPipeTitle,
@@ -42,9 +43,8 @@ import {
 } from "../../../change-spotlight";
 import * as actions from "./actions";
 
-type SourceRecord = Database["public"]["Tables"]["source"]["Row"];
 type SourceEventRecord = Database["public"]["Tables"]["source_event"]["Row"];
-type PipeRecord = Database["public"]["Tables"]["pipe"]["Row"];
+type Source = ProjectSourceWorkspaceData["sources"][number];
 type PipeMappingInput = {
   columnId: string;
   jsonPath: string;
@@ -154,37 +154,35 @@ function validateSourceSchemaText(value: string): SourceSchemaValidation {
 
 function sortByCreatedAtDesc<
   T extends {
-    created_at: string;
+    createdAt: string;
   },
 >(records: T[]) {
   return [
     ...records,
   ].sort(
     (left, right) =>
-      new Date(right.created_at).getTime() -
-      new Date(left.created_at).getTime(),
+      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
   );
 }
 
 function sortByUpdatedAtDesc<
   T extends {
-    updated_at: string;
+    updatedAt: string;
   },
 >(records: T[]) {
   return [
     ...records,
   ].sort(
     (left, right) =>
-      new Date(right.updated_at).getTime() -
-      new Date(left.updated_at).getTime(),
+      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
   );
 }
 
-function webhookEndpoint(baseUrl: string, source: Pick<SourceRecord, "id">) {
+function webhookEndpoint(baseUrl: string, source: Pick<Source, "id">) {
   return `${baseUrl}/webhooks/${source.id}`;
 }
 
-function sourceTitle(source: null | Pick<SourceRecord, "name">) {
+function sourceTitle(source: null | Pick<Source, "name">) {
   return source?.name || "Untitled Source";
 }
 
@@ -481,59 +479,6 @@ function buildPipeDetailHref(projectId: string, pipeId: string) {
   return `/projects/${projectId}/pipes/${pipeId}`;
 }
 
-function updateSource(
-  sourceId: string,
-  input: {
-    name?: string;
-    payloadSchema?: unknown;
-  },
-) {
-  return callMarbleClient<SourceRecord>(`/sources/${sourceId}`, {
-    body: input,
-    method: "PATCH",
-  });
-}
-
-function deleteSource(sourceId: string) {
-  return callMarbleClient(`/sources/${sourceId}`, {
-    method: "DELETE",
-  });
-}
-
-function createPipe(
-  projectId: string,
-  input: {
-    mappings?: PipeMappingInput[];
-    sourceId: string;
-    tableId: string;
-  },
-) {
-  return callMarbleClient<PipeRecord>(`/projects/${projectId}/pipes`, {
-    body: input,
-    method: "POST",
-  });
-}
-
-function updatePipe(
-  pipeId: string,
-  input: {
-    mappings?: PipeMappingInput[];
-    sourceId?: string;
-    tableId?: string;
-  },
-) {
-  return callMarbleClient<PipeRecord>(`/pipes/${pipeId}`, {
-    body: input,
-    method: "PATCH",
-  });
-}
-
-function deletePipe(pipeId: string) {
-  return callMarbleClient(`/pipes/${pipeId}`, {
-    method: "DELETE",
-  });
-}
-
 export function ProjectSourceDetailPageView({
   initialData,
   initialPipeId = null,
@@ -546,6 +491,9 @@ export function ProjectSourceDetailPageView({
   mode: ProjectSourceDetailMode;
 }) {
   const router = useRouter();
+  const sdk = useMarbleSdk({
+    profileId: initialData.project.ownerProfileId,
+  });
   const projectId = initialData.project.id;
   const projectName = initialData.project.name;
 
@@ -605,7 +553,7 @@ export function ProjectSourceDetailPageView({
   const selectedSourceEvents = useMemo(
     () =>
       sortByCreatedAtDesc(
-        sourceEvents.filter((event) => event.source_id === currentSourceId),
+        sourceEvents.filter((event) => event.sourceId === currentSourceId),
       ),
     [
       currentSourceId,
@@ -643,7 +591,7 @@ export function ProjectSourceDetailPageView({
   const availablePipeColumns = useMemo(
     () =>
       initialData.inputColumns.filter(
-        (column) => column.table_id === pipeTableIdDraft,
+        (column) => column.tableId === pipeTableIdDraft,
       ),
     [
       pipeTableIdDraft,
@@ -661,9 +609,9 @@ export function ProjectSourceDetailPageView({
       sortByCreatedAtDesc(
         sourceEvents.filter(
           (event) =>
-            event.source_id === pipeSourceIdDraft &&
-            event.parse_error === null &&
-            event.parsed_payload !== null,
+            event.sourceId === pipeSourceIdDraft &&
+            event.parseError === null &&
+            event.parsedPayload !== null,
         ),
       )[0] ?? null,
     [
@@ -671,14 +619,14 @@ export function ProjectSourceDetailPageView({
       sourceEvents,
     ],
   );
-  const latestPipeParsedPayload = latestPipeSourceEvent?.parsed_payload ?? null;
+  const latestPipeParsedPayload = latestPipeSourceEvent?.parsedPayload ?? null;
   const pipeSchemaPathCandidates = useMemo(
     () =>
       collectPipePathCandidatesFromSchema(
-        selectedPipeSource?.payload_schema,
+        selectedPipeSource?.payloadSchema,
       ).slice(0, 200),
     [
-      selectedPipeSource?.payload_schema,
+      selectedPipeSource?.payloadSchema,
     ],
   );
   const latestPipeEventPathCandidates = useMemo(
@@ -790,7 +738,7 @@ export function ProjectSourceDetailPageView({
       return;
     }
 
-    setSourceSchemaDraft(formatJson(selectedSource.payload_schema));
+    setSourceSchemaDraft(formatJson(selectedSource.payloadSchema));
     setSourceError(null);
     setSourceRenameError(null);
   }, [
@@ -838,9 +786,11 @@ export function ProjectSourceDetailPageView({
           table: "source_event",
         },
         (payload) => {
-          const nextEvent = payload.new as SourceEventRecord;
+          const nextEvent = sourceEventFromDatabaseRow(
+            payload.new as SourceEventRecord,
+          );
 
-          if (nextEvent.source_id !== currentSourceId) {
+          if (nextEvent.sourceId !== currentSourceId) {
             return;
           }
 
@@ -871,8 +821,8 @@ export function ProjectSourceDetailPageView({
       return;
     }
 
-    setPipeSourceIdDraft(selectedPipe.source_id);
-    setPipeTableIdDraft(selectedPipe.table_id);
+    setPipeSourceIdDraft(selectedPipe.sourceId);
+    setPipeTableIdDraft(selectedPipe.tableId);
     setPipeMappingsDraft(
       normalizePipeMappings(selectedPipe.mappings).map((mapping) =>
         createPipeMappingDraft(mapping),
@@ -1014,7 +964,7 @@ export function ProjectSourceDetailPageView({
             ? {
                 ...source,
                 name: nextName,
-                updated_at: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
               }
             : source,
         ),
@@ -1022,8 +972,11 @@ export function ProjectSourceDetailPageView({
     );
 
     try {
-      const updated = await updateSource(selectedSource.id, {
-        name: nextName,
+      const updated = await sdk.sources.update({
+        id: selectedSource.id,
+        values: {
+          name: nextName,
+        },
       });
 
       setSources((current) =>
@@ -1064,8 +1017,11 @@ export function ProjectSourceDetailPageView({
         throw new Error("Select a source before saving.");
       }
 
-      const updated = await updateSource(selectedSource.id, {
-        payloadSchema: sourceSchemaValidation.value,
+      const updated = await sdk.sources.update({
+        id: selectedSource.id,
+        values: {
+          payloadSchema: sourceSchemaValidation.value,
+        },
       });
 
       setSources((current) =>
@@ -1120,15 +1076,17 @@ export function ProjectSourceDetailPageView({
     setSourceError(null);
 
     try {
-      await deleteSource(selectedSource.id);
+      await sdk.sources.delete({
+        id: selectedSource.id,
+      });
       setSources((current) =>
         current.filter((source) => source.id !== selectedSource.id),
       );
       setPipes((current) =>
-        current.filter((pipe) => pipe.source_id !== selectedSource.id),
+        current.filter((pipe) => pipe.sourceId !== selectedSource.id),
       );
       setSourceEvents((current) =>
-        current.filter((event) => event.source_id !== selectedSource.id),
+        current.filter((event) => event.sourceId !== selectedSource.id),
       );
       router.push(`/projects/${projectId}`);
       marbleToast.success("Source deleted");
@@ -1174,10 +1132,13 @@ export function ProjectSourceDetailPageView({
         throw new Error("Select a pipe before saving.");
       }
 
-      const updated = await updatePipe(selectedPipe.id, {
-        mappings,
-        sourceId: pipeSourceIdDraft,
-        tableId: pipeTableIdDraft,
+      const updated = await sdk.pipes.update({
+        id: selectedPipe.id,
+        values: {
+          mappings,
+          sourceId: pipeSourceIdDraft,
+          tableId: pipeTableIdDraft,
+        },
       });
 
       setPipes((current) =>
@@ -1205,7 +1166,7 @@ export function ProjectSourceDetailPageView({
     setPipeError(null);
 
     try {
-      const created = await createPipe(projectId, {
+      const created = await sdk.pipes.create({
         mappings: [],
         sourceId: firstSourceId,
         tableId: firstTableId,
@@ -1233,8 +1194,8 @@ export function ProjectSourceDetailPageView({
     }
 
     const selectedPipeTitle = buildPipeTitle({
-      sourceLabel: sourceLabelById.get(selectedPipe.source_id),
-      tableLabel: tableLabelById.get(selectedPipe.table_id),
+      sourceLabel: sourceLabelById.get(selectedPipe.sourceId),
+      tableLabel: tableLabelById.get(selectedPipe.tableId),
     });
 
     if (!window.confirm(`Delete pipe "${selectedPipeTitle}"?`)) {
@@ -1245,7 +1206,9 @@ export function ProjectSourceDetailPageView({
     setPipeError(null);
 
     try {
-      await deletePipe(selectedPipe.id);
+      await sdk.pipes.delete({
+        id: selectedPipe.id,
+      });
       setPipes((current) =>
         current.filter((pipe) => pipe.id !== selectedPipe.id),
       );
@@ -1282,7 +1245,7 @@ export function ProjectSourceDetailPageView({
         : changeTargetKey.pipe(selectedPipe.id);
   const pipeHeaderSummary = pipeMappingSummary;
   const latestPipeSourceEventLabel = latestPipeSourceEvent
-    ? DATE_TIME_FORMATTER.format(new Date(latestPipeSourceEvent.created_at))
+    ? DATE_TIME_FORMATTER.format(new Date(latestPipeSourceEvent.createdAt))
     : null;
   const pipeSuggestionSummary = pipeSchemaHasConcreteFields
     ? latestPipeSourceEventLabel
@@ -1417,7 +1380,7 @@ export function ProjectSourceDetailPageView({
                 />
                 <MarbleCopyField
                   label="Webhook token"
-                  value={selectedSource?.webhook_token ?? null}
+                  value={selectedSource?.webhookToken ?? null}
                 />
               </MarbleCardSection>
               <MarbleCardSection className="flex min-h-0 flex-1 flex-col gap-4">
@@ -1515,7 +1478,7 @@ export function ProjectSourceDetailPageView({
                             <div className="space-y-1">
                               <div>
                                 {DATE_TIME_FORMATTER.format(
-                                  new Date(event.created_at),
+                                  new Date(event.createdAt),
                                 )}
                               </div>
                               <div className="font-mono text-[11px] text-zinc-400">
@@ -1527,9 +1490,9 @@ export function ProjectSourceDetailPageView({
                           meta={
                             <MarbleBadge
                               caps
-                              tone={event.parse_error ? "warning" : "neutral"}
+                              tone={event.parseError ? "warning" : "neutral"}
                             >
-                              {event.parse_error ? "Parse error" : "Parsed"}
+                              {event.parseError ? "Parse error" : "Parsed"}
                             </MarbleBadge>
                           }
                           onClick={() => setSelectedSourceEventId(event.id)}
@@ -1547,9 +1510,7 @@ export function ProjectSourceDetailPageView({
                             <MarbleTextarea
                               className="min-h-[12rem] font-mono text-xs"
                               readOnly
-                              value={formatJson(
-                                selectedSourceEvent.raw_payload,
-                              )}
+                              value={formatJson(selectedSourceEvent.rawPayload)}
                               wrapperClassName="w-full"
                             />
                           </div>
@@ -1560,15 +1521,15 @@ export function ProjectSourceDetailPageView({
                               className="min-h-[12rem] font-mono text-xs"
                               readOnly
                               value={formatJson(
-                                selectedSourceEvent.parsed_payload,
+                                selectedSourceEvent.parsedPayload,
                               )}
                               wrapperClassName="w-full"
                             />
                           </div>
 
-                          {selectedSourceEvent.parse_error ? (
+                          {selectedSourceEvent.parseError ? (
                             <MarbleAlert tone="warning">
-                              {selectedSourceEvent.parse_error}
+                              {selectedSourceEvent.parseError}
                             </MarbleAlert>
                           ) : null}
                         </>
