@@ -963,6 +963,12 @@ export type Database = {
         };
         Returns: boolean;
       };
+      current_user_can_receive_profile_broadcast: {
+        Args: {
+          p_topic: string;
+        };
+        Returns: boolean;
+      };
       current_user_can_receive_project_broadcast: {
         Args: {
           p_topic: string;

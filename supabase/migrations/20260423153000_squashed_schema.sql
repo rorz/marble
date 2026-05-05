@@ -846,6 +846,21 @@ $$;
 ALTER FUNCTION "public"."current_user_can_receive_event_broadcast"("p_topic" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."current_user_can_receive_profile_broadcast"("p_topic" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  SELECT CASE
+    WHEN p_topic ~ '^profiles:user:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN split_part(p_topic, ':', 3)::UUID = auth.uid()
+    ELSE FALSE
+  END;
+$$;
+
+
+ALTER FUNCTION "public"."current_user_can_receive_profile_broadcast"("p_topic" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
@@ -1216,6 +1231,40 @@ $$;
 ALTER FUNCTION "public"."broadcast_event_changes"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."broadcast_profile_changes"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+DECLARE
+  mutation_id UUID := COALESCE(NEW.id, OLD.id);
+  mutation_row JSONB := CASE WHEN TG_OP = 'DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;
+  mutation_type TEXT := 'profile' || CASE WHEN TG_OP = 'DELETE' THEN ':delete' ELSE ':upsert' END;
+  topic TEXT := 'profiles:user:' || COALESCE(NEW.owner_user_id, OLD.owner_user_id)::TEXT;
+BEGIN
+  PERFORM realtime.send(
+    jsonb_strip_nulls(jsonb_build_object(
+      'event', TG_OP,
+      'id', mutation_id,
+      'row', mutation_row,
+      'type', mutation_type
+    )),
+    'profile_mutation',
+    topic,
+    TRUE
+  );
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."broadcast_profile_changes"() OWNER TO "postgres";
+
+
 ALTER TABLE ONLY "public"."cell"
     ADD CONSTRAINT "cell_pkey" PRIMARY KEY ("id");
 
@@ -1488,6 +1537,9 @@ CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."column_sec
 
 
 CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."profile" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
+
+
+CREATE OR REPLACE TRIGGER "zz_broadcast_profile_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."profile" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_profile_changes"();
 
 
 
@@ -1841,6 +1893,9 @@ CREATE POLICY "Users can receive project broadcasts" ON "realtime"."messages" FO
 CREATE POLICY "Users can receive event broadcasts" ON "realtime"."messages" FOR SELECT TO "authenticated" USING ((("extension" = 'broadcast'::"text") AND "public"."current_user_can_receive_event_broadcast"(( SELECT "realtime"."topic"() AS "topic"))));
 
 
+CREATE POLICY "Users can receive profile broadcasts" ON "realtime"."messages" FOR SELECT TO "authenticated" USING ((("extension" = 'broadcast'::"text") AND "public"."current_user_can_receive_profile_broadcast"(( SELECT "realtime"."topic"() AS "topic"))));
+
+
 
 ALTER TABLE "public"."cell" ENABLE ROW LEVEL SECURITY;
 
@@ -1919,10 +1974,6 @@ ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."column";
 
 
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."event";
-
-
-
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."profile";
 
 
 
@@ -2233,6 +2284,11 @@ GRANT ALL ON FUNCTION "public"."broadcast_event_changes"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."broadcast_event_changes"() TO "service_role";
 
 
+REVOKE ALL ON FUNCTION "public"."broadcast_profile_changes"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."broadcast_profile_changes"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."broadcast_profile_changes"() TO "service_role";
+
+
 REVOKE ALL ON FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") TO "service_role";
@@ -2256,6 +2312,11 @@ GRANT ALL ON FUNCTION "public"."current_user_can_receive_project_broadcast"("p_t
 REVOKE ALL ON FUNCTION "public"."current_user_can_receive_event_broadcast"("p_topic" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."current_user_can_receive_event_broadcast"("p_topic" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_user_can_receive_event_broadcast"("p_topic" "text") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_can_receive_profile_broadcast"("p_topic" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_can_receive_profile_broadcast"("p_topic" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_can_receive_profile_broadcast"("p_topic" "text") TO "service_role";
 
 
 REVOKE ALL ON FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) FROM PUBLIC;

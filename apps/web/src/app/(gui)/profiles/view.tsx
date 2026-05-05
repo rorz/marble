@@ -41,16 +41,20 @@ import {
 } from "react";
 import { callMarbleClient } from "../../../lib/marble-client";
 import {
+  createBroadcastMutationGuard,
+  type DeleteMutation,
+  type UpsertMutation,
+} from "../../../lib/realtime/broadcast-mutations";
+import { usePrivateBroadcast } from "../../../lib/realtime/private-broadcast";
+import {
   compareByCreatedAtDesc,
   getErrorMessage,
   isOptimisticId,
   makeOptimisticId,
-  type RealtimePayload,
   removeRow,
   sortRows,
   upsertRow,
 } from "../../../lib/realtime-crud";
-import { createClient } from "../../../lib/supabase/browser";
 import { changeTargetKey, getChangeTargetProps } from "../change-spotlight";
 import {
   AGENT_PROFILE_ICON_OPTIONS,
@@ -68,6 +72,14 @@ const CREATED_AT_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   month: "short",
 });
 const VISIBLE_KEY_COUNT = 3;
+type ProfileMutation =
+  | DeleteMutation<"profile:delete", ProfileRecord>
+  | UpsertMutation<"profile:upsert", ProfileRecord>;
+
+const isProfileMutation = createBroadcastMutationGuard<ProfileMutation>({
+  "profile:delete": true,
+  "profile:upsert": true,
+});
 
 function readProfileDraft(formData: FormData) {
   const nameValue = formData.get("name");
@@ -695,45 +707,28 @@ export function ProfilesPageView({
   const [copiedLastCreatedKey, setCopiedLastCreatedKey] = useState(false);
   const [error, setError] = useState<null | string>(null);
 
-  useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`profile-4:${userId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "profile",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<ProfileRecord>;
+  usePrivateBroadcast({
+    event: "profile_mutation",
+    label: "Profiles",
+    onMessage: (mutation) => {
+      if (!isProfileMutation(mutation)) {
+        return;
+      }
 
-          setProfiles((current) => {
-            if (change.eventType === "DELETE") {
-              return typeof change.old.id === "string"
-                ? removeRow(current, change.old.id)
-                : current;
-            }
+      setProfiles((current) => {
+        switch (mutation.type) {
+          case "profile:delete":
+            return removeRow(current, mutation.id);
 
-            const next = change.new as ProfileRecord;
-
-            if (next.owner_user_id !== userId) {
-              return current;
-            }
-
-            return upsertProfile(current, next);
-          });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [
-    userId,
-  ]);
+          case "profile:upsert":
+            return mutation.row.owner_user_id === userId
+              ? upsertProfile(current, mutation.row)
+              : current;
+        }
+      });
+    },
+    topic: `profiles:user:${userId}`,
+  });
 
   const resetCreateModal = () => {
     createFormRef.current?.reset();
