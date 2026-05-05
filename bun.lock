@@ -6,7 +6,6 @@
       "name": "marble",
       "devDependencies": {
         "@biomejs/biome": "^2.4.13",
-        "@postgres-language-server/cli": "^0.24.0",
         "turbo": "^2.9.6",
         "typescript": "^6.0.3",
       },
@@ -20,7 +19,6 @@
         "@marble/old-core": "workspace:*",
         "@marble/supabase": "workspace:",
         "hono": "catalog:base",
-        "nanoid": "catalog:base",
         "zod": "catalog:base",
       },
       "devDependencies": {
@@ -54,6 +52,7 @@
         "@marble/api": "workspace:*",
         "@marble/keys": "workspace:*",
         "@marble/old-api": "workspace:*",
+        "@marble/sdk": "workspace:*",
         "@marble/supabase": "workspace:*",
         "@marble/ui": "workspace:*",
         "@monaco-editor/react": "catalog:base",
@@ -63,7 +62,6 @@
         "ag-grid-community": "catalog:base",
         "ag-grid-react": "catalog:base",
         "ai": "catalog:base",
-        "hono": "catalog:base",
         "monaco-editor": "catalog:base",
         "next": "catalog:base",
         "prismjs": "catalog:base",
@@ -208,7 +206,6 @@
       "version": "1.0.0",
       "dependencies": {
         "@marble/supabase": "workspace:*",
-        "zod": "catalog:base",
       },
       "devDependencies": {
         "@types/node": "catalog:base",
@@ -236,9 +233,6 @@
     },
     "packages/wizard": {
       "name": "@marble/wizard",
-      "dependencies": {
-        "marble-cli": "link:marble-cli",
-      },
     },
     "supabase": {
       "name": "@marble/supabase",
@@ -251,12 +245,8 @@
       },
     },
   },
-  "catalog": {
-    "next": "16.2.4",
-  },
   "catalogs": {
     "base": {
-      "@biomejs/biome": "^2",
       "@cloudflare/sandbox": "^0.8.6",
       "@heroicons/react": "^2.2.0",
       "@monaco-editor/react": "4.7.0",
@@ -266,7 +256,6 @@
       "@orpc/server": "^1.14.0",
       "@orpc/zod": "^1.14.0",
       "@phosphor-icons/react": "^2.1.1",
-      "@postgres-language-server/cli": "^0.23.0",
       "@radix-ui/react-dialog": "^1.1.6",
       "@supabase/ssr": "^0.10.0",
       "@supabase/supabase-js": "^2",
@@ -297,7 +286,6 @@
       "react-simple-code-editor": "^0.14.1",
       "sift": "17.1.3",
       "sonner": "^2.0.7",
-      "supabase": "^2.84.0",
       "tailwind-merge": "3.3.1",
       "tailwindcss": "^4",
       "typescript": "^5",
@@ -580,22 +568,6 @@
     "@poppinss/dumper": ["@poppinss/dumper@0.6.5", "", { "dependencies": { "@poppinss/colors": "^4.1.5", "@sindresorhus/is": "^7.0.2", "supports-color": "^10.0.0" } }, "sha512-NBdYIb90J7LfOI32dOewKI1r7wnkiH6m920puQ3qHUeZkxNkQiFnXVWoE6YtFSv6QOiPPf7ys6i+HWWecDz7sw=="],
 
     "@poppinss/exception": ["@poppinss/exception@1.2.3", "", {}, "sha512-dCED+QRChTVatE9ibtoaxc+WkdzOSjYTKi/+uacHWIsfodVfpsueo3+DKpgU5Px8qXjgmXkSvhXvSCz3fnP9lw=="],
-
-    "@postgres-language-server/cli": ["@postgres-language-server/cli@0.24.0", "", { "optionalDependencies": { "@postgres-language-server/cli-aarch64-apple-darwin": "0.24.0", "@postgres-language-server/cli-aarch64-linux-gnu": "0.24.0", "@postgres-language-server/cli-aarch64-windows-msvc": "0.24.0", "@postgres-language-server/cli-x86_64-apple-darwin": "0.24.0", "@postgres-language-server/cli-x86_64-linux-gnu": "0.24.0", "@postgres-language-server/cli-x86_64-linux-musl": "0.24.0", "@postgres-language-server/cli-x86_64-windows-msvc": "0.24.0" }, "bin": { "postgres-language-server": "bin/postgres-language-server" } }, "sha512-Rl7q285JjW8zj5JlNTMu2HlbuZX7O/86ynJLHGNiKA4H/h7IkBrlmE0i4ReN/Ts2tYkDJ44zF5wv5S/tTCGoQw=="],
-
-    "@postgres-language-server/cli-aarch64-apple-darwin": ["@postgres-language-server/cli-aarch64-apple-darwin@0.24.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-b2BVNqiZ9E4NEzgB7Mm3AW2m9riW1mQSgNB206FhQNLCG6MVAhnRSs8/nw4WK/v47kyZd4/Bq0ndgBHy14NOsg=="],
-
-    "@postgres-language-server/cli-aarch64-linux-gnu": ["@postgres-language-server/cli-aarch64-linux-gnu@0.24.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-ZrXrpUNdCmTH4yQXJMkxRvlzQFfg+AnN1HrbcvuzlQlwGdKSmtgzWtj9gOzyIJPrrTLVj1jnLG5qDFGE87rpGQ=="],
-
-    "@postgres-language-server/cli-aarch64-windows-msvc": ["@postgres-language-server/cli-aarch64-windows-msvc@0.24.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-P9M64IUKPxjWwpcU5TUqQ0ghYkkbSnHw03XLG5lR+snCT/YvRoloaBEANyvJUPr6MLrLJj3KcXmPDYonHrnekw=="],
-
-    "@postgres-language-server/cli-x86_64-apple-darwin": ["@postgres-language-server/cli-x86_64-apple-darwin@0.24.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-DdPNkw4OsPRZiUO745khygj6M2xl0YzymZWM2Yescb1AG1RV51cSR40qLJE1LUu7hwhuVx9V5Ckmuo+9e1dFtQ=="],
-
-    "@postgres-language-server/cli-x86_64-linux-gnu": ["@postgres-language-server/cli-x86_64-linux-gnu@0.24.0", "", { "os": "linux", "cpu": "x64" }, "sha512-V6tgZcPgUsGsXwVgOKM7WL90LVA0DenUn+rc6p6JbfevmEjcmtD7QvEmWsv/LI7x5dCrSlEmLNl8l+2598WDgg=="],
-
-    "@postgres-language-server/cli-x86_64-linux-musl": ["@postgres-language-server/cli-x86_64-linux-musl@0.24.0", "", { "os": "linux", "cpu": "x64" }, "sha512-LI1ret3ISURxBzwo4YGQLS/oOycLqbWmYEP6y0Dep98NBp0KSK/+VmXv7wlQMY1t+iWW//vjJl512FjsPLYfQQ=="],
-
-    "@postgres-language-server/cli-x86_64-windows-msvc": ["@postgres-language-server/cli-x86_64-windows-msvc@0.24.0", "", { "os": "win32", "cpu": "x64" }, "sha512-iIrpk63UxqTlCeDVZvpxL+MqTCnCU/3Op0e40FNiuP3mCtJaRfZypm7m61BA2wg+U3T4PiywZfXkfUovlYVvRA=="],
 
     "@radix-ui/primitive": ["@radix-ui/primitive@1.1.3", "", {}, "sha512-JTF99U/6XIjCBo0wqkU5sK10glYe27MRRsfwoiq5zzOEZLHU3A3KCMa5X/azekYRCJ0HlwI0crAXS/5dEHTzDg=="],
 
@@ -886,8 +858,6 @@
     "loose-envify": ["loose-envify@1.4.0", "", { "dependencies": { "js-tokens": "^3.0.0 || ^4.0.0" }, "bin": { "loose-envify": "cli.js" } }, "sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q=="],
 
     "magic-string": ["magic-string@0.30.21", "", { "dependencies": { "@jridgewell/sourcemap-codec": "^1.5.5" } }, "sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ=="],
-
-    "marble-cli": ["marble-cli@link:marble-cli", { "bin": { "marble": "./dist/cli.js" } }],
 
     "marked": ["marked@14.0.0", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-uIj4+faQ+MgHgwUW1l2PsPglZLOLOT1uErt06dAPtx2kjteLAkbsd/0FiYg/MGS+i7ZKLb7w2WClxHkzOOuryQ=="],
 

@@ -11,9 +11,12 @@ type JsonValue =
   | JsonValue[];
 
 export const jsonValueSchema = z.json() as z.ZodType<JsonValue>;
+export const timestampSchema = z.iso.datetime({
+  offset: true,
+});
 
 export const baseEntitySchema = z.object({
-  createdAt: z.iso.datetime(),
+  createdAt: timestampSchema,
   id: z.uuidv4(),
-  updatedAt: z.iso.datetime(),
+  updatedAt: timestampSchema,
 });

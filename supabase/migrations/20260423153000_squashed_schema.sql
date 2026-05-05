@@ -760,6 +760,25 @@ $$;
 ALTER FUNCTION "public"."current_user_can_use_source_event_scope"("p_project_id" "uuid", "p_source_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO ''
+    AS $$
+  SELECT CASE
+    WHEN p_topic ~ '^source-events:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN EXISTS (
+      SELECT 1
+      FROM public."source" AS source
+      WHERE source.id = split_part(p_topic, ':', 2)::UUID
+        AND public.current_user_owns_project(source.project_id)
+    )
+    ELSE FALSE
+  END;
+$$;
+
+
+ALTER FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE
     SET "search_path" TO ''
@@ -836,6 +855,29 @@ $$;
 
 
 ALTER FUNCTION "public"."source_event_create"("p_source_id" "uuid", "p_raw_payload" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."broadcast_source_event_changes"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+BEGIN
+  PERFORM realtime.broadcast_changes(
+    'source-events:' || NEW.source_id::TEXT,
+    TG_OP,
+    TG_OP,
+    TG_TABLE_NAME,
+    TG_TABLE_SCHEMA,
+    NEW,
+    NULL
+  );
+
+  RETURN NULL;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."broadcast_source_event_changes"() OWNER TO "postgres";
 
 
 ALTER TABLE ONLY "public"."cell"
@@ -1052,6 +1094,9 @@ CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "testing"."tags" FOR
 
 
 CREATE OR REPLACE TRIGGER "broadcast_tag_changes" AFTER INSERT OR DELETE OR UPDATE ON "testing"."tags" FOR EACH ROW EXECUTE FUNCTION "testing"."broadcast_tag_changes"();
+
+
+CREATE OR REPLACE TRIGGER "broadcast_source_event_changes" AFTER INSERT ON "public"."source_event" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_source_event_changes"();
 
 
 
@@ -1401,6 +1446,9 @@ CREATE POLICY "Anyone can view testing tags" ON "testing"."tags" FOR SELECT TO "
 
 
 CREATE POLICY "Anyone can receive testing tag broadcasts" ON "realtime"."messages" FOR SELECT TO "anon", "authenticated" USING ((( SELECT "realtime"."topic"() AS "topic") ~~ 'testing:tags:%'::"text") AND ("extension" = 'broadcast'::"text"));
+
+
+CREATE POLICY "Users can receive source event broadcasts" ON "realtime"."messages" FOR SELECT TO "authenticated" USING ((("extension" = 'broadcast'::"text") AND "public"."current_user_can_receive_source_event_broadcast"(( SELECT "realtime"."topic"() AS "topic"))));
 
 
 
@@ -1768,6 +1816,16 @@ GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "service_role";
 REVOKE ALL ON FUNCTION "public"."source_event_create"("p_source_id" "uuid", "p_raw_payload" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."source_event_create"("p_source_id" "uuid", "p_raw_payload" "jsonb") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."source_event_create"("p_source_id" "uuid", "p_raw_payload" "jsonb") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."broadcast_source_event_changes"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."broadcast_source_event_changes"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."broadcast_source_event_changes"() TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") TO "service_role";
 
 
 REVOKE ALL ON FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) FROM PUBLIC;

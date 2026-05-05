@@ -1,13 +1,13 @@
 import { z } from "zod";
 import { defineResourceOperations } from "../../helpers";
-import { baseEntitySchema, jsonValueSchema } from "../base";
+import { baseEntitySchema, jsonValueSchema, timestampSchema } from "../base";
 
 const tags = [
   "Source Events",
 ] as const;
 
 const SourceEventSchema = z.object({
-  createdAt: z.iso.datetime(),
+  createdAt: timestampSchema,
   id: baseEntitySchema.shape.id,
   parsedPayload: jsonValueSchema.nullable(),
   parseError: z.string().nullable(),
