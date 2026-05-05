@@ -69,7 +69,7 @@ import {
 import { callMarbleClient } from "../../lib/marble-client";
 import { useMarbleSdkFactory } from "../../lib/marble-sdk-client";
 import { createDefaultProgram } from "../../lib/program-client";
-import { getErrorMessage, type RealtimePayload } from "../../lib/realtime-crud";
+import { getErrorMessage } from "../../lib/realtime-crud";
 import {
   applySidebarMutation,
   type SidebarMutation,
@@ -201,12 +201,10 @@ const utilityRoutes: {
   },
 ];
 
-type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
-type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
-type SourceRow = Database["public"]["Tables"]["source"]["Row"];
-type PipeRow = Database["public"]["Tables"]["pipe"]["Row"];
-type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profile"]["Row"];
+type SidebarBroadcastPayload = {
+  payload: unknown;
+};
 type CommandPaletteItem = {
   detail: string;
   icon: ReactNode;
@@ -226,7 +224,44 @@ type CommandPalettePage =
   | "create-table-project";
 type SupportSheetView = "contact" | "handbook";
 
+const sidebarBroadcastMutationTypes = {
+  "pipe:delete": true,
+  "pipe:upsert": true,
+  "program:delete": true,
+  "program:upsert": true,
+  "project:delete": true,
+  "project:upsert": true,
+  "source:delete": true,
+  "source:upsert": true,
+  "table:delete": true,
+  "table:upsert": true,
+} satisfies Record<SidebarMutation["type"], true>;
+
+const GUI_SIDEBAR_FIRST_PARTY_PROGRAMS_TOPIC =
+  "gui-sidebar:first-party-programs";
+
+const guiSidebarUserTopic = (userId: string) => `gui-sidebar:user:${userId}`;
+
 const supportSheetWidthClassName = "w-[min(32rem,calc(100vw-1rem))]";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+function isSidebarMutation(value: unknown): value is SidebarMutation {
+  if (
+    !isRecord(value) ||
+    typeof value.type !== "string" ||
+    !(value.type in sidebarBroadcastMutationTypes)
+  ) {
+    return false;
+  }
+
+  if (value.type.endsWith(":delete")) {
+    return typeof value.id === "string";
+  }
+
+  return isRecord(value.row);
+}
 
 function getProjectIdFromPathname(pathname: string) {
   const segments = pathname.split("/");
@@ -681,6 +716,7 @@ export function GuiShell({
   initialSidebarMode,
   initialSidebarTreeState,
   initialSidebarWidth,
+  userId,
 }: {
   children: ReactNode;
   initialAgentSidebarMode: SidebarMode;
@@ -689,6 +725,7 @@ export function GuiShell({
   initialSidebarMode: SidebarMode;
   initialSidebarTreeState: SidebarTreeState;
   initialSidebarWidth: number;
+  userId: string;
 }) {
   const [agentSidebarMode, setAgentSidebarMode] = useState<SidebarMode>(
     initialAgentSidebarMode,
@@ -2119,164 +2156,72 @@ export function GuiShell({
   ]);
 
   useEffect(() => {
-    const applyMutation = (mutation: SidebarMutation) => {
+    let cancelled = false;
+    const channels: ReturnType<typeof supabase.channel>[] = [];
+    const applyBroadcast = (payload: unknown) => {
+      const mutation = (payload as SidebarBroadcastPayload).payload;
+
+      if (!isSidebarMutation(mutation)) {
+        return;
+      }
+
       setSidebarData((current) => applySidebarMutation(current, mutation));
     };
 
-    const channel = supabase
-      .channel("gui-sidebar")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "project",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<ProjectRow>;
+    const subscribe = async () => {
+      try {
+        await supabase.realtime.setAuth();
 
-          if (change.eventType === "DELETE") {
-            if (typeof change.old.id !== "string") {
-              return;
-            }
-
-            applyMutation({
-              id: change.old.id,
-              type: "project:delete",
-            });
-            return;
-          }
-
-          applyMutation({
-            row: change.new as ProjectRow,
-            type: "project:upsert",
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "table",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<TableRow>;
-
-          if (change.eventType === "DELETE") {
-            if (typeof change.old.id !== "string") {
-              return;
-            }
-
-            applyMutation({
-              id: change.old.id,
-              type: "table:delete",
-            });
-            return;
-          }
-
-          applyMutation({
-            row: change.new as TableRow,
-            type: "table:upsert",
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "source",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<SourceRow>;
-
-          if (change.eventType === "DELETE") {
-            if (typeof change.old.id !== "string") {
-              return;
-            }
-
-            applyMutation({
-              id: change.old.id,
-              type: "source:delete",
-            });
-            return;
-          }
-
-          applyMutation({
-            row: change.new as SourceRow,
-            type: "source:upsert",
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "pipe",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<PipeRow>;
-
-          if (change.eventType === "DELETE") {
-            if (typeof change.old.id !== "string") {
-              return;
-            }
-
-            applyMutation({
-              id: change.old.id,
-              type: "pipe:delete",
-            });
-            return;
-          }
-
-          applyMutation({
-            row: change.new as PipeRow,
-            type: "pipe:upsert",
-          });
-        },
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "program",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<ProgramRow>;
-
-          if (change.eventType === "DELETE") {
-            if (typeof change.old.id !== "string") {
-              return;
-            }
-
-            applyMutation({
-              id: change.old.id,
-              type: "program:delete",
-            });
-            return;
-          }
-
-          applyMutation({
-            row: change.new as ProgramRow,
-            type: "program:upsert",
-          });
-        },
-      )
-      .subscribe((status, error) => {
-        if (status === "CHANNEL_ERROR" || error) {
-          console.error("GUI sidebar realtime channel failed");
-          console.log(status, error);
+        if (cancelled) {
+          return;
         }
-      });
+
+        for (const topic of [
+          guiSidebarUserTopic(userId),
+          GUI_SIDEBAR_FIRST_PARTY_PROGRAMS_TOPIC,
+        ]) {
+          const channel = supabase
+            .channel(topic, {
+              config: {
+                private: true,
+              },
+            })
+            .on(
+              "broadcast",
+              {
+                event: "sidebar_mutation",
+              },
+              applyBroadcast,
+            )
+            .subscribe((status, error) => {
+              if (status === "CHANNEL_ERROR" || error) {
+                console.error("GUI sidebar broadcast channel failed", {
+                  error,
+                  status,
+                  topic,
+                });
+              }
+            });
+
+          channels.push(channel);
+        }
+      } catch (error) {
+        console.error("GUI sidebar broadcast auth failed", error);
+      }
+    };
+
+    void subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+
+      for (const channel of channels) {
+        void supabase.removeChannel(channel);
+      }
     };
   }, [
     supabase,
+    userId,
   ]);
 
   useEffect(

@@ -49,6 +49,7 @@ export default async function GuiLayout({
       initialSidebarMode={initialSidebarMode}
       initialSidebarTreeState={initialSidebarTreeState}
       initialSidebarWidth={initialSidebarWidth}
+      userId={user.id}
     >
       {children}
     </GuiShell>
