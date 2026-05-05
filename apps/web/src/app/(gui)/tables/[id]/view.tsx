@@ -50,6 +50,7 @@ import {
 } from "react";
 import Editor from "react-simple-code-editor";
 import { callMarbleClient } from "@/lib/marble-client";
+import { useMarbleSdk } from "@/lib/marble-sdk-client";
 import { createClient as createBrowserClient } from "@/lib/supabase/browser";
 import {
   type ChangeTargetDescriptor,
@@ -85,11 +86,6 @@ type SecretBindingInput = {
   envName: string;
   secretId: string;
 };
-type RowBatchResult = {
-  cells: Cell[];
-  rows: Row[];
-};
-type TableRow = Database["public"]["Tables"]["table"]["Row"];
 type ColumnCreateResult = ColumnRow & {
   cells: Cell[];
   dependencies: DependencyRow[];
@@ -99,7 +95,41 @@ type RunExecutionResult = {
   runId: string;
   success: boolean;
 };
-
+type TableMutation =
+  | {
+      id: string;
+      type: "cell:delete";
+    }
+  | {
+      row: Cell;
+      type: "cell:upsert";
+    }
+  | {
+      id: string;
+      type: "column:delete";
+    }
+  | {
+      row: ColumnRow;
+      type: "column:upsert";
+    }
+  | {
+      id: string;
+      type: "row:delete";
+    }
+  | {
+      row: Row;
+      type: "row:upsert";
+    }
+  | {
+      id: string;
+      type: "table:delete";
+    }
+  | {
+      row: Partial<TableInfo> & {
+        id: string;
+      };
+      type: "table:upsert";
+    };
 type SidebarMode =
   | {
       kind: "closed";
@@ -135,48 +165,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function isRowBatchResult(value: unknown): value is RowBatchResult {
-  return (
-    isRecord(value) && Array.isArray(value.rows) && Array.isArray(value.cells)
-  );
-}
+const tableMutationTypes = {
+  "cell:delete": true,
+  "cell:upsert": true,
+  "column:delete": true,
+  "column:upsert": true,
+  "row:delete": true,
+  "row:upsert": true,
+  "table:delete": true,
+  "table:upsert": true,
+} satisfies Record<TableMutation["type"], true>;
 
-function updateTableName(id: string, name: string) {
-  return callMarbleClient<TableRow>(`/tables/${id}`, {
-    body: {
-      name: name.trim() || "Untitled Table",
-    },
-    method: "PATCH",
-  });
-}
-
-async function createRows(tableId: string, count = 1): Promise<RowBatchResult> {
-  const requestId = crypto.randomUUID();
-  const created = await callMarbleClient<Row | RowBatchResult>(
-    `/tables/${tableId}/rows`,
-    {
-      body: {
-        count,
-      },
-      method: "POST",
-      requestId,
-    },
-  );
-
-  if (isRowBatchResult(created)) {
-    return created;
+function isTableMutation(value: unknown): value is TableMutation {
+  if (
+    !isRecord(value) ||
+    typeof value.type !== "string" ||
+    !(value.type in tableMutationTypes)
+  ) {
+    return false;
   }
 
-  const cells = await callMarbleClient<Cell[]>(`/rows/${created.id}/cells`, {
-    requestId,
-  });
+  if (value.type.endsWith(":delete")) {
+    return typeof value.id === "string";
+  }
 
-  return {
-    cells,
-    rows: [
-      created,
-    ],
-  };
+  return isRecord(value.row);
 }
 
 function deleteColumn(columnId: string) {
@@ -404,27 +417,6 @@ function getProgramInputSchema(
   return schema as Record<string, unknown>;
 }
 
-function mergeRecordsById<
-  T extends {
-    id: string;
-  },
->(current: T[], incoming: T[]): T[] {
-  const merged = new Map(
-    current.map((record) => [
-      record.id,
-      record,
-    ]),
-  );
-
-  for (const record of incoming) {
-    merged.set(record.id, record);
-  }
-
-  return [
-    ...merged.values(),
-  ];
-}
-
 function isManualInputColumn(column: Column): boolean {
   const config = getProgramOutputConfig(column.program_version) as {
     flags?: {
@@ -592,28 +584,6 @@ function coerceFieldValue(
     default:
       return raw;
   }
-}
-
-function getTableIdFromChange(
-  payload: {
-    new: Record<string, unknown>;
-    old: Record<string, unknown>;
-  },
-  key = "table_id",
-) {
-  const nextValue = payload.new[key];
-
-  if (typeof nextValue === "string") {
-    return nextValue;
-  }
-
-  const previousValue = payload.old[key];
-
-  if (typeof previousValue === "string") {
-    return previousValue;
-  }
-
-  return null;
 }
 
 const COL_REF_PATTERN = /^\$\.columns\.([a-f0-9-]+)\./;
@@ -1402,6 +1372,9 @@ export default function TablePageView({
 
   const gridRef = useRef<AgGridReact>(null);
   const realtimeClient = useMemo(() => createBrowserClient(), []);
+  const sdk = useMarbleSdk({
+    profileId: table.project_owner_profile_id,
+  });
 
   const cellsRef = useRef(cells);
   cellsRef.current = cells;
@@ -1609,15 +1582,16 @@ export default function TablePageView({
   // ── Realtime ──────────────────────────────────────────
 
   useEffect(() => {
-    if (!selectedTableId || columns.length === 0) return;
+    if (!selectedTableId) return;
 
-    const columnIds = new Set(columns.map((column) => column.id));
     const pendingUpdates = new Map<string, Cell>();
     const pendingInserts = new Map<string, Cell>();
     const pendingDeletes = new Set<string>();
     let flushTimeout: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+    let channel: ReturnType<typeof realtimeClient.channel> | null = null;
 
-    const flush = () => {
+    const flushCells = () => {
       if (
         pendingInserts.size === 0 &&
         pendingUpdates.size === 0 &&
@@ -1676,199 +1650,123 @@ export default function TablePageView({
       });
     };
 
-    const channel = realtimeClient
-      .channel(`cells:${selectedTableId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "cell",
-        },
-        (payload) => {
-          if (payload.eventType === "UPDATE") {
-            const updated = payload.new as Cell;
+    const queueCellMutation = (mutation: TableMutation) => {
+      if (mutation.type === "cell:delete") {
+        pendingDeletes.add(mutation.id);
+      }
 
-            if (!columnIds.has(updated.column_id)) {
-              return;
-            }
+      if (mutation.type === "cell:upsert") {
+        const existing = cellsRef.current.some(
+          (cell) => cell.id === mutation.row.id,
+        );
 
-            pendingUpdates.set(updated.id, updated);
-          } else if (payload.eventType === "INSERT") {
-            const inserted = payload.new as Cell;
+        if (existing) {
+          pendingUpdates.set(mutation.row.id, mutation.row);
+        } else {
+          pendingInserts.set(mutation.row.id, mutation.row);
+        }
+      }
 
-            if (!columnIds.has(inserted.column_id)) {
-              return;
-            }
+      if (flushTimeout) {
+        return;
+      }
 
-            pendingInserts.set(inserted.id, inserted);
-          } else if (payload.eventType === "DELETE") {
-            const deleted = payload.old as {
-              id: string;
-            };
-
-            pendingDeletes.add(deleted.id);
-          }
-
-          if (flushTimeout) {
-            return;
-          }
-
-          flushTimeout = setTimeout(() => {
-            flushTimeout = null;
-            flush();
-          }, 100);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      if (flushTimeout) clearTimeout(flushTimeout);
-      realtimeClient.removeChannel(channel);
+      flushTimeout = setTimeout(() => {
+        flushTimeout = null;
+        flushCells();
+      }, 100);
     };
-  }, [
-    columns,
-    realtimeClient,
-    selectedTableId,
-  ]);
 
-  useEffect(() => {
-    if (!selectedTableId) return;
+    const applyMutation = (mutation: TableMutation) => {
+      if (mutation.type.startsWith("cell:")) {
+        queueCellMutation(mutation);
+        return;
+      }
 
-    const channel = realtimeClient
-      .channel(`table:${selectedTableId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "table",
-        },
-        (payload) => {
-          if (getTableIdFromChange(payload, "id") !== selectedTableId) {
-            return;
-          }
-
-          startTransition(() => {
-            if (payload.eventType === "DELETE") {
-              router.push(`/projects/${tableRef.current.project_id}`);
-              return;
-            }
-
-            mergeTable(payload.new as Partial<TableInfo>);
-          });
-        },
-      )
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR") {
-          console.error("Table realtime channel failed", {
-            selectedTableId,
-          });
+      startTransition(() => {
+        switch (mutation.type) {
+          case "column:delete":
+            removeLocalColumn(mutation.id);
+            break;
+          case "column:upsert":
+            upsertLocalColumn(hydrateColumnRow(mutation.row, programs));
+            break;
+          case "row:delete":
+            removeLocalRow(mutation.id);
+            break;
+          case "row:upsert":
+            upsertLocalRow(mutation.row);
+            break;
+          case "table:delete":
+            router.push(`/projects/${tableRef.current.project_id}`);
+            break;
+          case "table:upsert":
+            mergeTable(mutation.row);
+            break;
         }
       });
+    };
+
+    const subscribe = async () => {
+      try {
+        await realtimeClient.realtime.setAuth();
+
+        if (cancelled) {
+          return;
+        }
+
+        channel = realtimeClient
+          .channel(`table:${selectedTableId}`, {
+            config: {
+              private: true,
+            },
+          })
+          .on(
+            "broadcast",
+            {
+              event: "table_mutation",
+            },
+            (payload) => {
+              const mutation = payload.payload;
+
+              if (!isTableMutation(mutation)) {
+                return;
+              }
+
+              applyMutation(mutation);
+            },
+          )
+          .subscribe((status, error) => {
+            if (status === "CHANNEL_ERROR" || error) {
+              console.error("Table broadcast channel failed", {
+                error,
+                selectedTableId,
+                status,
+              });
+            }
+          });
+      } catch (error) {
+        console.error("Table broadcast auth failed", error);
+      }
+    };
+
+    void subscribe();
 
     return () => {
-      realtimeClient.removeChannel(channel);
+      cancelled = true;
+      if (flushTimeout) clearTimeout(flushTimeout);
+      if (channel) void realtimeClient.removeChannel(channel);
     };
   }, [
     mergeTable,
+    programs,
+    removeLocalColumn,
+    removeLocalRow,
     realtimeClient,
     router,
     selectedTableId,
-  ]);
-
-  useEffect(() => {
-    if (!selectedTableId) return;
-
-    const channel = realtimeClient
-      .channel(`rows:${selectedTableId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "row",
-        },
-        (payload) => {
-          if (getTableIdFromChange(payload) !== selectedTableId) {
-            return;
-          }
-
-          startTransition(() => {
-            if (
-              payload.eventType === "INSERT" ||
-              payload.eventType === "UPDATE"
-            ) {
-              upsertLocalRow(payload.new as Row);
-            } else if (payload.eventType === "DELETE") {
-              removeLocalRow((payload.old as Row).id);
-            }
-          });
-        },
-      )
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR") {
-          console.error("Row realtime channel failed", {
-            selectedTableId,
-          });
-        }
-      });
-
-    return () => {
-      realtimeClient.removeChannel(channel);
-    };
-  }, [
-    realtimeClient,
-    removeLocalRow,
-    selectedTableId,
-    upsertLocalRow,
-  ]);
-
-  useEffect(() => {
-    if (!selectedTableId) return;
-
-    const channel = realtimeClient
-      .channel(`columns:${selectedTableId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "column",
-        },
-        (payload) => {
-          if (getTableIdFromChange(payload) !== selectedTableId) {
-            return;
-          }
-
-          startTransition(() => {
-            if (
-              payload.eventType === "INSERT" ||
-              payload.eventType === "UPDATE"
-            ) {
-              upsertLocalColumn(payload.new as Column);
-            } else if (payload.eventType === "DELETE") {
-              removeLocalColumn((payload.old as Column).id);
-            }
-          });
-        },
-      )
-      .subscribe((status) => {
-        if (status === "CHANNEL_ERROR") {
-          console.error("Column realtime channel failed", {
-            selectedTableId,
-          });
-        }
-      });
-
-    return () => {
-      realtimeClient.removeChannel(channel);
-    };
-  }, [
-    removeLocalColumn,
-    realtimeClient,
-    selectedTableId,
     upsertLocalColumn,
+    upsertLocalRow,
   ]);
 
   // ── AG Grid config ────────────────────────────────────
@@ -2073,32 +1971,22 @@ export default function TablePageView({
 
   const handleAddRows = useCallback(async () => {
     if (!selectedTableId) return;
-    const { rows: newRows, cells: newCells } = await createRows(
-      selectedTableId,
-      rowCount,
-    );
-    setRows((prev) => {
-      const next = mergeRecordsById(prev, newRows as Row[]).sort(
-        (a, b) => a.idx - b.idx,
-      );
-      rowsRef.current = next;
-      return next;
-    });
-    setCells((prev) => {
-      const next = mergeRecordsById(prev, newCells as Cell[]);
-      cellsRef.current = next;
-      return next;
+    const nextIdx = Math.max(-1, ...rowsRef.current.map((row) => row.idx)) + 1;
+
+    await sdk.tables.insertRows({
+      id: selectedTableId,
+      idx: nextIdx,
+      quantity: rowCount,
     });
   }, [
     selectedTableId,
     rowCount,
+    sdk,
   ]);
 
   const handleDeleteColumn = useCallback(
     async (columnId: string) => {
       await deleteColumn(columnId);
-      setColumns((prev) => prev.filter((c) => c.id !== columnId));
-      setCells((prev) => prev.filter((c) => c.column_id !== columnId));
       setColumnSecretBindings((current) => {
         const nextBindings = {
           ...current,
@@ -2116,8 +2004,6 @@ export default function TablePageView({
 
   const handleDeleteRow = useCallback(async (rowId: string) => {
     await deleteRow(rowId);
-    setRows((prev) => prev.filter((r) => r.id !== rowId));
-    setCells((prev) => prev.filter((c) => c.row_id !== rowId));
   }, []);
 
   const handleCreateColumn = useCallback(
@@ -2128,29 +2014,15 @@ export default function TablePageView({
       run_condition: boolean;
     }) => {
       if (!selectedTableId) return;
-      const { cells: newCells, ...column } = await createColumn({
+      await createColumn({
         table_id: selectedTableId,
         ...input,
-      });
-      const hydratedColumn = hydrateColumnRow(column, programs);
-      setColumns((prev) => {
-        const next = mergeRecordsById(prev, [
-          hydratedColumn,
-        ]).sort((a, b) => a.idx - b.idx);
-        columnsRef.current = next;
-        return next;
-      });
-      setCells((prev) => {
-        const next = mergeRecordsById(prev, newCells as Cell[]);
-        cellsRef.current = next;
-        return next;
       });
       await refreshReferenceColumns();
     },
     [
       refreshReferenceColumns,
       selectedTableId,
-      programs,
     ],
   );
 
@@ -2163,7 +2035,7 @@ export default function TablePageView({
       run_condition?: boolean;
       secretBindings?: SecretBindingInput[];
     }) => {
-      const updated = hydrateColumnRow(await updateColumn(input), programs);
+      await updateColumn(input);
 
       if (input.secretBindings) {
         const savedBindings = await updateColumnSecretBindings(
@@ -2177,14 +2049,10 @@ export default function TablePageView({
         }));
       }
 
-      setColumns((prev) =>
-        prev.map((c) => (c.id === updated.id ? updated : c)),
-      );
       await refreshReferenceColumns();
     },
     [
       refreshReferenceColumns,
-      programs,
     ],
   );
 
@@ -2354,12 +2222,23 @@ export default function TablePageView({
     });
 
     try {
-      const updated = await updateTableName(previousTable.id, nextName);
+      const updated = await sdk.tables.update({
+        id: previousTable.id,
+        values: {
+          name: nextName,
+        },
+      });
       if (renameRequestRef.current !== requestId) {
         return;
       }
 
-      mergeTable(updated);
+      mergeTable({
+        created_at: updated.createdAt,
+        id: updated.id,
+        name: updated.name,
+        project_id: updated.projectId,
+        updated_at: updated.updatedAt,
+      });
       setNameDraft(updated.name);
     } catch (error) {
       if (renameRequestRef.current !== requestId) {
@@ -2377,6 +2256,7 @@ export default function TablePageView({
   }, [
     mergeTable,
     nameDraft,
+    sdk,
   ]);
 
   const startEditingName = useCallback((surface: "crumb" | "title") => {

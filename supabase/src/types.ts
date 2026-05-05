@@ -951,7 +951,19 @@ export type Database = {
         };
         Returns: boolean;
       };
+      current_user_can_receive_gui_sidebar_broadcast: {
+        Args: {
+          p_topic: string;
+        };
+        Returns: boolean;
+      };
       current_user_can_receive_source_event_broadcast: {
+        Args: {
+          p_topic: string;
+        };
+        Returns: boolean;
+      };
+      current_user_can_receive_table_broadcast: {
         Args: {
           p_topic: string;
         };

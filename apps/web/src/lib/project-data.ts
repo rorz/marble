@@ -13,6 +13,7 @@ type ProgramVersionRow = Database["public"]["Tables"]["program_version"]["Row"];
 type TableInfo = TableRow & {
   project_folder_path: string[];
   project_name: string;
+  project_owner_profile_id: string;
 };
 
 type ProjectSummary = ProjectRow & {
@@ -75,6 +76,7 @@ function decorateTables(projects: ProjectRow[], tables: TableRow[]) {
         ...table,
         project_folder_path: project.folder_path,
         project_name: project.name,
+        project_owner_profile_id: project.owner_profile_id,
       } satisfies TableInfo,
     ];
   });
