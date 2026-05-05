@@ -816,6 +816,36 @@ $$;
 ALTER FUNCTION "public"."current_user_can_receive_table_broadcast"("p_topic" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."current_user_can_receive_project_broadcast"("p_topic" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  SELECT CASE
+    WHEN p_topic ~ '^project:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN public.current_user_owns_project(split_part(p_topic, ':', 2)::UUID)
+    ELSE FALSE
+  END;
+$$;
+
+
+ALTER FUNCTION "public"."current_user_can_receive_project_broadcast"("p_topic" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_user_can_receive_event_broadcast"("p_topic" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  SELECT CASE
+    WHEN p_topic ~ '^events:user:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      THEN split_part(p_topic, ':', 3)::UUID = auth.uid()
+    ELSE FALSE
+  END;
+$$;
+
+
+ALTER FUNCTION "public"."current_user_can_receive_event_broadcast"("p_topic" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
@@ -923,7 +953,7 @@ CREATE OR REPLACE FUNCTION "public"."broadcast_gui_sidebar_changes"() RETURNS "t
     AS $$
 DECLARE
   mutation_id UUID := COALESCE(NEW.id, OLD.id);
-  mutation_row JSONB := CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE to_jsonb(NEW) END;
+  mutation_row JSONB := CASE WHEN TG_OP = 'DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;
   mutation_type TEXT := TG_TABLE_NAME || CASE WHEN TG_OP = 'DELETE' THEN ':delete' ELSE ':upsert' END;
   topic TEXT;
 BEGIN
@@ -990,6 +1020,7 @@ BEGIN
   IF topic IS NOT NULL THEN
     PERFORM realtime.send(
       jsonb_strip_nulls(jsonb_build_object(
+        'event', TG_OP,
         'id', mutation_id,
         'row', mutation_row,
         'type', mutation_type
@@ -1018,7 +1049,7 @@ CREATE OR REPLACE FUNCTION "public"."broadcast_table_changes"() RETURNS "trigger
     AS $$
 DECLARE
   mutation_id UUID := COALESCE(NEW.id, OLD.id);
-  mutation_row JSONB := CASE WHEN TG_OP = 'DELETE' THEN NULL ELSE to_jsonb(NEW) END;
+  mutation_row JSONB := CASE WHEN TG_OP = 'DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;
   mutation_type TEXT := TG_TABLE_NAME || CASE WHEN TG_OP = 'DELETE' THEN ':delete' ELSE ':upsert' END;
   topic TEXT;
 BEGIN
@@ -1055,6 +1086,7 @@ BEGIN
   IF topic IS NOT NULL THEN
     PERFORM realtime.send(
       jsonb_strip_nulls(jsonb_build_object(
+        'event', TG_OP,
         'id', mutation_id,
         'row', mutation_row,
         'type', mutation_type
@@ -1075,6 +1107,113 @@ $$;
 
 
 ALTER FUNCTION "public"."broadcast_table_changes"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."broadcast_project_changes"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+DECLARE
+  mutation_id UUID := COALESCE(NEW.id, OLD.id);
+  mutation_row JSONB := CASE WHEN TG_OP = 'DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;
+  mutation_type TEXT := TG_TABLE_NAME || CASE WHEN TG_OP = 'DELETE' THEN ':delete' ELSE ':upsert' END;
+  topic TEXT;
+BEGIN
+  CASE TG_TABLE_NAME
+    WHEN 'project' THEN
+      topic := 'project:' || COALESCE(NEW.id, OLD.id)::TEXT;
+    WHEN 'table' THEN
+      topic := 'project:' || COALESCE(NEW.project_id, OLD.project_id)::TEXT;
+    WHEN 'source' THEN
+      topic := 'project:' || COALESCE(NEW.project_id, OLD.project_id)::TEXT;
+    WHEN 'pipe' THEN
+      SELECT 'project:' || owner_topic.project_id::TEXT
+      INTO topic
+      FROM (
+        SELECT source.project_id
+        FROM public."source" AS source
+        WHERE source.id = COALESCE(NEW.source_id, OLD.source_id)
+
+        UNION
+
+        SELECT target_table.project_id
+        FROM public."table" AS target_table
+        WHERE target_table.id = COALESCE(NEW.table_id, OLD.table_id)
+      ) AS owner_topic
+      LIMIT 1;
+    ELSE
+      IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+      END IF;
+
+      RETURN NEW;
+  END CASE;
+
+  IF topic IS NOT NULL THEN
+    PERFORM realtime.send(
+      jsonb_strip_nulls(jsonb_build_object(
+        'event', TG_OP,
+        'id', mutation_id,
+        'row', mutation_row,
+        'type', mutation_type
+      )),
+      'project_mutation',
+      topic,
+      TRUE
+    );
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."broadcast_project_changes"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."broadcast_event_changes"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+DECLARE
+  mutation_id UUID := COALESCE(NEW.id, OLD.id);
+  mutation_row JSONB := CASE WHEN TG_OP = 'DELETE' THEN to_jsonb(OLD) ELSE to_jsonb(NEW) END;
+  mutation_type TEXT := 'event' || CASE WHEN TG_OP = 'DELETE' THEN ':delete' ELSE ':upsert' END;
+  topic TEXT;
+BEGIN
+  SELECT 'events:user:' || profile.owner_user_id::TEXT
+  INTO topic
+  FROM public."profile" AS profile
+  WHERE profile.id = COALESCE(NEW.actor_profile_id, OLD.actor_profile_id);
+
+  IF topic IS NOT NULL THEN
+    PERFORM realtime.send(
+      jsonb_strip_nulls(jsonb_build_object(
+        'event', TG_OP,
+        'id', mutation_id,
+        'row', mutation_row,
+        'type', mutation_type
+      )),
+      'event_mutation',
+      topic,
+      TRUE
+    );
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION "public"."broadcast_event_changes"() OWNER TO "postgres";
 
 
 ALTER TABLE ONLY "public"."cell"
@@ -1296,10 +1435,16 @@ CREATE OR REPLACE TRIGGER "broadcast_tag_changes" AFTER INSERT OR DELETE OR UPDA
 CREATE OR REPLACE TRIGGER "broadcast_source_event_changes" AFTER INSERT ON "public"."source_event" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_source_event_changes"();
 
 
+CREATE OR REPLACE TRIGGER "zz_broadcast_event_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."event" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_event_changes"();
+
+
 CREATE OR REPLACE TRIGGER "zz_broadcast_table_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."cell" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_table_changes"();
 
 
 CREATE OR REPLACE TRIGGER "zz_broadcast_gui_sidebar_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."pipe" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_gui_sidebar_changes"();
+
+
+CREATE OR REPLACE TRIGGER "zz_broadcast_project_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."pipe" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_project_changes"();
 
 
 CREATE OR REPLACE TRIGGER "zz_broadcast_gui_sidebar_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."program" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_gui_sidebar_changes"();
@@ -1308,13 +1453,22 @@ CREATE OR REPLACE TRIGGER "zz_broadcast_gui_sidebar_changes" BEFORE INSERT OR DE
 CREATE OR REPLACE TRIGGER "zz_broadcast_gui_sidebar_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."project" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_gui_sidebar_changes"();
 
 
+CREATE OR REPLACE TRIGGER "zz_broadcast_project_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."project" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_project_changes"();
+
+
 CREATE OR REPLACE TRIGGER "zz_broadcast_gui_sidebar_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."source" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_gui_sidebar_changes"();
+
+
+CREATE OR REPLACE TRIGGER "zz_broadcast_project_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."source" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_project_changes"();
 
 
 CREATE OR REPLACE TRIGGER "zz_broadcast_gui_sidebar_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."table" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_gui_sidebar_changes"();
 
 
 CREATE OR REPLACE TRIGGER "zz_broadcast_table_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."table" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_table_changes"();
+
+
+CREATE OR REPLACE TRIGGER "zz_broadcast_project_changes" BEFORE INSERT OR DELETE OR UPDATE ON "public"."table" FOR EACH ROW EXECUTE FUNCTION "public"."broadcast_project_changes"();
 
 
 
@@ -1679,6 +1833,12 @@ CREATE POLICY "Users can receive GUI sidebar broadcasts" ON "realtime"."messages
 
 
 CREATE POLICY "Users can receive table broadcasts" ON "realtime"."messages" FOR SELECT TO "authenticated" USING ((("extension" = 'broadcast'::"text") AND "public"."current_user_can_receive_table_broadcast"(( SELECT "realtime"."topic"() AS "topic"))));
+
+
+CREATE POLICY "Users can receive project broadcasts" ON "realtime"."messages" FOR SELECT TO "authenticated" USING ((("extension" = 'broadcast'::"text") AND "public"."current_user_can_receive_project_broadcast"(( SELECT "realtime"."topic"() AS "topic"))));
+
+
+CREATE POLICY "Users can receive event broadcasts" ON "realtime"."messages" FOR SELECT TO "authenticated" USING ((("extension" = 'broadcast'::"text") AND "public"."current_user_can_receive_event_broadcast"(( SELECT "realtime"."topic"() AS "topic"))));
 
 
 
@@ -2063,6 +2223,16 @@ GRANT ALL ON FUNCTION "public"."broadcast_table_changes"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."broadcast_table_changes"() TO "service_role";
 
 
+REVOKE ALL ON FUNCTION "public"."broadcast_project_changes"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."broadcast_project_changes"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."broadcast_project_changes"() TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."broadcast_event_changes"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."broadcast_event_changes"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."broadcast_event_changes"() TO "service_role";
+
+
 REVOKE ALL ON FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") TO "service_role";
@@ -2076,6 +2246,16 @@ GRANT ALL ON FUNCTION "public"."current_user_can_receive_gui_sidebar_broadcast"(
 REVOKE ALL ON FUNCTION "public"."current_user_can_receive_table_broadcast"("p_topic" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."current_user_can_receive_table_broadcast"("p_topic" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_user_can_receive_table_broadcast"("p_topic" "text") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_can_receive_project_broadcast"("p_topic" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_can_receive_project_broadcast"("p_topic" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_can_receive_project_broadcast"("p_topic" "text") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_can_receive_event_broadcast"("p_topic" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_can_receive_event_broadcast"("p_topic" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_can_receive_event_broadcast"("p_topic" "text") TO "service_role";
 
 
 REVOKE ALL ON FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) FROM PUBLIC;

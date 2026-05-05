@@ -11,35 +11,22 @@ import {
   MarbleListRow,
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { callMarbleClient } from "../../../lib/marble-client";
+import { useState } from "react";
+import { useMarbleSdkFactory } from "../../../lib/marble-sdk-client";
+import { usePrivateBroadcast } from "../../../lib/realtime/private-broadcast";
 import {
   compareByUpdatedAtDesc,
   getErrorMessage,
-  type RealtimePayload,
   removeRow,
   sortRows,
   upsertRow,
 } from "../../../lib/realtime-crud";
-import { createClient } from "../../../lib/supabase/browser";
+import { isSidebarMutation } from "../../../lib/sidebar-sync";
 
 type ProjectRecord = Database["public"]["Tables"]["project"]["Row"];
-type ProjectSummary = Awaited<
-  ReturnType<typeof import("./actions").listProjects>
->[number];
-type TableRecord = Database["public"]["Tables"]["table"]["Row"];
-
-function createProject() {
-  return callMarbleClient<ProjectRecord>("/projects", {
-    method: "POST",
-  });
-}
-
-function deleteProject(projectId: string) {
-  return callMarbleClient(`/projects/${projectId}`, {
-    method: "DELETE",
-  });
-}
+type ProjectSummary = ProjectRecord & {
+  table_count: number;
+};
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -73,42 +60,39 @@ function updateTableCount(
 export function ProjectsPageView({
   initialProjects,
   ownerProfileIds,
+  userId,
 }: {
   initialProjects: ProjectSummary[];
   ownerProfileIds: string[];
+  userId: string;
 }) {
   const router = useRouter();
+  const getSdk = useMarbleSdkFactory();
   const [projects, setProjects] = useState(() => sortProjects(initialProjects));
   const [createPending, setCreatePending] = useState(false);
   const [deletingId, setDeletingId] = useState<null | string>(null);
   const [error, setError] = useState<null | string>(null);
 
-  useEffect(() => {
-    const accessibleOwnerProfileIds = new Set(ownerProfileIds);
-    const supabase = createClient();
-    const projectChannel = supabase
-      .channel("projects:list")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "project",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<ProjectRecord>;
+  const accessibleOwnerProfileIds = new Set(ownerProfileIds);
 
-          setProjects((current) => {
-            if (change.eventType === "DELETE") {
-              return typeof change.old.id === "string"
-                ? removeRow(current, change.old.id)
-                : current;
-            }
+  usePrivateBroadcast({
+    event: "sidebar_mutation",
+    label: "Projects",
+    onMessage: (mutation) => {
+      if (!isSidebarMutation(mutation)) {
+        return;
+      }
 
-            const next = change.new as ProjectRecord;
+      setProjects((current) => {
+        switch (mutation.type) {
+          case "project:delete":
+            return removeRow(current, mutation.id);
+
+          case "project:upsert": {
+            const next = mutation.row;
 
             if (!accessibleOwnerProfileIds.has(next.owner_profile_id)) {
-              return current;
+              return removeRow(current, next.id);
             }
 
             const existing = current.find((project) => project.id === next.id);
@@ -117,74 +101,40 @@ export function ProjectsPageView({
               ...next,
               table_count: existing?.table_count ?? 0,
             });
-          });
-        },
-      )
-      .subscribe();
+          }
 
-    const tableChannel = supabase
-      .channel("projects:list:tables")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "table",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<TableRecord>;
+          case "table:delete":
+            return mutation.row
+              ? updateTableCount(current, mutation.row.project_id, -1)
+              : current;
 
-          setProjects((current) => {
-            if (
-              change.eventType === "INSERT" &&
-              typeof change.new.project_id === "string"
-            ) {
-              return updateTableCount(current, change.new.project_id, 1);
-            }
+          case "table:upsert":
+            return mutation.event === "INSERT"
+              ? updateTableCount(current, mutation.row.project_id, 1)
+              : current;
 
-            if (
-              change.eventType === "DELETE" &&
-              typeof change.old.project_id === "string"
-            ) {
-              return updateTableCount(current, change.old.project_id, -1);
-            }
-
-            if (
-              change.eventType === "UPDATE" &&
-              typeof change.new.project_id === "string" &&
-              typeof change.old.project_id === "string" &&
-              change.new.project_id !== change.old.project_id
-            ) {
-              return updateTableCount(
-                updateTableCount(current, change.old.project_id, -1),
-                change.new.project_id,
-                1,
-              );
-            }
-
+          default:
             return current;
-          });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(projectChannel);
-      void supabase.removeChannel(tableChannel);
-    };
-  }, [
-    ownerProfileIds,
-  ]);
+        }
+      });
+    },
+    topic: `gui-sidebar:user:${userId}`,
+  });
 
   const handleCreate = async (_formData: FormData) => {
     setCreatePending(true);
     setError(null);
 
     try {
-      const project = await createProject();
+      const project = await getSdk().projects.create({});
       const committedProject = {
-        ...project,
+        created_at: project.createdAt,
+        folder_path: project.folderPath,
+        id: project.id,
+        name: project.name,
+        owner_profile_id: project.ownerProfileId,
         table_count: 0,
+        updated_at: project.updatedAt,
       };
 
       setProjects((current) => upsertProject(current, committedProject));
@@ -209,7 +159,11 @@ export function ProjectsPageView({
     setError(null);
 
     try {
-      await deleteProject(project.id);
+      await getSdk({
+        profileId: project.owner_profile_id,
+      }).projects.delete({
+        projectId: project.id,
+      });
       setProjects((current) => removeRow(current, project.id));
     } catch (caughtError) {
       setError(getErrorMessage(caughtError));

@@ -16,7 +16,8 @@ import {
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/browser";
+import { isEventMutation } from "@/lib/realtime/event-mutations";
+import { usePrivateBroadcast } from "@/lib/realtime/private-broadcast";
 
 type EventRow = Database["public"]["Tables"]["event"]["Row"];
 type ProfileRow = Pick<
@@ -26,11 +27,6 @@ type ProfileRow = Pick<
 type EventOperation = EventRow["operation"];
 type EventSource = EventRow["source"];
 type MarbleBadgeTone = NonNullable<MarbleBadgeProps["tone"]>;
-type RealtimePayload<Row> = {
-  eventType: "DELETE" | "INSERT" | "UPDATE";
-  new: Partial<Row>;
-  old: Partial<Row>;
-};
 type EventDiffEntry = {
   key: string;
   path: string[];
@@ -320,13 +316,14 @@ export function EventFeedBoard({
   initialEvents,
   limit,
   profiles,
+  userId,
 }: {
   initialEvents: EventRow[];
   limit: number;
   profiles: ProfileRow[];
+  userId: string;
 }) {
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
   const [events, setEvents] = useState(initialEvents);
   const [selectedEventId, setSelectedEventId] = useState<null | string>(
     initialEvents[0]?.id ?? null,
@@ -345,12 +342,6 @@ export function EventFeedBoard({
   );
   const ownedProfileIdSet = useMemo(
     () => new Set(ownedProfileIds),
-    [
-      ownedProfileIds,
-    ],
-  );
-  const ownedProfileIdsKey = useMemo(
-    () => ownedProfileIds.join(","),
     [
       ownedProfileIds,
     ],
@@ -388,113 +379,88 @@ export function EventFeedBoard({
     selectedEventId,
   ]);
 
-  useEffect(() => {
-    if (ownedProfileIds.length === 0) {
-      return;
+  const markEntering = (eventId: string) => {
+    startTransition(() => {
+      setEnteringIds((current) =>
+        current.includes(eventId)
+          ? current
+          : [
+              eventId,
+              ...current,
+            ],
+      );
+    });
+
+    const existingTimeout = entryTimeouts.current.get(eventId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
     }
 
-    const markEntering = (eventId: string) => {
+    const timeout = setTimeout(() => {
+      entryTimeouts.current.delete(eventId);
       startTransition(() => {
         setEnteringIds((current) =>
-          current.includes(eventId)
-            ? current
-            : [
-                eventId,
-                ...current,
-              ],
+          current.filter((value) => value !== eventId),
         );
       });
+    }, 320);
 
-      const existingTimeout = entryTimeouts.current.get(eventId);
-      if (existingTimeout) {
-        clearTimeout(existingTimeout);
-      }
+    entryTimeouts.current.set(eventId, timeout);
+  };
 
-      const timeout = setTimeout(() => {
-        entryTimeouts.current.delete(eventId);
-        startTransition(() => {
-          setEnteringIds((current) =>
-            current.filter((value) => value !== eventId),
-          );
-        });
-      }, 320);
-
-      entryTimeouts.current.set(eventId, timeout);
-    };
-
-    const handleRealtimePayload = (payload: RealtimePayload<EventRow>) => {
-      const candidate =
-        payload.eventType === "DELETE" ? payload.old : payload.new;
-      const eventId = candidate.id;
-      const actorProfileId = candidate.actor_profile_id;
-
-      if (typeof eventId !== "string") {
+  usePrivateBroadcast({
+    enabled: ownedProfileIds.length > 0,
+    event: "event_mutation",
+    label: "Event feed",
+    onError: () => setRealtimeStatus("error"),
+    onMessage: (mutation) => {
+      if (!isEventMutation(mutation)) {
         return;
       }
 
+      const candidate = mutation.row;
+      const eventId =
+        mutation.type === "event:delete" ? mutation.id : mutation.row.id;
+      const actorProfileId = candidate?.actor_profile_id;
+
       if (
-        payload.eventType !== "DELETE" &&
-        (typeof actorProfileId !== "string" ||
-          !ownedProfileIdSet.has(actorProfileId))
+        typeof eventId !== "string" ||
+        (mutation.type !== "event:delete" &&
+          (typeof actorProfileId !== "string" ||
+            !ownedProfileIdSet.has(actorProfileId)))
       ) {
         return;
       }
 
       startTransition(() => {
-        setEvents((current) => {
-          if (payload.eventType === "DELETE") {
-            return current.filter((event) => event.id !== eventId);
-          }
-
-          return upsertEvent(current, payload.new as EventRow, limit);
-        });
+        setEvents((current) =>
+          mutation.type === "event:delete"
+            ? current.filter((event) => event.id !== eventId)
+            : upsertEvent(current, mutation.row, limit),
+        );
       });
 
-      if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+      if (mutation.type === "event:upsert") {
         markEntering(eventId);
       }
-    };
+    },
+    onStatus: (status) => {
+      if (status === "SUBSCRIBED") {
+        setRealtimeStatus("live");
+      }
+    },
+    topic: `events:user:${userId}`,
+  });
 
-    const channel = supabase
-      .channel(`events:owned-feed:${ownedProfileIdsKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "event",
-        },
-        (payload) => {
-          handleRealtimePayload(
-            payload as unknown as RealtimePayload<EventRow>,
-          );
-        },
-      )
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          setRealtimeStatus("live");
-          return;
-        }
-
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          setRealtimeStatus("error");
-        }
-      });
-
-    return () => {
+  useEffect(
+    () => () => {
       for (const timeout of entryTimeouts.current.values()) {
         clearTimeout(timeout);
       }
       entryTimeouts.current.clear();
-      void supabase.removeChannel(channel);
-    };
-  }, [
-    limit,
-    ownedProfileIds.length,
-    ownedProfileIdsKey,
-    ownedProfileIdSet,
-    supabase,
-  ]);
+    },
+    [],
+  );
 
   const selectedEvent = events.find((event) => event.id === selectedEventId);
   const selectedEventDiffEntries = selectedEvent

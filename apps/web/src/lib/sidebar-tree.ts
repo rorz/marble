@@ -46,6 +46,7 @@ export type SidebarTreeData = {
   profiles: SidebarProfileRecord[];
   programs: SidebarTreeNode[];
   projects: SidebarTreeNode[];
+  userId: string;
 };
 
 const PROJECT_RESOURCE_ORDER: Record<

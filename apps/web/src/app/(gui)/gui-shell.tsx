@@ -69,17 +69,17 @@ import {
 import { callMarbleClient } from "../../lib/marble-client";
 import { useMarbleSdkFactory } from "../../lib/marble-sdk-client";
 import { createDefaultProgram } from "../../lib/program-client";
+import { usePrivateBroadcast } from "../../lib/realtime/private-broadcast";
 import { getErrorMessage } from "../../lib/realtime-crud";
 import {
   applySidebarMutation,
-  type SidebarMutation,
+  isSidebarMutation,
 } from "../../lib/sidebar-sync";
 import {
   collectActiveSidebarKeys,
   type SidebarTreeData,
   type SidebarTreeNode,
 } from "../../lib/sidebar-tree";
-import { createClient } from "../../lib/supabase/browser";
 import { useSignOut } from "../sign-out-button";
 import { ChangeRadar } from "./change-radar";
 import {
@@ -202,9 +202,6 @@ const utilityRoutes: {
 ];
 
 type ProfileRow = Database["public"]["Tables"]["profile"]["Row"];
-type SidebarBroadcastPayload = {
-  payload: unknown;
-};
 type CommandPaletteItem = {
   detail: string;
   icon: ReactNode;
@@ -224,44 +221,12 @@ type CommandPalettePage =
   | "create-table-project";
 type SupportSheetView = "contact" | "handbook";
 
-const sidebarBroadcastMutationTypes = {
-  "pipe:delete": true,
-  "pipe:upsert": true,
-  "program:delete": true,
-  "program:upsert": true,
-  "project:delete": true,
-  "project:upsert": true,
-  "source:delete": true,
-  "source:upsert": true,
-  "table:delete": true,
-  "table:upsert": true,
-} satisfies Record<SidebarMutation["type"], true>;
-
 const GUI_SIDEBAR_FIRST_PARTY_PROGRAMS_TOPIC =
   "gui-sidebar:first-party-programs";
 
 const guiSidebarUserTopic = (userId: string) => `gui-sidebar:user:${userId}`;
 
 const supportSheetWidthClassName = "w-[min(32rem,calc(100vw-1rem))]";
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-function isSidebarMutation(value: unknown): value is SidebarMutation {
-  if (
-    !isRecord(value) ||
-    typeof value.type !== "string" ||
-    !(value.type in sidebarBroadcastMutationTypes)
-  ) {
-    return false;
-  }
-
-  if (value.type.endsWith(":delete")) {
-    return typeof value.id === "string";
-  }
-
-  return isRecord(value.row);
-}
 
 function getProjectIdFromPathname(pathname: string) {
   const segments = pathname.split("/");
@@ -749,7 +714,6 @@ export function GuiShell({
   const [isAgentSidebarResizing, setIsAgentSidebarResizing] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
-  const [supabase] = useState(() => createClient());
   const sidebar = sidebarModes[sidebarMode];
   const ToggleIcon = sidebar.toggleIcon;
   const router = useRouter();
@@ -2155,74 +2119,26 @@ export function GuiShell({
     commandPaletteSupportSheet,
   ]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const channels: ReturnType<typeof supabase.channel>[] = [];
-    const applyBroadcast = (payload: unknown) => {
-      const mutation = (payload as SidebarBroadcastPayload).payload;
+  const applySidebarBroadcast = (mutation: unknown) => {
+    if (!isSidebarMutation(mutation)) {
+      return;
+    }
 
-      if (!isSidebarMutation(mutation)) {
-        return;
-      }
+    setSidebarData((current) => applySidebarMutation(current, mutation));
+  };
 
-      setSidebarData((current) => applySidebarMutation(current, mutation));
-    };
-
-    const subscribe = async () => {
-      try {
-        await supabase.realtime.setAuth();
-
-        if (cancelled) {
-          return;
-        }
-
-        for (const topic of [
-          guiSidebarUserTopic(userId),
-          GUI_SIDEBAR_FIRST_PARTY_PROGRAMS_TOPIC,
-        ]) {
-          const channel = supabase
-            .channel(topic, {
-              config: {
-                private: true,
-              },
-            })
-            .on(
-              "broadcast",
-              {
-                event: "sidebar_mutation",
-              },
-              applyBroadcast,
-            )
-            .subscribe((status, error) => {
-              if (status === "CHANNEL_ERROR" || error) {
-                console.error("GUI sidebar broadcast channel failed", {
-                  error,
-                  status,
-                  topic,
-                });
-              }
-            });
-
-          channels.push(channel);
-        }
-      } catch (error) {
-        console.error("GUI sidebar broadcast auth failed", error);
-      }
-    };
-
-    void subscribe();
-
-    return () => {
-      cancelled = true;
-
-      for (const channel of channels) {
-        void supabase.removeChannel(channel);
-      }
-    };
-  }, [
-    supabase,
-    userId,
-  ]);
+  usePrivateBroadcast({
+    event: "sidebar_mutation",
+    label: "GUI sidebar",
+    onMessage: applySidebarBroadcast,
+    topic: guiSidebarUserTopic(userId),
+  });
+  usePrivateBroadcast({
+    event: "sidebar_mutation",
+    label: "GUI sidebar",
+    onMessage: applySidebarBroadcast,
+    topic: GUI_SIDEBAR_FIRST_PARTY_PROGRAMS_TOPIC,
+  });
 
   useEffect(
     () => () => {

@@ -16,10 +16,6 @@ type TableInfo = TableRow & {
   project_owner_profile_id: string;
 };
 
-type ProjectSummary = ProjectRow & {
-  table_count: number;
-};
-
 type ProjectInfo = ProjectRow & {
   table_count: number;
   tables: TableInfo[];

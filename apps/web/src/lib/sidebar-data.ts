@@ -198,5 +198,6 @@ export async function listSidebarDataForUser(
         ]),
       ),
     ),
+    userId,
   };
 }

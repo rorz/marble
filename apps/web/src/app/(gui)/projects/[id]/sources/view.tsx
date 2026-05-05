@@ -35,8 +35,8 @@ import {
   buildPipeTitle,
   normalizePipeMappings,
 } from "../../../../../lib/pipe-display";
+import { usePrivateBroadcast } from "../../../../../lib/realtime/private-broadcast";
 import type { ProjectSourceWorkspaceData } from "../../../../../lib/source-data";
-import { createClient } from "../../../../../lib/supabase/browser";
 import {
   changeTargetKey,
   getChangeTargetProps,
@@ -67,6 +67,10 @@ type SourceSchemaValidation =
       message: string;
       ok: false;
     };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -769,48 +773,34 @@ export function ProjectSourceDetailPageView({
     selectedSourceEvents,
   ]);
 
-  useEffect(() => {
-    if (mode !== "source" || !currentSourceId) {
-      return;
-    }
+  usePrivateBroadcast({
+    enabled: mode === "source" && Boolean(currentSourceId),
+    event: "INSERT",
+    label: "Source event",
+    onMessage: (payload) => {
+      const record = isRecord(payload) ? payload.record : null;
 
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`source-events:${currentSourceId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          filter: `source_id=eq.${currentSourceId}`,
-          schema: "public",
-          table: "source_event",
-        },
-        (payload) => {
-          const nextEvent = sourceEventFromDatabaseRow(
-            payload.new as SourceEventRecord,
-          );
+      if (!isRecord(record)) {
+        return;
+      }
 
-          if (nextEvent.sourceId !== currentSourceId) {
-            return;
-          }
+      const nextEvent = sourceEventFromDatabaseRow(record as SourceEventRecord);
 
-          setSourceEvents((current) =>
-            sortByCreatedAtDesc([
-              nextEvent,
-              ...current.filter((event) => event.id !== nextEvent.id),
-            ]).slice(0, 120),
-          );
-        },
-      )
-      .subscribe();
+      if (nextEvent.sourceId !== currentSourceId) {
+        return;
+      }
 
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [
-    currentSourceId,
-    mode,
-  ]);
+      setSourceEvents((current) =>
+        sortByCreatedAtDesc([
+          nextEvent,
+          ...current.filter((event) => event.id !== nextEvent.id),
+        ]).slice(0, 120),
+      );
+    },
+    topic: currentSourceId
+      ? `source-events:${currentSourceId}`
+      : "source-events:",
+  });
 
   useEffect(() => {
     if (mode !== "pipe") {

@@ -44,6 +44,7 @@ async function loadOwnedEventFeed() {
     return {
       events: [] as EventRow[],
       profiles: (data ?? []) as ProfileRow[],
+      userId: user.id,
     };
   }
 
@@ -70,11 +71,12 @@ async function loadOwnedEventFeed() {
   return {
     events: (eventsResult.data ?? []) as EventRow[],
     profiles: (profilesResult.data ?? []) as ProfileRow[],
+    userId: user.id,
   };
 }
 
 export default async function EventsPage() {
-  const { events, profiles } = await loadOwnedEventFeed();
+  const { events, profiles, userId } = await loadOwnedEventFeed();
 
   return (
     <MarblePane
@@ -89,6 +91,7 @@ export default async function EventsPage() {
         initialEvents={events}
         limit={EVENT_FEED_LIMIT}
         profiles={profiles}
+        userId={userId}
       />
     </MarblePane>
   );

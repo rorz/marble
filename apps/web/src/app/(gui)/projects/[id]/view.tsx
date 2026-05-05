@@ -15,7 +15,7 @@ import {
 } from "@marble/ui";
 import { FunnelIcon, PipeIcon, TableIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import {
   pipeFromDatabaseRow,
   projectFromDatabaseRow,
@@ -30,16 +30,20 @@ import {
   buildPipeTitle,
 } from "../../../../lib/pipe-display";
 import {
+  createBroadcastMutationGuard,
+  type DeleteMutation,
+  type UpsertMutation,
+} from "../../../../lib/realtime/broadcast-mutations";
+import { usePrivateBroadcast } from "../../../../lib/realtime/private-broadcast";
+import {
   compareByCreatedAtCamelDesc,
   compareByUpdatedAtCamelDesc,
   getErrorMessage,
-  type RealtimePayload,
   removeRow,
   sortRows,
   upsertRow,
 } from "../../../../lib/realtime-crud";
 import type { ProjectSourceWorkspaceData } from "../../../../lib/source-data";
-import { createClient } from "../../../../lib/supabase/browser";
 import { changeTargetKey, getChangeTargetProps } from "../../change-spotlight";
 
 type ProjectInfo = ProjectSourceWorkspaceData;
@@ -48,6 +52,15 @@ type ProjectRecord = Database["public"]["Tables"]["project"]["Row"];
 type TableRecord = Database["public"]["Tables"]["table"]["Row"];
 type SourceRecord = Database["public"]["Tables"]["source"]["Row"];
 type PipeRecord = Database["public"]["Tables"]["pipe"]["Row"];
+type ProjectMutation =
+  | DeleteMutation<"pipe:delete", PipeRecord>
+  | UpsertMutation<"pipe:upsert", PipeRecord>
+  | DeleteMutation<"project:delete", ProjectRecord>
+  | UpsertMutation<"project:upsert", ProjectRecord>
+  | DeleteMutation<"source:delete", SourceRecord>
+  | UpsertMutation<"source:upsert", SourceRecord>
+  | DeleteMutation<"table:delete", TableRecord>
+  | UpsertMutation<"table:upsert", TableRecord>;
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -58,6 +71,20 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
 function buildSectionHeading(label: string, count: number) {
   return count > 0 ? `${label} (${count})` : label;
 }
+
+const projectMutationTypes = {
+  "pipe:delete": true,
+  "pipe:upsert": true,
+  "project:delete": true,
+  "project:upsert": true,
+  "source:delete": true,
+  "source:upsert": true,
+  "table:delete": true,
+  "table:upsert": true,
+} satisfies Record<ProjectMutation["type"], true>;
+
+const isProjectMutation =
+  createBroadcastMutationGuard<ProjectMutation>(projectMutationTypes);
 
 function ResourceEmptyStateIcon({ children }: { children: ReactNode }) {
   return (
@@ -140,26 +167,23 @@ export function ProjectPageView({
     return `/projects/${project.id}/pipes/${pipeId}`;
   };
 
-  useEffect(() => {
-    const supabase = createClient();
-    const projectChannel = supabase
-      .channel(`project:${project.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "project",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<ProjectRecord>;
+  usePrivateBroadcast({
+    event: "project_mutation",
+    label: "Project",
+    onMessage: (mutation) => {
+      if (!isProjectMutation(mutation)) {
+        return;
+      }
 
-          if (change.eventType === "DELETE" && change.old.id === project.id) {
+      switch (mutation.type) {
+        case "project:delete":
+          if (mutation.id === project.id) {
             router.push("/projects");
-            return;
           }
+          break;
 
-          const next = projectFromDatabaseRow(change.new as ProjectRecord);
+        case "project:upsert": {
+          const next = projectFromDatabaseRow(mutation.row);
 
           if (next.id !== project.id) {
             return;
@@ -172,38 +196,26 @@ export function ProjectPageView({
             tables: current.tables,
           }));
           setNameDraft(next.name);
-        },
-      )
-      .subscribe();
+          break;
+        }
 
-    const tableChannel = supabase
-      .channel(`project:${project.id}:tables`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "table",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<TableRecord>;
-
+        case "table:delete":
           setProject((current) => {
-            if (
-              change.eventType === "DELETE" &&
-              change.old.project_id === current.id &&
-              typeof change.old.id === "string"
-            ) {
-              const tables = removeRow(current.tables, change.old.id);
+            const tables = removeRow(current.tables, mutation.id);
 
-              return {
-                ...current,
-                tableCount: tables.length,
-                tables,
-              };
-            }
+            return tables.length === current.tables.length
+              ? current
+              : {
+                  ...current,
+                  tableCount: tables.length,
+                  tables,
+                };
+          });
+          break;
 
-            const next = tableFromDatabaseRow(change.new as TableRecord);
+        case "table:upsert":
+          setProject((current) => {
+            const next = tableFromDatabaseRow(mutation.row);
 
             if (next.projectId !== current.id) {
               return current;
@@ -221,90 +233,50 @@ export function ProjectPageView({
               tables,
             };
           });
-        },
-      )
-      .subscribe();
+          break;
 
-    const sourceChannel = supabase
-      .channel(`project:${project.id}:sources`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "source",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<SourceRecord>;
+        case "source:delete":
+          setSources((current) => removeRow(current, mutation.id));
+          break;
 
-          setSources((current) => {
-            if (
-              change.eventType === "DELETE" &&
-              change.old.project_id === project.id &&
-              typeof change.old.id === "string"
-            ) {
-              return removeRow(current, change.old.id);
-            }
+        case "source:upsert": {
+          const next = sourceFromDatabaseRow(mutation.row);
 
-            const next = sourceFromDatabaseRow(change.new as SourceRecord);
+          if (next.projectId !== project.id) {
+            return;
+          }
 
-            if (next.projectId !== project.id) {
-              return current;
-            }
+          setSources((current) =>
+            upsertRow(current, next, compareByUpdatedAtCamelDesc),
+          );
+          break;
+        }
 
-            return upsertRow(current, next, compareByUpdatedAtCamelDesc);
-          });
-        },
-      )
-      .subscribe();
+        case "pipe:delete":
+          setPipes((current) => removeRow(current, mutation.id));
+          break;
 
-    const pipeChannel = supabase
-      .channel(`project:${project.id}:pipes`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "pipe",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<PipeRecord>;
+        case "pipe:upsert": {
+          const next = pipeFromDatabaseRow(mutation.row);
+          const belongsToProject =
+            projectRef.current.tables.some(
+              (table) => table.id === next.tableId,
+            ) ||
+            sourcesRef.current.some((source) => source.id === next.sourceId);
 
-          setPipes((current) => {
-            if (
-              change.eventType === "DELETE" &&
-              typeof change.old.id === "string"
-            ) {
-              return removeRow(current, change.old.id);
-            }
+          if (!belongsToProject) {
+            return;
+          }
 
-            const next = pipeFromDatabaseRow(change.new as PipeRecord);
-            const belongsToProject =
-              projectRef.current.tables.some(
-                (table) => table.id === next.tableId,
-              ) ||
-              sourcesRef.current.some((source) => source.id === next.sourceId);
-
-            if (!belongsToProject) {
-              return current;
-            }
-
-            return upsertRow(current, next, compareByCreatedAtCamelDesc);
-          });
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(projectChannel);
-      void supabase.removeChannel(tableChannel);
-      void supabase.removeChannel(sourceChannel);
-      void supabase.removeChannel(pipeChannel);
-    };
-  }, [
-    project.id,
-    router,
-  ]);
+          setPipes((current) =>
+            upsertRow(current, next, compareByCreatedAtCamelDesc),
+          );
+          break;
+        }
+      }
+    },
+    topic: `project:${project.id}`,
+  });
 
   const stopEditing = () => {
     setEditingSurface(null);

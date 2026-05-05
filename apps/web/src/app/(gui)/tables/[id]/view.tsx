@@ -51,7 +51,12 @@ import {
 import Editor from "react-simple-code-editor";
 import { callMarbleClient } from "@/lib/marble-client";
 import { useMarbleSdk } from "@/lib/marble-sdk-client";
-import { createClient as createBrowserClient } from "@/lib/supabase/browser";
+import {
+  createBroadcastMutationGuard,
+  type DeleteMutation,
+  type UpsertMutation,
+} from "@/lib/realtime/broadcast-mutations";
+import { usePrivateBroadcast } from "@/lib/realtime/private-broadcast";
 import {
   type ChangeTargetDescriptor,
   changeTargetKey,
@@ -96,40 +101,19 @@ type RunExecutionResult = {
   success: boolean;
 };
 type TableMutation =
-  | {
-      id: string;
-      type: "cell:delete";
-    }
-  | {
-      row: Cell;
-      type: "cell:upsert";
-    }
-  | {
-      id: string;
-      type: "column:delete";
-    }
-  | {
-      row: ColumnRow;
-      type: "column:upsert";
-    }
-  | {
-      id: string;
-      type: "row:delete";
-    }
-  | {
-      row: Row;
-      type: "row:upsert";
-    }
-  | {
-      id: string;
-      type: "table:delete";
-    }
-  | {
-      row: Partial<TableInfo> & {
+  | DeleteMutation<"cell:delete", Cell>
+  | UpsertMutation<"cell:upsert", Cell>
+  | DeleteMutation<"column:delete", ColumnRow>
+  | UpsertMutation<"column:upsert", ColumnRow>
+  | DeleteMutation<"row:delete", Row>
+  | UpsertMutation<"row:upsert", Row>
+  | DeleteMutation<"table:delete", TableInfo>
+  | UpsertMutation<
+      "table:upsert",
+      Partial<TableInfo> & {
         id: string;
-      };
-      type: "table:upsert";
-    };
+      }
+    >;
 type SidebarMode =
   | {
       kind: "closed";
@@ -161,10 +145,6 @@ type ConfirmState = {
   onConfirm: () => void;
 } | null;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 const tableMutationTypes = {
   "cell:delete": true,
   "cell:upsert": true,
@@ -176,21 +156,8 @@ const tableMutationTypes = {
   "table:upsert": true,
 } satisfies Record<TableMutation["type"], true>;
 
-function isTableMutation(value: unknown): value is TableMutation {
-  if (
-    !isRecord(value) ||
-    typeof value.type !== "string" ||
-    !(value.type in tableMutationTypes)
-  ) {
-    return false;
-  }
-
-  if (value.type.endsWith(":delete")) {
-    return typeof value.id === "string";
-  }
-
-  return isRecord(value.row);
-}
+const isTableMutation =
+  createBroadcastMutationGuard<TableMutation>(tableMutationTypes);
 
 function deleteColumn(columnId: string) {
   return callMarbleClient(`/columns/${columnId}`, {
@@ -1371,7 +1338,6 @@ export default function TablePageView({
   const [confirmState, setConfirmState] = useState<ConfirmState>(null);
 
   const gridRef = useRef<AgGridReact>(null);
-  const realtimeClient = useMemo(() => createBrowserClient(), []);
   const sdk = useMarbleSdk({
     profileId: table.project_owner_profile_id,
   });
@@ -1581,192 +1547,164 @@ export default function TablePageView({
 
   // ── Realtime ──────────────────────────────────────────
 
-  useEffect(() => {
-    if (!selectedTableId) return;
+  const pendingCellsRef = useRef({
+    deletes: new Set<string>(),
+    inserts: new Map<string, Cell>(),
+    updates: new Map<string, Cell>(),
+  });
+  const cellFlushTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
-    const pendingUpdates = new Map<string, Cell>();
-    const pendingInserts = new Map<string, Cell>();
-    const pendingDeletes = new Set<string>();
-    let flushTimeout: ReturnType<typeof setTimeout> | null = null;
-    let cancelled = false;
-    let channel: ReturnType<typeof realtimeClient.channel> | null = null;
+  const flushCells = () => {
+    const pending = pendingCellsRef.current;
 
-    const flushCells = () => {
-      if (
-        pendingInserts.size === 0 &&
-        pendingUpdates.size === 0 &&
-        pendingDeletes.size === 0
-      ) {
-        return;
+    if (
+      pending.inserts.size === 0 &&
+      pending.updates.size === 0 &&
+      pending.deletes.size === 0
+    ) {
+      return;
+    }
+
+    setCells((prev) => {
+      const next = [
+        ...prev,
+      ];
+      let changed = false;
+
+      if (pending.deletes.size > 0) {
+        const filtered = next.filter((cell) => !pending.deletes.has(cell.id));
+
+        if (filtered.length !== next.length) {
+          next.length = 0;
+          next.push(...filtered);
+          changed = true;
+        }
       }
 
-      setCells((prev) => {
-        const next = [
-          ...prev,
-        ];
-        let changed = false;
+      if (pending.updates.size > 0) {
+        for (let index = 0; index < next.length; index += 1) {
+          const updated = pending.updates.get(next[index].id);
 
-        if (pendingDeletes.size > 0) {
-          const filtered = next.filter((cell) => !pendingDeletes.has(cell.id));
-
-          if (filtered.length !== next.length) {
-            next.length = 0;
-            next.push(...filtered);
+          if (updated) {
+            next[index] = updated;
             changed = true;
           }
         }
+      }
 
-        if (pendingUpdates.size > 0) {
-          for (let index = 0; index < next.length; index += 1) {
-            const updated = pendingUpdates.get(next[index].id);
+      if (pending.inserts.size > 0) {
+        const existingIds = new Set(next.map((cell) => cell.id));
 
-            if (updated) {
-              next[index] = updated;
-              changed = true;
-            }
+        for (const inserted of pending.inserts.values()) {
+          if (!existingIds.has(inserted.id)) {
+            next.push(inserted);
+            changed = true;
           }
         }
-
-        if (pendingInserts.size > 0) {
-          const existingIds = new Set(next.map((cell) => cell.id));
-
-          for (const inserted of pendingInserts.values()) {
-            if (!existingIds.has(inserted.id)) {
-              next.push(inserted);
-              changed = true;
-            }
-          }
-        }
-
-        pendingUpdates.clear();
-        pendingInserts.clear();
-        pendingDeletes.clear();
-
-        if (changed) {
-          cellsRef.current = next;
-        }
-
-        return changed ? next : prev;
-      });
-    };
-
-    const queueCellMutation = (mutation: TableMutation) => {
-      if (mutation.type === "cell:delete") {
-        pendingDeletes.add(mutation.id);
       }
 
-      if (mutation.type === "cell:upsert") {
-        const existing = cellsRef.current.some(
-          (cell) => cell.id === mutation.row.id,
-        );
+      pending.updates.clear();
+      pending.inserts.clear();
+      pending.deletes.clear();
 
-        if (existing) {
-          pendingUpdates.set(mutation.row.id, mutation.row);
-        } else {
-          pendingInserts.set(mutation.row.id, mutation.row);
-        }
+      if (changed) {
+        cellsRef.current = next;
       }
 
-      if (flushTimeout) {
-        return;
+      return changed ? next : prev;
+    });
+  };
+
+  const queueCellMutation = (mutation: TableMutation) => {
+    const pending = pendingCellsRef.current;
+
+    if (mutation.type === "cell:delete") {
+      pending.deletes.add(mutation.id);
+    }
+
+    if (mutation.type === "cell:upsert") {
+      const existing = cellsRef.current.some(
+        (cell) => cell.id === mutation.row.id,
+      );
+
+      if (existing) {
+        pending.updates.set(mutation.row.id, mutation.row);
+      } else {
+        pending.inserts.set(mutation.row.id, mutation.row);
       }
+    }
 
-      flushTimeout = setTimeout(() => {
-        flushTimeout = null;
-        flushCells();
-      }, 100);
-    };
+    if (cellFlushTimeoutRef.current) {
+      return;
+    }
 
-    const applyMutation = (mutation: TableMutation) => {
-      if (mutation.type.startsWith("cell:")) {
-        queueCellMutation(mutation);
-        return;
+    cellFlushTimeoutRef.current = setTimeout(() => {
+      cellFlushTimeoutRef.current = null;
+      flushCells();
+    }, 100);
+  };
+
+  const applyTableMutation = (mutation: TableMutation) => {
+    if (mutation.type.startsWith("cell:")) {
+      queueCellMutation(mutation);
+      return;
+    }
+
+    startTransition(() => {
+      switch (mutation.type) {
+        case "column:delete":
+          removeLocalColumn(mutation.id);
+          break;
+        case "column:upsert":
+          upsertLocalColumn(hydrateColumnRow(mutation.row, programs));
+          break;
+        case "row:delete":
+          removeLocalRow(mutation.id);
+          break;
+        case "row:upsert":
+          upsertLocalRow(mutation.row);
+          break;
+        case "table:delete":
+          router.push(`/projects/${tableRef.current.project_id}`);
+          break;
+        case "table:upsert":
+          mergeTable(mutation.row);
+          break;
       }
+    });
+  };
 
-      startTransition(() => {
-        switch (mutation.type) {
-          case "column:delete":
-            removeLocalColumn(mutation.id);
-            break;
-          case "column:upsert":
-            upsertLocalColumn(hydrateColumnRow(mutation.row, programs));
-            break;
-          case "row:delete":
-            removeLocalRow(mutation.id);
-            break;
-          case "row:upsert":
-            upsertLocalRow(mutation.row);
-            break;
-          case "table:delete":
-            router.push(`/projects/${tableRef.current.project_id}`);
-            break;
-          case "table:upsert":
-            mergeTable(mutation.row);
-            break;
-        }
-      });
-    };
-
-    const subscribe = async () => {
-      try {
-        await realtimeClient.realtime.setAuth();
-
-        if (cancelled) {
-          return;
-        }
-
-        channel = realtimeClient
-          .channel(`table:${selectedTableId}`, {
-            config: {
-              private: true,
-            },
-          })
-          .on(
-            "broadcast",
-            {
-              event: "table_mutation",
-            },
-            (payload) => {
-              const mutation = payload.payload;
-
-              if (!isTableMutation(mutation)) {
-                return;
-              }
-
-              applyMutation(mutation);
-            },
-          )
-          .subscribe((status, error) => {
-            if (status === "CHANNEL_ERROR" || error) {
-              console.error("Table broadcast channel failed", {
-                error,
-                selectedTableId,
-                status,
-              });
-            }
-          });
-      } catch (error) {
-        console.error("Table broadcast auth failed", error);
+  usePrivateBroadcast({
+    enabled: Boolean(selectedTableId),
+    event: "table_mutation",
+    label: "Table",
+    onMessage: (mutation) => {
+      if (isTableMutation(mutation)) {
+        applyTableMutation(mutation);
       }
-    };
+    },
+    topic: selectedTableId ? `table:${selectedTableId}` : "table:",
+  });
 
-    void subscribe();
+  useEffect(() => {
+    pendingCellsRef.current.deletes.clear();
+    pendingCellsRef.current.inserts.clear();
+    pendingCellsRef.current.updates.clear();
+
+    if (!selectedTableId) {
+      return;
+    }
 
     return () => {
-      cancelled = true;
-      if (flushTimeout) clearTimeout(flushTimeout);
-      if (channel) void realtimeClient.removeChannel(channel);
+      if (cellFlushTimeoutRef.current) {
+        clearTimeout(cellFlushTimeoutRef.current);
+        cellFlushTimeoutRef.current = null;
+      }
     };
   }, [
-    mergeTable,
-    programs,
-    removeLocalColumn,
-    removeLocalRow,
-    realtimeClient,
-    router,
     selectedTableId,
-    upsertLocalColumn,
-    upsertLocalRow,
   ]);
 
   // ── AG Grid config ────────────────────────────────────

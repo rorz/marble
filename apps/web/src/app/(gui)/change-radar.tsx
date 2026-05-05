@@ -13,7 +13,8 @@ import { RobotIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { buildPipeTitle } from "../../lib/pipe-display";
-import type { RealtimePayload } from "../../lib/realtime-crud";
+import { isEventMutation } from "../../lib/realtime/event-mutations";
+import { usePrivateBroadcast } from "../../lib/realtime/private-broadcast";
 import type { SidebarTreeData } from "../../lib/sidebar-tree";
 import { createClient } from "../../lib/supabase/browser";
 import {
@@ -1057,7 +1058,7 @@ export function ChangeRadar({
     versionProgramIds: {},
   });
   const ownedProfileIds = sidebarData.ownerProfileIds;
-  const ownedProfileIdsKey = ownedProfileIds.join(":");
+  const userId = sidebarData.userId;
   const indexes = buildRadarIndexes(sidebarData);
 
   const persistReviewWatermark = (value: null | string) => {
@@ -1104,8 +1105,6 @@ export function ChangeRadar({
     }
 
     let cancelled = false;
-    const ownedProfileIdSet = new Set(ownedProfileIds);
-
     void supabase
       .from("event")
       .select("*")
@@ -1132,52 +1131,48 @@ export function ChangeRadar({
         );
       });
 
-    const channel = supabase
-      .channel(`change-radar:${ownedProfileIdsKey}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "event",
-        },
-        (payload) => {
-          const change = payload as RealtimePayload<EventRow>;
-          const candidate =
-            change.eventType === "DELETE" ? change.old : change.new;
-
-          if (
-            typeof candidate.id !== "string" ||
-            typeof candidate.actor_profile_id !== "string" ||
-            !ownedProfileIdSet.has(candidate.actor_profile_id) ||
-            candidate.source === "WEB_APP" ||
-            candidate.operation === "Read"
-          ) {
-            return;
-          }
-
-          setEvents((current) =>
-            change.eventType === "DELETE"
-              ? current.filter((event) => event.id !== candidate.id)
-              : upsertRadarEvent(current, change.new as EventRow),
-          );
-        },
-      )
-      .subscribe((status, error) => {
-        if (status === "CHANNEL_ERROR" || error) {
-          console.error("Change radar realtime channel failed", error);
-        }
-      });
-
     return () => {
       cancelled = true;
-      void supabase.removeChannel(channel);
     };
   }, [
     ownedProfileIds,
-    ownedProfileIdsKey,
     supabase,
   ]);
+
+  usePrivateBroadcast({
+    client: supabase,
+    enabled: ownedProfileIds.length > 0,
+    event: "event_mutation",
+    label: "Change radar",
+    onMessage: (mutation) => {
+      if (!isEventMutation(mutation)) {
+        return;
+      }
+
+      const ownedProfileIdSet = new Set(ownedProfileIds);
+      const candidate = mutation.row;
+      const eventId =
+        mutation.type === "event:delete" ? mutation.id : mutation.row.id;
+
+      if (
+        typeof eventId !== "string" ||
+        (candidate &&
+          (typeof candidate.actor_profile_id !== "string" ||
+            !ownedProfileIdSet.has(candidate.actor_profile_id) ||
+            candidate.source === "WEB_APP" ||
+            candidate.operation === "Read"))
+      ) {
+        return;
+      }
+
+      setEvents((current) =>
+        mutation.type === "event:delete"
+          ? current.filter((event) => event.id !== eventId)
+          : upsertRadarEvent(current, mutation.row),
+      );
+    },
+    topic: `events:user:${userId}`,
+  });
 
   useEffect(() => {
     const pendingRows = new Set<string>();

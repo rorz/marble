@@ -1,5 +1,10 @@
 import type { Database } from "@marble/supabase";
 import {
+  createBroadcastMutationGuard,
+  type DeleteMutation,
+  type UpsertMutation,
+} from "./realtime/broadcast-mutations";
+import {
   buildPipeNode,
   buildProgramNode,
   buildProjectNode,
@@ -18,47 +23,33 @@ type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
 type SourceRow = Database["public"]["Tables"]["source"]["Row"];
 type TableRow = Database["public"]["Tables"]["table"]["Row"];
 
-export type SidebarMutation =
-  | {
-      id: string;
-      type: "program:delete";
-    }
-  | {
-      row: ProgramRow;
-      type: "program:upsert";
-    }
-  | {
-      id: string;
-      type: "project:delete";
-    }
-  | {
-      row: ProjectRow;
-      type: "project:upsert";
-    }
-  | {
-      id: string;
-      type: "table:delete";
-    }
-  | {
-      row: TableRow;
-      type: "table:upsert";
-    }
-  | {
-      id: string;
-      type: "source:delete";
-    }
-  | {
-      row: SourceRow;
-      type: "source:upsert";
-    }
-  | {
-      id: string;
-      type: "pipe:delete";
-    }
-  | {
-      row: PipeRow;
-      type: "pipe:upsert";
-    };
+type SidebarMutation =
+  | DeleteMutation<"program:delete", ProgramRow>
+  | UpsertMutation<"program:upsert", ProgramRow>
+  | DeleteMutation<"project:delete", ProjectRow>
+  | UpsertMutation<"project:upsert", ProjectRow>
+  | DeleteMutation<"table:delete", TableRow>
+  | UpsertMutation<"table:upsert", TableRow>
+  | DeleteMutation<"source:delete", SourceRow>
+  | UpsertMutation<"source:upsert", SourceRow>
+  | DeleteMutation<"pipe:delete", PipeRow>
+  | UpsertMutation<"pipe:upsert", PipeRow>;
+
+const sidebarMutationTypes = {
+  "pipe:delete": true,
+  "pipe:upsert": true,
+  "program:delete": true,
+  "program:upsert": true,
+  "project:delete": true,
+  "project:upsert": true,
+  "source:delete": true,
+  "source:upsert": true,
+  "table:delete": true,
+  "table:upsert": true,
+} satisfies Record<SidebarMutation["type"], true>;
+
+export const isSidebarMutation =
+  createBroadcastMutationGuard<SidebarMutation>(sidebarMutationTypes);
 
 function resolveProjectIdForPipe(current: SidebarTreeData, pipe: PipeRow) {
   for (const project of current.projects) {
