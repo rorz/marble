@@ -67,7 +67,7 @@ import {
   updateSidebarTreeStateForKey,
 } from "../../lib/gui-sidebar";
 import { callMarbleClient } from "../../lib/marble-client";
-import { useMarbleSdk } from "../../lib/marble-sdk-client";
+import { useMarbleSdkFactory } from "../../lib/marble-sdk-client";
 import { createDefaultProgram } from "../../lib/program-client";
 import { getErrorMessage, type RealtimePayload } from "../../lib/realtime-crud";
 import {
@@ -716,7 +716,13 @@ export function GuiShell({
   const sidebar = sidebarModes[sidebarMode];
   const ToggleIcon = sidebar.toggleIcon;
   const router = useRouter();
-  const sdk = useMarbleSdk();
+  const getSdk = useMarbleSdkFactory();
+  const sdk = useMemo(
+    () => getSdk(),
+    [
+      getSdk,
+    ],
+  );
   const {
     error: signOutError,
     pending: signOutPending,
@@ -954,15 +960,17 @@ export function GuiShell({
     }
   };
   const handleCreateTableForProjectFromCommandPalette = async (
-    projectId: string,
+    projectNode: SidebarTreeNode,
   ) => {
     closeCommandPalette();
 
     try {
-      const table = await sdk.tables.create({
-        projectId,
+      const table = await getSdk({
+        profileId: projectNode.ownerProfileId,
+      }).tables.create({
+        projectId: projectNode.id,
       });
-      router.push(`/projects/${projectId}/tables/${table.id}`);
+      router.push(`/projects/${projectNode.id}/tables/${table.id}`);
     } catch (error) {
       handleCommandPaletteError(error);
     }
@@ -978,19 +986,21 @@ export function GuiShell({
     }
 
     await handleCreateTableForProjectFromCommandPalette(
-      defaultTableProjectNode.id,
+      defaultTableProjectNode,
     );
   };
   const handleCreateSourceForProjectFromCommandPalette = async (
-    projectId: string,
+    projectNode: SidebarTreeNode,
   ) => {
     closeCommandPalette();
 
     try {
-      const source = await sdk.sources.create({
-        projectId,
+      const source = await getSdk({
+        profileId: projectNode.ownerProfileId,
+      }).sources.create({
+        projectId: projectNode.id,
       });
-      router.push(`/projects/${projectId}/sources/${source.id}`);
+      router.push(`/projects/${projectNode.id}/sources/${source.id}`);
     } catch (error) {
       handleCommandPaletteError(error);
     }
@@ -1006,7 +1016,7 @@ export function GuiShell({
     }
 
     await handleCreateSourceForProjectFromCommandPalette(
-      defaultSourceProjectNode.id,
+      defaultSourceProjectNode,
     );
   };
   const handleCreatePipeForProjectFromCommandPalette = async (
@@ -1021,7 +1031,9 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const pipe = await sdk.pipes.create({
+      const pipe = await getSdk({
+        profileId: projectNode.ownerProfileId,
+      }).pipes.create({
         mappings: [],
         sourceId: defaults.sourceId,
         tableId: defaults.tableId,
@@ -1592,7 +1604,7 @@ export function GuiShell({
         ],
         label: node.label,
         onSelect: () => {
-          void handleCreateTableForProjectFromCommandPalette(node.id);
+          void handleCreateTableForProjectFromCommandPalette(node);
         },
       })),
     },
@@ -1620,7 +1632,7 @@ export function GuiShell({
         ],
         label: node.label,
         onSelect: () => {
-          void handleCreateSourceForProjectFromCommandPalette(node.id);
+          void handleCreateSourceForProjectFromCommandPalette(node);
         },
       })),
     },

@@ -4,22 +4,52 @@ import { MarbleClient } from "@marble/sdk";
 import { useMemo } from "react";
 import { createClient } from "./supabase/browser";
 
-export function useMarbleSdk(options: { profileId?: string } = {}) {
-  const { profileId } = options;
+type MarbleSdkOptions = {
+  profileId?: string;
+};
+
+export function useMarbleSdkFactory() {
   const supabase = useMemo(() => createClient(), []);
+
+  return useMemo(() => {
+    const cache = new Map<string, MarbleClient>();
+
+    return (options: MarbleSdkOptions = {}) => {
+      const key = options.profileId ?? "";
+      const existing = cache.get(key);
+
+      if (existing) {
+        return existing;
+      }
+
+      const sdk = new MarbleClient({
+        driver: {
+          client: supabase,
+          profileId: options.profileId,
+          type: "supabase",
+        },
+      });
+
+      cache.set(key, sdk);
+      return sdk;
+    };
+  }, [
+    supabase,
+  ]);
+}
+
+export function useMarbleSdk(options: MarbleSdkOptions = {}) {
+  const { profileId } = options;
+  const getSdk = useMarbleSdkFactory();
 
   return useMemo(
     () =>
-      new MarbleClient({
-        driver: {
-          client: supabase,
-          profileId,
-          type: "supabase",
-        },
+      getSdk({
+        profileId,
       }),
     [
+      getSdk,
       profileId,
-      supabase,
     ],
   );
 }

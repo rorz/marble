@@ -675,7 +675,7 @@ ALTER FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_tabl
 
 
 CREATE OR REPLACE FUNCTION "public"."current_user_owns_profile"("p_profile_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" STABLE
+    LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
@@ -691,7 +691,7 @@ ALTER FUNCTION "public"."current_user_owns_profile"("p_profile_id" "uuid") OWNER
 
 
 CREATE OR REPLACE FUNCTION "public"."current_user_owns_project"("p_project_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" STABLE
+    LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
@@ -709,7 +709,7 @@ ALTER FUNCTION "public"."current_user_owns_project"("p_project_id" "uuid") OWNER
 
 
 CREATE OR REPLACE FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" STABLE
+    LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
@@ -725,7 +725,7 @@ ALTER FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") OWNER TO 
 
 
 CREATE OR REPLACE FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", "p_table_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" STABLE
+    LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
@@ -744,7 +744,7 @@ ALTER FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", 
 
 
 CREATE OR REPLACE FUNCTION "public"."current_user_can_use_source_event_scope"("p_project_id" "uuid", "p_source_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" STABLE
+    LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
   SELECT EXISTS (
@@ -761,7 +761,7 @@ ALTER FUNCTION "public"."current_user_can_use_source_event_scope"("p_project_id"
 
 
 CREATE OR REPLACE FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_topic" "text") RETURNS boolean
-    LANGUAGE "sql" STABLE
+    LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
   SELECT CASE
@@ -780,7 +780,7 @@ ALTER FUNCTION "public"."current_user_can_receive_source_event_broadcast"("p_top
 
 
 CREATE OR REPLACE FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" STABLE
+    LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
     AS $$
   SELECT EXISTS (

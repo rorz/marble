@@ -3,7 +3,7 @@
 import { generateObject } from "ai";
 import { z } from "zod";
 import { requireUser } from "../../../../../lib/auth";
-import { createServerMarbleSdk } from "../../../../../lib/marble-sdk-server";
+import { createServerMarbleSdkForProject } from "../../../../../lib/marble-sdk-server";
 
 const SOURCE_SCHEMA_INFERENCE_MODEL = "google/gemini-3.1-flash-lite-preview";
 
@@ -52,8 +52,13 @@ export async function inferSourceSchemaFromEventAction(
 ) {
   await requireUser();
 
-  const sdk = await createServerMarbleSdk();
-  const sourceEvent = await sdk.sourceEvents.get({
+  const resolved = await createServerMarbleSdkForProject(projectId);
+
+  if (!resolved) {
+    throw new Error("Project not found.");
+  }
+
+  const sourceEvent = await resolved.sdk.sourceEvents.get({
     id: sourceEventId,
   });
 

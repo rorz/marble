@@ -37,6 +37,7 @@ export type SidebarTreeNode = {
   id: string;
   kind: "pipe" | "program" | "project" | "source" | "table";
   label: string;
+  ownerProfileId?: string;
   updatedAt: string;
 };
 
@@ -96,6 +97,7 @@ export function buildProjectNode(
     id: project.id,
     kind: "project",
     label: project.name || "Untitled Project",
+    ownerProfileId: project.owner_profile_id,
     updatedAt: project.updated_at,
   };
 }
