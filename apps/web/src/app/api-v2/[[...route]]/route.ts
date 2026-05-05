@@ -5,6 +5,9 @@ async function forward(req: Request) {
   return forwardMarbleApiRequest(req, {
     api: getMarbleApiV2(),
     forwardUserSupabaseAuth: true,
+    profilelessPaths: [
+      "/rpc/sourceEvents/create",
+    ],
     publicPaths: [
       "/openapi",
       "/openapi/spec.json",

@@ -15,6 +15,11 @@ type MarbleApiRuntime = {
   supabaseUrl: string;
 };
 
+export type ApiTimingEntry = {
+  durationMs: number;
+  name: string;
+};
+
 export type ApiAuth =
   | {
       accessToken: string;
@@ -29,8 +34,10 @@ export type ApiAuth =
 
 export type ApiContext = {
   auth: ApiAuth;
+  recordTiming: (name: string, durationMs: number) => void;
   requestId: string;
   store: MarbleStore;
+  timings: ApiTimingEntry[];
 };
 
 const OPENAPI_DOCS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
@@ -122,17 +129,27 @@ export async function createApiContext(
 ): Promise<ApiContext> {
   const auth = resolveApiAuth(request);
   const supabase = createForwardedSupabaseClient(runtime, auth);
+  const timings: ApiTimingEntry[] = [];
+  const recordTiming = (name: string, durationMs: number) => {
+    timings.push({
+      durationMs,
+      name,
+    });
+  };
 
   return {
     auth,
+    recordTiming,
     requestId:
       request.headers.get("x-marble-request-id") ?? crypto.randomUUID(),
     store: new MarbleStore({
       context: {
         profileId: auth.profileId,
+        recordTiming,
       },
       supabase,
     }),
+    timings,
   };
 }
 
@@ -153,6 +170,7 @@ export function createOpenApiDocsContext(
       profileId: OPENAPI_DOCS_PROFILE_ID,
       type: "public-docs",
     },
+    recordTiming: () => {},
     requestId:
       request.headers.get("x-marble-request-id") ?? crypto.randomUUID(),
     store: new MarbleStore({
@@ -161,5 +179,6 @@ export function createOpenApiDocsContext(
       },
       supabase,
     }),
+    timings: [],
   };
 }

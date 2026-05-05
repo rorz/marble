@@ -5,6 +5,8 @@ import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { Hono } from "hono";
 import {
+  type ApiContext,
+  type ApiTimingEntry,
   createApiContext,
   createMarbleApiRuntime,
   createOpenApiDocsContext,
@@ -12,7 +14,12 @@ import {
 } from "./context";
 import { marbleRouter } from "./router";
 
-export type { ApiAuth, ApiContext, MarbleApiConfig } from "./context";
+export type {
+  ApiAuth,
+  ApiContext,
+  ApiTimingEntry,
+  MarbleApiConfig,
+} from "./context";
 export { createApiContext, createMarbleApiRuntime } from "./context";
 
 const errorResponse = (error: unknown) => {
@@ -65,6 +72,58 @@ function isOpenApiDocsPath(request: Request) {
   return pathname === "/openapi" || pathname === "/openapi/spec.json";
 }
 
+const timingHeader = (timings: ApiTimingEntry[]) =>
+  timings
+    .map((timing) => `${timing.name};dur=${Math.round(timing.durationMs)}`)
+    .join(", ");
+
+const appendServerTiming = (
+  response: Response,
+  timings: ApiTimingEntry[],
+  enabled: boolean,
+) => {
+  if (!enabled) {
+    return;
+  }
+
+  const nextTiming = timingHeader(timings);
+
+  if (!nextTiming) {
+    return;
+  }
+
+  const currentTiming = response.headers.get("Server-Timing");
+  response.headers.set(
+    "Server-Timing",
+    [
+      currentTiming,
+      nextTiming,
+    ]
+      .filter(Boolean)
+      .join(", "),
+  );
+};
+
+const shouldDebugTiming = (request: Request) =>
+  request.headers.get("x-marble-debug-timing") === "1";
+
+const logDebugTiming = (
+  request: Request,
+  context: ApiContext | null,
+  timings: ApiTimingEntry[],
+) => {
+  if (!shouldDebugTiming(request)) {
+    return;
+  }
+
+  console.log("[marble-api] timing", {
+    path: new URL(request.url).pathname,
+    requestId:
+      context?.requestId ?? request.headers.get("x-marble-request-id") ?? null,
+    timings,
+  });
+};
+
 export function createMarbleApi(config: MarbleApiConfig) {
   const runtime = createMarbleApiRuntime(config);
   const app = new Hono();
@@ -105,18 +164,42 @@ export function createMarbleApi(config: MarbleApiConfig) {
 
   app.use("/rpc/*", async (c, next) => {
     let result: Awaited<ReturnType<typeof rpcHandler.handle>>;
+    let context: ApiContext | null = null;
+    const debugTiming = shouldDebugTiming(c.req.raw);
+    const timings: ApiTimingEntry[] = [];
 
     try {
+      const contextStartedAt = performance.now();
+      context = await createApiContext(c.req.raw, runtime);
+      timings.push({
+        durationMs: performance.now() - contextStartedAt,
+        name: "api_context",
+      });
+      const handlerStartedAt = performance.now();
       result = await rpcHandler.handle(c.req.raw, {
-        context: await createApiContext(c.req.raw, runtime),
+        context,
         prefix: "/rpc",
       });
+      timings.push({
+        durationMs: performance.now() - handlerStartedAt,
+        name: "orpc_handle",
+      });
     } catch (error) {
-      return errorResponse(error);
+      const response = errorResponse(error);
+      appendServerTiming(response, timings, debugTiming);
+      logDebugTiming(c.req.raw, context, timings);
+      return response;
     }
 
     if (result.matched) {
-      return c.newResponse(result.response.body, result.response);
+      const response = c.newResponse(result.response.body, result.response);
+      const allTimings = [
+        ...timings,
+        ...(context?.timings ?? []),
+      ];
+      appendServerTiming(response, allTimings, debugTiming);
+      logDebugTiming(c.req.raw, context, allTimings);
+      return response;
     }
 
     return next();
@@ -124,19 +207,43 @@ export function createMarbleApi(config: MarbleApiConfig) {
 
   app.use("*", async (c, next) => {
     let result: Awaited<ReturnType<typeof openApiHandler.handle>>;
+    let context: ApiContext | null = null;
+    const debugTiming = shouldDebugTiming(c.req.raw);
+    const timings: ApiTimingEntry[] = [];
 
     try {
+      const contextStartedAt = performance.now();
+      context = isOpenApiDocsPath(c.req.raw)
+        ? createOpenApiDocsContext(c.req.raw, runtime)
+        : await createApiContext(c.req.raw, runtime);
+      timings.push({
+        durationMs: performance.now() - contextStartedAt,
+        name: "api_context",
+      });
+      const handlerStartedAt = performance.now();
       result = await openApiHandler.handle(c.req.raw, {
-        context: isOpenApiDocsPath(c.req.raw)
-          ? createOpenApiDocsContext(c.req.raw, runtime)
-          : await createApiContext(c.req.raw, runtime),
+        context,
+      });
+      timings.push({
+        durationMs: performance.now() - handlerStartedAt,
+        name: "openapi_handle",
       });
     } catch (error) {
-      return errorResponse(error);
+      const response = errorResponse(error);
+      appendServerTiming(response, timings, debugTiming);
+      logDebugTiming(c.req.raw, context, timings);
+      return response;
     }
 
     if (result.matched) {
-      return c.newResponse(result.response.body, result.response);
+      const response = c.newResponse(result.response.body, result.response);
+      const allTimings = [
+        ...timings,
+        ...(context?.timings ?? []),
+      ];
+      appendServerTiming(response, allTimings, debugTiming);
+      logDebugTiming(c.req.raw, context, allTimings);
+      return response;
     }
 
     return next();

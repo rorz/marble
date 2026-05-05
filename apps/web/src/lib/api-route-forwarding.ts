@@ -14,9 +14,12 @@ type MarbleApiFetcher = {
 type ForwardMarbleApiRequestOptions = {
   api: MarbleApiFetcher;
   forwardUserSupabaseAuth?: boolean;
+  profilelessPaths?: string[];
   publicPaths?: string[];
   stripPathPrefix: string;
 };
+
+const PROFILELESS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
 
 function stripPathPrefix(pathname: string, prefix: string) {
   if (pathname === prefix) {
@@ -34,6 +37,17 @@ function isPublicForwardedPath(pathname: string, publicPaths: string[] = []) {
   return publicPaths.includes(pathname);
 }
 
+function isProfilelessForwardedPath(
+  pathname: string,
+  profilelessPaths: string[] = [],
+) {
+  return profilelessPaths.includes(pathname);
+}
+
+function shouldDebugTiming(request: Request) {
+  return request.headers.get("x-marble-debug-timing") === "1";
+}
+
 export async function forwardMarbleApiRequest(
   req: Request,
   options: ForwardMarbleApiRequestOptions,
@@ -41,6 +55,7 @@ export async function forwardMarbleApiRequest(
   const startedAt = performance.now();
   const requestId =
     req.headers.get("x-marble-request-id")?.trim() || crypto.randomUUID();
+  const debugTiming = shouldDebugTiming(req);
   const timings: string[] = [];
   const apiKeyToken = getApiKeyTokenFromHeaders(req.headers);
   let authContext: {
@@ -52,6 +67,10 @@ export async function forwardMarbleApiRequest(
   const url = new URL(req.url);
   url.pathname = stripPathPrefix(url.pathname, options.stripPathPrefix);
   const publicPath = isPublicForwardedPath(url.pathname, options.publicPaths);
+  const profilelessPath = isProfilelessForwardedPath(
+    url.pathname,
+    options.profilelessPaths,
+  );
   const authStartedAt = performance.now();
 
   if (publicPath) {
@@ -92,43 +111,76 @@ export async function forwardMarbleApiRequest(
       profileId: keyAuth.owner_profile_id,
     };
   } else {
-    const user = await getCurrentUser();
-    if (!user) {
-      return NextResponse.json(
-        {
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        },
+    if (profilelessPath) {
+      const sessionStartedAt = performance.now();
+      const accessToken = options.forwardUserSupabaseAuth
+        ? await getCurrentSupabaseAccessToken()
+        : undefined;
+      timings.push(
+        `session;dur=${Math.round(performance.now() - sessionStartedAt)}`,
       );
-    }
 
-    const profileStartedAt = performance.now();
-    const profileId = await maybeResolveOwnedProfileId(user.id);
-    timings.push(
-      `profile;dur=${Math.round(performance.now() - profileStartedAt)}`,
-    );
-    const accessToken = options.forwardUserSupabaseAuth
-      ? await getCurrentSupabaseAccessToken()
-      : undefined;
+      if (options.forwardUserSupabaseAuth && !accessToken) {
+        return NextResponse.json(
+          {
+            error: "Unauthorized",
+          },
+          {
+            status: 401,
+          },
+        );
+      }
 
-    if (options.forwardUserSupabaseAuth && !accessToken) {
-      return NextResponse.json(
-        {
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        },
+      authContext = {
+        accessToken: accessToken ?? undefined,
+        profileId: PROFILELESS_PROFILE_ID,
+      };
+    } else {
+      const userStartedAt = performance.now();
+      const user = await getCurrentUser();
+      timings.push(`user;dur=${Math.round(performance.now() - userStartedAt)}`);
+
+      if (!user) {
+        return NextResponse.json(
+          {
+            error: "Unauthorized",
+          },
+          {
+            status: 401,
+          },
+        );
+      }
+
+      const profileStartedAt = performance.now();
+      const profileId = await maybeResolveOwnedProfileId(user.id);
+      timings.push(
+        `profile;dur=${Math.round(performance.now() - profileStartedAt)}`,
       );
-    }
+      const sessionStartedAt = performance.now();
+      const accessToken = options.forwardUserSupabaseAuth
+        ? await getCurrentSupabaseAccessToken()
+        : undefined;
+      timings.push(
+        `session;dur=${Math.round(performance.now() - sessionStartedAt)}`,
+      );
 
-    authContext = {
-      accessToken: accessToken ?? undefined,
-      profileId,
-      userId: user.id,
-    };
+      if (options.forwardUserSupabaseAuth && !accessToken) {
+        return NextResponse.json(
+          {
+            error: "Unauthorized",
+          },
+          {
+            status: 401,
+          },
+        );
+      }
+
+      authContext = {
+        accessToken: accessToken ?? undefined,
+        profileId,
+        userId: user.id,
+      };
+    }
   }
   if (!publicPath) {
     timings.push(`auth;dur=${Math.round(performance.now() - authStartedAt)}`);
@@ -172,16 +224,31 @@ export async function forwardMarbleApiRequest(
   timings.push(`total;dur=${Math.round(performance.now() - startedAt)}`);
 
   const response = new Response(apiResponse.body, apiResponse);
-  const apiServerTiming = response.headers.get("Server-Timing");
-  response.headers.set(
-    "Server-Timing",
-    [
-      apiServerTiming,
-      timings.join(", "),
-    ]
-      .filter(Boolean)
-      .join(", "),
-  );
+
+  if (debugTiming) {
+    const apiServerTiming = response.headers.get("Server-Timing");
+    response.headers.set(
+      "Server-Timing",
+      [
+        apiServerTiming,
+        timings.join(", "),
+      ]
+        .filter(Boolean)
+        .join(", "),
+    );
+  }
+
   response.headers.set("x-marble-request-id", requestId);
+
+  if (debugTiming) {
+    console.log("[marble-api-forward] timing", {
+      authType: authContext?.keyId ? "api-key" : "user-session",
+      path: url.pathname,
+      profileless: profilelessPath,
+      requestId,
+      timings,
+    });
+  }
+
   return response;
 }

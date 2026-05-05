@@ -111,6 +111,20 @@ const throwSupabaseError = (
   }
 };
 
+async function timeDbCall<T>(
+  context: ResourceContext,
+  name: string,
+  task: () => Promise<T>,
+) {
+  const startedAt = performance.now();
+
+  try {
+    return await task();
+  } finally {
+    context.recordTiming?.(name, performance.now() - startedAt);
+  }
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
@@ -145,154 +159,165 @@ const identityWhere = <T extends TableWithIdName>(
     id: string;
   };
 
-const createSupabaseDb = (supabase: SupabaseClient): SupabaseDb => ({
-  createSourceEvent: async (input) => {
-    const { data, error } = await supabase.rpc("source_event_create", {
-      p_raw_payload: input.rawPayload,
-      p_source_id: input.sourceId,
-    });
+const createSupabaseDb = (
+  supabase: SupabaseClient,
+  context: ResourceContext,
+): SupabaseDb => ({
+  createSourceEvent: async (input) =>
+    timeDbCall(context, "db_rpc_source_event_create", async () => {
+      const { data, error } = await supabase.rpc("source_event_create", {
+        p_raw_payload: input.rawPayload,
+        p_source_id: input.sourceId,
+      });
 
-    throwSupabaseError(error);
+      throwSupabaseError(error);
 
-    if (data === null) {
-      throw new Error("No source event row was returned after insert.");
-    }
+      if (data === null) {
+        throw new Error("No source event row was returned after insert.");
+      }
 
-    return toCamelKeys<"source_event">(data as DbRow<"source_event">);
-  },
-  delete: async (tableName, id, where) => {
-    const { data, error } = await supabase
-      .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
-        tableName,
-      )
-      .delete()
-      .match(identityWhere(id, where))
-      .select<"*", DbRow<typeof tableName>>("*")
-      .single();
+      return toCamelKeys<"source_event">(data as DbRow<"source_event">);
+    }),
+  delete: async (tableName, id, where) =>
+    timeDbCall(context, `db_delete_${tableName}`, async () => {
+      const { data, error } = await supabase
+        .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
+          tableName,
+        )
+        .delete()
+        .match(identityWhere(id, where))
+        .select<"*", DbRow<typeof tableName>>("*")
+        .single();
 
-    throwSupabaseError(error);
+      throwSupabaseError(error);
 
-    if (data === null) {
-      throw new Error(`No ${tableName} row was found matching identity.`);
-    }
+      if (data === null) {
+        throw new Error(`No ${tableName} row was found matching identity.`);
+      }
 
-    return toCamelKeys(data);
-  },
-  first: async (tableName, options) => {
-    const request = supabase
-      .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
-        tableName,
-      )
-      .select<"*", DbRow<typeof tableName>>("*");
+      return toCamelKeys(data);
+    }),
+  first: async (tableName, options) =>
+    timeDbCall(context, `db_first_${tableName}`, async () => {
+      const request = supabase
+        .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
+          tableName,
+        )
+        .select<"*", DbRow<typeof tableName>>("*");
 
-    const match = toSupabaseMatch(options.where ?? {});
-    const filteredRequest =
-      Object.keys(match).length === 0 ? request : request.match(match);
-    const { data, error } = await filteredRequest
-      .order(toSnakeKey(options.orderBy.column) as never, {
-        ascending: options.orderBy.ascending ?? true,
-      })
-      .limit(1)
-      .maybeSingle();
+      const match = toSupabaseMatch(options.where ?? {});
+      const filteredRequest =
+        Object.keys(match).length === 0 ? request : request.match(match);
+      const { data, error } = await filteredRequest
+        .order(toSnakeKey(options.orderBy.column) as never, {
+          ascending: options.orderBy.ascending ?? true,
+        })
+        .limit(1)
+        .maybeSingle();
 
-    throwSupabaseError(error);
+      throwSupabaseError(error);
 
-    return data === null ? null : toCamelKeys(data);
-  },
-  get: async (tableName, id, where) => {
-    const { data, error } = await supabase
-      .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
-        tableName,
-      )
-      .select<"*", DbRow<typeof tableName>>("*")
-      .match(identityWhere(id, where))
-      .single();
+      return data === null ? null : toCamelKeys(data);
+    }),
+  get: async (tableName, id, where) =>
+    timeDbCall(context, `db_get_${tableName}`, async () => {
+      const { data, error } = await supabase
+        .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
+          tableName,
+        )
+        .select<"*", DbRow<typeof tableName>>("*")
+        .match(identityWhere(id, where))
+        .single();
 
-    throwSupabaseError(error);
+      throwSupabaseError(error);
 
-    if (data === null) {
-      throw new Error(`No ${tableName} row was found matching identity.`);
-    }
+      if (data === null) {
+        throw new Error(`No ${tableName} row was found matching identity.`);
+      }
 
-    return toCamelKeys(data);
-  },
-  insert: async (tableName, values) => {
-    const { data, error } = await supabase
-      .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
-        tableName,
-      )
-      .insert<DbInsert<typeof tableName>>(toDbInsert(values))
-      .select<"*", DbRow<typeof tableName>>("*")
-      .single();
+      return toCamelKeys(data);
+    }),
+  insert: async (tableName, values) =>
+    timeDbCall(context, `db_insert_${tableName}`, async () => {
+      const { data, error } = await supabase
+        .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
+          tableName,
+        )
+        .insert<DbInsert<typeof tableName>>(toDbInsert(values))
+        .select<"*", DbRow<typeof tableName>>("*")
+        .single();
 
-    throwSupabaseError(error);
+      throwSupabaseError(error);
 
-    if (data === null) {
-      throw new Error(`No ${tableName} row was returned after insert.`);
-    }
+      if (data === null) {
+        throw new Error(`No ${tableName} row was returned after insert.`);
+      }
 
-    return toCamelKeys(data);
-  },
-  insertTableRows: async (input) => {
-    const { data, error } = await supabase.rpc("table_insert_rows", {
-      p_idx: input.idx,
-      p_owner_profile_id: input.ownerProfileId,
-      p_quantity: input.quantity,
-      p_table_id: input.tableId,
-    });
+      return toCamelKeys(data);
+    }),
+  insertTableRows: async (input) =>
+    timeDbCall(context, "db_rpc_table_insert_rows", async () => {
+      const { data, error } = await supabase.rpc("table_insert_rows", {
+        p_idx: input.idx,
+        p_owner_profile_id: input.ownerProfileId,
+        p_quantity: input.quantity,
+        p_table_id: input.tableId,
+      });
 
-    throwSupabaseError(error);
+      throwSupabaseError(error);
 
-    const result = parseTableInsertRowsResult(data);
+      const result = parseTableInsertRowsResult(data);
 
-    return result;
-  },
-  list: async (tableName, where = {}, options = {}) => {
-    const request = supabase
-      .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
-        tableName,
-      )
-      .select<"*", DbRow<typeof tableName>>("*");
+      return result;
+    }),
+  list: async (tableName, where = {}, options = {}) =>
+    timeDbCall(context, `db_list_${tableName}`, async () => {
+      const request = supabase
+        .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
+          tableName,
+        )
+        .select<"*", DbRow<typeof tableName>>("*");
 
-    const match = toSupabaseMatch(where);
-    let filteredRequest =
-      Object.keys(match).length === 0 ? request : request.match(match);
+      const match = toSupabaseMatch(where);
+      let filteredRequest =
+        Object.keys(match).length === 0 ? request : request.match(match);
 
-    for (const order of options.orderBy ?? []) {
-      filteredRequest = filteredRequest.order(
-        toSnakeKey(order.column) as never,
-        {
-          ascending: order.ascending ?? true,
-        },
-      );
-    }
+      for (const order of options.orderBy ?? []) {
+        filteredRequest = filteredRequest.order(
+          toSnakeKey(order.column) as never,
+          {
+            ascending: order.ascending ?? true,
+          },
+        );
+      }
 
-    const { data, error } = await (options.limit === undefined
-      ? filteredRequest
-      : filteredRequest.limit(options.limit));
+      const { data, error } = await (options.limit === undefined
+        ? filteredRequest
+        : filteredRequest.limit(options.limit));
 
-    throwSupabaseError(error);
+      throwSupabaseError(error);
 
-    return (data ?? []).map((row) => toCamelKeys(row));
-  },
-  update: async (tableName, id, values, where) => {
-    const { data, error } = await supabase
-      .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
-        tableName,
-      )
-      .update<DbUpdate<typeof tableName>>(toDbUpdate(values))
-      .match(identityWhere(id, where))
-      .select<"*", DbRow<typeof tableName>>("*")
-      .single();
+      return (data ?? []).map((row) => toCamelKeys(row));
+    }),
+  update: async (tableName, id, values, where) =>
+    timeDbCall(context, `db_update_${tableName}`, async () => {
+      const { data, error } = await supabase
+        .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
+          tableName,
+        )
+        .update<DbUpdate<typeof tableName>>(toDbUpdate(values))
+        .match(identityWhere(id, where))
+        .select<"*", DbRow<typeof tableName>>("*")
+        .single();
 
-    throwSupabaseError(error);
+      throwSupabaseError(error);
 
-    if (data === null) {
-      throw new Error(`No ${tableName} row was found matching identity.`);
-    }
+      if (data === null) {
+        throw new Error(`No ${tableName} row was found matching identity.`);
+      }
 
-    return toCamelKeys(data);
-  },
+      return toCamelKeys(data);
+    }),
 });
 
 export const createResourceDeps = ({
@@ -306,5 +331,5 @@ export const createResourceDeps = ({
 }): ResourceDeps => ({
   actions,
   context,
-  db: createSupabaseDb(supabase),
+  db: createSupabaseDb(supabase, context),
 });

@@ -55,8 +55,18 @@ type TimingEntry = {
   id: number;
   label: string;
   laneId: LaneId | "setup";
-  serverTiming?: string;
+  serverTiming?: ServerTimingTrace;
   status: TimingStatus;
+};
+
+type ServerTimingMetric = {
+  durationMs: number | null;
+  name: string;
+};
+
+type ServerTimingTrace = {
+  metrics: ServerTimingMetric[];
+  requestId?: string;
 };
 
 type LaneConfig = {
@@ -212,16 +222,75 @@ function getErrorMessage(cause: unknown) {
   return cause instanceof Error ? cause.message : String(cause);
 }
 
-function compactServerTiming(value: string | null) {
+function parseServerTiming(value: string | null): ServerTimingMetric[] {
   if (!value) {
-    return undefined;
+    return [];
   }
 
   return value
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean)
-    .join("  /  ");
+    .flatMap((entry) => {
+      const [rawName, ...parameters] = entry.split(";");
+      const name = rawName?.trim();
+
+      if (!name) {
+        return [];
+      }
+
+      const durationParameter = parameters
+        .map((parameter) => parameter.trim())
+        .find((parameter) => parameter.startsWith("dur="));
+      const rawDuration = durationParameter?.slice("dur=".length).trim();
+      const durationMs =
+        rawDuration === undefined ? Number.NaN : Number(rawDuration);
+
+      return [
+        {
+          durationMs: Number.isFinite(durationMs) ? durationMs : null,
+          name,
+        },
+      ];
+    });
+}
+
+function responseServerTiming(response: Response) {
+  const metrics = parseServerTiming(response.headers.get("Server-Timing"));
+  const requestId = response.headers.get("x-marble-request-id")?.trim();
+
+  if (metrics.length === 0 && !requestId) {
+    return null;
+  }
+
+  return {
+    metrics,
+    requestId: requestId || undefined,
+  } satisfies ServerTimingTrace;
+}
+
+function withDebugTimingHeader(input: RequestInfo | URL, init?: RequestInit) {
+  const headers = new Headers(
+    input instanceof Request ? input.headers : init?.headers,
+  );
+  headers.set("x-marble-debug-timing", "1");
+
+  if (input instanceof Request) {
+    return [
+      new Request(input, {
+        headers,
+      }),
+      init,
+    ] as const;
+  }
+
+  return [
+    input,
+    {
+      ...init,
+      headers,
+    },
+  ] as const;
 }
 
 function sourceToSnapshot(source: SdkSource): SourceSnapshot {
@@ -289,6 +358,7 @@ function getApiUrl() {
 
 export function DbPerf2View() {
   const supabase = useMemo(() => createClient(), []);
+  const lastSetupServerTimingRef = useRef<ServerTimingTrace | null>(null);
   const pageStartedAtRef = useRef(nowMs());
   const timingIdRef = useRef(0);
   const [draftValue, setDraftValue] = useState("hello from db-perf-2");
@@ -316,17 +386,32 @@ export function DbPerf2View() {
     [],
   );
 
+  const setupFetch = useCallback<typeof fetch>(async (input, init) => {
+    const [request, requestInit] = withDebugTimingHeader(input, init);
+    const response = await fetch(request, {
+      ...requestInit,
+      cache: "no-store",
+    });
+
+    lastSetupServerTimingRef.current = responseServerTiming(response);
+    return response;
+  }, []);
+
   const sdk = useMemo(
     () =>
       new MarbleClient({
         apiUrl: getApiUrl(),
+        fetch: setupFetch,
       }),
-    [],
+    [
+      setupFetch,
+    ],
   );
 
   const measureSetup = useCallback(
     async <T,>(label: string, task: () => Promise<T>) => {
       const startedAt = nowMs();
+      lastSetupServerTimingRef.current = null;
 
       try {
         const result = await task();
@@ -334,6 +419,7 @@ export function DbPerf2View() {
           durationMs: nowMs() - startedAt,
           label,
           laneId: "setup",
+          serverTiming: lastSetupServerTimingRef.current ?? undefined,
           status: "ok",
         });
         return result;
@@ -720,7 +806,7 @@ function useCaptureLane({
   sourceId: string | null;
   supabase: BrowserSupabaseClient;
 }>): LaneState {
-  const lastServerTimingRef = useRef<string | null>(null);
+  const lastServerTimingRef = useRef<ServerTimingTrace | null>(null);
   const pendingObservationRef = useRef<PendingObservation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [latestEvent, setLatestEvent] = useState<SourceEventSnapshot | null>(
@@ -760,12 +846,13 @@ function useCaptureLane({
   );
 
   const sdkFetch = useCallback<typeof fetch>(async (input, init) => {
-    const response = await fetch(input, {
-      ...init,
+    const [request, requestInit] = withDebugTimingHeader(input, init);
+    const response = await fetch(request, {
+      ...requestInit,
       cache: "no-store",
     });
 
-    lastServerTimingRef.current = response.headers.get("Server-Timing");
+    lastServerTimingRef.current = responseServerTiming(response);
     return response;
   }, []);
 
@@ -900,7 +987,7 @@ function useCaptureLane({
           label,
           serverTiming:
             lane.createKind === "sdk"
-              ? compactServerTiming(lastServerTimingRef.current)
+              ? (lastServerTimingRef.current ?? undefined)
               : undefined,
           status: "ok",
         });
@@ -1115,6 +1202,67 @@ function Metric({
   );
 }
 
+const serverTimingLabels = {
+  api: "forward api",
+  api_context: "api context",
+  auth: "auth",
+  db_rpc_source_event_create: "db rpc",
+  openapi_handle: "openapi",
+  orpc_handle: "orpc",
+  profile: "profile",
+  session: "session",
+  store_source_events_create: "store create",
+  total: "forward total",
+  user: "user",
+} satisfies Record<string, string>;
+
+function serverTimingLabel(name: string) {
+  return serverTimingLabels[name as keyof typeof serverTimingLabels] ?? name;
+}
+
+function shortRequestId(value: string) {
+  return value.length <= 8 ? value : value.slice(0, 8);
+}
+
+function ServerTimingBreakdown({
+  trace,
+}: Readonly<{
+  trace: ServerTimingTrace;
+}>) {
+  return (
+    <div className="mt-1 border-taupe-200 border-l pl-2 text-taupe-500">
+      {trace.requestId ? (
+        <div className="mb-1 grid grid-cols-[minmax(0,1fr)_4.25rem] gap-2 text-[10px]">
+          <span className="truncate">request</span>
+          <span
+            className="text-right tabular-nums text-taupe-600"
+            title={trace.requestId}
+          >
+            {shortRequestId(trace.requestId)}
+          </span>
+        </div>
+      ) : null}
+      {trace.metrics.length > 0 ? (
+        <dl className="grid grid-cols-[minmax(0,1fr)_4.25rem] gap-x-2 gap-y-0.5 text-[10px]">
+          {trace.metrics.map((metric) => (
+            <div
+              className="contents"
+              key={`${metric.name}-${metric.durationMs ?? "none"}`}
+            >
+              <dt className="truncate">{serverTimingLabel(metric.name)}</dt>
+              <dd className="text-right tabular-nums text-taupe-700">
+                {metric.durationMs === null
+                  ? "n/a"
+                  : formatMs(metric.durationMs)}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </div>
+  );
+}
+
 function TimingList({
   entries,
 }: Readonly<{
@@ -1145,12 +1293,10 @@ function TimingList({
               {entry.label}
             </div>
             {entry.serverTiming ? (
-              <div className="truncate text-taupe-500">
-                {entry.serverTiming}
-              </div>
+              <ServerTimingBreakdown trace={entry.serverTiming} />
             ) : null}
             {entry.detail ? (
-              <div className="truncate text-red-600">{entry.detail}</div>
+              <div className="break-words text-red-600">{entry.detail}</div>
             ) : null}
           </div>
           <div

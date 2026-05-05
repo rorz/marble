@@ -118,6 +118,7 @@ export type ResourceRow<Name extends TableName> = Tables<Name>;
 
 export type ResourceContext = {
   profileId: string;
+  recordTiming?: (name: string, durationMs: number) => void;
 };
 
 export type CellRunInput = {
