@@ -54,6 +54,7 @@ type TimingEntry = {
   durationMs: number;
   elapsedMs: number;
   id: number;
+  key: string;
   kind?: TimingKind;
   label: string;
   laneId: LaneId | "setup";
@@ -320,7 +321,7 @@ export function DbPerf2View() {
   const [timings, setTimings] = useState<TimingEntry[]>([]);
 
   const appendTiming = useCallback(
-    (entry: Omit<TimingEntry, "elapsedMs" | "id">) => {
+    (entry: Omit<TimingEntry, "elapsedMs" | "id" | "key">) => {
       const currentTime = nowMs();
       timingIdRef.current += 1;
 
@@ -331,6 +332,7 @@ export function DbPerf2View() {
             ...entry,
             elapsedMs: currentTime - pageStartedAtRef.current,
             id: timingIdRef.current,
+            key: crypto.randomUUID(),
           },
         ].slice(-64),
       );
@@ -746,7 +748,7 @@ function useCaptureLane({
   sourceId,
   supabase,
 }: Readonly<{
-  appendTiming: (entry: Omit<TimingEntry, "elapsedMs" | "id">) => void;
+  appendTiming: (entry: Omit<TimingEntry, "elapsedMs" | "id" | "key">) => void;
   broadcastSubscription: BroadcastSubscription;
   lane: LaneConfig;
   sourceId: string | null;
@@ -766,7 +768,7 @@ function useCaptureLane({
     lane.captureKind === "broadcast" ? broadcastSubscription.error : error;
 
   const appendLaneTiming = useCallback(
-    (entry: Omit<TimingEntry, "elapsedMs" | "id" | "laneId">) => {
+    (entry: Omit<TimingEntry, "elapsedMs" | "id" | "key" | "laneId">) => {
       const nextEntry = {
         ...entry,
         laneId: lane.id,
@@ -780,6 +782,7 @@ function useCaptureLane({
             ...nextEntry,
             elapsedMs: nowMs(),
             id: current.length + 1,
+            key: crypto.randomUUID(),
           },
         ].slice(-8),
       );
@@ -1190,7 +1193,7 @@ function TimingList({
             "grid grid-cols-[minmax(0,1fr)_4.75rem] gap-2 py-2",
             entry.kind === "wall" ? "bg-taupe-100/70 px-2" : "",
           )}
-          key={`${entry.laneId}-${entry.id}-${entry.runId ?? "none"}-${entry.label}`}
+          key={entry.key}
         >
           <div className="min-w-0">
             <div
@@ -1252,10 +1255,10 @@ function TimingPanel({
       </MarbleCardHeader>
       <MarbleCardContent>
         <ol className="space-y-1 font-mono text-[11px] text-taupe-600">
-          {entries.map((entry, index) => (
+          {entries.map((entry) => (
             <li
               className="grid grid-cols-[4rem_9rem_minmax(0,1fr)_4.5rem] gap-2"
-              key={`${entry.laneId}-${entry.id}-${entry.runId ?? "none"}-${entry.kind ?? "none"}-${index}`}
+              key={entry.key}
             >
               <span className="tabular-nums">+{formatMs(entry.elapsedMs)}</span>
               <span className="truncate font-medium">{entry.laneId}</span>
