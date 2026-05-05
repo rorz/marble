@@ -22,6 +22,7 @@ type SourceEventRow = Database["public"]["Tables"]["source_event"]["Row"];
 type CreateKind = "sdk" | "supabase";
 type CaptureKind = "postgres" | "broadcast";
 type LaneStatus = "error" | "pending" | "ready" | "subscribing";
+type TimingKind = "request" | "setup" | "wall";
 type TimingStatus = "error" | "ok";
 
 type SdkProject = {
@@ -53,8 +54,10 @@ type TimingEntry = {
   durationMs: number;
   elapsedMs: number;
   id: number;
+  kind?: TimingKind;
   label: string;
   laneId: LaneId | "setup";
+  runId?: string;
   status: TimingStatus;
 };
 
@@ -76,14 +79,20 @@ type LaneState = {
   latestEvent: SourceEventSnapshot | null;
   pending: boolean;
   ready: boolean;
-  run: (value: string) => Promise<void>;
+  run: (value: string, startedAt?: number) => Promise<void>;
   status: LaneStatus;
   timings: TimingEntry[];
 };
 
+type ObservationResult = {
+  event: SourceEventSnapshot;
+  observedAt: number;
+  startedAt: number;
+};
+
 type PendingObservation = {
   reject: (cause: Error) => void;
-  resolve: (event: SourceEventSnapshot) => void;
+  resolve: (observation: ObservationResult) => void;
   runId: string;
   startedAt: number;
   timeoutId: ReturnType<typeof setTimeout>;
@@ -179,6 +188,12 @@ const laneStyles = {
   }
 >;
 
+const timingKindOrder = {
+  request: 0,
+  setup: 2,
+  wall: 1,
+} satisfies Record<TimingKind, number>;
+
 function nowMs() {
   return performance.now();
 }
@@ -205,6 +220,34 @@ function getPayloadRunId(value: Json) {
 
 function formatJson(value: Json) {
   return JSON.stringify(value, null, 2);
+}
+
+function getLatestWallEntry(entries: TimingEntry[]) {
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    if (entries[index]?.kind === "wall") {
+      return entries[index];
+    }
+  }
+
+  return null;
+}
+
+function orderTimingEntriesForDisplay(entries: TimingEntry[]) {
+  return [
+    ...entries,
+  ].sort((left, right) => {
+    if (left.runId && left.runId === right.runId) {
+      const kindDelta =
+        timingKindOrder[left.kind ?? "request"] -
+        timingKindOrder[right.kind ?? "request"];
+
+      if (kindDelta !== 0) {
+        return kindDelta;
+      }
+    }
+
+    return left.id - right.id;
+  });
 }
 
 function getErrorMessage(cause: unknown) {
@@ -316,6 +359,7 @@ export function DbPerf2View() {
         const result = await task();
         appendTiming({
           durationMs: nowMs() - startedAt,
+          kind: "setup",
           label,
           laneId: "setup",
           status: "ok",
@@ -325,6 +369,7 @@ export function DbPerf2View() {
         appendTiming({
           detail: getErrorMessage(cause),
           durationMs: nowMs() - startedAt,
+          kind: "setup",
           label,
           laneId: "setup",
           status: "error",
@@ -437,7 +482,10 @@ export function DbPerf2View() {
       return;
     }
 
-    await Promise.all(laneStates.map((lane) => lane.run(draftValue)));
+    const startedAt = nowMs();
+    await Promise.all(
+      laneStates.map((lane) => lane.run(draftValue, startedAt)),
+    );
   }, [
     draftValue,
     laneStates,
@@ -755,32 +803,28 @@ function useCaptureLane({
     ],
   );
 
-  const observeEvent = useCallback(
-    (event: SourceEventSnapshot) => {
-      const pendingObservation = pendingObservationRef.current;
+  const observeEvent = useCallback((event: SourceEventSnapshot) => {
+    const pendingObservation = pendingObservationRef.current;
 
-      if (
-        !pendingObservation ||
-        getPayloadRunId(event.rawPayload) !== pendingObservation.runId
-      ) {
-        return;
-      }
+    if (
+      !pendingObservation ||
+      getPayloadRunId(event.rawPayload) !== pendingObservation.runId
+    ) {
+      return;
+    }
 
-      clearTimeout(pendingObservation.timeoutId);
-      pendingObservationRef.current = null;
-      setLatestEvent(event);
-      appendLaneTiming({
-        durationMs: nowMs() - pendingObservation.startedAt,
-        label: `${lane.captureKind} observed`,
-        status: "ok",
-      });
-      pendingObservation.resolve(event);
-    },
-    [
-      appendLaneTiming,
-      lane.captureKind,
-    ],
-  );
+    const observedAt = nowMs();
+
+    clearTimeout(pendingObservation.timeoutId);
+    pendingObservationRef.current = null;
+    setLatestEvent(event);
+
+    pendingObservation.resolve({
+      event,
+      observedAt,
+      startedAt: pendingObservation.startedAt,
+    });
+  }, []);
 
   useEffect(() => {
     if (!sourceId) {
@@ -864,22 +908,33 @@ function useCaptureLane({
   ]);
 
   const measureCreate = useCallback(
-    async <T,>(label: string, task: () => Promise<T>) => {
+    async <T,>(label: string, runId: string, task: () => Promise<T>) => {
       const startedAt = nowMs();
 
       try {
         const result = await task();
+        const durationMs = nowMs() - startedAt;
+
         appendLaneTiming({
-          durationMs: nowMs() - startedAt,
+          durationMs,
+          kind: "request",
           label,
+          runId,
           status: "ok",
         });
-        return result;
+        return {
+          durationMs,
+          result,
+        };
       } catch (cause) {
+        const durationMs = nowMs() - startedAt;
+
         appendLaneTiming({
           detail: getErrorMessage(cause),
-          durationMs: nowMs() - startedAt,
+          durationMs,
+          kind: "request",
           label,
+          runId,
           status: "error",
         });
         throw cause;
@@ -890,10 +945,8 @@ function useCaptureLane({
     ],
   );
 
-  const waitForObservation = useCallback((runId: string) => {
-    const startedAt = nowMs();
-
-    return new Promise<SourceEventSnapshot>((resolve, reject) => {
+  const waitForObservation = useCallback((runId: string, startedAt: number) => {
+    return new Promise<ObservationResult>((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         if (pendingObservationRef.current?.runId === runId) {
           pendingObservationRef.current = null;
@@ -913,7 +966,7 @@ function useCaptureLane({
   }, []);
 
   const run = useCallback(
-    async (value: string) => {
+    async (value: string, startedAt = nowMs()) => {
       if (!sourceId || effectiveStatus !== "ready" || pending) {
         return;
       }
@@ -928,29 +981,52 @@ function useCaptureLane({
       setError(null);
       setPending(true);
 
-      const observation = waitForObservation(runId);
+      const runStartedAt = startedAt;
+      const observation = waitForObservation(runId, runStartedAt);
 
       try {
+        let requestDurationMs: number;
+
         if (lane.createKind === "sdk") {
-          await measureCreate("sdk sourceEvents.create", () =>
-            sdk.sourceEvents.create({
-              rawPayload: payload,
-              sourceId,
-            }),
-          );
-        } else {
-          await measureCreate("supabase source_event_create", async () =>
-            requireSupabaseData(
-              await supabase.rpc("source_event_create", {
-                p_raw_payload: payload,
-                p_source_id: sourceId,
+          const createTiming = await measureCreate(
+            "sdk sourceEvents.create",
+            runId,
+            () =>
+              sdk.sourceEvents.create({
+                rawPayload: payload,
+                sourceId,
               }),
-              "No source event row was returned after insert.",
-            ),
           );
+          requestDurationMs = createTiming.durationMs;
+        } else {
+          const createTiming = await measureCreate(
+            "supabase source_event_create",
+            runId,
+            async () =>
+              requireSupabaseData(
+                await supabase.rpc("source_event_create", {
+                  p_raw_payload: payload,
+                  p_source_id: sourceId,
+                }),
+                "No source event row was returned after insert.",
+              ),
+          );
+          requestDurationMs = createTiming.durationMs;
         }
 
-        await observation;
+        const observed = await observation;
+        const eventObservedMs = observed.observedAt - observed.startedAt;
+
+        appendLaneTiming({
+          detail: `request response ${formatMs(
+            requestDurationMs,
+          )} / update received ${formatMs(eventObservedMs)}`,
+          durationMs: eventObservedMs,
+          kind: "wall",
+          label: `press-to-${lane.captureKind} update`,
+          runId,
+          status: "ok",
+        });
       } catch (cause) {
         if (pendingObservationRef.current?.runId === runId) {
           clearTimeout(pendingObservationRef.current.timeoutId);
@@ -960,8 +1036,10 @@ function useCaptureLane({
         setError(getErrorMessage(cause));
         appendLaneTiming({
           detail: getErrorMessage(cause),
-          durationMs: 0,
+          durationMs: nowMs() - runStartedAt,
+          kind: "wall",
           label: `${lane.captureKind} failed`,
+          runId,
           status: "error",
         });
       } finally {
@@ -1002,6 +1080,7 @@ function LanePanel({
   state: LaneState;
 }>) {
   const styles = laneStyles[lane.captureKind];
+  const latestWall = getLatestWallEntry(state.timings);
 
   return (
     <MarbleCard className="min-h-[27rem]">
@@ -1039,10 +1118,14 @@ function LanePanel({
           </p>
         ) : null}
 
-        <div className="grid grid-cols-2 gap-3 border-t border-taupe-200 pt-4">
+        <div className="grid grid-cols-3 gap-3 border-t border-taupe-200 pt-4">
           <Metric
             label="Last event"
             value={state.latestEvent ? shortId(state.latestEvent.id) : "none"}
+          />
+          <Metric
+            label="Last update"
+            value={latestWall ? formatMs(latestWall.durationMs) : "none"}
           />
           <Metric
             label="Timings"
@@ -1089,6 +1172,8 @@ function TimingList({
 }: Readonly<{
   entries: TimingEntry[];
 }>) {
+  const orderedEntries = orderTimingEntriesForDisplay(entries);
+
   if (entries.length === 0) {
     return (
       <p className="border-t border-taupe-200 pt-3 text-sm text-taupe-500">
@@ -1099,31 +1184,51 @@ function TimingList({
 
   return (
     <ol className="divide-y divide-taupe-200 border-t border-taupe-200 font-mono text-[11px]">
-      {entries.map((entry) => (
+      {orderedEntries.map((entry) => (
         <li
-          className="grid grid-cols-[minmax(0,1fr)_4.25rem] gap-2 py-2"
-          key={`${entry.laneId}-${entry.id}-${entry.label}`}
+          className={cx(
+            "grid grid-cols-[minmax(0,1fr)_4.75rem] gap-2 py-2",
+            entry.kind === "wall" ? "bg-taupe-100/70 px-2" : "",
+          )}
+          key={`${entry.laneId}-${entry.id}-${entry.runId ?? "none"}-${entry.label}`}
         >
           <div className="min-w-0">
             <div
               className={cx(
                 "truncate",
+                entry.kind === "wall" ? "font-semibold" : "",
                 entry.status === "error" ? "text-red-700" : "text-taupe-800",
               )}
             >
               {entry.label}
             </div>
             {entry.detail ? (
-              <div className="break-words text-red-600">{entry.detail}</div>
+              <div
+                className={cx(
+                  "break-words text-taupe-500",
+                  entry.status === "error" ? "text-red-600" : "",
+                )}
+              >
+                {entry.detail}
+              </div>
+            ) : null}
+            {entry.runId ? (
+              <div className="text-taupe-400">run {shortId(entry.runId)}</div>
             ) : null}
           </div>
           <div
             className={cx(
               "text-right tabular-nums",
+              entry.kind === "wall" ? "font-semibold" : "",
               entry.status === "error" ? "text-red-700" : "text-taupe-950",
             )}
           >
-            {formatMs(entry.durationMs)}
+            <div>{formatMs(entry.durationMs)}</div>
+            {entry.kind === "wall" ? (
+              <div className="font-medium text-[9px] text-taupe-500 uppercase tracking-[0.12em]">
+                wall
+              </div>
+            ) : null}
           </div>
         </li>
       ))}
@@ -1147,10 +1252,10 @@ function TimingPanel({
       </MarbleCardHeader>
       <MarbleCardContent>
         <ol className="space-y-1 font-mono text-[11px] text-taupe-600">
-          {entries.map((entry) => (
+          {entries.map((entry, index) => (
             <li
               className="grid grid-cols-[4rem_9rem_minmax(0,1fr)_4.5rem] gap-2"
-              key={`${entry.laneId}-${entry.id}`}
+              key={`${entry.laneId}-${entry.id}-${entry.runId ?? "none"}-${entry.kind ?? "none"}-${index}`}
             >
               <span className="tabular-nums">+{formatMs(entry.elapsedMs)}</span>
               <span className="truncate font-medium">{entry.laneId}</span>

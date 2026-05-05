@@ -67,12 +67,16 @@ export function createSupabaseClientRouterClient({
 }: {
   supabase: SupabaseClient;
 }) {
-  const profileId = resolveSupabaseClientProfileId(supabase);
+  let profileId: Promise<string> | null = null;
+  const getProfileId = () => {
+    profileId ??= resolveSupabaseClientProfileId(supabase);
+    return profileId;
+  };
 
   return createRouterClient(marbleRouter, {
     context: async () =>
       createSupabaseClientApiContext({
-        profileId: await profileId,
+        profileId: await getProfileId(),
         supabase,
       }),
   });
