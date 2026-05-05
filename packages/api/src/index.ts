@@ -72,9 +72,20 @@ function isOpenApiDocsPath(request: Request) {
   return pathname === "/openapi" || pathname === "/openapi/spec.json";
 }
 
+const MARBLE_SERVER_TIMING_HEADER = "x-marble-server-timing";
+const SERVER_TIMING_HEADER = "Server-Timing";
+
 const timingHeader = (timings: ApiTimingEntry[]) =>
   timings
     .map((timing) => `${timing.name};dur=${Math.round(timing.durationMs)}`)
+    .join(", ");
+
+const appendHeaderValue = (currentValue: string | null, nextValue: string) =>
+  [
+    currentValue,
+    nextValue,
+  ]
+    .filter(Boolean)
     .join(", ");
 
 const appendServerTiming = (
@@ -92,15 +103,16 @@ const appendServerTiming = (
     return;
   }
 
-  const currentTiming = response.headers.get("Server-Timing");
   response.headers.set(
-    "Server-Timing",
-    [
-      currentTiming,
+    SERVER_TIMING_HEADER,
+    appendHeaderValue(response.headers.get(SERVER_TIMING_HEADER), nextTiming),
+  );
+  response.headers.set(
+    MARBLE_SERVER_TIMING_HEADER,
+    appendHeaderValue(
+      response.headers.get(MARBLE_SERVER_TIMING_HEADER),
       nextTiming,
-    ]
-      .filter(Boolean)
-      .join(", "),
+    ),
   );
 };
 

@@ -256,7 +256,10 @@ function parseServerTiming(value: string | null): ServerTimingMetric[] {
 }
 
 function responseServerTiming(response: Response) {
-  const metrics = parseServerTiming(response.headers.get("Server-Timing"));
+  const metrics = parseServerTiming(
+    response.headers.get("x-marble-server-timing") ??
+      response.headers.get("Server-Timing"),
+  );
   const requestId = response.headers.get("x-marble-request-id")?.trim();
 
   if (metrics.length === 0 && !requestId) {

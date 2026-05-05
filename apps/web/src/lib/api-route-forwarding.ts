@@ -20,6 +20,8 @@ type ForwardMarbleApiRequestOptions = {
 };
 
 const PROFILELESS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
+const MARBLE_SERVER_TIMING_HEADER = "x-marble-server-timing";
+const SERVER_TIMING_HEADER = "Server-Timing";
 
 function stripPathPrefix(pathname: string, prefix: string) {
   if (pathname === prefix) {
@@ -226,16 +228,17 @@ export async function forwardMarbleApiRequest(
   const response = new Response(apiResponse.body, apiResponse);
 
   if (debugTiming) {
-    const apiServerTiming = response.headers.get("Server-Timing");
-    response.headers.set(
-      "Server-Timing",
-      [
-        apiServerTiming,
-        timings.join(", "),
-      ]
-        .filter(Boolean)
-        .join(", "),
-    );
+    const forwardedServerTiming =
+      response.headers.get(MARBLE_SERVER_TIMING_HEADER) ??
+      response.headers.get(SERVER_TIMING_HEADER);
+    const serverTiming = [
+      forwardedServerTiming,
+      timings.join(", "),
+    ]
+      .filter(Boolean)
+      .join(", ");
+    response.headers.set(SERVER_TIMING_HEADER, serverTiming);
+    response.headers.set(MARBLE_SERVER_TIMING_HEADER, serverTiming);
   }
 
   response.headers.set("x-marble-request-id", requestId);
