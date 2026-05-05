@@ -674,6 +674,170 @@ $$;
 ALTER FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."current_user_owns_profile"("p_profile_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO ''
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public."profile" AS profile
+    WHERE profile.id = p_profile_id
+      AND profile.owner_user_id = auth.uid()
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_user_owns_profile"("p_profile_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_user_owns_project"("p_project_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO ''
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public."project" AS project
+    JOIN public."profile" AS profile
+      ON profile.id = project.owner_profile_id
+    WHERE project.id = p_project_id
+      AND profile.owner_user_id = auth.uid()
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_user_owns_project"("p_project_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO ''
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public."table" AS target_table
+    WHERE target_table.id = p_table_id
+      AND public.current_user_owns_project(target_table.project_id)
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", "p_table_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO ''
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public."source" AS source
+    JOIN public."table" AS target_table
+      ON target_table.project_id = source.project_id
+    WHERE source.id = p_source_id
+      AND target_table.id = p_table_id
+      AND public.current_user_owns_project(source.project_id)
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", "p_table_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_user_can_use_source_event_scope"("p_project_id" "uuid", "p_source_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO ''
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public."source" AS source
+    WHERE source.id = p_source_id
+      AND source.project_id = p_project_id
+      AND public.current_user_owns_project(source.project_id)
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_user_can_use_source_event_scope"("p_project_id" "uuid", "p_source_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO ''
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public."row" AS row_record
+    JOIN public."column" AS column_record
+      ON column_record.table_id = row_record.table_id
+    WHERE row_record.id = p_row_id
+      AND column_record.id = p_column_id
+      AND public.current_user_owns_table(row_record.table_id)
+  );
+$$;
+
+
+ALTER FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."enforce_pipe_same_project"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+DECLARE
+  source_project_id UUID;
+  table_project_id UUID;
+BEGIN
+  SELECT source.project_id
+  INTO source_project_id
+  FROM public."source" AS source
+  WHERE source.id = NEW.source_id;
+
+  SELECT target_table.project_id
+  INTO table_project_id
+  FROM public."table" AS target_table
+  WHERE target_table.id = NEW.table_id;
+
+  IF source_project_id IS NOT NULL
+    AND table_project_id IS NOT NULL
+    AND source_project_id <> table_project_id THEN
+    RAISE EXCEPTION 'Pipe source and table must belong to the same project'
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END
+$$;
+
+
+ALTER FUNCTION "public"."enforce_pipe_same_project"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."source_event_create"("p_source_id" "uuid", "p_raw_payload" "jsonb") RETURNS "public"."source_event"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+DECLARE
+  created public.source_event;
+BEGIN
+  INSERT INTO public."source_event" (source_id, project_id, raw_payload)
+  SELECT source.id, source.project_id, p_raw_payload
+  FROM public."source" AS source
+  WHERE source.id = p_source_id
+  RETURNING * INTO created;
+
+  IF created.id IS NULL THEN
+    RAISE EXCEPTION 'Source % was not found', p_source_id
+      USING ERRCODE = 'P0002';
+  END IF;
+
+  RETURN created;
+END
+$$;
+
+
+ALTER FUNCTION "public"."source_event_create"("p_source_id" "uuid", "p_raw_payload" "jsonb") OWNER TO "postgres";
+
+
 ALTER TABLE ONLY "public"."cell"
     ADD CONSTRAINT "cell_pkey" PRIMARY KEY ("id");
 
@@ -774,6 +938,11 @@ ALTER TABLE ONLY "public"."source_event"
 
 ALTER TABLE ONLY "public"."source"
     ADD CONSTRAINT "source_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."source"
+    ADD CONSTRAINT "source_id_project_id_key" UNIQUE ("id", "project_id");
 
 
 
@@ -934,6 +1103,10 @@ CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."pipe" FOR 
 
 
 
+CREATE OR REPLACE TRIGGER "enforce_pipe_same_project" BEFORE INSERT OR UPDATE OF "source_id", "table_id" ON "public"."pipe" FOR EACH ROW EXECUTE FUNCTION "public"."enforce_pipe_same_project"();
+
+
+
 CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."row" FOR EACH ROW EXECUTE FUNCTION "public"."set_updated_at"();
 
 
@@ -1077,7 +1250,7 @@ ALTER TABLE ONLY "public"."source_event"
 
 
 ALTER TABLE ONLY "public"."source_event"
-    ADD CONSTRAINT "source_event_source_id_fkey" FOREIGN KEY ("source_id") REFERENCES "public"."source"("id") ON DELETE CASCADE;
+    ADD CONSTRAINT "source_event_source_id_project_id_fkey" FOREIGN KEY ("source_id", "project_id") REFERENCES "public"."source"("id", "project_id") ON DELETE CASCADE;
 
 
 
@@ -1195,6 +1368,27 @@ CREATE POLICY "Users can view pipes in their own projects" ON "public"."pipe" FO
 
 
 CREATE POLICY "Users can view their own secrets" ON "public"."secret" FOR SELECT USING (("owner_user_id" = "auth"."uid"()));
+
+
+CREATE POLICY "Users can manage cells in their own tables" ON "public"."cell" FOR ALL TO "authenticated" USING ("public"."cell_belongs_to_current_user"("row_id", "column_id")) WITH CHECK ("public"."cell_belongs_to_current_user"("row_id", "column_id"));
+
+
+CREATE POLICY "Users can manage pipes in their own projects" ON "public"."pipe" FOR ALL TO "authenticated" USING ("public"."current_user_can_use_pipe_scope"("source_id", "table_id")) WITH CHECK ("public"."current_user_can_use_pipe_scope"("source_id", "table_id"));
+
+
+CREATE POLICY "Users can manage rows in their own tables" ON "public"."row" FOR ALL TO "authenticated" USING ("public"."current_user_owns_table"("table_id")) WITH CHECK ("public"."current_user_owns_table"("table_id"));
+
+
+CREATE POLICY "Users can manage source events in their own projects" ON "public"."source_event" FOR ALL TO "authenticated" USING ("public"."current_user_can_use_source_event_scope"("project_id", "source_id")) WITH CHECK ("public"."current_user_can_use_source_event_scope"("project_id", "source_id"));
+
+
+CREATE POLICY "Users can manage sources in their own projects" ON "public"."source" FOR ALL TO "authenticated" USING ("public"."current_user_owns_project"("project_id")) WITH CHECK ("public"."current_user_owns_project"("project_id"));
+
+
+CREATE POLICY "Users can manage tables in their own projects" ON "public"."table" FOR ALL TO "authenticated" USING ("public"."current_user_owns_project"("project_id")) WITH CHECK ("public"."current_user_owns_project"("project_id"));
+
+
+CREATE POLICY "Users can manage their own projects" ON "public"."project" FOR ALL TO "authenticated" USING ("public"."current_user_owns_profile"("owner_profile_id")) WITH CHECK ("public"."current_user_owns_profile"("owner_profile_id"));
 
 
 CREATE POLICY "Anyone can create testing tags" ON "testing"."tags" FOR INSERT TO "anon", "authenticated" WITH CHECK (true);
@@ -1531,12 +1725,53 @@ GRANT ALL ON FUNCTION "public"."secret_store_update"("p_secret_id" "uuid", "p_na
 
 
 
+REVOKE ALL ON FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", "p_table_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", "p_table_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", "p_table_id" "uuid") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_can_use_source_event_scope"("p_project_id" "uuid", "p_source_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_can_use_source_event_scope"("p_project_id" "uuid", "p_source_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_can_use_source_event_scope"("p_project_id" "uuid", "p_source_id" "uuid") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_owns_profile"("p_profile_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_owns_profile"("p_profile_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_owns_profile"("p_profile_id" "uuid") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_owns_project"("p_project_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_owns_project"("p_project_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_owns_project"("p_project_id" "uuid") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."enforce_pipe_same_project"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."enforce_pipe_same_project"() TO "authenticated";
+GRANT ALL ON FUNCTION "public"."enforce_pipe_same_project"() TO "service_role";
+
+
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "anon";
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."set_updated_at"() TO "service_role";
 
 
+REVOKE ALL ON FUNCTION "public"."source_event_create"("p_source_id" "uuid", "p_raw_payload" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."source_event_create"("p_source_id" "uuid", "p_raw_payload" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."source_event_create"("p_source_id" "uuid", "p_raw_payload" "jsonb") TO "service_role";
+
+
 REVOKE ALL ON FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) TO "authenticated";
 GRANT ALL ON FUNCTION "public"."table_insert_rows"("p_owner_profile_id" "uuid", "p_table_id" "uuid", "p_idx" bigint, "p_quantity" integer) TO "service_role";
 
 

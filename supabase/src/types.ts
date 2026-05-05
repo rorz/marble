@@ -889,14 +889,16 @@ export type Database = {
             ];
           },
           {
-            foreignKeyName: "source_event_source_id_fkey";
+            foreignKeyName: "source_event_source_id_project_id_fkey";
             columns: [
               "source_id",
+              "project_id",
             ];
             isOneToOne: false;
             referencedRelation: "source";
             referencedColumns: [
               "id",
+              "project_id",
             ];
           },
         ];
@@ -942,6 +944,45 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      cell_belongs_to_current_user: {
+        Args: {
+          p_column_id: string;
+          p_row_id: string;
+        };
+        Returns: boolean;
+      };
+      current_user_can_use_pipe_scope: {
+        Args: {
+          p_source_id: string;
+          p_table_id: string;
+        };
+        Returns: boolean;
+      };
+      current_user_can_use_source_event_scope: {
+        Args: {
+          p_project_id: string;
+          p_source_id: string;
+        };
+        Returns: boolean;
+      };
+      current_user_owns_profile: {
+        Args: {
+          p_profile_id: string;
+        };
+        Returns: boolean;
+      };
+      current_user_owns_project: {
+        Args: {
+          p_project_id: string;
+        };
+        Returns: boolean;
+      };
+      current_user_owns_table: {
+        Args: {
+          p_table_id: string;
+        };
+        Returns: boolean;
+      };
       secret_store_create: {
         Args: {
           p_category: Database["public"]["Enums"]["secret_category"];
@@ -1012,6 +1053,27 @@ export type Database = {
         SetofOptions: {
           from: "*";
           to: "secret";
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+      source_event_create: {
+        Args: {
+          p_raw_payload: Json;
+          p_source_id: string;
+        };
+        Returns: {
+          created_at: string;
+          id: string;
+          parse_error: string | null;
+          parsed_payload: Json | null;
+          project_id: string;
+          raw_payload: Json;
+          source_id: string;
+        };
+        SetofOptions: {
+          from: "*";
+          to: "source_event";
           isOneToOne: true;
           isSetofReturn: false;
         };

@@ -1,6 +1,5 @@
 import type { ListOptions, ResourceDeps } from "../db";
 import type { CreateParams, ListParams } from "../types";
-import { ResourceAccess } from "./access";
 
 type IdObject = {
   id: string;
@@ -20,43 +19,17 @@ type ListSourceEventsInput = {
 const DEFAULT_SOURCE_EVENT_LIMIT = 50;
 
 export class SourceEventCollection {
-  private readonly access: ResourceAccess;
+  public constructor(private readonly deps: ResourceDeps) {}
 
-  public constructor(private readonly deps: ResourceDeps) {
-    this.access = new ResourceAccess(deps);
-  }
-
-  public readonly create = async (input: CreateSourceEventInput) => {
-    const source = await this.access.requireSource(input.sourceId);
-
-    return this.deps.db.insert("source_event", {
-      projectId: source.projectId,
-      rawPayload: input.rawPayload,
-      sourceId: source.id,
-    });
-  };
+  public readonly create = (input: CreateSourceEventInput) =>
+    this.deps.db.createSourceEvent(input);
 
   public readonly get = (input: IdObject) =>
-    this.access.requireSourceEvent(input.id);
+    this.deps.db.get("source_event", input.id);
 
   public readonly list = async (input: ListSourceEventsInput) => {
     if (input.projectId === undefined && input.sourceId === undefined) {
       throw new Error("Either projectId or sourceId is required.");
-    }
-
-    if (input.projectId !== undefined) {
-      await this.access.requireProject(input.projectId);
-    }
-
-    if (input.sourceId !== undefined) {
-      const source = await this.access.requireSource(input.sourceId);
-
-      if (
-        input.projectId !== undefined &&
-        source.projectId !== input.projectId
-      ) {
-        return [];
-      }
     }
 
     const where = {

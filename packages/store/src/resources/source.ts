@@ -1,7 +1,6 @@
 import type { Json } from "@marble/supabase";
 import type { ResourceDeps } from "../db";
 import type { CreateParams, Entity, UpdateParams } from "../types";
-import { ResourceAccess } from "./access";
 
 type Source = Entity<"source">;
 
@@ -23,15 +22,9 @@ const DEFAULT_SOURCE_PAYLOAD_SCHEMA = {
 } as const satisfies Json;
 
 export class SourceCollection {
-  private readonly access: ResourceAccess;
-
-  public constructor(private readonly deps: ResourceDeps) {
-    this.access = new ResourceAccess(deps);
-  }
+  public constructor(private readonly deps: ResourceDeps) {}
 
   public readonly create = async (input: CreateSourceInput) => {
-    await this.access.requireProject(input.projectId);
-
     return this.deps.db.insert("source", {
       name: input.name ?? "Untitled Source",
       payloadSchema: input.payloadSchema ?? DEFAULT_SOURCE_PAYLOAD_SCHEMA,
@@ -39,21 +32,15 @@ export class SourceCollection {
     });
   };
 
-  public readonly delete = async (input: IdObject) => {
-    const source = await this.access.requireSource(input.id);
-    return this.deps.db.delete("source", source.id);
-  };
+  public readonly delete = (input: IdObject) =>
+    this.deps.db.delete("source", input.id);
 
   public readonly get = (input: IdObject) =>
-    this.access.requireSource(input.id);
+    this.deps.db.get("source", input.id);
 
-  public readonly list = async (input: ListSourcesInput) => {
-    await this.access.requireProject(input.projectId);
-    return this.deps.db.list("source", input);
-  };
+  public readonly list = (input: ListSourcesInput) =>
+    this.deps.db.list("source", input);
 
-  public readonly update = async (input: UpdateSourceInput) => {
-    const source = await this.access.requireSource(input.id);
-    return this.deps.db.update("source", source.id, input.values);
-  };
+  public readonly update = (input: UpdateSourceInput) =>
+    this.deps.db.update("source", input.id, input.values);
 }

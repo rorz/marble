@@ -1,7 +1,6 @@
 import type { Json } from "@marble/supabase";
 import type { ResourceDeps } from "../db";
 import type { CreateParams, Entity, ListParams, UpdateParams } from "../types";
-import { ResourceAccess } from "./access";
 
 type PipeMapping = {
   columnId: string;
@@ -68,43 +67,26 @@ const toPipeValues = (input: UpdatePipeInput["values"]) => ({
 });
 
 export class PipeCollection {
-  private readonly access: ResourceAccess;
+  public constructor(private readonly deps: ResourceDeps) {}
 
-  public constructor(private readonly deps: ResourceDeps) {
-    this.access = new ResourceAccess(deps);
-  }
-
-  public readonly create = async (input: CreatePipeInput) => {
-    const { source, table } = await this.access.requirePipeScope(input);
-
-    return toPipe(
+  public readonly create = async (input: CreatePipeInput) =>
+    toPipe(
       await this.deps.db.insert("pipe", {
         mappings: (input.mappings ?? []) as Json,
-        sourceId: source.id,
-        tableId: table.id,
+        sourceId: input.sourceId,
+        tableId: input.tableId,
       }),
     );
-  };
 
-  public readonly delete = async (input: IdObject) => {
-    const pipe = await this.access.requirePipe(input.id);
-    return toPipe(await this.deps.db.delete("pipe", pipe.id));
-  };
+  public readonly delete = async (input: IdObject) =>
+    toPipe(await this.deps.db.delete("pipe", input.id));
 
   public readonly get = async (input: IdObject) =>
-    toPipe(await this.access.requirePipe(input.id));
+    toPipe(await this.deps.db.get("pipe", input.id));
 
   public readonly list = async (input: ListPipesInput) => {
     if (input.sourceId === undefined && input.tableId === undefined) {
       throw new Error("Either sourceId or tableId is required.");
-    }
-
-    if (input.sourceId !== undefined) {
-      await this.access.requireSource(input.sourceId);
-    }
-
-    if (input.tableId !== undefined) {
-      await this.access.requireTable(input.tableId);
     }
 
     const where = {
@@ -116,18 +98,8 @@ export class PipeCollection {
   };
 
   public readonly update = async (input: UpdatePipeInput) => {
-    const existing = await this.access.requirePipe(input.id);
-    await this.access.requirePipeScope({
-      sourceId: input.values.sourceId ?? existing.sourceId,
-      tableId: input.values.tableId ?? existing.tableId,
-    });
-
     return toPipe(
-      await this.deps.db.update(
-        "pipe",
-        existing.id,
-        toPipeValues(input.values),
-      ),
+      await this.deps.db.update("pipe", input.id, toPipeValues(input.values)),
     );
   };
 }

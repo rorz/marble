@@ -1,7 +1,7 @@
 import "server-only";
 import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "./auth";
+import { getCurrentSupabaseAccessToken, getCurrentUser } from "./auth";
 import {
   createServiceRoleClient,
   maybeResolveOwnedProfileId,
@@ -13,6 +13,7 @@ type MarbleApiFetcher = {
 
 type ForwardMarbleApiRequestOptions = {
   api: MarbleApiFetcher;
+  forwardUserSupabaseAuth?: boolean;
   publicPaths?: string[];
   stripPathPrefix: string;
 };
@@ -43,6 +44,7 @@ export async function forwardMarbleApiRequest(
   const timings: string[] = [];
   const apiKeyToken = getApiKeyTokenFromHeaders(req.headers);
   let authContext: {
+    accessToken?: string;
     keyId?: string;
     profileId?: string;
     userId?: string;
@@ -55,6 +57,18 @@ export async function forwardMarbleApiRequest(
   if (publicPath) {
     timings.push("auth;dur=0");
   } else if (apiKeyToken) {
+    if (options.forwardUserSupabaseAuth) {
+      return NextResponse.json(
+        {
+          error:
+            "Marble API keys are not supported by this RLS-backed API yet.",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
+
     const keyAuth = await resolveApiKeyAuth(
       createServiceRoleClient(),
       apiKeyToken,
@@ -95,8 +109,23 @@ export async function forwardMarbleApiRequest(
     timings.push(
       `profile;dur=${Math.round(performance.now() - profileStartedAt)}`,
     );
+    const accessToken = options.forwardUserSupabaseAuth
+      ? await getCurrentSupabaseAccessToken()
+      : undefined;
+
+    if (options.forwardUserSupabaseAuth && !accessToken) {
+      return NextResponse.json(
+        {
+          error: "Unauthorized",
+        },
+        {
+          status: 401,
+        },
+      );
+    }
 
     authContext = {
+      accessToken: accessToken ?? undefined,
       profileId,
       userId: user.id,
     };
@@ -127,6 +156,13 @@ export async function forwardMarbleApiRequest(
     if (authContext.userId) {
       forwardedReq.headers.set("x-marble-actor-source", "WEB_APP");
       forwardedReq.headers.set("x-marble-auth-user-id", authContext.userId);
+    }
+
+    if (authContext.accessToken) {
+      forwardedReq.headers.set(
+        "Authorization",
+        `Bearer ${authContext.accessToken}`,
+      );
     }
   }
 

@@ -1,13 +1,16 @@
 import "server-only";
-import type { MarbleApiConfig } from "@marble/old-api";
+import type { MarbleApiConfig as MarbleApiV2Config } from "@marble/api";
+import type { MarbleApiConfig as LegacyMarbleApiConfig } from "@marble/old-api";
 import { env } from "@/env";
 
-type ServiceRoleSupabaseConfig = {
+type MarbleApiConfig = LegacyMarbleApiConfig & MarbleApiV2Config;
+
+type LegacySupabaseConfig = {
   serviceRoleKey: string;
   url: string;
 };
 
-export function getServiceRoleSupabaseConfig(): ServiceRoleSupabaseConfig {
+export function getServiceRoleSupabaseConfig(): LegacySupabaseConfig {
   return {
     serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
     url: env.NEXT_PUBLIC_SUPABASE_URL,
@@ -22,7 +25,10 @@ export function getMarbleApiConfig(): MarbleApiConfig {
     ingestor: {
       url: env.MARBLE_INGESTOR_URL,
     },
-    supabase: getServiceRoleSupabaseConfig(),
+    supabase: {
+      ...getServiceRoleSupabaseConfig(),
+      publishableKey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    },
   };
 }
 

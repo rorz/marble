@@ -72,6 +72,42 @@ Allowed operations:
 - The operation returns aggregate counts, not inserted row and cell payloads.
 - The durable implementation should use an atomic Postgres RPC.
 
+## sources
+
+Sources belong to projects and describe inbound payload shape.
+
+Allowed operations:
+
+- `create` - Create a source within a project.
+- `list` - List sources by project.
+- `get` - Read one source.
+- `update` - Rename a source or update its payload schema.
+- `delete` - Delete a source and its owned source events and pipes.
+
+## sourceEvents
+
+Source events belong to sources and projects. Source event creation derives project ownership from the source; callers must not provide `projectId`.
+
+Allowed operations:
+
+- `create` - Append a raw payload event for a source.
+- `list` - List source events by project, source, or both.
+- `get` - Read one source event.
+
+Source events are append-only through the public data interface. Do not add `update` or `delete` unless there is a product-level retention or replay workflow that needs it.
+
+## pipes
+
+Pipes connect sources to tables within the same project.
+
+Allowed operations:
+
+- `create` - Create a pipe between a source and table in the same project.
+- `list` - List pipes by source, table, or both.
+- `get` - Read one pipe.
+- `update` - Update mappings or move the pipe to another source/table pair in the same project.
+- `delete` - Delete a pipe.
+
 ## rows
 
 Rows belong to tables. Row lifecycle owns cell materialization/deletion for that row, but user-facing row insertion should usually be exposed through table-owned actions.

@@ -50,7 +50,9 @@ export function getApiKeyTokenFromHeaders(headers: HeaderSource) {
     return null;
   }
 
-  return credentials.trim();
+  const token = credentials.trim();
+
+  return token.startsWith(API_KEY_TOKEN_PREFIX) ? token : null;
 }
 
 export function parseApiKeyToken(token: string) {

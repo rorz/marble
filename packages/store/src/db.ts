@@ -47,6 +47,11 @@ type InsertTableRowsResult = {
   rowCount: number;
 };
 
+type CreateSourceEventInput = {
+  rawPayload: CreateParams<"source_event">["rawPayload"];
+  sourceId: string;
+};
+
 type TableInsertRowsRpcResult = {
   cellCount: number;
   rowCount: number;
@@ -85,6 +90,9 @@ type SupabaseDb = {
   insertTableRows: (
     input: InsertTableRowsInput,
   ) => Promise<InsertTableRowsResult>;
+  createSourceEvent: (
+    input: CreateSourceEventInput,
+  ) => Promise<Entity<"source_event">>;
   update: <T extends TableWithIdName>(
     tableName: T,
     id: string,
@@ -138,6 +146,20 @@ const identityWhere = <T extends TableWithIdName>(
   };
 
 const createSupabaseDb = (supabase: SupabaseClient): SupabaseDb => ({
+  createSourceEvent: async (input) => {
+    const { data, error } = await supabase.rpc("source_event_create", {
+      p_raw_payload: input.rawPayload,
+      p_source_id: input.sourceId,
+    });
+
+    throwSupabaseError(error);
+
+    if (data === null) {
+      throw new Error("No source event row was returned after insert.");
+    }
+
+    return toCamelKeys<"source_event">(data as DbRow<"source_event">);
+  },
   delete: async (tableName, id, where) => {
     const { data, error } = await supabase
       .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(

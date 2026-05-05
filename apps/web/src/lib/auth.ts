@@ -21,6 +21,17 @@ export async function getCurrentUser() {
   } satisfies CurrentUser;
 }
 
+export async function getCurrentSupabaseAccessToken() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error) {
+    return null;
+  }
+
+  return data.session?.access_token ?? null;
+}
+
 export async function redirectIfAuthenticated() {
   const user = await getCurrentUser();
 

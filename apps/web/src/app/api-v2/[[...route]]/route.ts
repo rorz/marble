@@ -4,6 +4,7 @@ import { getMarbleApiV2 } from "../../../lib/marble-api";
 async function forward(req: Request) {
   return forwardMarbleApiRequest(req, {
     api: getMarbleApiV2(),
+    forwardUserSupabaseAuth: true,
     publicPaths: [
       "/openapi",
       "/openapi/spec.json",
