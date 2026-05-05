@@ -14,7 +14,8 @@
     "typescript": "catalog:base"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./supabase-client": "./src/supabase-client.ts"
   },
   "name": "@marble/api",
   "private": true,

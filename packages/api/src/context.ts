@@ -22,6 +22,10 @@ export type ApiTimingEntry = {
 
 export type ApiAuth =
   | {
+      profileId: string;
+      type: "supabase-client";
+    }
+  | {
       accessToken: string;
       profileId: string;
       type: "forwarded";
@@ -123,7 +127,7 @@ function createForwardedSupabaseClient(
   });
 }
 
-export async function createApiContext(
+export async function createHostedApiContext(
   request: Request,
   runtime: MarbleApiRuntime,
 ): Promise<ApiContext> {

@@ -1,2 +1,2 @@
-export type { MarbleClientOptions } from "./client";
+export type { MarbleClientDriver, MarbleClientOptions } from "./client";
 export { MarbleClient } from "./client";

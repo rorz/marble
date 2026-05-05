@@ -7,7 +7,7 @@ import { Hono } from "hono";
 import {
   type ApiContext,
   type ApiTimingEntry,
-  createApiContext,
+  createHostedApiContext,
   createMarbleApiRuntime,
   createOpenApiDocsContext,
   type MarbleApiConfig,
@@ -20,7 +20,10 @@ export type {
   ApiTimingEntry,
   MarbleApiConfig,
 } from "./context";
-export { createApiContext, createMarbleApiRuntime } from "./context";
+export {
+  createHostedApiContext,
+  createMarbleApiRuntime,
+} from "./context";
 
 const errorResponse = (error: unknown) => {
   if (
@@ -182,7 +185,7 @@ export function createMarbleApi(config: MarbleApiConfig) {
 
     try {
       const contextStartedAt = performance.now();
-      context = await createApiContext(c.req.raw, runtime);
+      context = await createHostedApiContext(c.req.raw, runtime);
       timings.push({
         durationMs: performance.now() - contextStartedAt,
         name: "api_context",
@@ -227,7 +230,7 @@ export function createMarbleApi(config: MarbleApiConfig) {
       const contextStartedAt = performance.now();
       context = isOpenApiDocsPath(c.req.raw)
         ? createOpenApiDocsContext(c.req.raw, runtime)
-        : await createApiContext(c.req.raw, runtime);
+        : await createHostedApiContext(c.req.raw, runtime);
       timings.push({
         durationMs: performance.now() - contextStartedAt,
         name: "api_context",

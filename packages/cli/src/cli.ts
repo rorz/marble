@@ -13,8 +13,11 @@ function getMarbleClient() {
   marble ??= (() => {
     const env = readCliEnv(process.env);
     return new MarbleClient({
-      apiKey: env.MARBLE_API_KEY,
-      apiUrl: env.MARBLE_API_URL,
+      driver: {
+        apiKey: env.MARBLE_API_KEY,
+        apiUrl: env.MARBLE_API_URL,
+        type: "api",
+      },
     });
   })();
 

@@ -1,7 +1,9 @@
 {
   "dependencies": {
+    "@marble/api": "workspace:*",
     "@marble/contracts": "workspace:*",
     "@marble/lib": "workspace:*",
+    "@marble/supabase": "workspace:*",
     "@orpc/client": "catalog:base",
     "@orpc/contract": "catalog:base"
   },
