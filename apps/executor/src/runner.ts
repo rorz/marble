@@ -1,11 +1,16 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { assert } from "@marble/lib/assert";
 import {
+  ColumnOutputSchema,
+  ColumnRunCondition,
   type JsonValue,
+  ProgramInputSchema,
   parseProgramSecretConfig,
+  RunInput,
+  RunReturnValue,
+  type RunReturnValue as RunReturnValueType,
   resolveColumnConfig,
-  Schemas,
-} from "@marble/old-core";
+} from "@marble/contracts";
+import { assert } from "@marble/lib/assert";
 import type { Json, SupabaseClient, Tables } from "@marble/supabase";
 import { z } from "zod";
 import {
@@ -44,7 +49,7 @@ type BatchExecutionJob = {
 };
 type BatchExecutionResult = {
   key: string;
-  output: Schemas.RunReturnValue;
+  output: RunReturnValueType;
 };
 type BatchExecutorItem = {
   error?: Json;
@@ -63,7 +68,7 @@ type CellExecutionCandidateResolution =
     }
   | {
       cellId: string;
-      state: Schemas.RunReturnValue;
+      state: RunReturnValueType;
       status: "blocked";
     };
 
@@ -82,7 +87,7 @@ const secretBindingSchema = z.object({
 });
 
 class MissingSecretConfigurationError extends Error {
-  failState: Schemas.RunReturnValue;
+  failState: RunReturnValueType;
 
   constructor(missingSecrets: MissingSecretConfiguration[]) {
     super(
@@ -113,7 +118,7 @@ const createFailureState = (
   errorType: string,
   message: string,
   detail?: Json,
-): Schemas.RunReturnValue => ({
+): RunReturnValueType => ({
   error: {
     type: errorType,
     ...(detail == null
@@ -126,9 +131,7 @@ const createFailureState = (
   ok: false,
 });
 
-export const failureStateFromError = (
-  error: unknown,
-): Schemas.RunReturnValue => {
+export const failureStateFromError = (error: unknown): RunReturnValueType => {
   if (error instanceof MissingSecretConfigurationError) {
     return error.failState;
   }
@@ -426,9 +429,9 @@ const executeProgramBatch = async (
 function validateOutputValue(
   outputSchemaConfig: JsonValue,
   rawValue: JsonValue,
-): Schemas.RunReturnValue {
+): RunReturnValueType {
   try {
-    const outputSchema = Schemas.ColumnOutputSchema.parse(outputSchemaConfig);
+    const outputSchema = ColumnOutputSchema.parse(outputSchemaConfig);
     const validation = z.fromJSONSchema(outputSchema).safeParse(rawValue);
 
     if (!validation.success) {
@@ -461,7 +464,7 @@ export const executeAndValidate = async (
   runInput: JsonValue,
   outputSchemaConfig: JsonValue,
   environmentVariables: Record<string, string> = {},
-): Promise<Schemas.RunReturnValue> => {
+): Promise<RunReturnValueType> => {
   if (programFiles.length === 0) {
     return createFailureState(
       "UnsupportedRuntime",
@@ -514,7 +517,7 @@ export const executeAndValidate = async (
     }
   })();
 
-  return Schemas.RunReturnValue.parse(rawOutput);
+  return RunReturnValue.parse(rawOutput);
 };
 
 export const executeAndValidateBatch = async (
@@ -616,7 +619,7 @@ export const executeAndValidateBatch = async (
 const STORED_RUN_SELECT = `*, program_version(*, program!program_version_program_id_fkey(*), program_file(*)), cell!target_cell_id(*, row!cell_row_id_fkey(*, table!row_table_id_fkey(*, project!table_project_id_fkey(*, profile!project_owner_profile_id_fkey(*)))), column!cell_column_id_fkey(*))`;
 
 export const runtimeInputFromValue = (input: JsonValue): JsonValue => {
-  const parsedRunInput = Schemas.RunInput.safeParse(input);
+  const parsedRunInput = RunInput.safeParse(input);
   if (parsedRunInput.success) {
     return parsedRunInput.data as JsonValue;
   }
@@ -858,7 +861,7 @@ async function resolveExecutionInputFromContext(
   };
   const inputTemplate: JsonValue = JSON.parse(context.column.input_template);
   const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
-  const inputPayloadSchema = Schemas.ProgramInputSchema.parse(
+  const inputPayloadSchema = ProgramInputSchema.parse(
     context.programVersion.input_schema,
   );
   const parsedInput = z.fromJSONSchema(inputPayloadSchema).parse(resolvedInput);
@@ -934,7 +937,7 @@ export const persistStoredRunFailure = async (
   supabase: SupabaseClient,
   run: StoredRun,
   runId: string,
-  failState: Schemas.RunReturnValue,
+  failState: RunReturnValueType,
 ) => {
   await Promise.all([
     supabase
@@ -976,8 +979,7 @@ export const resolveCellExecutionCandidate = async (
   }
 
   if (
-    Schemas.ColumnRunCondition.safeParse(context.column.run_condition).data !==
-    true
+    ColumnRunCondition.safeParse(context.column.run_condition).data !== true
   ) {
     return null;
   }

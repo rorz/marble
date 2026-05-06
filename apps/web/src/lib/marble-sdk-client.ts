@@ -59,7 +59,7 @@ export function useMarbleApiSdk() {
     () =>
       new MarbleClient({
         driver: {
-          apiUrl: "/api-v2",
+          apiUrl: "/api",
           type: "api",
         },
       }),

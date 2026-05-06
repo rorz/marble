@@ -2,9 +2,9 @@
   "dependencies": {
     "@heroicons/react": "catalog:base",
     "@marble/api": "workspace:*",
+    "@marble/contracts": "workspace:*",
     "@marble/keys": "workspace:*",
     "@marble/lib": "workspace:*",
-    "@marble/old-api": "workspace:*",
     "@marble/sdk": "workspace:*",
     "@marble/supabase": "workspace:*",
     "@marble/ui": "workspace:*",

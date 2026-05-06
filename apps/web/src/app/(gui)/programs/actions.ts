@@ -1,5 +1,6 @@
 "use server";
 
+import type { ProgramSecretConfig } from "@marble/contracts";
 import { requireUser } from "../../../lib/auth";
 import { createServerMarbleSdk } from "../../../lib/marble-sdk-server";
 import {
@@ -7,7 +8,6 @@ import {
   type FullProgram,
   hydrateEditorPrograms,
 } from "../../../lib/program-data";
-import type { ProgramSecretConfig } from "../../../lib/program-manifest";
 import {
   listProgramSecretBindingsForUser,
   listSecretsForUser,

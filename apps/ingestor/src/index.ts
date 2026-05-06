@@ -1,5 +1,4 @@
-import { createMarbleApi } from "@marble/old-api";
-import { createClient, type Json } from "@marble/supabase";
+import { createClient, type Json, type SupabaseClient } from "@marble/supabase";
 import { Hono } from "hono";
 import { JSONPath } from "jsonpath-plus";
 import { z } from "zod";
@@ -19,38 +18,19 @@ const queueMessageSchema = z.object({
   sourceId: z.string().uuid(),
 });
 type QueueMessage = z.infer<typeof queueMessageSchema>;
+type ExecutorPayload = Record<string, unknown>;
+type MaterializedCell = {
+  column_id: string;
+  id: string;
+};
 
 const pipeMappingSchema = z.object({
   columnId: z.string().uuid(),
   jsonPath: z.string().trim().min(1),
 });
 
-const marbleApiByEnv = new WeakMap<Env, ReturnType<typeof createMarbleApi>>();
-
 function db(env: Env) {
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-}
-
-function getInternalMarbleApi(env: Env) {
-  const existing = marbleApiByEnv.get(env);
-
-  if (existing) {
-    return existing;
-  }
-
-  const api = createMarbleApi({
-    executor: {
-      transport: env.MARBLE_EXECUTOR,
-      url: "https://executor.marble.internal",
-    },
-    supabase: {
-      serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
-      url: env.SUPABASE_URL,
-    },
-  });
-
-  marbleApiByEnv.set(env, api);
-  return api;
 }
 
 function valueToManualInput(value: unknown) {
@@ -80,33 +60,222 @@ function getWebhookToken(request: Request) {
   return headerToken && headerToken.length > 0 ? headerToken : null;
 }
 
-async function callMarbleApi<T>(
-  env: Env,
-  path: string,
-  options: {
-    body?: unknown;
-    method?: string;
-  } = {},
+async function materializeTableRow(supabase: SupabaseClient, tableId: string) {
+  const { data: lastRow, error: lastRowError } = await supabase
+    .from("row")
+    .select("idx")
+    .eq("table_id", tableId)
+    .order("idx", {
+      ascending: false,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (lastRowError) {
+    throw new Error(lastRowError.message);
+  }
+
+  const { data: row, error: rowError } = await supabase
+    .from("row")
+    .insert({
+      idx: (lastRow?.idx ?? -1) + 1,
+      table_id: tableId,
+    })
+    .select("id")
+    .single();
+
+  if (rowError || !row) {
+    throw new Error(rowError?.message ?? "Could not create row.");
+  }
+
+  try {
+    const { data: columns, error: columnError } = await supabase
+      .from("column")
+      .select("id")
+      .eq("table_id", tableId);
+
+    if (columnError) {
+      throw new Error(columnError.message);
+    }
+
+    if (!columns || columns.length === 0) {
+      return [] as MaterializedCell[];
+    }
+
+    const { data: cells, error: cellError } = await supabase
+      .from("cell")
+      .insert(
+        columns.map((column) => ({
+          column_id: column.id,
+          row_id: row.id,
+        })),
+      )
+      .select("id, column_id");
+
+    if (cellError) {
+      throw new Error(cellError.message);
+    }
+
+    return (cells ?? []) as MaterializedCell[];
+  } catch (error) {
+    await supabase.from("cell").delete().eq("row_id", row.id);
+    await supabase.from("row").delete().eq("id", row.id);
+    throw error;
+  }
+}
+
+async function createPendingRunsForCellIds(
+  supabase: SupabaseClient,
+  cellIds: string[],
 ) {
-  const response = await getInternalMarbleApi(env).fetch(
-    new Request(new URL(path, "https://marble.internal"), {
-      body:
-        options.body === undefined ? undefined : JSON.stringify(options.body),
+  const uniqueCellIds = Array.from(new Set(cellIds));
+
+  if (uniqueCellIds.length === 0) {
+    return [] as string[];
+  }
+
+  const { data: cells, error: cellError } = await supabase
+    .from("cell")
+    .select("id, column_id")
+    .in("id", uniqueCellIds);
+
+  if (cellError) {
+    throw new Error(cellError.message);
+  }
+
+  for (const cellId of uniqueCellIds) {
+    if (!(cells ?? []).some((cell) => cell.id === cellId)) {
+      throw new Error(`Cell '${cellId}' was not found.`);
+    }
+  }
+
+  const cellById = new Map(
+    (cells ?? []).map((cell) => [
+      cell.id,
+      cell,
+    ]),
+  );
+  const columnIds = Array.from(
+    new Set((cells ?? []).map((cell) => cell.column_id)),
+  );
+  const { data: columns, error: columnError } = await supabase
+    .from("column")
+    .select("id, program_version_id")
+    .in("id", columnIds);
+
+  if (columnError) {
+    throw new Error(columnError.message);
+  }
+
+  const programVersionIdByColumnId = new Map(
+    (columns ?? []).map((column) => [
+      column.id,
+      column.program_version_id,
+    ]),
+  );
+  const { error: pendingStateError } = await supabase
+    .from("cell")
+    .update({
+      state: {
+        ok: null,
+      } as Json,
+    })
+    .in("id", uniqueCellIds);
+
+  if (pendingStateError) {
+    throw new Error(pendingStateError.message);
+  }
+
+  const { data: runs, error: runError } = await supabase
+    .from("program_run")
+    .insert(
+      uniqueCellIds.map((cellId) => {
+        const cell = cellById.get(cellId);
+
+        if (!cell) {
+          throw new Error(`Cell '${cellId}' was not found.`);
+        }
+
+        const programVersionId = programVersionIdByColumnId.get(cell.column_id);
+
+        if (!programVersionId) {
+          throw new Error(
+            `Program version for column '${cell.column_id}' was not found.`,
+          );
+        }
+
+        return {
+          program_version_id: programVersionId,
+          target_cell_id: cellId,
+        };
+      }),
+    )
+    .select("id, target_cell_id");
+
+  if (runError) {
+    throw new Error(runError.message);
+  }
+
+  const runIdByCellId = new Map(
+    (runs ?? []).map((run) => [
+      run.target_cell_id,
+      run.id,
+    ]),
+  );
+
+  return uniqueCellIds.map((cellId) => {
+    const runId = runIdByCellId.get(cellId);
+
+    if (!runId) {
+      throw new Error(`Run for cell '${cellId}' was not created.`);
+    }
+
+    return runId;
+  });
+}
+
+async function readExecutorResponse(response: Response) {
+  const text = await response.text();
+
+  try {
+    return (text.length === 0 ? {} : JSON.parse(text)) as ExecutorPayload;
+  } catch {
+    return {
+      message: text || "Executor returned a non-JSON response.",
+      success: false,
+    };
+  }
+}
+
+function executorPayloadMessage(payload: ExecutorPayload) {
+  return typeof payload.message === "string" ? payload.message : undefined;
+}
+
+async function executeRuns(env: Env, runIds: string[]) {
+  if (runIds.length === 0) {
+    return;
+  }
+
+  const response = await env.MARBLE_EXECUTOR.fetch(
+    new Request("https://executor.marble.internal/runs", {
+      body: JSON.stringify({
+        runIds,
+      }),
       headers: {
         "Content-Type": "application/json",
       },
-      method: options.method ?? "GET",
+      method: "POST",
     }),
   );
-  const text = await response.text();
+  const payload = await readExecutorResponse(response);
 
-  if (!response.ok) {
+  if (!response.ok && !(response.status === 500 && payload.success === false)) {
     throw new Error(
-      `Marble API ${options.method ?? "GET"} ${path} failed (${response.status}): ${text}`,
+      `Executor batch run failed (${response.status}): ${
+        executorPayloadMessage(payload) ?? JSON.stringify(payload)
+      }`,
     );
   }
-
-  return (text.length === 0 ? null : JSON.parse(text)) as T;
 }
 
 async function materializePipe(
@@ -125,22 +294,7 @@ async function materializePipe(
   }
 
   const supabase = db(env);
-  const row = await callMarbleApi<{
-    id: string;
-  }>(env, "/rows", {
-    body: {
-      tableId: pipe.table_id,
-    },
-    method: "POST",
-  });
-  const { data: cells, error: cellError } = await supabase
-    .from("cell")
-    .select("id, column_id")
-    .eq("row_id", row.id);
-
-  if (cellError) {
-    throw new Error(cellError.message);
-  }
+  const cells = await materializeTableRow(supabase, pipe.table_id);
 
   const cellIdByColumnId = new Map(
     (cells ?? []).map((cell) => [
@@ -195,12 +349,8 @@ async function materializePipe(
     return;
   }
 
-  await callMarbleApi(env, "/cells/run", {
-    body: {
-      cellIds: writtenCellIds,
-    },
-    method: "POST",
-  });
+  const runIds = await createPendingRunsForCellIds(supabase, writtenCellIds);
+  await executeRuns(env, runIds);
 }
 
 async function processQueuedSourceEvent(env: Env, input: QueueMessage) {

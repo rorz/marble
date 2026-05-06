@@ -12,6 +12,13 @@ import {
   SparklesIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
+import {
+  ENVIRONMENT_VARIABLE_NAME_PATTERN,
+  type ProgramManifestSecretDeclaration,
+  type ProgramSecretConfig,
+  parseProgramManifestFileContent,
+  parseProgramSecretConfig,
+} from "@marble/contracts";
 import type { MarbleClient } from "@marble/sdk";
 import {
   cx,
@@ -61,13 +68,6 @@ import {
 } from "react";
 import { useMarbleApiSdk } from "../../../lib/marble-sdk-client";
 import { createDefaultProgram } from "../../../lib/program-client";
-import {
-  ENVIRONMENT_VARIABLE_NAME_PATTERN,
-  type ProgramManifestSecretDeclaration,
-  type ProgramSecretConfig,
-  parseProgramManifestFileContent,
-  parseProgramSecretConfig,
-} from "../../../lib/program-manifest";
 import { changeTargetKey, getChangeTargetProps } from "../change-spotlight";
 import type { ProgramsPageData } from "./actions";
 import * as actions from "./actions";

@@ -1,3 +1,8 @@
+import {
+  ProgramInputSchema,
+  ProgramOutputConfig,
+  parseProgramSecretConfig,
+} from "@marble/contracts";
 import type { Json } from "@marble/supabase";
 import type { ResourceDeps } from "../db";
 import type {
@@ -30,6 +35,45 @@ function requireServiceSupabase(deps: ResourceDeps) {
 
 function asJson(value: unknown): Json {
   return value as Json;
+}
+
+function formatZodIssues(
+  issues: Array<{
+    message: string;
+    path: PropertyKey[];
+  }>,
+) {
+  return issues
+    .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
+    .join("; ");
+}
+
+function parseInputSchema(input: unknown): Json {
+  const parsed = ProgramInputSchema.safeParse(input);
+
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid program input schema: ${formatZodIssues(parsed.error.issues)}`,
+    );
+  }
+
+  return parsed.data as Json;
+}
+
+function parseOutputConfig(input: unknown): Json {
+  const parsed = ProgramOutputConfig.safeParse(input);
+
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid program output config: ${formatZodIssues(parsed.error.issues)}`,
+    );
+  }
+
+  return parsed.data as Json;
+}
+
+function parseSecretConfig(input: unknown): Json {
+  return parseProgramSecretConfig(input) as unknown as Json;
 }
 
 async function nextProgramVersionNumber(deps: ResourceDeps, programId: string) {
@@ -156,12 +200,14 @@ export class ProgramVersionCollection {
     const { data: versionRow, error } = await requireServiceSupabase(this.deps)
       .from("program_version")
       .insert({
-        input_schema: asJson(input.inputSchema),
-        output_config: asJson(input.outputConfig),
+        input_schema: parseInputSchema(input.inputSchema),
+        output_config: parseOutputConfig(input.outputConfig),
         program_id: input.programId,
         published_at: input.publish ? new Date().toISOString() : null,
         secret_config:
-          input.secretConfig === undefined ? null : asJson(input.secretConfig),
+          input.secretConfig === undefined
+            ? null
+            : parseSecretConfig(input.secretConfig),
         version: versionNumber,
       })
       .select("*")
@@ -278,13 +324,19 @@ export class ProgramVersionCollection {
         .from("program_version")
         .update({
           input_schema:
-            "inputSchema" in values ? asJson(values.inputSchema) : undefined,
+            "inputSchema" in values
+              ? parseInputSchema(values.inputSchema)
+              : undefined,
           output_config:
-            "outputConfig" in values ? asJson(values.outputConfig) : undefined,
+            "outputConfig" in values
+              ? parseOutputConfig(values.outputConfig)
+              : undefined,
           published_at:
             "publishedAt" in values ? values.publishedAt : undefined,
           secret_config:
-            "secretConfig" in values ? asJson(values.secretConfig) : undefined,
+            "secretConfig" in values
+              ? parseSecretConfig(values.secretConfig)
+              : undefined,
           version: "version" in values ? values.version : undefined,
         })
         .eq("id", id);

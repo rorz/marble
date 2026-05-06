@@ -26,15 +26,18 @@ export function createSupabaseClientApiContext({
       name,
     });
   };
+  const resolvedRequestId = requestId ?? crypto.randomUUID();
 
   return {
     actor: null,
     recordTiming,
-    requestId: requestId ?? crypto.randomUUID(),
+    requestId: resolvedRequestId,
     store: new MarbleStore({
       context: {
+        eventSource: "WEB_APP",
         profileId,
         recordTiming,
+        requestId: resolvedRequestId,
         userId,
       },
       serviceSupabase,

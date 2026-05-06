@@ -1,12 +1,12 @@
 import z from "zod";
 
-type JsonValue =
+export type JsonValue =
   | string
   | number
   | boolean
   | null
   | {
-      [key: string]: JsonValue | undefined;
+      [key: string]: JsonValue;
     }
   | JsonValue[];
 

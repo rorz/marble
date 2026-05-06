@@ -1,5 +1,5 @@
 import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
-import { MarbleStore } from "@marble/store";
+import { MarbleStore, type ResourceContext } from "@marble/store";
 import { createClient, type SupabaseClient } from "@marble/supabase";
 import { ORPCError } from "@orpc/server";
 import { createExecutorActions } from "./executor";
@@ -59,6 +59,37 @@ export type ApiContext = {
 };
 
 const OPENAPI_DOCS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
+
+function normalizeEventSource(
+  value: string | null | undefined,
+): ResourceContext["eventSource"] | undefined {
+  switch (value?.trim().toLowerCase()) {
+    case "cli":
+      return "CLI";
+    case "api":
+    case "raw-api":
+    case "raw_api":
+      return "RAW_API";
+    case "web-app":
+    case "web_app":
+    case "webapp":
+      return "WEB_APP";
+    default:
+      return undefined;
+  }
+}
+
+function resolveEventSource(options: {
+  actorKeyId?: string;
+  forwardedUserId?: string;
+  requestedActorSource?: string | null;
+}): ResourceContext["eventSource"] {
+  return (
+    normalizeEventSource(options.requestedActorSource) ??
+    (options.forwardedUserId ? "WEB_APP" : undefined) ??
+    (options.actorKeyId ? "RAW_API" : "RAW_API")
+  );
+}
 
 export function createMarbleApiRuntime(
   config: MarbleApiConfig,
@@ -183,6 +214,8 @@ export async function createHostedApiContext(
   const actor = await resolveHostedApiActor(request, serviceSupabase);
   const supabase = createActorSupabaseClient(runtime, serviceSupabase, actor);
   const timings: ApiTimingEntry[] = [];
+  const requestId =
+    request.headers.get("x-marble-request-id") ?? crypto.randomUUID();
   const recordTiming = (name: string, durationMs: number) => {
     timings.push({
       durationMs,
@@ -193,14 +226,25 @@ export async function createHostedApiContext(
   return {
     actor,
     recordTiming,
-    requestId:
-      request.headers.get("x-marble-request-id") ?? crypto.randomUUID(),
+    requestId,
     runtime,
     store: new MarbleStore({
       actions: createExecutorActions(runtime, actor, request),
       context: {
+        ...(actor.type === "api-key"
+          ? {
+              actorKeyId: actor.keyId,
+            }
+          : {}),
+        eventSource: resolveEventSource({
+          actorKeyId: actor.type === "api-key" ? actor.keyId : undefined,
+          forwardedUserId:
+            actor.type === "supabase-session" ? actor.userId : undefined,
+          requestedActorSource: request.headers.get("x-marble-actor-source"),
+        }),
         profileId: actor.profileId,
         recordTiming,
+        requestId,
         userId: actor.userId,
       },
       serviceSupabase,
@@ -230,6 +274,7 @@ export function createOpenApiDocsContext(
     runtime,
     store: new MarbleStore({
       context: {
+        eventSource: "RAW_API",
         profileId: OPENAPI_DOCS_PROFILE_ID,
       },
       supabase,

@@ -1,9 +1,9 @@
 {
   "author": "",
   "dependencies": {
+    "@marble/contracts": "workspace:*",
     "@marble/keys": "workspace:*",
     "@marble/lib": "workspace:",
-    "@marble/old-core": "workspace:*",
     "@marble/supabase": "workspace:",
     "hono": "catalog:base",
     "zod": "catalog:base"

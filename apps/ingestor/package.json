@@ -1,7 +1,6 @@
 {
   "author": "",
   "dependencies": {
-    "@marble/old-api": "workspace:*",
     "@marble/supabase": "workspace:*",
     "hono": "catalog:base",
     "jsonpath-plus": "catalog:base",

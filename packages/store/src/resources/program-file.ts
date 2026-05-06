@@ -1,3 +1,4 @@
+import { parseProgramManifestFileContent } from "@marble/contracts";
 import type { ResourceDeps } from "../db";
 import type { CreateParams, DbRow, Entity, UpdateParams } from "../types";
 import { toCamelKeys } from "../types";
@@ -187,6 +188,26 @@ function assertUniqueFilenames(files: Array<Pick<ProgramFile, "filename">>) {
   }
 }
 
+function assertValidProgramManifest(
+  files: Array<Pick<ProgramFile, "content" | "filename">>,
+) {
+  const manifestFile = files.find((file) => file.filename === "package.json");
+
+  if (!manifestFile) {
+    return;
+  }
+
+  try {
+    parseProgramManifestFileContent(manifestFile.content);
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? `package.json is invalid: ${error.message}`
+        : "package.json is invalid.",
+    );
+  }
+}
+
 export class ProgramFileCollection {
   public constructor(private readonly deps: ResourceDeps) {}
 
@@ -286,6 +307,7 @@ export class ProgramFileCollection {
     files: Omit<CreateProgramFileInput, "versionId">[],
   ) => {
     assertUniqueFilenames(files);
+    assertValidProgramManifest(files);
 
     const existingFiles = await this.list({
       versionId,

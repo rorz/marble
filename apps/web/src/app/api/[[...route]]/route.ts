@@ -4,6 +4,14 @@ import { getMarbleApi } from "../../../lib/marble-api";
 async function forward(req: Request) {
   return forwardMarbleApiRequest(req, {
     api: getMarbleApi(),
+    forwardUserSupabaseAuth: true,
+    profilelessPaths: [
+      "/rpc/sourceEvents/create",
+    ],
+    publicPaths: [
+      "/openapi",
+      "/openapi/spec.json",
+    ],
     stripPathPrefix: "/api",
   });
 }

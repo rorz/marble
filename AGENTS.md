@@ -53,7 +53,8 @@ Before creating a new file, folder, module boundary, or architectural name, insp
    - Public contracts belong in `packages/contracts/src/resources/entities`.
    - GUI route boundaries belong in `apps/web/**/actions.ts`.
 4. Do not create vague buckets named `helpers`, `utils`, `resources`, `loader`, or similar unless the package already uses that exact bucket for the same kind of code.
-5. If a change creates any new file or folder, explicitly report why that location matches existing convention.
+5. **No dangling contract files.** In `packages/contracts`, do not add root-level sibling modules for a domain concept just because it is shared. Put resource-owned schemas, parsers, manifest helpers, runtime contracts, and resolver helpers in the owning `packages/contracts/src/resources/entities/<resource>.ts` file. Only root `index.ts`, existing package plumbing, and consciously cross-resource primitives may live directly under `packages/contracts/src`; anything else needs an explicit written justification before it is created.
+6. If a change creates any new file or folder, explicitly report why that location matches existing convention.
 
 ## Package Manifests
 

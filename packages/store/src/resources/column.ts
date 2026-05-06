@@ -1,3 +1,8 @@
+import {
+  ColumnOutputSchema,
+  ColumnRunCondition,
+  ProgramOutputConfig,
+} from "@marble/contracts";
 import type { Json } from "@marble/supabase";
 import type { ResourceDeps } from "../db";
 import type { CreateParams, Entity, UpdateParams } from "../types";
@@ -46,16 +51,8 @@ export type ColumnCollectionApi = {
 };
 
 function getOutputSchema(outputConfig: unknown) {
-  if (!outputConfig || typeof outputConfig !== "object") {
-    return {};
-  }
-
-  const schema = (
-    outputConfig as {
-      schema?: unknown;
-    }
-  ).schema;
-  return schema && typeof schema === "object" ? schema : {};
+  const parsed = ProgramOutputConfig.safeParse(outputConfig);
+  return parsed.success ? parsed.data.schema : {};
 }
 
 function hasAllowManualInput(outputSchema: unknown) {
@@ -74,8 +71,154 @@ function hasAllowManualInput(outputSchema: unknown) {
   );
 }
 
-function asJson(value: unknown): Json {
-  return value as Json;
+function formatZodIssues(
+  issues: Array<{
+    message: string;
+    path: PropertyKey[];
+  }>,
+) {
+  return issues
+    .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
+    .join("; ");
+}
+
+function parseOutputSchema(value: unknown): Json {
+  const parsed = ColumnOutputSchema.safeParse(value);
+
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid column output schema: ${formatZodIssues(parsed.error.issues)}`,
+    );
+  }
+
+  return parsed.data as Json;
+}
+
+function parseRunCondition(value: unknown): Json {
+  const parsed = ColumnRunCondition.safeParse(value);
+
+  if (!parsed.success) {
+    throw new Error(
+      `Invalid column run condition: ${formatZodIssues(parsed.error.issues)}`,
+    );
+  }
+
+  return parsed.data as Json;
+}
+
+function extractDependenciesFromTemplate(template: string) {
+  const sourceColumnIds = new Set<string>();
+  let parsedTemplate: unknown;
+
+  try {
+    parsedTemplate = JSON.parse(template);
+  } catch {
+    return [];
+  }
+
+  const jsonPathPattern = /^\$\.columns\.([a-f0-9-]+)\./;
+  const interpolationPattern = /\{\{\$\.columns\.([a-f0-9-]+)\.[^}]+\}\}/g;
+
+  const visit = (value: unknown) => {
+    if (typeof value === "string") {
+      for (const match of value.matchAll(interpolationPattern)) {
+        sourceColumnIds.add(match[1]);
+      }
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        visit(item);
+      }
+      return;
+    }
+
+    if (value && typeof value === "object") {
+      for (const [key, entry] of Object.entries(value)) {
+        if (
+          key === "$marble_ref" &&
+          Array.isArray(entry) &&
+          entry[0] === "columns"
+        ) {
+          sourceColumnIds.add(String(entry[1]));
+        } else if (key.endsWith(".$") && typeof entry === "string") {
+          const match = entry.match(jsonPathPattern);
+
+          if (match) {
+            sourceColumnIds.add(match[1]);
+          }
+        }
+
+        visit(entry);
+      }
+    }
+  };
+
+  visit(parsedTemplate);
+  return Array.from(sourceColumnIds);
+}
+
+async function replaceColumnDependencies(
+  deps: ResourceDeps,
+  columnId: string,
+  inputTemplate: string,
+) {
+  if (!deps.serviceSupabase) {
+    return;
+  }
+
+  const sourceColumnIds = extractDependenciesFromTemplate(inputTemplate);
+  const deleteResult = await deps.serviceSupabase
+    .from("column_dependency")
+    .delete()
+    .eq("target_column_id", columnId);
+
+  if (deleteResult.error) {
+    throw new Error(deleteResult.error.message);
+  }
+
+  if (sourceColumnIds.length === 0) {
+    return;
+  }
+
+  const insertResult = await deps.serviceSupabase
+    .from("column_dependency")
+    .insert(
+      sourceColumnIds.map((sourceColumnId) => ({
+        source_column_id: sourceColumnId,
+        target_column_id: columnId,
+      })),
+    );
+
+  if (insertResult.error) {
+    throw new Error(insertResult.error.message);
+  }
+}
+
+async function deleteColumnDependencies(deps: ResourceDeps, columnId: string) {
+  if (!deps.serviceSupabase) {
+    return;
+  }
+
+  const [sourceResult, targetResult] = await Promise.all([
+    deps.serviceSupabase
+      .from("column_dependency")
+      .delete()
+      .eq("source_column_id", columnId),
+    deps.serviceSupabase
+      .from("column_dependency")
+      .delete()
+      .eq("target_column_id", columnId),
+  ]);
+
+  if (sourceResult.error || targetResult.error) {
+    throw new Error(
+      sourceResult.error?.message ??
+        targetResult.error?.message ??
+        "Could not delete column dependencies.",
+    );
+  }
 }
 
 export class ColumnCollection implements ColumnCollectionApi {
@@ -103,11 +246,11 @@ export class ColumnCollection implements ColumnCollectionApi {
       idx,
       inputTemplate: input.inputTemplate,
       name: input.name,
-      outputSchema: asJson(
+      outputSchema: parseOutputSchema(
         input.outputSchema ?? getOutputSchema(programVersion.outputConfig),
       ),
       programVersionId: input.programVersionId,
-      runCondition: asJson(input.runCondition ?? false),
+      runCondition: parseRunCondition(input.runCondition ?? false),
       tableId: input.tableId,
     });
     const rows = await this.deps.db.list("row", {
@@ -122,6 +265,7 @@ export class ColumnCollection implements ColumnCollectionApi {
         }),
       ),
     );
+    await replaceColumnDependencies(this.deps, column.id, input.inputTemplate);
 
     return column;
   };
@@ -156,6 +300,7 @@ export class ColumnCollection implements ColumnCollectionApi {
     }
 
     await this.deps.db.delete("column", id);
+    await deleteColumnDependencies(this.deps, id);
     return column;
   };
 
@@ -217,18 +362,25 @@ export class ColumnCollection implements ColumnCollectionApi {
     });
   };
 
-  public readonly update = (id: string, input: UpdateColumnInput) =>
-    this.deps.db.update("column", id, {
+  public readonly update = async (id: string, input: UpdateColumnInput) => {
+    const column = await this.deps.db.update("column", id, {
       ...input,
       ...(input.outputSchema === undefined
         ? {}
         : {
-            outputSchema: asJson(input.outputSchema),
+            outputSchema: parseOutputSchema(input.outputSchema),
           }),
       ...(input.runCondition === undefined
         ? {}
         : {
-            runCondition: asJson(input.runCondition),
+            runCondition: parseRunCondition(input.runCondition),
           }),
     });
+
+    if (input.inputTemplate !== undefined) {
+      await replaceColumnDependencies(this.deps, id, input.inputTemplate);
+    }
+
+    return column;
+  };
 }

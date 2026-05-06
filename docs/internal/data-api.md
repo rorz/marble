@@ -6,10 +6,10 @@ The contract is the source of truth. Generated OpenAPI docs explain what exists;
 
 ## Surfaces
 
-- `GET /api-v2/openapi` serves public generated API reference docs.
-- `GET /api-v2/openapi/spec.json` serves the public generated OpenAPI spec.
-- `/api-v2/rpc/*` is the typed oRPC transport used by the TypeScript SDK.
-- `/api-v2/*` also serves the OpenAPI-compatible HTTP surface from the same contract.
+- `GET /api/openapi` serves public generated API reference docs.
+- `GET /api/openapi/spec.json` serves the public generated OpenAPI spec.
+- `/api/rpc/*` is the typed oRPC transport used by the TypeScript SDK.
+- `/api/*` also serves the OpenAPI-compatible HTTP surface from the same contract.
 
 ## Project Flow
 
@@ -19,8 +19,11 @@ Contracts live in `packages/contracts`. The API implements those contracts in `p
 import { MarbleClient } from "@marble/sdk";
 
 const marble = new MarbleClient({
-  apiKey: process.env.MARBLE_API_KEY,
-  apiUrl: "https://app.example.com/api-v2",
+  driver: {
+    apiKey: process.env.MARBLE_API_KEY,
+    apiUrl: "https://app.example.com/api",
+    type: "api",
+  },
 });
 
 const project = await marble.projects.create({
@@ -56,15 +59,15 @@ marble projects delete <project-id>
 
 ```sh
 curl -H "Authorization: Bearer $MARBLE_API_KEY" \
-  "https://app.example.com/api-v2/projects?name=Post-event%20contacts"
+  "https://app.example.com/api/projects?name=Post-event%20contacts"
 
-curl -X POST "https://app.example.com/api-v2/projects" \
+curl -X POST "https://app.example.com/api/projects" \
   -H "Authorization: Bearer $MARBLE_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name":"Post-event contacts"}'
 
 curl -H "Authorization: Bearer $MARBLE_API_KEY" \
-  "https://app.example.com/api-v2/projects/most-recent"
+  "https://app.example.com/api/projects/most-recent"
 ```
 
 The same example action is available through the typed RPC transport as

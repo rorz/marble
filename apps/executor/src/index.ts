@@ -1,6 +1,11 @@
 import { getSandbox } from "@cloudflare/sandbox";
+import {
+  ColumnRunCondition,
+  type JsonValue,
+  ProgramOutputConfig,
+  RunReturnValue,
+} from "@marble/contracts";
 import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
-import { type JsonValue, Schemas } from "@marble/old-core";
 import { createClient, type Json, type SupabaseClient } from "@marble/supabase";
 import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -85,13 +90,13 @@ const BatchRunBodySchema = z.object({
 });
 
 const RunEnvelopeSchema = z.object({
-  output: Schemas.RunReturnValue,
+  output: RunReturnValue,
   success: z.boolean(),
 });
 
 const BatchRunItemSchema = z.object({
   cellId: z.string().uuid(),
-  output: Schemas.RunReturnValue,
+  output: RunReturnValue,
   runId: z.string().uuid(),
   success: z.boolean(),
 });
@@ -471,8 +476,7 @@ async function listReadyDependentCellIds(
     (targetColumns ?? [])
       .filter(
         (column) =>
-          Schemas.ColumnRunCondition.safeParse(column.run_condition).data ===
-          true,
+          ColumnRunCondition.safeParse(column.run_condition).data === true,
       )
       .map((column) => [
         column.id,
@@ -983,7 +987,7 @@ const testHandler = async (c: Context<ExecutorEnv>) => {
       ),
       files,
       runtimeInputFromValue(body.input),
-      Schemas.ProgramOutputConfig.parse(versionRecord.data.output_config)
+      ProgramOutputConfig.parse(versionRecord.data.output_config)
         .schema as JsonValue,
       environmentVariables,
     );

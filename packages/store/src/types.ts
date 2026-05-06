@@ -85,8 +85,11 @@ export function toDbUpdate(values: Record<string, unknown>) {
 export type ResourceRow<Name extends TableName> = Tables<Name>;
 
 export type ResourceContext = {
+  actorKeyId?: string;
+  eventSource?: "CLI" | "RAW_API" | "WEB_APP";
   profileId: string;
   recordTiming?: (name: string, durationMs: number) => void;
+  requestId?: string;
   userId?: string;
 };
 

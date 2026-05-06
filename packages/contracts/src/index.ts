@@ -17,6 +17,40 @@ import { sourceOperations } from "./resources/entities/source";
 import { sourceEventOperations } from "./resources/entities/source_event";
 import { tableOperations } from "./resources/entities/table";
 
+export type { JsonValue } from "./resources/base";
+export {
+  ColumnOutputSchema,
+  type ColumnOutputSchema as ColumnOutputSchemaType,
+  ColumnRunCondition,
+  type ColumnRunCondition as ColumnRunConditionType,
+  resolveColumnConfig,
+  resolveColumnOutputSchema,
+} from "./resources/entities/column";
+export {
+  ENVIRONMENT_VARIABLE_NAME_PATTERN,
+  listProgramSecretDeclarationsFromFiles,
+  listProgramSecretDeclarationsFromManifest,
+  type ProgramManifest,
+  type ProgramManifestSecretDeclaration,
+  type ProgramSecretConfig,
+  ProgramSecretConfigSchema,
+  ProgramSecretDeclarationSchema,
+  parseProgramManifest,
+  parseProgramManifestFileContent,
+  parseProgramSecretConfig,
+} from "./resources/entities/program";
+export {
+  JsonSchema,
+  ProgramInputSchema,
+  type ProgramInputSchema as ProgramInputSchemaType,
+  ProgramOutputConfig,
+  type ProgramOutputConfig as ProgramOutputConfigType,
+  RunInput,
+  type RunInput as RunInputType,
+  RunReturnValue,
+  type RunReturnValue as RunReturnValueType,
+} from "./resources/entities/program-version";
+
 export const marbleContract = {
   cells: createORPCResourceContract(cellOperations),
   columns: createORPCResourceContract(columnOperations),

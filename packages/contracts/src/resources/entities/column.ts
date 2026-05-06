@@ -1,6 +1,9 @@
+import { JSONPath } from "jsonpath-plus";
+import sift from "sift";
 import { z } from "zod";
 import { defineResourceOperations } from "../../helpers";
-import { baseEntitySchema, jsonValueSchema } from "../base";
+import { baseEntitySchema, type JsonValue, jsonValueSchema } from "../base";
+import { JsonSchema, type ProgramOutputConfig } from "./program-version";
 
 const tags = [
   "Columns",
@@ -16,6 +19,77 @@ const ColumnSchema = z.object({
   runCondition: jsonValueSchema,
   tableId: baseEntitySchema.shape.id,
 });
+
+export const ColumnRunCondition = z.boolean();
+export type ColumnRunCondition = z.infer<typeof ColumnRunCondition>;
+
+export const ColumnOutputSchema = JsonSchema;
+export type ColumnOutputSchema = z.infer<typeof ColumnOutputSchema>;
+
+export const resolveColumnOutputSchema = (
+  inputValues: Record<string, unknown>,
+  outputConfig: ProgramOutputConfig,
+): ColumnOutputSchema => {
+  const matchingOverload = outputConfig.overloads?.find((overload) => {
+    const test = sift(overload.match);
+    return test(inputValues);
+  });
+
+  return matchingOverload?.schema ?? outputConfig.schema;
+};
+
+export function resolveColumnConfig(
+  config: JsonValue,
+  rowContext: Record<string, JsonValue>,
+): JsonValue {
+  if (config === null || typeof config !== "object") {
+    if (typeof config === "string") {
+      const exactMatch = config.match(/^\{\{(\$\.[^}]+)\}\}$/);
+
+      if (exactMatch) {
+        return JSONPath({
+          json: rowContext,
+          path: exactMatch[1],
+          wrap: false,
+        }) as JsonValue;
+      }
+
+      return config.replace(/\{\{(\$\.[^}]+)\}\}/g, (_, path) => {
+        const value = JSONPath({
+          json: rowContext,
+          path,
+          wrap: false,
+        });
+        return value === null || value === undefined ? "" : String(value);
+      });
+    }
+
+    return config;
+  }
+
+  if (Array.isArray(config)) {
+    return config.map((item) => resolveColumnConfig(item, rowContext));
+  }
+
+  const resolvedObject: Record<string, JsonValue> = {};
+
+  for (const [key, value] of Object.entries(config)) {
+    if (key.endsWith(".$")) {
+      const cleanKey = key.slice(0, -2);
+      const extractedValue = JSONPath({
+        json: rowContext,
+        path: value as string,
+        wrap: false,
+      });
+
+      resolvedObject[cleanKey] = extractedValue as JsonValue;
+    } else {
+      resolvedObject[key] = resolveColumnConfig(value, rowContext);
+    }
+  }
+
+  return resolvedObject;
+}
 
 export const columnOperations = defineResourceOperations({
   create: {

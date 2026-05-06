@@ -1,11 +1,11 @@
 import "server-only";
-import type { MarbleClient } from "@marble/sdk";
-import { createServerMarbleSdk } from "./marble-sdk-server";
 import {
   listProgramSecretDeclarationsFromFiles,
   type ProgramManifestSecretDeclaration,
   parseProgramSecretConfig,
-} from "./program-manifest";
+} from "@marble/contracts";
+import type { MarbleClient } from "@marble/sdk";
+import { createServerMarbleSdk } from "./marble-sdk-server";
 
 type SecretRecord = Awaited<
   ReturnType<MarbleClient["secrets"]["list"]>
