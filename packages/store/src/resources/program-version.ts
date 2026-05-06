@@ -111,10 +111,43 @@ async function getProgramVersion(deps: ResourceDeps, id: string) {
 
 function requireUserId(deps: ResourceDeps) {
   if (!deps.context.userId) {
-    throw new Error("Program version testing requires a user context.");
+    throw new Error("Program version operations require a user context.");
   }
 
   return deps.context.userId;
+}
+
+async function listOwnedProfileIds(deps: ResourceDeps) {
+  const { data, error } = await requireServiceSupabase(deps)
+    .from("profile")
+    .select("id")
+    .eq("owner_user_id", requireUserId(deps));
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return new Set((data ?? []).map((profile) => profile.id));
+}
+
+async function requireWritableProgram(deps: ResourceDeps, programId: string) {
+  const { data: program, error } = await requireServiceSupabase(deps)
+    .from("program")
+    .select("first_party, owner_profile_id")
+    .eq("id", programId)
+    .single();
+
+  if (error || !program) {
+    throw new Error(error?.message ?? "Program not found.");
+  }
+
+  const ownedProfileIds = await listOwnedProfileIds(deps);
+
+  if (program.first_party || !ownedProfileIds.has(program.owner_profile_id)) {
+    throw new Error("Program not found.");
+  }
+
+  return program;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -193,6 +226,8 @@ export class ProgramVersionCollection {
       programId: string;
     },
   ) => {
+    await requireWritableProgram(this.deps, input.programId);
+
     const versionNumber = input.publish
       ? (input.version ??
         (await nextProgramVersionNumber(this.deps, input.programId)))
@@ -284,6 +319,8 @@ export class ProgramVersionCollection {
     input: ProgramVersionWriteInput,
   ) => {
     const existing = await getProgramVersion(this.deps, id);
+
+    await requireWritableProgram(this.deps, existing.programId);
 
     if (existing.publishedAt !== null) {
       throw new Error(`Program version '${id}' is published and read-only.`);

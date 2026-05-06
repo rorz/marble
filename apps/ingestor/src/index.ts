@@ -23,6 +23,11 @@ type MaterializedCell = {
   column_id: string;
   id: string;
 };
+type MaterializedRow = {
+  id: string;
+};
+
+const ROW_INSERT_RETRY_LIMIT = 8;
 
 const pipeMappingSchema = z.object({
   columnId: z.string().uuid(),
@@ -45,6 +50,20 @@ function valueToManualInput(value: unknown) {
   return JSON.stringify(value);
 }
 
+function isUniqueViolation(
+  error: {
+    code?: string;
+  } | null,
+) {
+  return error?.code === "23505";
+}
+
+function waitForRowInsertRetry(attempt: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, Math.min(attempt * 25, 150));
+  });
+}
+
 function getWebhookToken(request: Request) {
   const authorization = request.headers.get("authorization")?.trim();
 
@@ -60,33 +79,48 @@ function getWebhookToken(request: Request) {
   return headerToken && headerToken.length > 0 ? headerToken : null;
 }
 
-async function materializeTableRow(supabase: SupabaseClient, tableId: string) {
-  const { data: lastRow, error: lastRowError } = await supabase
-    .from("row")
-    .select("idx")
-    .eq("table_id", tableId)
-    .order("idx", {
-      ascending: false,
-    })
-    .limit(1)
-    .maybeSingle();
+async function createTableRow(supabase: SupabaseClient, tableId: string) {
+  for (let attempt = 1; attempt <= ROW_INSERT_RETRY_LIMIT; attempt += 1) {
+    const { data: lastRow, error: lastRowError } = await supabase
+      .from("row")
+      .select("idx")
+      .eq("table_id", tableId)
+      .order("idx", {
+        ascending: false,
+      })
+      .limit(1)
+      .maybeSingle();
 
-  if (lastRowError) {
-    throw new Error(lastRowError.message);
-  }
+    if (lastRowError) {
+      throw new Error(lastRowError.message);
+    }
 
-  const { data: row, error: rowError } = await supabase
-    .from("row")
-    .insert({
-      idx: (lastRow?.idx ?? -1) + 1,
-      table_id: tableId,
-    })
-    .select("id")
-    .single();
+    const { data: row, error: rowError } = await supabase
+      .from("row")
+      .insert({
+        idx: (lastRow?.idx ?? -1) + 1,
+        table_id: tableId,
+      })
+      .select("id")
+      .single();
 
-  if (rowError || !row) {
+    if (!rowError && row) {
+      return row as MaterializedRow;
+    }
+
+    if (isUniqueViolation(rowError) && attempt < ROW_INSERT_RETRY_LIMIT) {
+      await waitForRowInsertRetry(attempt);
+      continue;
+    }
+
     throw new Error(rowError?.message ?? "Could not create row.");
   }
+
+  throw new Error("Could not create row.");
+}
+
+async function materializeTableRow(supabase: SupabaseClient, tableId: string) {
+  const row = await createTableRow(supabase, tableId);
 
   try {
     const { data: columns, error: columnError } = await supabase

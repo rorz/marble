@@ -23,6 +23,7 @@ export function getMarbleApiConfig(): MarbleApiConfig {
     },
     supabase: {
       ...getServiceRoleSupabaseConfig(),
+      jwtSecret: env.SUPABASE_JWT_SECRET,
       publishableKey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     },
   };
