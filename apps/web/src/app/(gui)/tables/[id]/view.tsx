@@ -50,7 +50,7 @@ import {
   useState,
 } from "react";
 import Editor from "react-simple-code-editor";
-import { useMarbleSdk } from "@/lib/marble-sdk-client";
+import { useMarbleSdk, useMarbleWebSessionSdk } from "@/lib/marble-sdk-client";
 import {
   createBroadcastMutationGuard,
   type DeleteMutation,
@@ -1354,6 +1354,9 @@ export default function TablePageView({
   const sdk = useMarbleSdk({
     profileId: table.projectOwnerProfileId,
   });
+  const runSdk = useMarbleWebSessionSdk({
+    profileId: table.projectOwnerProfileId,
+  });
 
   const cellsRef = useRef(cells);
   cellsRef.current = cells;
@@ -1850,7 +1853,7 @@ export default function TablePageView({
       addLog(`▶ Cell edit → running "${col.name}" ...`);
 
       try {
-        const result = await executeRun(sdk, {
+        const result = await executeRun(runSdk, {
           cellId: cell.id,
           cellValue: manualInput,
         });
@@ -1874,7 +1877,7 @@ export default function TablePageView({
       applyClientErrorToCell,
       applyRunOutputToCell,
       markCellAsRunning,
-      sdk,
+      runSdk,
     ],
   );
 
@@ -1893,7 +1896,7 @@ export default function TablePageView({
       addLog(`▶ Re-running "${col.name}" ...`);
 
       try {
-        const result = await executeRun(sdk, {
+        const result = await executeRun(runSdk, {
           cellId: cell.id,
         });
         applyRunOutputToCell(cell.id, result.output);
@@ -1915,7 +1918,7 @@ export default function TablePageView({
       applyClientErrorToCell,
       applyRunOutputToCell,
       markCellAsRunning,
-      sdk,
+      runSdk,
     ],
   );
 

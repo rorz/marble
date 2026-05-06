@@ -55,15 +55,20 @@ export function useMarbleSdk(options: MarbleSdkOptions = {}) {
   );
 }
 
-export function useMarbleWebSessionSdk() {
+export function useMarbleWebSessionSdk(options: MarbleSdkOptions = {}) {
+  const { profileId } = options;
+
   return useMemo(
     () =>
       new MarbleClient({
         driver: {
           apiUrl: env.NEXT_PUBLIC_MARBLE_WEB_SESSION_API_URL,
+          profileId,
           type: "web-session",
         },
       }),
-    [],
+    [
+      profileId,
+    ],
   );
 }
