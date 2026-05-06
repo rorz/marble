@@ -30,7 +30,9 @@ export class RowCollection implements RowCollectionApi {
     });
 
     if (cells.length > 0) {
-      const { error: runError } = await this.deps.supabase
+      const { error: runError } = await (
+        this.deps.serviceSupabase ?? this.deps.supabase
+      )
         .from("program_run")
         .delete()
         .in(

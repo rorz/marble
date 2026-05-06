@@ -759,6 +759,43 @@ $$;
 ALTER FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."current_user_owns_column"("p_column_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public."column" AS column_record
+    WHERE column_record.id = p_column_id
+      AND public.current_user_owns_table(column_record.table_id)
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_user_owns_column"("p_column_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_user_can_use_program_version"("p_program_version_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public."program_version" AS program_version
+    JOIN public."program" AS program
+      ON program.id = program_version.program_id
+    WHERE program_version.id = p_program_version_id
+      AND (
+        program.first_party
+        OR public.current_user_owns_profile(program.owner_profile_id)
+      )
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_user_can_use_program_version"("p_program_version_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", "p_table_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO ''
@@ -907,6 +944,23 @@ $$;
 
 
 ALTER FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."current_user_can_use_program_run_scope"("p_program_version_id" "uuid", "p_target_cell_id" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO ''
+    AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public."cell" AS cell
+    WHERE cell.id = p_target_cell_id
+      AND public.cell_belongs_to_current_user(cell.row_id, cell.column_id)
+      AND public.current_user_can_use_program_version(p_program_version_id)
+  );
+$$;
+
+
+ALTER FUNCTION "public"."current_user_can_use_program_run_scope"("p_program_version_id" "uuid", "p_target_cell_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."enforce_pipe_same_project"() RETURNS "trigger"
@@ -1818,6 +1872,18 @@ CREATE POLICY "Users can view columns in their own tables" ON "public"."column" 
 
 
 
+CREATE POLICY "Users can create columns in their own tables" ON "public"."column" FOR INSERT TO "authenticated" WITH CHECK (("public"."current_user_owns_table"("table_id") AND "public"."current_user_can_use_program_version"("program_version_id")));
+
+
+
+CREATE POLICY "Users can update columns in their own tables" ON "public"."column" FOR UPDATE TO "authenticated" USING ("public"."current_user_owns_table"("table_id")) WITH CHECK (("public"."current_user_owns_table"("table_id") AND "public"."current_user_can_use_program_version"("program_version_id")));
+
+
+
+CREATE POLICY "Users can delete columns in their own tables" ON "public"."column" FOR DELETE TO "authenticated" USING ("public"."current_user_owns_table"("table_id"));
+
+
+
 CREATE POLICY "Users can view rows in their own tables" ON "public"."row" FOR SELECT USING ((EXISTS ( SELECT 1
    FROM (("public"."table"
      JOIN "public"."project" ON (("project"."id" = "table"."project_id")))
@@ -1840,6 +1906,14 @@ CREATE POLICY "Users can view their own events" ON "public"."event" FOR SELECT U
 
 
 CREATE POLICY "Users can view their own profiles" ON "public"."profile" FOR SELECT USING (("owner_user_id" = "auth"."uid"()));
+
+
+
+CREATE POLICY "Users can view first-party and own programs" ON "public"."program" FOR SELECT TO "authenticated" USING (("first_party" OR "public"."current_user_owns_profile"("owner_profile_id")));
+
+
+
+CREATE POLICY "Users can view versions for first-party and own programs" ON "public"."program_version" FOR SELECT TO "authenticated" USING ("public"."current_user_can_use_program_version"("id"));
 
 
 
@@ -1877,7 +1951,13 @@ CREATE POLICY "Users can view their own secrets" ON "public"."secret" FOR SELECT
 CREATE POLICY "Users can manage cells in their own tables" ON "public"."cell" FOR ALL TO "authenticated" USING ("public"."cell_belongs_to_current_user"("row_id", "column_id")) WITH CHECK ("public"."cell_belongs_to_current_user"("row_id", "column_id"));
 
 
+CREATE POLICY "Users can manage column dependencies in their own tables" ON "public"."column_dependency" FOR ALL TO "authenticated" USING (("public"."current_user_owns_column"("source_column_id") AND "public"."current_user_owns_column"("target_column_id"))) WITH CHECK (("public"."current_user_owns_column"("source_column_id") AND "public"."current_user_owns_column"("target_column_id")));
+
+
 CREATE POLICY "Users can manage pipes in their own projects" ON "public"."pipe" FOR ALL TO "authenticated" USING ("public"."current_user_can_use_pipe_scope"("source_id", "table_id")) WITH CHECK ("public"."current_user_can_use_pipe_scope"("source_id", "table_id"));
+
+
+CREATE POLICY "Users can manage program runs in their own tables" ON "public"."program_run" FOR ALL TO "authenticated" USING ("public"."current_user_can_use_program_run_scope"("program_version_id", "target_cell_id")) WITH CHECK ("public"."current_user_can_use_program_run_scope"("program_version_id", "target_cell_id"));
 
 
 CREATE POLICY "Users can manage rows in their own tables" ON "public"."row" FOR ALL TO "authenticated" USING ("public"."current_user_owns_table"("table_id")) WITH CHECK ("public"."current_user_owns_table"("table_id"));
@@ -2248,6 +2328,16 @@ GRANT ALL ON FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid",
 GRANT ALL ON FUNCTION "public"."cell_belongs_to_current_user"("p_row_id" "uuid", "p_column_id" "uuid") TO "service_role";
 
 
+REVOKE ALL ON FUNCTION "public"."current_user_can_use_program_run_scope"("p_program_version_id" "uuid", "p_target_cell_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_can_use_program_run_scope"("p_program_version_id" "uuid", "p_target_cell_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_can_use_program_run_scope"("p_program_version_id" "uuid", "p_target_cell_id" "uuid") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_can_use_program_version"("p_program_version_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_can_use_program_version"("p_program_version_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_can_use_program_version"("p_program_version_id" "uuid") TO "service_role";
+
+
 REVOKE ALL ON FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", "p_table_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", "p_table_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_user_can_use_pipe_scope"("p_source_id" "uuid", "p_table_id" "uuid") TO "service_role";
@@ -2271,6 +2361,11 @@ GRANT ALL ON FUNCTION "public"."current_user_owns_project"("p_project_id" "uuid"
 REVOKE ALL ON FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."current_user_owns_table"("p_table_id" "uuid") TO "service_role";
+
+
+REVOKE ALL ON FUNCTION "public"."current_user_owns_column"("p_column_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."current_user_owns_column"("p_column_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."current_user_owns_column"("p_column_id" "uuid") TO "service_role";
 
 
 REVOKE ALL ON FUNCTION "public"."enforce_pipe_same_project"() FROM PUBLIC;

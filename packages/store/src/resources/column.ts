@@ -129,12 +129,9 @@ async function replaceColumnDependencies(
   columnId: string,
   inputTemplate: string,
 ) {
-  if (!deps.serviceSupabase) {
-    return;
-  }
-
+  const supabase = deps.serviceSupabase ?? deps.supabase;
   const sourceColumnIds = extractDependenciesFromTemplate(inputTemplate);
-  const deleteResult = await deps.serviceSupabase
+  const deleteResult = await supabase
     .from("column_dependency")
     .delete()
     .eq("target_column_id", columnId);
@@ -147,14 +144,12 @@ async function replaceColumnDependencies(
     return;
   }
 
-  const insertResult = await deps.serviceSupabase
-    .from("column_dependency")
-    .insert(
-      sourceColumnIds.map((sourceColumnId) => ({
-        source_column_id: sourceColumnId,
-        target_column_id: columnId,
-      })),
-    );
+  const insertResult = await supabase.from("column_dependency").insert(
+    sourceColumnIds.map((sourceColumnId) => ({
+      source_column_id: sourceColumnId,
+      target_column_id: columnId,
+    })),
+  );
 
   if (insertResult.error) {
     throw new Error(insertResult.error.message);
@@ -162,16 +157,14 @@ async function replaceColumnDependencies(
 }
 
 async function deleteColumnDependencies(deps: ResourceDeps, columnId: string) {
-  if (!deps.serviceSupabase) {
-    return;
-  }
+  const supabase = deps.serviceSupabase ?? deps.supabase;
 
   const [sourceResult, targetResult] = await Promise.all([
-    deps.serviceSupabase
+    supabase
       .from("column_dependency")
       .delete()
       .eq("source_column_id", columnId),
-    deps.serviceSupabase
+    supabase
       .from("column_dependency")
       .delete()
       .eq("target_column_id", columnId),
@@ -242,7 +235,9 @@ export class ColumnCollection implements ColumnCollectionApi {
     });
 
     if (cells.length > 0) {
-      const { error: runError } = await this.deps.supabase
+      const { error: runError } = await (
+        this.deps.serviceSupabase ?? this.deps.supabase
+      )
         .from("program_run")
         .delete()
         .in(
@@ -264,8 +259,8 @@ export class ColumnCollection implements ColumnCollectionApi {
       throw new Error(cellError.message);
     }
 
-    await this.deps.db.delete("column", id);
     await deleteColumnDependencies(this.deps, id);
+    await this.deps.db.delete("column", id);
     return column;
   };
 
@@ -328,12 +323,19 @@ export class ColumnCollection implements ColumnCollectionApi {
   };
 
   public readonly update = async (id: string, input: UpdateColumnInput) => {
+    const programVersion =
+      input.programVersionId === undefined
+        ? null
+        : await this.deps.db.get("program_version", input.programVersionId);
     const column = await this.deps.db.update("column", id, {
       ...input,
-      ...(input.outputSchema === undefined
+      ...(input.outputSchema === undefined && programVersion === null
         ? {}
         : {
-            outputSchema: asJson(input.outputSchema),
+            outputSchema: asJson(
+              input.outputSchema ??
+                getOutputSchema(programVersion?.outputConfig),
+            ),
           }),
       ...(input.runCondition === undefined
         ? {}

@@ -994,10 +994,29 @@ export type Database = {
         };
         Returns: boolean;
       };
+      current_user_can_use_program_run_scope: {
+        Args: {
+          p_program_version_id: string;
+          p_target_cell_id: string;
+        };
+        Returns: boolean;
+      };
+      current_user_can_use_program_version: {
+        Args: {
+          p_program_version_id: string;
+        };
+        Returns: boolean;
+      };
       current_user_can_use_source_event_scope: {
         Args: {
           p_project_id: string;
           p_source_id: string;
+        };
+        Returns: boolean;
+      };
+      current_user_owns_column: {
+        Args: {
+          p_column_id: string;
         };
         Returns: boolean;
       };
