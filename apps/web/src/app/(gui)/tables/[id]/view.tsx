@@ -336,9 +336,13 @@ function getCellState(cell: Cell | undefined): CellState {
   return cell.state as CellState;
 }
 
+function isTerminalCellState(state: CellState) {
+  return state?.ok === true || state?.ok === false;
+}
+
 function displayCellValue(cell: Cell | undefined): string {
   const state = getCellState(cell);
-  if (!state) return "";
+  if (!state) return cell?.manualInput ?? "";
   if (state.ok === null) return "⏳";
   if (state.ok === true) {
     const v = state.value;
@@ -348,6 +352,23 @@ function displayCellValue(cell: Cell | undefined): string {
   }
   if (state.ok === false) return `⚠ ${state.message}`;
   return cell?.manualInput ?? "";
+}
+
+function describeRunOutput(output: unknown) {
+  if (!output || typeof output !== "object") {
+    return JSON.stringify(output);
+  }
+
+  const record = output as {
+    message?: unknown;
+    value?: unknown;
+  };
+
+  if (typeof record.message === "string") {
+    return record.message;
+  }
+
+  return JSON.stringify(record.value ?? output);
 }
 
 function getProgramOutputConfig(
@@ -1366,6 +1387,7 @@ export default function TablePageView({
   rowsRef.current = rows;
   const tableRef = useRef(table);
   tableRef.current = table;
+  const runningCellIdsRef = useRef(new Set<string>());
   const renameRequestRef = useRef(0);
   const renameInFlightRef = useRef(false);
 
@@ -1429,6 +1451,32 @@ export default function TablePageView({
       };
       next.sort((a, b) => a.idx - b.idx);
       columnsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const upsertLocalCells = useCallback((nextCells: Cell[]) => {
+    if (nextCells.length === 0) {
+      return;
+    }
+
+    setCells((prev) => {
+      const nextById = new Map(
+        prev.map((cell) => [
+          cell.id,
+          cell,
+        ]),
+      );
+
+      for (const cell of nextCells) {
+        nextById.set(cell.id, {
+          ...nextById.get(cell.id),
+          ...cell,
+        });
+      }
+
+      const next = Array.from(nextById.values());
+      cellsRef.current = next;
       return next;
     });
   }, []);
@@ -1499,6 +1547,7 @@ export default function TablePageView({
 
   const markCellAsRunning = useCallback(
     (cellId: string, manualInput?: string) => {
+      runningCellIdsRef.current.add(cellId);
       patchLocalCell(cellId, {
         ...(manualInput === undefined
           ? {}
@@ -1517,6 +1566,7 @@ export default function TablePageView({
 
   const applyRunOutputToCell = useCallback(
     (cellId: string, output: unknown, manualInput?: string) => {
+      runningCellIdsRef.current.delete(cellId);
       patchLocalCell(cellId, {
         ...(manualInput === undefined
           ? {}
@@ -1533,6 +1583,7 @@ export default function TablePageView({
 
   const applyClientErrorToCell = useCallback(
     (cellId: string, message: string, manualInput?: string) => {
+      runningCellIdsRef.current.delete(cellId);
       patchLocalCell(cellId, {
         ...(manualInput === undefined
           ? {}
@@ -1644,14 +1695,33 @@ export default function TablePageView({
 
     if (mutation.type === "cell:upsert") {
       const cell = normalizeBroadcastCell(mutation.row);
-      const existing = cellsRef.current.some(
+      const state = getCellState(cell);
+      const currentCell = cellsRef.current.find(
         (current) => current.id === cell.id,
+      );
+      const nextCell =
+        runningCellIdsRef.current.has(cell.id) && !isTerminalCellState(state)
+          ? {
+              ...cell,
+              manualInput: currentCell?.manualInput ?? cell.manualInput,
+              state: {
+                ok: null,
+              } as Cell["state"],
+            }
+          : cell;
+
+      if (isTerminalCellState(state)) {
+        runningCellIdsRef.current.delete(cell.id);
+      }
+
+      const existing = cellsRef.current.some(
+        (current) => current.id === nextCell.id,
       );
 
       if (existing) {
-        pending.updates.set(cell.id, cell);
+        pending.updates.set(nextCell.id, nextCell);
       } else {
-        pending.inserts.set(cell.id, cell);
+        pending.inserts.set(nextCell.id, nextCell);
       }
     }
 
@@ -1841,10 +1911,23 @@ export default function TablePageView({
       const col = columnsRef.current.find((c) => c.id === columnId);
       if (!col) return;
 
-      const cell = cellsRef.current.find(
+      let cell = cellsRef.current.find(
         (c) => c.rowId === rowId && c.columnId === columnId,
       );
-      if (!cell) return;
+
+      if (!cell) {
+        const materializedCells = await sdk.cells.list({
+          columnId,
+          rowId,
+        });
+        upsertLocalCells(materializedCells);
+        cell = materializedCells[0];
+      }
+
+      if (!cell) {
+        addLog(`✗ "${col.name}" → cell is not materialized yet`);
+        return;
+      }
 
       const manualInput = String(event.newValue ?? "");
 
@@ -1858,7 +1941,11 @@ export default function TablePageView({
           cellValue: manualInput,
         });
         applyRunOutputToCell(cell.id, result.output, manualInput);
-        addLog(`✓ "${col.name}" → ${JSON.stringify(result.output)}`);
+        addLog(
+          `${result.success ? "✓" : "✗"} "${col.name}" → ${describeRunOutput(
+            result.output,
+          )}`,
+        );
       } catch (err) {
         applyClientErrorToCell(
           cell.id,
@@ -1878,6 +1965,8 @@ export default function TablePageView({
       applyRunOutputToCell,
       markCellAsRunning,
       runSdk,
+      sdk,
+      upsertLocalCells,
     ],
   );
 
@@ -1886,10 +1975,23 @@ export default function TablePageView({
       const col = columnsRef.current.find((c) => c.id === columnId);
       if (!col) return;
 
-      const cell = cellsRef.current.find(
+      let cell = cellsRef.current.find(
         (c) => c.rowId === rowId && c.columnId === columnId,
       );
-      if (!cell) return;
+
+      if (!cell) {
+        const materializedCells = await sdk.cells.list({
+          columnId,
+          rowId,
+        });
+        upsertLocalCells(materializedCells);
+        cell = materializedCells[0];
+      }
+
+      if (!cell) {
+        addLog(`✗ "${col.name}" → cell is not materialized yet`);
+        return;
+      }
 
       setRunning(true);
       markCellAsRunning(cell.id);
@@ -1900,7 +2002,11 @@ export default function TablePageView({
           cellId: cell.id,
         });
         applyRunOutputToCell(cell.id, result.output);
-        addLog(`✓ "${col.name}" → ${JSON.stringify(result.output)}`);
+        addLog(
+          `${result.success ? "✓" : "✗"} "${col.name}" → ${describeRunOutput(
+            result.output,
+          )}`,
+        );
       } catch (err) {
         applyClientErrorToCell(
           cell.id,
@@ -1919,6 +2025,8 @@ export default function TablePageView({
       applyRunOutputToCell,
       markCellAsRunning,
       runSdk,
+      sdk,
+      upsertLocalCells,
     ],
   );
 
@@ -1937,10 +2045,30 @@ export default function TablePageView({
       idx: nextIdx,
       quantity: rowCount,
     });
+    const [nextRows, cellsByColumn] = await Promise.all([
+      sdk.rows.list({
+        tableId: selectedTableId,
+      }),
+      Promise.all(
+        columnsRef.current.map((column) =>
+          sdk.cells.list({
+            columnId: column.id,
+          }),
+        ),
+      ),
+    ]);
+    const sortedRows = [
+      ...nextRows,
+    ].sort((a, b) => a.idx - b.idx);
+
+    rowsRef.current = sortedRows;
+    setRows(sortedRows);
+    upsertLocalCells(cellsByColumn.flat());
   }, [
     selectedTableId,
     rowCount,
     sdk,
+    upsertLocalCells,
   ]);
 
   const handleDeleteColumn = useCallback(
@@ -1979,16 +2107,25 @@ export default function TablePageView({
       runCondition: boolean;
     }) => {
       if (!selectedTableId) return;
-      await createColumn(sdk, {
+      const column = await createColumn(sdk, {
         tableId: selectedTableId,
         ...input,
       });
+      const materializedCells = await sdk.cells.list({
+        columnId: column.id,
+      });
+
+      upsertLocalColumn(hydrateColumnRecord(column, programs));
+      upsertLocalCells(materializedCells);
       await refreshReferenceColumns();
     },
     [
+      programs,
       refreshReferenceColumns,
       selectedTableId,
       sdk,
+      upsertLocalCells,
+      upsertLocalColumn,
     ],
   );
 
