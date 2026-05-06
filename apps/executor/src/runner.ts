@@ -64,6 +64,17 @@ type MissingSecretConfiguration = {
   label: string;
   required: boolean;
 };
+type ProgramRunRuntimeStore = {
+  programRuns: Pick<
+    MarbleStore["programRuns"],
+    | "listDependentCandidateCellIds"
+    | "loadInputContextForCellId"
+    | "loadInputContextForRun"
+    | "resolveEnvironmentVariablesForSecretDeclarations"
+    | "resolveOwnerUserIdForProfile"
+    | "setCellState"
+  >;
+};
 
 export const formatZodIssues = (issues: z.ZodIssue[]): string =>
   issues
@@ -193,7 +204,7 @@ function resolveInputContext(context: ProgramRunInputContext) {
 }
 
 export async function resolveProgramRunInput(
-  store: MarbleStore,
+  store: ProgramRunRuntimeStore,
   run: StoredProgramRun,
 ) {
   return resolveInputContext(
@@ -202,7 +213,7 @@ export async function resolveProgramRunInput(
 }
 
 async function resolveCellExecutionCandidate(
-  store: MarbleStore,
+  store: ProgramRunRuntimeStore,
   cellId: string,
 ): Promise<CellExecutionCandidateResolution | null> {
   const context = await store.programRuns.loadInputContextForCellId(cellId);
@@ -250,7 +261,7 @@ async function resolveCellExecutionCandidate(
 }
 
 export async function listReadyDependentCellIds(
-  store: MarbleStore,
+  store: ProgramRunRuntimeStore,
   input: {
     requestId?: string;
     successfulRuns: StoredProgramRun[];
@@ -309,7 +320,7 @@ function ownerUserIdForRun(run: StoredProgramRun) {
 }
 
 async function resolveDeclaredEnvironmentVariables(
-  store: MarbleStore,
+  store: ProgramRunRuntimeStore,
   input: {
     columnId?: string;
     ownerUserId: string;
@@ -337,7 +348,7 @@ async function resolveDeclaredEnvironmentVariables(
 }
 
 export function resolveEnvironmentVariablesForRun(
-  store: MarbleStore,
+  store: ProgramRunRuntimeStore,
   run: StoredProgramRun,
 ) {
   return resolveDeclaredEnvironmentVariables(store, {
@@ -349,7 +360,7 @@ export function resolveEnvironmentVariablesForRun(
 }
 
 export async function resolveEnvironmentVariablesForProgramVersion(
-  store: MarbleStore,
+  store: ProgramRunRuntimeStore,
   options: {
     auth: ExecutorAuthContext;
     programId: string;

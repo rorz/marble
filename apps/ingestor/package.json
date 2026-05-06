@@ -1,8 +1,7 @@
 {
   "author": "",
   "dependencies": {
-    "@marble/store": "workspace:*",
-    "@marble/supabase": "workspace:*",
+    "@marble/sdk": "workspace:*",
     "hono": "catalog:base",
     "zod": "catalog:base"
   },

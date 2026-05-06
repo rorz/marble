@@ -10,6 +10,7 @@
   "scripts": {
     "build": "turbo run build",
     "check": "bun typegen && turbo run format-and-lint:fix && bun typecheck && bun run build",
+    "dependency-graph": "dot -Tsvg dependency-graph.dot -o dependency-graph.svg",
     "deploy": "turbo run deploy",
     "dev": "turbo run dev",
     "format-and-lint": "biome check .",

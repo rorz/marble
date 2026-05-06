@@ -1,0 +1,212 @@
+digraph MarbleDependencyGraph {
+  graph [
+    bgcolor="#fbfaf7",
+    color="#ded8ca",
+    fontname="Arial",
+    label=<
+      <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">
+        <TR><TD><FONT POINT-SIZE="26"><B>Marble workspace dependency graph</B></FONT></TD></TR>
+        <TR><TD><FONT POINT-SIZE="12" COLOR="#6f6a60">Transitive-reduced workspace package graph from package.json</FONT></TD></TR>
+      </TABLE>
+    >,
+    labelloc="t",
+    margin=0.24,
+    newrank=true,
+    nodesep=0.6,
+    pad=0.2,
+    rankdir=LR,
+    ranksep=1.0,
+    splines=ortho
+  ];
+
+  node [
+    color="#d9d2c3",
+    fillcolor="#fffefd",
+    fixedsize=false,
+    fontname="Arial",
+    margin="0.18,0.11",
+    penwidth=1.35,
+    shape=plain,
+    style="filled,rounded"
+  ];
+
+  edge [
+    arrowsize=0.65,
+    color="#9d988e",
+    fontname="Arial",
+    penwidth=1.25
+  ];
+
+  subgraph cluster_entrypoints {
+    color="#d6e3f0";
+    fillcolor="#eef6fb";
+    label="Entrypoints";
+    margin=18;
+    penwidth=1.2;
+    style="filled,rounded";
+
+    web [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#dceeff"><FONT POINT-SIZE="15"><B>@marble/web</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#5f6b75">apps/web</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+
+    cli [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#dceeff"><FONT POINT-SIZE="15"><B>@marble/cli</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#5f6b75">packages/cli</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+
+    executor [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#dceeff"><FONT POINT-SIZE="15"><B>@marble/executor</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#5f6b75">apps/executor</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+
+    ingestor [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#dceeff"><FONT POINT-SIZE="15"><B>@marble/ingestor</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#5f6b75">apps/ingestor</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+  }
+
+  subgraph cluster_core {
+    color="#dfdcc8";
+    fillcolor="#f6f2df";
+    label="Core runtime";
+    margin=18;
+    penwidth=1.2;
+    style="filled,rounded";
+
+    sdk [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#fff1b8"><FONT POINT-SIZE="15"><B>@marble/sdk</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#6b664f">packages/sdk</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+
+    api [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#fff1b8"><FONT POINT-SIZE="15"><B>@marble/api</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#6b664f">packages/api</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+
+    store [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#fff1b8"><FONT POINT-SIZE="15"><B>@marble/store</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#6b664f">packages/store</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+
+    keys [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#fff1b8"><FONT POINT-SIZE="15"><B>@marble/keys</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#6b664f">packages/keys</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+  }
+
+  subgraph cluster_foundation {
+    color="#d7e4d4";
+    fillcolor="#eff7ed";
+    label="Foundation";
+    margin=18;
+    penwidth=1.2;
+    style="filled,rounded";
+
+    contracts [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#ddf0d6"><FONT POINT-SIZE="15"><B>@marble/contracts</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#5e6d59">packages/contracts</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+
+    lib [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#ddf0d6"><FONT POINT-SIZE="15"><B>@marble/lib</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#5e6d59">packages/lib</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+
+    supabase [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#ddf0d6"><FONT POINT-SIZE="15"><B>@marble/supabase</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#5e6d59">supabase</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+
+    ui [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#ddf0d6"><FONT POINT-SIZE="15"><B>@marble/ui</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#5e6d59">packages/ui</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+  }
+
+  subgraph cluster_unwired {
+    color="#e9d4d2";
+    fillcolor="#fbefed";
+    label="Currently isolated";
+    margin=18;
+    penwidth=1.2;
+    style="filled,rounded";
+
+    wizard [
+      label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="8">
+          <TR><TD BGCOLOR="#fde0dc"><FONT POINT-SIZE="15"><B>@marble/wizard</B></FONT></TD></TR>
+          <TR><TD><FONT POINT-SIZE="10" COLOR="#7a5c58">packages/wizard</FONT></TD></TR>
+        </TABLE>
+      >
+    ];
+  }
+
+  web -> sdk;
+  web -> ui;
+
+  cli -> sdk;
+
+  executor -> contracts;
+  executor -> store;
+
+  ingestor -> store;
+
+  sdk -> api;
+
+  api -> contracts;
+  api -> store;
+
+  store -> keys;
+  store -> lib;
+
+  keys -> supabase;
+}
