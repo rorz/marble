@@ -12,11 +12,17 @@ type MarbleApiHeaders = RpcLinkOptions["headers"];
 
 export type MarbleClientDriver =
   | {
-      apiKey?: string;
+      apiKey: string;
       apiUrl: string;
       fetch?: MarbleApiFetch;
       headers?: MarbleApiHeaders;
       type: "api";
+    }
+  | {
+      apiUrl: string;
+      fetch?: MarbleApiFetch;
+      headers?: MarbleApiHeaders;
+      type: "web-session";
     }
   | {
       client: SupabaseClient;
@@ -29,6 +35,22 @@ export type MarbleClientDriver =
 export type MarbleClientOptions = {
   driver: MarbleClientDriver;
 };
+
+function resolveHostedApiUrl(apiUrl: string) {
+  const trimmedApiUrl = trimTrailingSlash(apiUrl);
+
+  try {
+    return trimTrailingSlash(new URL(trimmedApiUrl).toString());
+  } catch (error) {
+    throw new Error("Marble API URLs must be absolute.", {
+      cause: error,
+    });
+  }
+}
+
+function resolveHostedApiRpcUrl(apiUrl: string) {
+  return `${resolveHostedApiUrl(apiUrl)}/rpc`;
+}
 
 function createHostedApiClient(options: {
   apiKey?: string;
@@ -53,7 +75,7 @@ function createHostedApiClient(options: {
 
       return headers;
     },
-    url: `${trimTrailingSlash(options.apiUrl)}/rpc`,
+    url: () => resolveHostedApiRpcUrl(options.apiUrl),
   });
 
   return createORPCClient(link) as ContractRouterClient<MarbleContract>;
@@ -80,14 +102,14 @@ export class MarbleClient {
 
   constructor(options: MarbleClientOptions) {
     const rpcClient =
-      options.driver.type === "api"
-        ? createHostedApiClient(options.driver)
-        : (createSupabaseClientRouterClient({
+      options.driver.type === "supabase"
+        ? (createSupabaseClientRouterClient({
             profileId: options.driver.profileId,
             serviceSupabase: options.driver.serviceClient,
             supabase: options.driver.client,
             userId: options.driver.userId,
-          }) as ContractRouterClient<MarbleContract>);
+          }) as ContractRouterClient<MarbleContract>)
+        : createHostedApiClient(options.driver);
 
     this.cells = rpcClient.cells;
     this.columns = rpcClient.columns;

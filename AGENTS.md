@@ -31,6 +31,7 @@ Our development stack:
 9. **EXTREME WARNING**: NEVER, EVER use `npx` to run scripts or binaries. You must ONLY use `bun`, `bunx`, or invoke binaries like `supabase` directly.
 10. Start a dev server unless the user explicitly asks you to. Nor should you volunteer status updates that a dev server "was not started". Only mention dev-server execution when it is imperatively necessary or explicitly requested.
 11. Export TypeScript types, interfaces, schema-inferred aliases, or helper aliases unless there is a current concrete consumer or the type is an intentional package/public API surface. Keep module-local types unexported, do not export types speculatively for future use, and delete abandoned exported types immediately.
+12. Edit environment files yourself. Never modify `.env`, `.env.local`, `.env.*`, Vercel env files, or other local environment configuration files. If an environment value needs to change, tell the user the exact variable name and value to set, and let the user make the edit.
 
 ### ALWAYS
 1. Run `bun check` after every checkpoint, and at the very least when you "think" you are ready and done with a task.

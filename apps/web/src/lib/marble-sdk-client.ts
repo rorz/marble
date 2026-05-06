@@ -2,6 +2,7 @@
 
 import { MarbleClient } from "@marble/sdk";
 import { useMemo } from "react";
+import { env } from "@/env";
 import { createClient } from "./supabase/browser";
 
 type MarbleSdkOptions = {
@@ -54,13 +55,13 @@ export function useMarbleSdk(options: MarbleSdkOptions = {}) {
   );
 }
 
-export function useMarbleApiSdk() {
+export function useMarbleWebSessionSdk() {
   return useMemo(
     () =>
       new MarbleClient({
         driver: {
-          apiUrl: "/api",
-          type: "api",
+          apiUrl: env.NEXT_PUBLIC_MARBLE_WEB_SESSION_API_URL,
+          type: "web-session",
         },
       }),
     [],

@@ -7,7 +7,7 @@ export const readCliEnv = (runtimeEnv: NodeJS.ProcessEnv) =>
     clientPrefix: "",
     runtimeEnv,
     server: {
-      MARBLE_API_KEY: z.string().optional(),
+      MARBLE_API_KEY: z.string().min(1),
       MARBLE_API_URL: z.string().url(),
     },
   });

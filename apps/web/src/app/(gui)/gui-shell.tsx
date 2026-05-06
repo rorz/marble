@@ -67,8 +67,8 @@ import {
   updateSidebarTreeStateForKey,
 } from "../../lib/gui-sidebar";
 import {
-  useMarbleApiSdk,
   useMarbleSdkFactory,
+  useMarbleWebSessionSdk,
 } from "../../lib/marble-sdk-client";
 import { createDefaultProgram } from "../../lib/program-client";
 import { usePrivateBroadcast } from "../../lib/realtime/private-broadcast";
@@ -722,7 +722,7 @@ export function GuiShell({
       getSdk,
     ],
   );
-  const apiSdk = useMarbleApiSdk();
+  const apiSdk = useMarbleWebSessionSdk();
   const {
     error: signOutError,
     pending: signOutPending,

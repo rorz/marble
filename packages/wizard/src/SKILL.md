@@ -23,7 +23,7 @@ If you're an agent and your human has asked you to "make me a (workflow | table 
 
 - The CLI reads `.env` from the current working directory.
 - `MARBLE_API_URL` defaults to `https://marble.kenobi.tech/api`.
-- `MARBLE_API_KEY` is optional, but protected environments may require it. Mint one from the Marble web app's Profiles page, then export it into the shell or `.env`.
+- `MARBLE_API_KEY` is required. Mint one from the Marble web app's Profiles page, then export it into the shell or `.env`.
 - Run `which marble` first.
 - If `which marble` succeeds, prefer `marble ...`.
 - If `which marble` fails, fall back to `bunx marble-cli@latest ...`.

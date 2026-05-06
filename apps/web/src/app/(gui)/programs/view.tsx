@@ -66,7 +66,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useMarbleApiSdk } from "../../../lib/marble-sdk-client";
+import { useMarbleWebSessionSdk } from "../../../lib/marble-sdk-client";
 import { createDefaultProgram } from "../../../lib/program-client";
 import { changeTargetKey, getChangeTargetProps } from "../change-spotlight";
 import type { ProgramsPageData } from "./actions";
@@ -1092,7 +1092,7 @@ export function ProgramsPageView({
   initialSecrets,
 }: ProgramsPageViewProps) {
   const router = useRouter();
-  const sdk = useMarbleApiSdk();
+  const sdk = useMarbleWebSessionSdk();
   const [programs, setPrograms] = useState(() => sortPrograms(initialPrograms));
   const [programSecretBindings, setProgramSecretBindings] = useState(
     initialProgramSecretBindings,

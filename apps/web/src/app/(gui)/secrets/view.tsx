@@ -17,7 +17,7 @@ import {
 } from "@marble/ui";
 import { KeyIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import { useMarbleApiSdk } from "../../../lib/marble-sdk-client";
+import { useMarbleWebSessionSdk } from "../../../lib/marble-sdk-client";
 import type { SecretRecord } from "./actions";
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
@@ -42,7 +42,7 @@ export function SecretsPageView({
 }: {
   initialSecrets: SecretRecord[];
 }) {
-  const sdk = useMarbleApiSdk();
+  const sdk = useMarbleWebSessionSdk();
   const [secrets, setSecrets] = useState(() => sortSecrets(initialSecrets));
   const [selectedSecretId, setSelectedSecretId] = useState<string | null>(
     initialSecrets[0]?.id ?? null,

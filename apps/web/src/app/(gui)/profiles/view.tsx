@@ -41,7 +41,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useMarbleApiSdk } from "../../../lib/marble-sdk-client";
+import { useMarbleWebSessionSdk } from "../../../lib/marble-sdk-client";
 import {
   createBroadcastMutationGuard,
   type DeleteMutation,
@@ -670,7 +670,7 @@ export function ProfilesPageView({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sdk = useMarbleApiSdk();
+  const sdk = useMarbleWebSessionSdk();
   const createFormRef = useRef<HTMLFormElement>(null);
   const [profiles, setProfiles] = useState(initialProfiles);
   const [optimisticProfiles, addOptimisticProfile] = useOptimistic(

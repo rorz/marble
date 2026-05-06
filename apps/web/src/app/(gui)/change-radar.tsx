@@ -13,7 +13,7 @@ import {
 import { RobotIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
-import { useMarbleApiSdk } from "../../lib/marble-sdk-client";
+import { useMarbleWebSessionSdk } from "../../lib/marble-sdk-client";
 import { buildPipeTitle } from "../../lib/pipe-display";
 import { isEventMutation } from "../../lib/realtime/event-mutations";
 import { usePrivateBroadcast } from "../../lib/realtime/private-broadcast";
@@ -1054,7 +1054,7 @@ export function ChangeRadar({
 }: ChangeRadarProps) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
-  const sdk = useMarbleApiSdk();
+  const sdk = useMarbleWebSessionSdk();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [lastReviewedAt, setLastReviewedAt] = useState<null | string>(null);
   const [resolutionMaps, setResolutionMaps] = useState<ResolutionMaps>({
