@@ -1,6 +1,7 @@
 "use client";
 
-import type { Database } from "@marble/supabase";
+import { toCamelKeys } from "@marble/lib/object";
+import type { MarbleClient } from "@marble/sdk";
 import {
   cx,
   MarbleBadge,
@@ -19,11 +20,10 @@ import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { isEventMutation } from "@/lib/realtime/event-mutations";
 import { usePrivateBroadcast } from "@/lib/realtime/private-broadcast";
 
-type EventRow = Database["public"]["Tables"]["event"]["Row"];
-type ProfileRow = Pick<
-  Database["public"]["Tables"]["profile"]["Row"],
-  "created_at" | "external_name" | "id" | "name" | "type"
->;
+type EventRow = Awaited<
+  ReturnType<MarbleClient["events"]["listForCurrentUser"]>
+>[number];
+type ProfileRow = Awaited<ReturnType<MarbleClient["profiles"]["list"]>>[number];
 type EventOperation = EventRow["operation"];
 type EventSource = EventRow["source"];
 type MarbleBadgeTone = NonNullable<MarbleBadgeProps["tone"]>;
@@ -177,10 +177,10 @@ function parseDiffEntries(diff: unknown): EventDiffEntry[] {
 }
 
 function getSnapshot(event: EventRow) {
-  return isRecord(event.after_state)
-    ? event.after_state
-    : isRecord(event.before_state)
-      ? event.before_state
+  return isRecord(event.afterState)
+    ? event.afterState
+    : isRecord(event.beforeState)
+      ? event.beforeState
       : null;
 }
 
@@ -238,7 +238,7 @@ function describeEntity(event: EventRow) {
     return truncate(manualInput, 52);
   }
 
-  return `${titleCase(event.resource)} ${shortId(event.entity_id)}`;
+  return `${titleCase(event.resource)} ${shortId(event.entityId)}`;
 }
 
 function describeDiff(
@@ -272,7 +272,7 @@ function describeDiff(
 }
 
 function describeRequest(event: EventRow) {
-  return event.request_id ? shortId(event.request_id) : "system";
+  return event.requestId ? shortId(event.requestId) : "system";
 }
 
 function formatStatValue(value: number) {
@@ -284,7 +284,7 @@ function upsertEvent(current: EventRow[], nextEvent: EventRow, limit: number) {
     nextEvent,
     ...current.filter((event) => event.id !== nextEvent.id),
   ]
-    .sort((left, right) => right.created_at.localeCompare(left.created_at))
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
     .slice(0, limit);
 }
 
@@ -418,10 +418,13 @@ export function EventFeedBoard({
         return;
       }
 
-      const candidate = mutation.row;
+      const candidate =
+        mutation.type === "event:upsert"
+          ? (toCamelKeys(mutation.row) as EventRow)
+          : null;
       const eventId =
-        mutation.type === "event:delete" ? mutation.id : mutation.row.id;
-      const actorProfileId = candidate?.actor_profile_id;
+        mutation.type === "event:delete" ? mutation.id : candidate?.id;
+      const actorProfileId = candidate?.actorProfileId;
 
       if (
         typeof eventId !== "string" ||
@@ -436,7 +439,9 @@ export function EventFeedBoard({
         setEvents((current) =>
           mutation.type === "event:delete"
             ? current.filter((event) => event.id !== eventId)
-            : upsertEvent(current, mutation.row, limit),
+            : candidate
+              ? upsertEvent(current, candidate, limit)
+              : current,
         );
       });
 
@@ -537,7 +542,7 @@ export function EventFeedBoard({
                   const diffSummary = describeDiff(event, diffEntries);
                   const isEntering = enteringIdSet.has(event.id);
                   const isSelected = selectedEventId === event.id;
-                  const profile = profileById.get(event.actor_profile_id);
+                  const profile = profileById.get(event.actorProfileId);
 
                   return (
                     <MarbleListRow
@@ -556,7 +561,7 @@ export function EventFeedBoard({
                             {event.operation}
                           </MarbleBadge>
                           <span className="font-mono text-[11px] text-zinc-500 tabular-nums">
-                            {formatRelativeTime(event.created_at)}
+                            {formatRelativeTime(event.createdAt)}
                           </span>
                         </div>
                       }
@@ -578,7 +583,7 @@ export function EventFeedBoard({
                           </span>
                           <span className="shrink-0 text-zinc-300">/</span>
                           <span className="shrink-0 text-zinc-500">
-                            {profile?.name || shortId(event.actor_profile_id)}
+                            {profile?.name || shortId(event.actorProfileId)}
                           </span>
                           <span className="shrink-0 text-zinc-300">/</span>
                           <span className="shrink-0 text-zinc-500">
@@ -632,8 +637,8 @@ export function EventFeedBoard({
                     {describeEntity(selectedEvent)}
                   </MarbleCardTitle>
                   <MarbleCardDescription>
-                    {formatAbsoluteTime(selectedEvent.created_at)} ·{" "}
-                    {formatRelativeTime(selectedEvent.created_at)}
+                    {formatAbsoluteTime(selectedEvent.createdAt)} ·{" "}
+                    {formatRelativeTime(selectedEvent.createdAt)}
                   </MarbleCardDescription>
                 </div>
               </MarbleCardHeader>
@@ -643,17 +648,17 @@ export function EventFeedBoard({
                   <EventDetailField
                     label="Profile"
                     value={
-                      profileById.get(selectedEvent.actor_profile_id)?.name ||
-                      selectedEvent.actor_profile_id
+                      profileById.get(selectedEvent.actorProfileId)?.name ||
+                      selectedEvent.actorProfileId
                     }
                   />
                   <EventDetailField
                     label="Request"
-                    value={selectedEvent.request_id || "system"}
+                    value={selectedEvent.requestId || "system"}
                   />
                   <EventDetailField
                     label="Entity"
-                    value={selectedEvent.entity_id}
+                    value={selectedEvent.entityId}
                   />
                   <EventDetailField
                     label="Summary"
@@ -687,11 +692,11 @@ export function EventFeedBoard({
                 <div className="space-y-3">
                   <EventSnapshot
                     title="Before"
-                    value={selectedEvent.before_state}
+                    value={selectedEvent.beforeState}
                   />
                   <EventSnapshot
                     title="After"
-                    value={selectedEvent.after_state}
+                    value={selectedEvent.afterState}
                   />
                 </div>
               </MarbleCardContent>

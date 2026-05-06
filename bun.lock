@@ -51,6 +51,7 @@
         "@heroicons/react": "catalog:base",
         "@marble/api": "workspace:*",
         "@marble/keys": "workspace:*",
+        "@marble/lib": "workspace:*",
         "@marble/old-api": "workspace:*",
         "@marble/sdk": "workspace:*",
         "@marble/supabase": "workspace:*",
@@ -131,6 +132,7 @@
       "dependencies": {
         "@marble/contracts": "workspace:*",
         "@marble/keys": "workspace:*",
+        "@marble/lib": "workspace:*",
         "@marble/store": "workspace:*",
         "@marble/supabase": "workspace:*",
         "@orpc/openapi": "catalog:base",
@@ -207,6 +209,8 @@
       "name": "@marble/store",
       "version": "1.0.0",
       "dependencies": {
+        "@marble/keys": "workspace:*",
+        "@marble/lib": "workspace:*",
         "@marble/supabase": "workspace:*",
       },
       "devDependencies": {

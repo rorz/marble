@@ -39,6 +39,22 @@ Our development stack:
 4. Start with larger files (ideally a single file) first, clearly demarcated and modularized within the file, instead of lots of modular files. This helps your human mentally grapple and contain the changes you are making before deciding how to modularize them.
 5. Use the web to research a topic or standard -- even if you think you know it well, such as (but not limited to): database or provider documentation; service best practices; package version numbers.
 
+## Repository Convention Discipline
+
+Before creating a new file, folder, module boundary, or architectural name, inspect the target package's existing shape first. Do not invent structure from generic taste.
+
+1. Run a shallow structure check such as `find <package>/src -maxdepth 2 -type f | sort` before adding files to a package you are changing materially.
+2. Do not create a new folder unless the same folder convention already exists in that package, the user explicitly asked for it, or you can point to a project document that requires it for this exact change.
+3. Prefer established homes:
+   - Generic utilities belong in `packages/lib`.
+   - Store/domain persistence belongs in `packages/store/src/resources`.
+   - API handlers belong in `packages/api/src/router`.
+   - Package-private API resource implementations that make routers too large belong in `packages/api/src/<resource>/actions.ts`, with `packages/api/src/<resource>/index.ts` as the import boundary.
+   - Public contracts belong in `packages/contracts/src/resources/entities`.
+   - GUI route boundaries belong in `apps/web/**/actions.ts`.
+4. Do not create vague buckets named `helpers`, `utils`, `resources`, `loader`, or similar unless the package already uses that exact bucket for the same kind of code.
+5. If a change creates any new file or folder, explicitly report why that location matches existing convention.
+
 ## Package Manifests
 
 1. Keep dependency maps alphabetized. Biome's package JSON sorting is useful for `dependencies`, `devDependencies`, catalog entries, and similar unordered maps.
@@ -120,7 +136,7 @@ If you add or reshape a top-level resource, you are not done when the migration 
 5. Update API authorization explicitly.
    The web app forwards through the API using a service-role client. That means every mounted resource must perform its own access checks. Do not rely on RLS alone for forwarded web requests. Audit collection and item handlers for list/get/create/update/delete, including nested routes.
 6. Update ownership helpers instead of copying logic.
-   If a new resource changes how ownership works, centralize the new ownership and accessibility rules in shared helpers under `packages/api/src/resources/` and update existing resources to use them.
+   If a new resource changes how ownership works, centralize the new ownership and accessibility rules in the resource's package-private API module, such as `packages/api/src/<resource>/actions.ts`, and update existing resources to use them.
 7. Update CLI surfaces.
    Audit both the raw plural resource commands and the ergonomic singular commands in `packages/cli/src/cli.ts`. Remove or replace stale flags and assumptions; do not leave the human-friendly CLI pointing at the old ownership model.
 8. Update the web app entry points and navigation.
@@ -141,7 +157,8 @@ If you add or reshape a top-level resource, you are not done when the migration 
 - `packages/core/src/api-resources.ts`
 - `packages/api/src/index.ts`
 - `packages/api/src/data.ts`
-- `packages/api/src/resources/*`
+- `packages/api/src/router/*`
+- `packages/api/src/<resource>/*`
 - `packages/cli/src/cli.ts`
 - `apps/web/src/lib/auth.ts`
 - `apps/web/src/lib/supabase/proxy.ts`
@@ -154,7 +171,7 @@ If you add or reshape a top-level resource, you are not done when the migration 
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide before writing any code. In this Bun workspace, Next is available through the web package at `apps/web/node_modules/next/dist/docs/`; do not assume it is hoisted to root `node_modules/next`. If that path is missing, dependencies are not installed for the web workspace yet, so stop and ask the user to run `bun install`. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
 

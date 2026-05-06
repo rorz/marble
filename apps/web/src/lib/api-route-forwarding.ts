@@ -79,50 +79,48 @@ export async function forwardMarbleApiRequest(
     timings.push("auth;dur=0");
   } else if (apiKeyToken) {
     if (options.forwardUserSupabaseAuth) {
-      return NextResponse.json(
-        {
-          error:
-            "Marble API keys are not supported by this RLS-backed API yet.",
-        },
-        {
-          status: 401,
-        },
+      authContext = null;
+    } else {
+      const keyAuth = await resolveApiKeyAuth(
+        createServiceRoleClient(),
+        apiKeyToken,
       );
+
+      if (!keyAuth) {
+        const response = NextResponse.json(
+          {
+            error: "Unauthorized",
+          },
+          {
+            status: 401,
+          },
+        );
+        response.headers.set("x-marble-request-id", requestId);
+        return response;
+      }
+
+      authContext = {
+        keyId: keyAuth.id,
+        profileId: keyAuth.owner_profile_id,
+      };
     }
-
-    const keyAuth = await resolveApiKeyAuth(
-      createServiceRoleClient(),
-      apiKeyToken,
-    );
-
-    if (!keyAuth) {
-      const response = NextResponse.json(
-        {
-          error: "Unauthorized",
-        },
-        {
-          status: 401,
-        },
-      );
-      response.headers.set("x-marble-request-id", requestId);
-      return response;
-    }
-
-    authContext = {
-      keyId: keyAuth.id,
-      profileId: keyAuth.owner_profile_id,
-    };
   } else {
     if (profilelessPath) {
       const sessionStartedAt = performance.now();
-      const accessToken = options.forwardUserSupabaseAuth
-        ? await getCurrentSupabaseAccessToken()
-        : undefined;
+      const [accessToken, user] = options.forwardUserSupabaseAuth
+        ? await Promise.all([
+            getCurrentSupabaseAccessToken(),
+            getCurrentUser(),
+          ])
+        : [
+            undefined,
+            null,
+          ];
       timings.push(
         `session;dur=${Math.round(performance.now() - sessionStartedAt)}`,
       );
 
-      if (options.forwardUserSupabaseAuth && !accessToken) {
+      if (options.forwardUserSupabaseAuth && (!accessToken || !user)) {
         return NextResponse.json(
           {
             error: "Unauthorized",
@@ -136,6 +134,7 @@ export async function forwardMarbleApiRequest(
       authContext = {
         accessToken: accessToken ?? undefined,
         profileId: PROFILELESS_PROFILE_ID,
+        userId: user?.id,
       };
     } else {
       const userStartedAt = performance.now();
@@ -245,7 +244,11 @@ export async function forwardMarbleApiRequest(
 
   if (debugTiming) {
     console.log("[marble-api-forward] timing", {
-      authType: authContext?.keyId ? "api-key" : "user-session",
+      authType: apiKeyToken
+        ? "api-key"
+        : authContext?.keyId
+          ? "api-key"
+          : "user-session",
       path: url.pathname,
       profileless: profilelessPath,
       requestId,

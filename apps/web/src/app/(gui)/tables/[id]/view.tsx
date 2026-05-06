@@ -1,6 +1,7 @@
 "use client";
 
-import type { Database } from "@marble/supabase";
+import { toCamelKeys } from "@marble/lib/object";
+import type { MarbleClient } from "@marble/sdk";
 import {
   cx,
   MarbleAlert,
@@ -49,7 +50,6 @@ import {
   useState,
 } from "react";
 import Editor from "react-simple-code-editor";
-import { callMarbleClient } from "@/lib/marble-client";
 import { useMarbleSdk } from "@/lib/marble-sdk-client";
 import {
   createBroadcastMutationGuard,
@@ -63,7 +63,7 @@ import {
   getChangeTargetProps,
   useChangeSpotlightResolver,
 } from "../../change-spotlight";
-import { listReferenceableColumns, updateProgramOutputSchema } from "./actions";
+import { type TablePageData, updateProgramOutputSchema } from "./actions";
 
 ModuleRegistry.registerModules([
   AllCommunityModule,
@@ -71,15 +71,12 @@ ModuleRegistry.registerModules([
 
 // ── Types ───────────────────────────────────────────────
 
-type InitialTablePageData = Awaited<
-  ReturnType<typeof import("./actions").loadTablePageData>
->;
+type InitialTablePageData = TablePageData;
 type Program = InitialTablePageData["programs"][number];
 type TableInfo = InitialTablePageData["table"];
 type ReferenceableColumn = InitialTablePageData["referenceColumns"][number];
 type Column = InitialTablePageData["columns"][number];
-type ColumnRow = Database["public"]["Tables"]["column"]["Row"];
-type DependencyRow = Database["public"]["Tables"]["column_dependency"]["Row"];
+type ColumnRecord = Omit<Column, "programVersion">;
 type Row = InitialTablePageData["rows"][number];
 type Cell = InitialTablePageData["cells"][number];
 type SecretRecord = InitialTablePageData["secrets"][number];
@@ -87,13 +84,10 @@ type ProgramSecretBindingMap = InitialTablePageData["programSecretBindings"];
 type ColumnSecretBindingMap = InitialTablePageData["columnSecretBindings"];
 type ProgramSecretDeclarationsByProgramId =
   InitialTablePageData["programSecretDeclarations"];
+type BroadcastRecord = Record<string, unknown>;
 type SecretBindingInput = {
   envName: string;
   secretId: string;
-};
-type ColumnCreateResult = ColumnRow & {
-  cells: Cell[];
-  dependencies: DependencyRow[];
 };
 type RunExecutionResult = {
   output: unknown;
@@ -101,19 +95,14 @@ type RunExecutionResult = {
   success: boolean;
 };
 type TableMutation =
-  | DeleteMutation<"cell:delete", Cell>
-  | UpsertMutation<"cell:upsert", Cell>
-  | DeleteMutation<"column:delete", ColumnRow>
-  | UpsertMutation<"column:upsert", ColumnRow>
-  | DeleteMutation<"row:delete", Row>
-  | UpsertMutation<"row:upsert", Row>
-  | DeleteMutation<"table:delete", TableInfo>
-  | UpsertMutation<
-      "table:upsert",
-      Partial<TableInfo> & {
-        id: string;
-      }
-    >;
+  | DeleteMutation<"cell:delete", BroadcastRecord>
+  | UpsertMutation<"cell:upsert", BroadcastRecord>
+  | DeleteMutation<"column:delete", BroadcastRecord>
+  | UpsertMutation<"column:upsert", BroadcastRecord>
+  | DeleteMutation<"row:delete", BroadcastRecord>
+  | UpsertMutation<"row:upsert", BroadcastRecord>
+  | DeleteMutation<"table:delete", BroadcastRecord>
+  | UpsertMutation<"table:upsert", BroadcastRecord>;
 type SidebarMode =
   | {
       kind: "closed";
@@ -159,49 +148,46 @@ const tableMutationTypes = {
 const isTableMutation =
   createBroadcastMutationGuard<TableMutation>(tableMutationTypes);
 
-function deleteColumn(columnId: string) {
-  return callMarbleClient(`/columns/${columnId}`, {
-    method: "DELETE",
+function deleteColumn(sdk: MarbleClient, columnId: string) {
+  return sdk.columns.delete({
+    id: columnId,
   });
 }
 
-function deleteRow(rowId: string) {
-  return callMarbleClient(`/rows/${rowId}`, {
-    method: "DELETE",
+function deleteRow(sdk: MarbleClient, rowId: string) {
+  return sdk.rows.delete({
+    id: rowId,
   });
 }
 
-function executeRun(input: {
-  cellId: string;
-  cellValue?: string;
-}): Promise<RunExecutionResult> {
-  return callMarbleClient<RunExecutionResult>(`/cells/${input.cellId}/run`, {
-    body: {
-      ...(input.cellValue === undefined
-        ? {}
-        : {
-            manualInput: input.cellValue,
-          }),
-    },
-    method: "POST",
+function executeRun(
+  sdk: MarbleClient,
+  input: {
+    cellId: string;
+    cellValue?: string;
+  },
+): Promise<RunExecutionResult> {
+  return sdk.cells.run({
+    id: input.cellId,
+    ...(input.cellValue === undefined
+      ? {}
+      : {
+          manualInput: input.cellValue,
+        }),
   });
 }
 
 function findProgramVersionForColumn(
   programs: Program[],
   programVersionId: string,
-): Column["program_version"] | null {
+): Column["programVersion"] | null {
   for (const program of programs) {
-    for (const version of program.program_version ?? []) {
+    for (const version of program.programVersions ?? []) {
       if (version.id === programVersionId) {
         return {
           ...version,
-          created_at: "",
           program,
-          program_id: program.id,
-          published_at: null,
-          updated_at: "",
-        } as unknown as Column["program_version"];
+        };
       }
     }
   }
@@ -209,82 +195,84 @@ function findProgramVersionForColumn(
   return null;
 }
 
-function hydrateColumnRow(column: ColumnRow, programs: Program[]): Column {
+function hydrateColumnRecord(
+  column: ColumnRecord,
+  programs: Program[],
+): Column {
   return {
     ...column,
-    program_version: findProgramVersionForColumn(
+    programVersion: findProgramVersionForColumn(
       programs,
-      column.program_version_id,
+      column.programVersionId,
     ),
-  } as Column;
+  };
 }
 
-function createColumn(input: {
-  input_template: string;
-  name: string;
-  program_id: string;
-  run_condition: boolean;
-  table_id: string;
-}) {
-  return callMarbleClient<ColumnCreateResult>("/columns", {
-    body: {
-      inputTemplate: input.input_template,
-      name: input.name,
-      programVersionId: input.program_id,
-      runCondition: input.run_condition,
-      tableId: input.table_id,
-    },
-    method: "POST",
+function createColumn(
+  sdk: MarbleClient,
+  input: {
+    inputTemplate: string;
+    name: string;
+    programVersionId: string;
+    runCondition: boolean;
+    tableId: string;
+  },
+) {
+  return sdk.columns.create({
+    inputTemplate: input.inputTemplate,
+    name: input.name,
+    programVersionId: input.programVersionId,
+    runCondition: input.runCondition,
+    tableId: input.tableId,
   });
 }
 
-function updateColumn(input: {
-  columnId: string;
-  input_template?: string;
-  name?: string;
-  program_id?: string;
-  run_condition?: boolean;
-}) {
-  return callMarbleClient<ColumnRow>(`/columns/${input.columnId}`, {
-    body: {
-      ...(input.input_template === undefined
+function updateColumn(
+  sdk: MarbleClient,
+  input: {
+    columnId: string;
+    inputTemplate?: string;
+    name?: string;
+    programVersionId?: string;
+    runCondition?: boolean;
+  },
+) {
+  return sdk.columns.update({
+    id: input.columnId,
+    values: {
+      ...(input.inputTemplate === undefined
         ? {}
         : {
-            inputTemplate: input.input_template,
+            inputTemplate: input.inputTemplate,
           }),
       ...(input.name === undefined
         ? {}
         : {
             name: input.name,
           }),
-      ...(input.program_id === undefined
+      ...(input.programVersionId === undefined
         ? {}
         : {
-            programVersionId: input.program_id,
+            programVersionId: input.programVersionId,
           }),
-      ...(input.run_condition === undefined
+      ...(input.runCondition === undefined
         ? {}
         : {
-            runCondition: input.run_condition,
+            runCondition: input.runCondition,
           }),
     },
-    method: "PATCH",
   });
 }
 
 function updateColumnSecretBindings(
+  sdk: MarbleClient,
   columnId: string,
   bindings: SecretBindingInput[],
 ) {
-  return callMarbleClient<SecretBindingInput[]>(
-    `/columns/${columnId}/secrets`,
-    {
-      body: {
-        bindings,
-      },
-      method: "PUT",
-    },
-  );
+  return sdk.secretBindings.setColumn({
+    bindings,
+    columnId,
+  });
 }
 
 type GridContext = {
@@ -359,7 +347,7 @@ function displayCellValue(cell: Cell | undefined): string {
     return JSON.stringify(v);
   }
   if (state.ok === false) return `⚠ ${state.message}`;
-  return cell?.manual_input ?? "";
+  return cell?.manualInput ?? "";
 }
 
 function getProgramOutputConfig(
@@ -367,7 +355,7 @@ function getProgramOutputConfig(
 ): Record<string, unknown> | null {
   if (!programVersion || typeof programVersion !== "object") return null;
   const record = programVersion as Record<string, unknown>;
-  const config = record.output_config;
+  const config = record.outputConfig;
   if (!config || typeof config !== "object" || Array.isArray(config))
     return null;
   return config as Record<string, unknown>;
@@ -378,19 +366,44 @@ function getProgramInputSchema(
 ): Record<string, unknown> | null {
   if (!programVersion || typeof programVersion !== "object") return null;
   const record = programVersion as Record<string, unknown>;
-  const schema = record.input_schema;
+  const schema = record.inputSchema;
   if (!schema || typeof schema !== "object" || Array.isArray(schema))
     return null;
   return schema as Record<string, unknown>;
 }
 
 function isManualInputColumn(column: Column): boolean {
-  const config = getProgramOutputConfig(column.program_version) as {
+  const config = getProgramOutputConfig(column.programVersion) as {
     flags?: {
       allowManualInput?: boolean;
     };
   } | null;
   return config?.flags?.allowManualInput === true;
+}
+
+function normalizeBroadcastCell(row: BroadcastRecord): Cell {
+  return toCamelKeys(row) as Cell;
+}
+
+function normalizeBroadcastColumn(
+  row: BroadcastRecord,
+  programs: Program[],
+): Column {
+  return hydrateColumnRecord(toCamelKeys(row) as ColumnRecord, programs);
+}
+
+function normalizeBroadcastRow(row: BroadcastRecord): Row {
+  return toCamelKeys(row) as Row;
+}
+
+function normalizeBroadcastTablePatch(
+  row: BroadcastRecord,
+): Partial<TableInfo> & {
+  id: string;
+} {
+  return toCamelKeys(row) as Partial<TableInfo> & {
+    id: string;
+  };
 }
 
 type SchemaField = {
@@ -571,7 +584,7 @@ function resolveReferenceColumnToken(
   for (const column of sortedColumns) {
     const aliases = [
       column.label,
-      ...(column.table_id === currentTableId
+      ...(column.tableId === currentTableId
         ? [
             column.name,
           ]
@@ -1201,7 +1214,7 @@ function InterpolationEditor({
     () =>
       new Set(
         referenceColumns.flatMap((column) =>
-          column.table_id === currentTableId
+          column.tableId === currentTableId
             ? [
                 column.label,
                 column.name,
@@ -1339,7 +1352,7 @@ export default function TablePageView({
 
   const gridRef = useRef<AgGridReact>(null);
   const sdk = useMarbleSdk({
-    profileId: table.project_owner_profile_id,
+    profileId: table.projectOwnerProfileId,
   });
 
   const cellsRef = useRef(cells);
@@ -1354,8 +1367,10 @@ export default function TablePageView({
   const renameInFlightRef = useRef(false);
 
   const refreshReferenceColumns = useCallback(async () => {
-    setReferenceColumns(await listReferenceableColumns());
-  }, []);
+    setReferenceColumns(await sdk.columns.listReferenceable({}));
+  }, [
+    sdk,
+  ]);
 
   const mergeTable = useCallback((patch: Partial<TableInfo>) => {
     setTable((current) => ({
@@ -1427,7 +1442,7 @@ export default function TablePageView({
       return next;
     });
     setCells((prev) => {
-      const next = prev.filter((cell) => cell.row_id !== rowId);
+      const next = prev.filter((cell) => cell.rowId !== rowId);
 
       if (next.length === prev.length) {
         return prev;
@@ -1450,7 +1465,7 @@ export default function TablePageView({
       return next;
     });
     setCells((prev) => {
-      const next = prev.filter((cell) => cell.column_id !== columnId);
+      const next = prev.filter((cell) => cell.columnId !== columnId);
 
       if (next.length === prev.length) {
         return prev;
@@ -1485,7 +1500,7 @@ export default function TablePageView({
         ...(manualInput === undefined
           ? {}
           : {
-              manual_input: manualInput,
+              manualInput,
             }),
         state: {
           ok: null,
@@ -1503,7 +1518,7 @@ export default function TablePageView({
         ...(manualInput === undefined
           ? {}
           : {
-              manual_input: manualInput,
+              manualInput,
             }),
         state: output as Cell["state"],
       });
@@ -1519,7 +1534,7 @@ export default function TablePageView({
         ...(manualInput === undefined
           ? {}
           : {
-              manual_input: manualInput,
+              manualInput,
             }),
         state: {
           error: {
@@ -1538,7 +1553,7 @@ export default function TablePageView({
   const cellMap = useMemo(() => {
     const map = new Map<string, Cell>();
     for (const cell of cells) {
-      map.set(`${cell.row_id}:${cell.column_id}`, cell);
+      map.set(`${cell.rowId}:${cell.columnId}`, cell);
     }
     return map;
   }, [
@@ -1625,14 +1640,15 @@ export default function TablePageView({
     }
 
     if (mutation.type === "cell:upsert") {
+      const cell = normalizeBroadcastCell(mutation.row);
       const existing = cellsRef.current.some(
-        (cell) => cell.id === mutation.row.id,
+        (current) => current.id === cell.id,
       );
 
       if (existing) {
-        pending.updates.set(mutation.row.id, mutation.row);
+        pending.updates.set(cell.id, cell);
       } else {
-        pending.inserts.set(mutation.row.id, mutation.row);
+        pending.inserts.set(cell.id, cell);
       }
     }
 
@@ -1658,19 +1674,19 @@ export default function TablePageView({
           removeLocalColumn(mutation.id);
           break;
         case "column:upsert":
-          upsertLocalColumn(hydrateColumnRow(mutation.row, programs));
+          upsertLocalColumn(normalizeBroadcastColumn(mutation.row, programs));
           break;
         case "row:delete":
           removeLocalRow(mutation.id);
           break;
         case "row:upsert":
-          upsertLocalRow(mutation.row);
+          upsertLocalRow(normalizeBroadcastRow(mutation.row));
           break;
         case "table:delete":
-          router.push(`/projects/${tableRef.current.project_id}`);
+          router.push(`/projects/${tableRef.current.projectId}`);
           break;
         case "table:upsert":
-          mergeTable(mutation.row);
+          mergeTable(normalizeBroadcastTablePatch(mutation.row));
           break;
       }
     });
@@ -1763,7 +1779,7 @@ export default function TablePageView({
           field: col.id,
           headerComponent: ColumnHeader,
           headerName: col.name,
-          headerTooltip: col.program_version?.program?.name,
+          headerTooltip: col.programVersion?.program?.name,
           sortable: false,
         } satisfies ColDef;
       }),
@@ -1823,7 +1839,7 @@ export default function TablePageView({
       if (!col) return;
 
       const cell = cellsRef.current.find(
-        (c) => c.row_id === rowId && c.column_id === columnId,
+        (c) => c.rowId === rowId && c.columnId === columnId,
       );
       if (!cell) return;
 
@@ -1834,7 +1850,7 @@ export default function TablePageView({
       addLog(`▶ Cell edit → running "${col.name}" ...`);
 
       try {
-        const result = await executeRun({
+        const result = await executeRun(sdk, {
           cellId: cell.id,
           cellValue: manualInput,
         });
@@ -1858,6 +1874,7 @@ export default function TablePageView({
       applyClientErrorToCell,
       applyRunOutputToCell,
       markCellAsRunning,
+      sdk,
     ],
   );
 
@@ -1867,7 +1884,7 @@ export default function TablePageView({
       if (!col) return;
 
       const cell = cellsRef.current.find(
-        (c) => c.row_id === rowId && c.column_id === columnId,
+        (c) => c.rowId === rowId && c.columnId === columnId,
       );
       if (!cell) return;
 
@@ -1876,7 +1893,7 @@ export default function TablePageView({
       addLog(`▶ Re-running "${col.name}" ...`);
 
       try {
-        const result = await executeRun({
+        const result = await executeRun(sdk, {
           cellId: cell.id,
         });
         applyRunOutputToCell(cell.id, result.output);
@@ -1898,6 +1915,7 @@ export default function TablePageView({
       applyClientErrorToCell,
       applyRunOutputToCell,
       markCellAsRunning,
+      sdk,
     ],
   );
 
@@ -1924,7 +1942,7 @@ export default function TablePageView({
 
   const handleDeleteColumn = useCallback(
     async (columnId: string) => {
-      await deleteColumn(columnId);
+      await deleteColumn(sdk, columnId);
       setColumnSecretBindings((current) => {
         const nextBindings = {
           ...current,
@@ -1937,23 +1955,29 @@ export default function TablePageView({
     },
     [
       refreshReferenceColumns,
+      sdk,
     ],
   );
 
-  const handleDeleteRow = useCallback(async (rowId: string) => {
-    await deleteRow(rowId);
-  }, []);
+  const handleDeleteRow = useCallback(
+    async (rowId: string) => {
+      await deleteRow(sdk, rowId);
+    },
+    [
+      sdk,
+    ],
+  );
 
   const handleCreateColumn = useCallback(
     async (input: {
       name: string;
-      program_id: string;
-      input_template: string;
-      run_condition: boolean;
+      programVersionId: string;
+      inputTemplate: string;
+      runCondition: boolean;
     }) => {
       if (!selectedTableId) return;
-      await createColumn({
-        table_id: selectedTableId,
+      await createColumn(sdk, {
+        tableId: selectedTableId,
         ...input,
       });
       await refreshReferenceColumns();
@@ -1961,6 +1985,7 @@ export default function TablePageView({
     [
       refreshReferenceColumns,
       selectedTableId,
+      sdk,
     ],
   );
 
@@ -1968,15 +1993,16 @@ export default function TablePageView({
     async (input: {
       columnId: string;
       name?: string;
-      program_id?: string;
-      input_template?: string;
-      run_condition?: boolean;
+      programVersionId?: string;
+      inputTemplate?: string;
+      runCondition?: boolean;
       secretBindings?: SecretBindingInput[];
     }) => {
-      await updateColumn(input);
+      await updateColumn(sdk, input);
 
       if (input.secretBindings) {
         const savedBindings = await updateColumnSecretBindings(
+          sdk,
           input.columnId,
           input.secretBindings,
         );
@@ -1991,6 +2017,7 @@ export default function TablePageView({
     },
     [
       refreshReferenceColumns,
+      sdk,
     ],
   );
 
@@ -2171,11 +2198,11 @@ export default function TablePageView({
       }
 
       mergeTable({
-        created_at: updated.createdAt,
+        createdAt: updated.createdAt,
         id: updated.id,
         name: updated.name,
-        project_id: updated.projectId,
-        updated_at: updated.updatedAt,
+        projectId: updated.projectId,
+        updatedAt: updated.updatedAt,
       });
       setNameDraft(updated.name);
     } catch (error) {
@@ -2398,9 +2425,9 @@ export default function TablePageView({
           label: "Projects",
         },
         {
-          href: `/projects/${selectedTable.project_id}`,
+          href: `/projects/${selectedTable.projectId}`,
           id: "project",
-          label: selectedTable.project_name,
+          label: selectedTable.projectName,
         },
         {
           id: "table",
@@ -2439,7 +2466,7 @@ export default function TablePageView({
                 />
                 <span className="text-xs text-zinc-500">
                   Last updated{" "}
-                  {DATE_FORMATTER.format(new Date(selectedTable.updated_at))}
+                  {DATE_FORMATTER.format(new Date(selectedTable.updatedAt))}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -2516,11 +2543,11 @@ export default function TablePageView({
                     if (isManualInputColumn(col)) return;
                     const rowId = event.data?._rowId as string;
                     const cell = cellsRef.current.find(
-                      (c) => c.row_id === rowId && c.column_id === columnId,
+                      (c) => c.rowId === rowId && c.columnId === columnId,
                     );
                     setInspectedCell({
                       columnName: col.name,
-                      manualInput: cell?.manual_input ?? null,
+                      manualInput: cell?.manualInput ?? null,
                       rowIndex: event.data?._rowIndex as number,
                       state: getCellState(cell),
                     });
@@ -2662,16 +2689,16 @@ function ColumnSidebar({
   programSecretDeclarations: ProgramSecretDeclarationsByProgramId;
   onCreateColumn: (input: {
     name: string;
-    program_id: string;
-    input_template: string;
-    run_condition: boolean;
+    programVersionId: string;
+    inputTemplate: string;
+    runCondition: boolean;
   }) => Promise<void>;
   onUpdateColumn: (input: {
     columnId: string;
     name?: string;
-    program_id?: string;
-    input_template?: string;
-    run_condition?: boolean;
+    programVersionId?: string;
+    inputTemplate?: string;
+    runCondition?: boolean;
     secretBindings?: SecretBindingInput[];
   }) => Promise<void>;
   onClose: () => void;
@@ -2692,13 +2719,13 @@ function ColumnSidebar({
   > => {
     if (!editingColumn) return {};
     const programVersion = programs.find(
-      (p) => p.id === editingColumn.program_version?.program_id,
-    )?.program_version?.[0];
+      (p) => p.id === editingColumn.programVersion?.programId,
+    )?.programVersions?.[0];
     if (!programVersion) return {};
     const s = getProgramInputSchema(programVersion);
     const fs = s ? buildFieldsFromSchema(s) : [];
     return parseTemplateToFieldValues(
-      (editingColumn.input_template as string) ?? "{}",
+      editingColumn.inputTemplate ?? "{}",
       fs,
       referenceColumns,
     );
@@ -2706,10 +2733,10 @@ function ColumnSidebar({
 
   const [name, setName] = useState(editingColumn?.name ?? "");
   const [programId, setProgramId] = useState(
-    editingColumn?.program_version?.program_id ?? "",
+    editingColumn?.programVersion?.programId ?? "",
   );
   const [runConditionEnabled, setRunConditionEnabled] = useState(
-    editingColumn?.run_condition === true,
+    editingColumn?.runCondition === true,
   );
   const [secretBindings, setSecretBindings] = useState<Record<string, string>>(
     () => (editingColumn ? (columnSecretBindings[editingColumn.id] ?? {}) : {}),
@@ -2718,7 +2745,7 @@ function ColumnSidebar({
   const [saving, setSaving] = useState(false);
   const [outputSchemaOpen, setOutputSchemaOpen] = useState(false);
   const [outputSchemaJson, setOutputSchemaJson] = useState(() => {
-    const config = getProgramOutputConfig(editingColumn?.program_version);
+    const config = getProgramOutputConfig(editingColumn?.programVersion);
     if (!config) return "{}";
     return JSON.stringify(config, null, 2);
   });
@@ -2728,8 +2755,8 @@ function ColumnSidebar({
   const initialProgramId = useRef(programId);
 
   const selectedProgram = programs.find((p) => p.id === programId);
-  const latestVersion = selectedProgram?.program_version?.length
-    ? (selectedProgram.program_version
+  const latestVersion = selectedProgram?.programVersions?.length
+    ? (selectedProgram.programVersions
         .filter((version) => version.version !== null)
         .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0] ?? null)
     : null;
@@ -2757,8 +2784,8 @@ function ColumnSidebar({
       return;
     }
 
-    const version = program.program_version?.length
-      ? (program.program_version
+    const version = program.programVersions?.length
+      ? (program.programVersions
           .filter((entry) => entry.version !== null)
           .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0] ?? null)
       : null;
@@ -2863,10 +2890,10 @@ function ColumnSidebar({
     try {
       if (mode.kind === "create") {
         await onCreateColumn({
-          input_template: buildTemplate(),
+          inputTemplate: buildTemplate(),
           name: name.trim(),
-          program_id: latestVersion.id,
-          run_condition: runConditionEnabled,
+          programVersionId: latestVersion.id,
+          runCondition: runConditionEnabled,
         });
         setName("");
         setProgramId("");
@@ -2876,10 +2903,10 @@ function ColumnSidebar({
       } else {
         await onUpdateColumn({
           columnId: mode.columnId,
-          input_template: buildTemplate(),
+          inputTemplate: buildTemplate(),
           name: name.trim(),
-          program_id: latestVersion.id,
-          run_condition: runConditionEnabled,
+          programVersionId: latestVersion.id,
+          runCondition: runConditionEnabled,
           secretBindings: secretBindingMapToEntries(secretBindingsForSave),
         });
       }
@@ -3242,7 +3269,7 @@ function ColumnSidebar({
                             value={col.id}
                           >
                             {col.label}
-                            {col.allow_manual_input ? " (input)" : ""}
+                            {col.allowManualInput ? " (input)" : ""}
                           </option>
                         ))}
                       </MarbleSelect>
@@ -3290,8 +3317,11 @@ function ColumnSidebar({
                   />
                   <MarbleButton
                     className="w-full"
-                    disabled={!outputSchemaDirty || savingOutputSchema}
+                    disabled={
+                      !latestVersion || !outputSchemaDirty || savingOutputSchema
+                    }
                     onClick={async () => {
+                      if (!latestVersion) return;
                       let parsed: unknown;
                       try {
                         parsed = JSON.parse(outputSchemaJson);
@@ -3301,7 +3331,7 @@ function ColumnSidebar({
                       setSavingOutputSchema(true);
                       try {
                         await updateProgramOutputSchema(
-                          selectedProgram.id,
+                          latestVersion.id,
                           parsed,
                         );
                         setOutputSchemaDirty(false);

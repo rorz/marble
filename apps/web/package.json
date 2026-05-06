@@ -3,6 +3,7 @@
     "@heroicons/react": "catalog:base",
     "@marble/api": "workspace:*",
     "@marble/keys": "workspace:*",
+    "@marble/lib": "workspace:*",
     "@marble/old-api": "workspace:*",
     "@marble/sdk": "workspace:*",
     "@marble/supabase": "workspace:*",

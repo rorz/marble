@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@marble/keys": "workspace:*",
+    "@marble/lib": "workspace:*",
     "@marble/supabase": "workspace:*"
   },
   "devDependencies": {

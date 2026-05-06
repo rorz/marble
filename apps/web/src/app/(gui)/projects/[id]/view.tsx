@@ -1,6 +1,5 @@
 "use client";
 
-import type { Database } from "@marble/supabase";
 import {
   MarbleAlert,
   MarbleBadge,
@@ -17,11 +16,11 @@ import { FunnelIcon, PipeIcon, TableIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useRef, useState } from "react";
 import {
-  pipeFromDatabaseRow,
-  projectFromDatabaseRow,
+  pipeFromBroadcastRow,
+  projectFromBroadcastRow,
   projectTableFromSdkTable,
-  sourceFromDatabaseRow,
-  tableFromDatabaseRow,
+  sourceFromBroadcastRow,
+  tableFromBroadcastRow,
 } from "../../../../lib/marble-resources";
 import { useMarbleSdk } from "../../../../lib/marble-sdk-client";
 import {
@@ -48,19 +47,16 @@ import { changeTargetKey, getChangeTargetProps } from "../../change-spotlight";
 
 type ProjectInfo = ProjectSourceWorkspaceData;
 type ProjectState = ProjectInfo["project"];
-type ProjectRecord = Database["public"]["Tables"]["project"]["Row"];
-type TableRecord = Database["public"]["Tables"]["table"]["Row"];
-type SourceRecord = Database["public"]["Tables"]["source"]["Row"];
-type PipeRecord = Database["public"]["Tables"]["pipe"]["Row"];
+type BroadcastRow = Record<string, unknown>;
 type ProjectMutation =
-  | DeleteMutation<"pipe:delete", PipeRecord>
-  | UpsertMutation<"pipe:upsert", PipeRecord>
-  | DeleteMutation<"project:delete", ProjectRecord>
-  | UpsertMutation<"project:upsert", ProjectRecord>
-  | DeleteMutation<"source:delete", SourceRecord>
-  | UpsertMutation<"source:upsert", SourceRecord>
-  | DeleteMutation<"table:delete", TableRecord>
-  | UpsertMutation<"table:upsert", TableRecord>;
+  | DeleteMutation<"pipe:delete", BroadcastRow>
+  | UpsertMutation<"pipe:upsert", BroadcastRow>
+  | DeleteMutation<"project:delete", BroadcastRow>
+  | UpsertMutation<"project:upsert", BroadcastRow>
+  | DeleteMutation<"source:delete", BroadcastRow>
+  | UpsertMutation<"source:upsert", BroadcastRow>
+  | DeleteMutation<"table:delete", BroadcastRow>
+  | UpsertMutation<"table:upsert", BroadcastRow>;
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -183,7 +179,7 @@ export function ProjectPageView({
           break;
 
         case "project:upsert": {
-          const next = projectFromDatabaseRow(mutation.row);
+          const next = projectFromBroadcastRow(mutation.row);
 
           if (next.id !== project.id) {
             return;
@@ -215,7 +211,7 @@ export function ProjectPageView({
 
         case "table:upsert":
           setProject((current) => {
-            const next = tableFromDatabaseRow(mutation.row);
+            const next = tableFromBroadcastRow(mutation.row);
 
             if (next.projectId !== current.id) {
               return current;
@@ -240,7 +236,7 @@ export function ProjectPageView({
           break;
 
         case "source:upsert": {
-          const next = sourceFromDatabaseRow(mutation.row);
+          const next = sourceFromBroadcastRow(mutation.row);
 
           if (next.projectId !== project.id) {
             return;
@@ -257,7 +253,7 @@ export function ProjectPageView({
           break;
 
         case "pipe:upsert": {
-          const next = pipeFromDatabaseRow(mutation.row);
+          const next = pipeFromBroadcastRow(mutation.row);
           const belongsToProject =
             projectRef.current.tables.some(
               (table) => table.id === next.tableId,

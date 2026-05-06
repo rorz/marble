@@ -1,6 +1,6 @@
 "use client";
 
-import type { Database } from "@marble/supabase";
+import { toCamelKeys } from "@marble/lib/object";
 import {
   MarbleAlert,
   MarbleButton,
@@ -13,9 +13,10 @@ import {
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMarbleSdkFactory } from "../../../lib/marble-sdk-client";
+import type { ProjectSummary } from "../../../lib/project-data";
 import { usePrivateBroadcast } from "../../../lib/realtime/private-broadcast";
 import {
-  compareByUpdatedAtDesc,
+  compareByUpdatedAtCamelDesc,
   getErrorMessage,
   removeRow,
   sortRows,
@@ -23,9 +24,9 @@ import {
 } from "../../../lib/realtime-crud";
 import { isSidebarMutation } from "../../../lib/sidebar-sync";
 
-type ProjectRecord = Database["public"]["Tables"]["project"]["Row"];
-type ProjectSummary = ProjectRecord & {
-  table_count: number;
+type ProjectRecord = Omit<ProjectSummary, "tableCount">;
+type TableRecord = {
+  projectId: string;
 };
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
@@ -35,11 +36,11 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
 });
 
 function sortProjects(projects: ProjectSummary[]) {
-  return sortRows(projects, compareByUpdatedAtDesc);
+  return sortRows(projects, compareByUpdatedAtCamelDesc);
 }
 
 function upsertProject(projects: ProjectSummary[], project: ProjectSummary) {
-  return upsertRow(projects, project, compareByUpdatedAtDesc);
+  return upsertRow(projects, project, compareByUpdatedAtCamelDesc);
 }
 
 function updateTableCount(
@@ -51,7 +52,7 @@ function updateTableCount(
     project.id === projectId
       ? {
           ...project,
-          table_count: Math.max(0, project.table_count + delta),
+          tableCount: Math.max(0, project.tableCount + delta),
         }
       : project,
   );
@@ -89,9 +90,9 @@ export function ProjectsPageView({
             return removeRow(current, mutation.id);
 
           case "project:upsert": {
-            const next = mutation.row;
+            const next = toCamelKeys(mutation.row) as ProjectRecord;
 
-            if (!accessibleOwnerProfileIds.has(next.owner_profile_id)) {
+            if (!accessibleOwnerProfileIds.has(next.ownerProfileId)) {
               return removeRow(current, next.id);
             }
 
@@ -99,18 +100,26 @@ export function ProjectsPageView({
 
             return upsertProject(current, {
               ...next,
-              table_count: existing?.table_count ?? 0,
+              tableCount: existing?.tableCount ?? 0,
             });
           }
 
           case "table:delete":
             return mutation.row
-              ? updateTableCount(current, mutation.row.project_id, -1)
+              ? updateTableCount(
+                  current,
+                  (toCamelKeys(mutation.row) as TableRecord).projectId,
+                  -1,
+                )
               : current;
 
           case "table:upsert":
             return mutation.event === "INSERT"
-              ? updateTableCount(current, mutation.row.project_id, 1)
+              ? updateTableCount(
+                  current,
+                  (toCamelKeys(mutation.row) as TableRecord).projectId,
+                  1,
+                )
               : current;
 
           default:
@@ -128,13 +137,13 @@ export function ProjectsPageView({
     try {
       const project = await getSdk().projects.create({});
       const committedProject = {
-        created_at: project.createdAt,
-        folder_path: project.folderPath,
+        createdAt: project.createdAt,
+        folderPath: project.folderPath,
         id: project.id,
         name: project.name,
-        owner_profile_id: project.ownerProfileId,
-        table_count: 0,
-        updated_at: project.updatedAt,
+        ownerProfileId: project.ownerProfileId,
+        tableCount: 0,
+        updatedAt: project.updatedAt,
       };
 
       setProjects((current) => upsertProject(current, committedProject));
@@ -160,7 +169,7 @@ export function ProjectsPageView({
 
     try {
       await getSdk({
-        profileId: project.owner_profile_id,
+        profileId: project.ownerProfileId,
       }).projects.delete({
         projectId: project.id,
       });
@@ -217,10 +226,10 @@ export function ProjectsPageView({
                 }
                 description={
                   <>
-                    <span>{project.folder_path.join(" / ") || "Root"}</span>
-                    <span>{project.table_count} tables</span>
+                    <span>{project.folderPath.join(" / ") || "Root"}</span>
+                    <span>{project.tableCount} tables</span>
                     <span>
-                      {DATE_FORMATTER.format(new Date(project.updated_at))}
+                      {DATE_FORMATTER.format(new Date(project.updatedAt))}
                     </span>
                   </>
                 }

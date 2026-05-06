@@ -1,70 +1,34 @@
 import "server-only";
-import type { Database } from "@marble/supabase";
+import type { MarbleClient } from "@marble/sdk";
+import { createServerMarbleSdk } from "./marble-sdk-server";
 import {
   listProgramSecretDeclarationsFromFiles,
   type ProgramManifestSecretDeclaration,
   parseProgramSecretConfig,
 } from "./program-manifest";
-import { createServiceRoleClient } from "./supabase/service-role";
 
-type SecretRow = Pick<
-  Database["public"]["Tables"]["secret"]["Row"],
-  "category" | "created_at" | "id" | "name" | "owner_user_id" | "updated_at"
->;
-type ProgramSecretBindingRow = Pick<
-  Database["public"]["Tables"]["program_secret_binding"]["Row"],
-  "env_name" | "program_id" | "secret_id"
->;
-type ColumnSecretBindingRow = Pick<
-  Database["public"]["Tables"]["column_secret_binding"]["Row"],
-  "column_id" | "env_name" | "secret_id"
->;
-type ProgramFileLike = Pick<
-  Database["public"]["Tables"]["program_file"]["Row"],
-  "content" | "filename"
->;
-
-type SecretRecord = SecretRow;
+type SecretRecord = Awaited<
+  ReturnType<MarbleClient["secrets"]["list"]>
+>[number];
+type ProgramFileLike = {
+  content: string;
+  filename: string;
+};
 export type SecretBindingMap = Record<string, Record<string, string>>;
 
 type ProgramWithVersionsLike = {
   id: string;
-  program_version: Array<{
-    program_file: ProgramFileLike[] | null;
-    secret_config: unknown;
+  programVersions: Array<{
+    programFiles: ProgramFileLike[] | null;
+    secretConfig: unknown;
     version: number | null;
   }>;
 };
 
-function db() {
-  return createServiceRoleClient();
-}
-
-function mapBindingsByTarget<
-  Row extends {
-    env_name: string;
-    secret_id: string;
-  },
->(rows: Row[], getTargetId: (row: Row) => string) {
-  const bindings: SecretBindingMap = {};
-
-  for (const row of rows) {
-    const targetId = getTargetId(row);
-    const currentTargetBindings = bindings[targetId] ?? {};
-
-    bindings[targetId] = {
-      ...currentTargetBindings,
-      [row.env_name]: row.secret_id,
-    };
-  }
-
-  return bindings;
-}
-
 function getLatestPublishedProgramVersion(program: ProgramWithVersionsLike) {
   return (
     [
-      ...program.program_version,
+      ...program.programVersions,
     ]
       .filter((version) => version.version !== null)
       .sort((left, right) => (right.version ?? 0) - (left.version ?? 0))[0] ??
@@ -72,53 +36,23 @@ function getLatestPublishedProgramVersion(program: ProgramWithVersionsLike) {
   );
 }
 
-export async function listSecretsForUser(userId: string) {
-  const { data, error } = await db()
-    .from("secret")
-    .select("category, created_at, id, name, owner_user_id, updated_at")
-    .eq("owner_user_id", userId)
-    .order("name", {
-      ascending: true,
-    })
-    .order("category", {
-      ascending: true,
-    });
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? []) as SecretRecord[];
+export async function listSecretsForUser(_userId: string) {
+  const sdk = await createServerMarbleSdk();
+  return (await sdk.secrets.list({})) satisfies SecretRecord[];
 }
 
 export async function listProgramSecretBindingsForUser(
-  userId: string,
+  _userId: string,
   programIds: string[],
 ) {
   if (programIds.length === 0) {
     return {} satisfies SecretBindingMap;
   }
 
-  const { data, error } = await db()
-    .from("program_secret_binding")
-    .select("env_name, program_id, secret_id")
-    .eq("owner_user_id", userId)
-    .in("program_id", programIds)
-    .order("program_id", {
-      ascending: true,
-    })
-    .order("env_name", {
-      ascending: true,
-    });
-
-  if (error) {
-    throw error;
-  }
-
-  return mapBindingsByTarget(
-    (data ?? []) as ProgramSecretBindingRow[],
-    (binding) => binding.program_id,
-  );
+  const sdk = await createServerMarbleSdk();
+  return sdk.secretBindings.listPrograms({
+    programIds,
+  });
 }
 
 export async function listColumnSecretBindings(columnIds: string[]) {
@@ -126,25 +60,10 @@ export async function listColumnSecretBindings(columnIds: string[]) {
     return {} satisfies SecretBindingMap;
   }
 
-  const { data, error } = await db()
-    .from("column_secret_binding")
-    .select("column_id, env_name, secret_id")
-    .in("column_id", columnIds)
-    .order("column_id", {
-      ascending: true,
-    })
-    .order("env_name", {
-      ascending: true,
-    });
-
-  if (error) {
-    throw error;
-  }
-
-  return mapBindingsByTarget(
-    (data ?? []) as ColumnSecretBindingRow[],
-    (binding) => binding.column_id,
-  );
+  const sdk = await createServerMarbleSdk();
+  return sdk.secretBindings.listColumns({
+    columnIds,
+  });
 }
 
 export function listLatestProgramSecretDeclarationsByProgramId(
@@ -156,12 +75,12 @@ export function listLatestProgramSecretDeclarationsByProgramId(
 
       return [
         program.id,
-        latestVersion?.secret_config === null ||
-        latestVersion?.secret_config === undefined
+        latestVersion?.secretConfig === null ||
+        latestVersion?.secretConfig === undefined
           ? listProgramSecretDeclarationsFromFiles(
-              latestVersion?.program_file ?? [],
+              latestVersion?.programFiles ?? [],
             )
-          : parseProgramSecretConfig(latestVersion.secret_config),
+          : parseProgramSecretConfig(latestVersion.secretConfig),
       ];
     }),
   ) as Record<string, ProgramManifestSecretDeclaration[]>;

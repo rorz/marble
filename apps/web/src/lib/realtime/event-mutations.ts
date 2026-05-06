@@ -1,15 +1,12 @@
-import type { Database } from "@marble/supabase";
 import {
   createBroadcastMutationGuard,
   type DeleteMutation,
   type UpsertMutation,
 } from "./broadcast-mutations";
 
-type EventRow = Database["public"]["Tables"]["event"]["Row"];
-
 type EventMutation =
-  | DeleteMutation<"event:delete", EventRow>
-  | UpsertMutation<"event:upsert", EventRow>;
+  | DeleteMutation<"event:delete", Record<string, unknown>>
+  | UpsertMutation<"event:upsert", Record<string, unknown>>;
 
 const eventMutationTypes = {
   "event:delete": true,

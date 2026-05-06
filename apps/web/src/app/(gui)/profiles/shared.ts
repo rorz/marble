@@ -1,7 +1,4 @@
-import type { Database } from "@marble/supabase";
-
-export const PROFILE_RECORD_SELECT =
-  "created_at, external_name, icon, id, name, owner_user_id, type, updated_at";
+import type { MarbleClient } from "@marble/sdk";
 
 export const DEFAULT_AGENT_PROFILE_ICON = "🤖";
 
@@ -34,24 +31,13 @@ export const AGENT_PROFILE_ICON_OPTIONS = [
   "🧾",
 ] as const;
 
-export type ProfileRecord = Pick<
-  Database["public"]["Tables"]["profile"]["Row"],
-  | "created_at"
-  | "external_name"
-  | "icon"
-  | "id"
-  | "name"
-  | "owner_user_id"
-  | "type"
-  | "updated_at"
->;
+export type ProfileRecord = Awaited<
+  ReturnType<MarbleClient["profiles"]["list"]>
+>[number];
 
-export type ProfileKeyRecord = Pick<
-  Database["public"]["Tables"]["key"]["Row"],
-  "created_at" | "deleted_at" | "id" | "owner_profile_id" | "prefix"
-> & {
-  preview: string;
-};
+export type ProfileKeyRecord = Awaited<
+  ReturnType<MarbleClient["keys"]["list"]>
+>[number];
 
 export type ManagedProfileRecord = ProfileRecord & {
   keys: ProfileKeyRecord[];

@@ -15,7 +15,6 @@ import {
 import { marbleRouter } from "./router";
 
 export type {
-  ApiAuth,
   ApiContext,
   ApiTimingEntry,
   MarbleApiConfig,

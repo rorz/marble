@@ -4,8 +4,16 @@ import { getSupabaseAuthCookieNames } from "./auth-cookies";
 import { supabasePublicConfig } from "./public-config";
 
 const PROTECTED_PATHS = [
+  "/automations",
+  "/events",
+  "/help",
+  "/integrations",
+  "/pipes",
   "/profiles",
+  "/programs",
   "/projects",
+  "/secrets",
+  "/sources",
   "/tables",
   "/test-programs",
 ];
@@ -71,10 +79,9 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const { data: claimsData, error: claimsError } =
-    await supabase.auth.getClaims();
-  const signedIn = Boolean(claimsData?.claims?.sub);
-  const shouldClearAuthCookies = Boolean(claimsError);
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const signedIn = Boolean(userData.user?.id);
+  const shouldClearAuthCookies = Boolean(userError);
 
   const authCookieNames = shouldClearAuthCookies
     ? getSupabaseAuthCookieNames(request.cookies.getAll())

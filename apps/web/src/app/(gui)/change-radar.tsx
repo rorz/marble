@@ -1,6 +1,7 @@
 "use client";
 
-import type { Database } from "@marble/supabase";
+import { toCamelKeys } from "@marble/lib/object";
+import type { MarbleClient } from "@marble/sdk";
 import {
   cx,
   type MarbleActivityRadarBatch,
@@ -12,6 +13,7 @@ import {
 import { RobotIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
+import { useMarbleApiSdk } from "../../lib/marble-sdk-client";
 import { buildPipeTitle } from "../../lib/pipe-display";
 import { isEventMutation } from "../../lib/realtime/event-mutations";
 import { usePrivateBroadcast } from "../../lib/realtime/private-broadcast";
@@ -32,7 +34,9 @@ type ChangeRadarProps = {
   sidebarData: SidebarTreeData;
 };
 
-type EventRow = Database["public"]["Tables"]["event"]["Row"];
+type EventRow = Awaited<
+  ReturnType<MarbleClient["events"]["listForCurrentUser"]>
+>[number];
 type EventOperation = EventRow["operation"];
 type ResolutionMaps = {
   columnTableIds: Record<string, null | string>;
@@ -127,12 +131,12 @@ function formatRadarRelativeTime(value: string) {
 }
 
 function getEventSnapshot(event: EventRow) {
-  if (isRecord(event.after_state)) {
-    return event.after_state;
+  if (isRecord(event.afterState)) {
+    return event.afterState;
   }
 
-  if (isRecord(event.before_state)) {
-    return event.before_state;
+  if (isRecord(event.beforeState)) {
+    return event.beforeState;
   }
 
   return null;
@@ -155,7 +159,7 @@ function buildRadarIndexes(sidebarData: SidebarTreeData) {
 
   for (const profile of sidebarData.profiles) {
     indexes.profiles.set(profile.id, {
-      externalName: profile.external_name,
+      externalName: profile.externalName,
       icon: profile.icon,
       id: profile.id,
       name: profile.name || "Untitled Profile",
@@ -249,13 +253,13 @@ function resolveEventTargetKeys(
 
   if (event.resource === "project") {
     return [
-      changeTargetKey.project(event.entity_id),
+      changeTargetKey.project(event.entityId),
     ];
   }
 
   if (event.resource === "table") {
     return [
-      changeTargetKey.table(event.entity_id),
+      changeTargetKey.table(event.entityId),
     ];
   }
 
@@ -263,7 +267,7 @@ function resolveEventTargetKeys(
     const projectId = getStringField(snapshot, "project_id");
 
     return [
-      changeTargetKey.source(event.entity_id),
+      changeTargetKey.source(event.entityId),
       ...(projectId
         ? [
             changeTargetKey.project(projectId),
@@ -276,7 +280,7 @@ function resolveEventTargetKeys(
     const tableId = getStringField(snapshot, "table_id");
 
     return [
-      changeTargetKey.row(event.entity_id),
+      changeTargetKey.row(event.entityId),
       ...(tableId
         ? [
             changeTargetKey.table(tableId),
@@ -289,7 +293,7 @@ function resolveEventTargetKeys(
     const tableId = getStringField(snapshot, "table_id");
 
     return [
-      changeTargetKey.column(event.entity_id),
+      changeTargetKey.column(event.entityId),
       ...(tableId
         ? [
             changeTargetKey.table(tableId),
@@ -363,7 +367,7 @@ function resolveEventTargetKeys(
     const tableId = getStringField(snapshot, "table_id");
 
     return [
-      changeTargetKey.pipe(event.entity_id),
+      changeTargetKey.pipe(event.entityId),
       ...(tableId
         ? [
             changeTargetKey.table(tableId),
@@ -374,7 +378,7 @@ function resolveEventTargetKeys(
 
   if (event.resource === "program") {
     return [
-      changeTargetKey.program(event.entity_id),
+      changeTargetKey.program(event.entityId),
     ];
   }
 
@@ -382,7 +386,7 @@ function resolveEventTargetKeys(
     const programId = getStringField(snapshot, "program_id");
 
     return [
-      changeTargetKey.programVersion(event.entity_id),
+      changeTargetKey.programVersion(event.entityId),
       ...(programId
         ? [
             changeTargetKey.program(programId),
@@ -572,13 +576,13 @@ function resolveRadarScope(
 
   if (event.resource === "project") {
     const label =
-      indexes.projects.get(event.entity_id) ??
+      indexes.projects.get(event.entityId) ??
       getStringField(snapshot, "name") ??
       "Project";
 
     return {
-      href: `/projects/${event.entity_id}`,
-      key: `project:${event.entity_id}`,
+      href: `/projects/${event.entityId}`,
+      key: `project:${event.entityId}`,
       label,
       targetKeys: resolveEventTargetKeys(event, resolutionMaps),
     };
@@ -588,18 +592,18 @@ function resolveRadarScope(
     const projectId = getStringField(snapshot, "project_id");
 
     return {
-      href: buildTableHref(indexes, event.entity_id, projectId),
-      key: `table:${event.entity_id}`,
+      href: buildTableHref(indexes, event.entityId, projectId),
+      key: `table:${event.entityId}`,
       label:
-        indexes.tables.get(event.entity_id)?.label ??
+        indexes.tables.get(event.entityId)?.label ??
         getStringField(snapshot, "name") ??
-        `Table ${shortId(event.entity_id)}`,
+        `Table ${shortId(event.entityId)}`,
       targetKeys: resolveEventTargetKeys(event, resolutionMaps),
     };
   }
 
   if (event.resource === "source") {
-    const indexedSource = indexes.sources.get(event.entity_id);
+    const indexedSource = indexes.sources.get(event.entityId);
     const projectId =
       indexedSource?.projectId ?? getStringField(snapshot, "project_id");
     const label =
@@ -607,8 +611,8 @@ function resolveRadarScope(
 
     if (projectId) {
       return {
-        href: `/projects/${projectId}/sources/${event.entity_id}`,
-        key: `source:${event.entity_id}`,
+        href: `/projects/${projectId}/sources/${event.entityId}`,
+        key: `source:${event.entityId}`,
         label,
         targetKeys: resolveEventTargetKeys(event, resolutionMaps),
       };
@@ -629,7 +633,7 @@ function resolveRadarScope(
   }
 
   if (event.resource === "pipe") {
-    const indexedPipe = indexes.pipes.get(event.entity_id);
+    const indexedPipe = indexes.pipes.get(event.entityId);
     const tableId = getStringField(snapshot, "table_id");
     const projectId =
       indexedPipe?.projectId ??
@@ -637,9 +641,9 @@ function resolveRadarScope(
 
     if (projectId) {
       return {
-        href: `/projects/${projectId}/pipes/${event.entity_id}`,
-        key: `pipe:${event.entity_id}`,
-        label: buildPipeLabel(indexes, event.entity_id, snapshot),
+        href: `/projects/${projectId}/pipes/${event.entityId}`,
+        key: `pipe:${event.entityId}`,
+        label: buildPipeLabel(indexes, event.entityId, snapshot),
         targetKeys: resolveEventTargetKeys(event, resolutionMaps),
       };
     }
@@ -685,13 +689,13 @@ function resolveRadarScope(
 
   if (event.resource === "program") {
     const label =
-      indexes.programs.get(event.entity_id) ??
+      indexes.programs.get(event.entityId) ??
       getStringField(snapshot, "name") ??
       "Program";
 
     return {
-      href: buildProgramHref(event.entity_id),
-      key: `program:${event.entity_id}`,
+      href: buildProgramHref(event.entityId),
+      key: `program:${event.entityId}`,
       label,
       targetKeys: resolveEventTargetKeys(event, resolutionMaps),
     };
@@ -702,7 +706,7 @@ function resolveRadarScope(
 
     return {
       href: buildProgramHref(programId),
-      key: `program:${programId ?? event.entity_id}`,
+      key: `program:${programId ?? event.entityId}`,
       label:
         (programId ? indexes.programs.get(programId) : undefined) ?? "Program",
       targetKeys: resolveEventTargetKeys(event, resolutionMaps),
@@ -719,7 +723,7 @@ function resolveRadarScope(
 
     return {
       href: buildProgramHref(programId ?? undefined),
-      key: `program:${programId ?? versionId ?? event.entity_id}`,
+      key: `program:${programId ?? versionId ?? event.entityId}`,
       label:
         (programId ? indexes.programs.get(programId) : undefined) ?? "Program",
       targetKeys: resolveEventTargetKeys(event, resolutionMaps),
@@ -741,7 +745,7 @@ function resolveRadarScope(
 
   return {
     href: "/events",
-    key: `events:${event.resource}:${event.entity_id}`,
+    key: `events:${event.resource}:${event.entityId}`,
     label: titleCase(event.resource),
     targetKeys: resolveEventTargetKeys(event, resolutionMaps),
   };
@@ -912,12 +916,12 @@ function buildRadarBatches(
 
   for (const event of events
     .filter((candidate) => candidate.operation !== "Read")
-    .sort((left, right) => right.created_at.localeCompare(left.created_at))) {
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))) {
     const scope = resolveRadarScope(event, indexes, resolutionMaps);
-    const bucketKey = event.request_id
-      ? `request:${event.request_id}`
+    const bucketKey = event.requestId
+      ? `request:${event.requestId}`
       : `time:${Math.floor(
-          new Date(event.created_at).getTime() / CHANGE_RADAR_BUCKET_MS,
+          new Date(event.createdAt).getTime() / CHANGE_RADAR_BUCKET_MS,
         )}`;
     const groupId = scope.key;
     const summaryKey = `${event.resource}:${event.operation}`;
@@ -925,14 +929,14 @@ function buildRadarBatches(
     if (!grouped.has(groupId)) {
       grouped.set(groupId, {
         actorProfileIds: [
-          event.actor_profile_id,
+          event.actorProfileId,
         ],
         burstKeys: new Set(),
         counts: new Map(),
         href: scope.href,
         id: groupId,
         label: scope.label,
-        latestAt: event.created_at,
+        latestAt: event.createdAt,
         operations: {
           Create: 0,
           Delete: 0,
@@ -946,7 +950,7 @@ function buildRadarBatches(
         ].slice(0, CHANGE_RADAR_TARGET_LIMIT),
         unread:
           lastReviewedAt === null ||
-          event.created_at.localeCompare(lastReviewedAt) > 0,
+          event.createdAt.localeCompare(lastReviewedAt) > 0,
       });
     }
 
@@ -966,7 +970,7 @@ function buildRadarBatches(
     current.unread =
       current.unread ||
       lastReviewedAt === null ||
-      event.created_at.localeCompare(lastReviewedAt) > 0;
+      event.createdAt.localeCompare(lastReviewedAt) > 0;
     appendLimitedTargetKeys(current.targetKeys, scope.targetKeys);
 
     const resourceTargetKeys =
@@ -982,12 +986,12 @@ function buildRadarBatches(
       resourceOperationTargetKeys,
     );
 
-    if (!current.actorProfileIds.includes(event.actor_profile_id)) {
-      current.actorProfileIds.push(event.actor_profile_id);
+    if (!current.actorProfileIds.includes(event.actorProfileId)) {
+      current.actorProfileIds.push(event.actorProfileId);
     }
 
-    if (event.created_at.localeCompare(current.latestAt) > 0) {
-      current.latestAt = event.created_at;
+    if (event.createdAt.localeCompare(current.latestAt) > 0) {
+      current.latestAt = event.createdAt;
     }
   }
 
@@ -1033,7 +1037,7 @@ function upsertRadarEvent(current: EventRow[], nextEvent: EventRow) {
     nextEvent,
     ...current.filter((event) => event.id !== nextEvent.id),
   ]
-    .sort((left, right) => right.created_at.localeCompare(left.created_at))
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
     .slice(0, CHANGE_RADAR_EVENT_LIMIT);
 }
 
@@ -1050,6 +1054,7 @@ export function ChangeRadar({
 }: ChangeRadarProps) {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
+  const sdk = useMarbleApiSdk();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [lastReviewedAt, setLastReviewedAt] = useState<null | string>(null);
   const [resolutionMaps, setResolutionMaps] = useState<ResolutionMaps>({
@@ -1105,30 +1110,24 @@ export function ChangeRadar({
     }
 
     let cancelled = false;
-    void supabase
-      .from("event")
-      .select("*")
-      .in("actor_profile_id", ownedProfileIds)
-      .neq("source", "WEB_APP")
-      .order("created_at", {
-        ascending: false,
+    void sdk.events
+      .listForCurrentUser({
+        excludeSources: [
+          "WEB_APP",
+        ],
+        limit: CHANGE_RADAR_EVENT_LIMIT,
       })
-      .limit(CHANGE_RADAR_EVENT_LIMIT)
-      .then(({ data, error }) => {
+      .then((data) => {
         if (cancelled) {
           return;
         }
 
-        if (error) {
+        setEvents(data.filter((event) => event.operation !== "Read"));
+      })
+      .catch((error) => {
+        if (!cancelled) {
           console.error("Change radar bootstrap failed", error);
-          return;
         }
-
-        setEvents(
-          ((data ?? []) as EventRow[]).filter(
-            (event) => event.operation !== "Read",
-          ),
-        );
       });
 
     return () => {
@@ -1136,7 +1135,7 @@ export function ChangeRadar({
     };
   }, [
     ownedProfileIds,
-    supabase,
+    sdk,
   ]);
 
   usePrivateBroadcast({
@@ -1150,15 +1149,18 @@ export function ChangeRadar({
       }
 
       const ownedProfileIdSet = new Set(ownedProfileIds);
-      const candidate = mutation.row;
+      const candidate =
+        mutation.type === "event:upsert"
+          ? (toCamelKeys(mutation.row) as EventRow)
+          : null;
       const eventId =
-        mutation.type === "event:delete" ? mutation.id : mutation.row.id;
+        mutation.type === "event:delete" ? mutation.id : candidate?.id;
 
       if (
         typeof eventId !== "string" ||
         (candidate &&
-          (typeof candidate.actor_profile_id !== "string" ||
-            !ownedProfileIdSet.has(candidate.actor_profile_id) ||
+          (typeof candidate.actorProfileId !== "string" ||
+            !ownedProfileIdSet.has(candidate.actorProfileId) ||
             candidate.source === "WEB_APP" ||
             candidate.operation === "Read"))
       ) {
@@ -1168,7 +1170,9 @@ export function ChangeRadar({
       setEvents((current) =>
         mutation.type === "event:delete"
           ? current.filter((event) => event.id !== eventId)
-          : upsertRadarEvent(current, mutation.row),
+          : candidate
+            ? upsertRadarEvent(current, candidate)
+            : current,
       );
     },
     topic: `events:user:${userId}`,
@@ -1241,89 +1245,37 @@ export function ChangeRadar({
 
     let cancelled = false;
 
-    void Promise.all([
-      pendingRows.size > 0
-        ? supabase
-            .from("row")
-            .select("id, table_id")
-            .in("id", Array.from(pendingRows))
-        : Promise.resolve({
-            data: [] as Array<{
-              id: string;
-              table_id: string;
-            }>,
-            error: null,
-          }),
-      pendingColumns.size > 0
-        ? supabase
-            .from("column")
-            .select("id, table_id")
-            .in("id", Array.from(pendingColumns))
-        : Promise.resolve({
-            data: [] as Array<{
-              id: string;
-              table_id: string;
-            }>,
-            error: null,
-          }),
-      pendingVersions.size > 0
-        ? supabase
-            .from("program_version")
-            .select("id, program_id")
-            .in("id", Array.from(pendingVersions))
-        : Promise.resolve({
-            data: [] as Array<{
-              id: string;
-              program_id: string;
-            }>,
-            error: null,
-          }),
-    ]).then(([rowsResult, columnsResult, versionsResult]) => {
-      if (cancelled) {
-        return;
-      }
+    void sdk.events
+      .resolveTargets({
+        columnIds: Array.from(pendingColumns),
+        programVersionIds: Array.from(pendingVersions),
+        rowIds: Array.from(pendingRows),
+      })
+      .then((resolved) => {
+        if (cancelled) {
+          return;
+        }
 
-      if (rowsResult.error || columnsResult.error || versionsResult.error) {
-        console.error(
-          "Change radar resolution failed",
-          rowsResult.error ?? columnsResult.error ?? versionsResult.error,
-        );
-        return;
-      }
-
-      setResolutionMaps((current) => ({
-        columnTableIds: {
-          ...current.columnTableIds,
-          ...Object.fromEntries(
-            Array.from(pendingColumns).map((id) => [
-              id,
-              (columnsResult.data ?? []).find((column) => column.id === id)
-                ?.table_id ?? null,
-            ]),
-          ),
-        },
-        rowTableIds: {
-          ...current.rowTableIds,
-          ...Object.fromEntries(
-            Array.from(pendingRows).map((id) => [
-              id,
-              (rowsResult.data ?? []).find((row) => row.id === id)?.table_id ??
-                null,
-            ]),
-          ),
-        },
-        versionProgramIds: {
-          ...current.versionProgramIds,
-          ...Object.fromEntries(
-            Array.from(pendingVersions).map((id) => [
-              id,
-              (versionsResult.data ?? []).find((version) => version.id === id)
-                ?.program_id ?? null,
-            ]),
-          ),
-        },
-      }));
-    });
+        setResolutionMaps((current) => ({
+          columnTableIds: {
+            ...current.columnTableIds,
+            ...resolved.columnTableIds,
+          },
+          rowTableIds: {
+            ...current.rowTableIds,
+            ...resolved.rowTableIds,
+          },
+          versionProgramIds: {
+            ...current.versionProgramIds,
+            ...resolved.versionProgramIds,
+          },
+        }));
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          console.error("Change radar resolution failed", error);
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -1331,7 +1283,7 @@ export function ChangeRadar({
   }, [
     events,
     resolutionMaps,
-    supabase,
+    sdk,
   ]);
 
   const batchRecords = buildRadarBatches(

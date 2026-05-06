@@ -175,65 +175,6 @@ export async function listAccessibleSourceIds(
   return sources.map((source) => source.id);
 }
 
-async function listAccessibleSourceEventIds(
-  supabase: SupabaseClient,
-  options: AccessOptions,
-) {
-  const projectIds = await listAccessibleProjectIds(supabase, options);
-
-  if (projectIds === undefined) {
-    return undefined;
-  }
-
-  if (projectIds.length === 0) {
-    return [];
-  }
-
-  const events = await listRecordsInColumn(
-    supabase,
-    "source_event",
-    "project_id",
-    projectIds,
-    [
-      {
-        ascending: false,
-        column: "created_at",
-      },
-    ],
-  );
-
-  return events.map((event) => event.id);
-}
-
-async function listAccessiblePipeIds(
-  supabase: SupabaseClient,
-  options: AccessOptions,
-) {
-  const sourceIds = await listAccessibleSourceIds(supabase, options);
-
-  if (sourceIds === undefined) {
-    return undefined;
-  }
-
-  if (sourceIds.length === 0) {
-    return [];
-  }
-
-  const pipes = await listRecordsInColumn(
-    supabase,
-    "pipe",
-    "source_id",
-    sourceIds,
-    [
-      {
-        column: "created_at",
-      },
-    ],
-  );
-
-  return pipes.map((pipe) => pipe.id);
-}
-
 export async function listAccessibleRowIds(
   supabase: SupabaseClient,
   options: AccessOptions,

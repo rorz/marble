@@ -132,28 +132,6 @@ async function getProgramVersionWithFiles(
   };
 }
 
-async function findProgramDraftVersion(
-  supabase: SupabaseClient,
-  programId: string,
-) {
-  const { data, error } = await supabase
-    .from("program_version")
-    .select("*")
-    .eq("program_id", programId)
-    .is("published_at", null)
-    .order("updated_at", {
-      ascending: false,
-    })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new ApiError(500, error.message);
-  }
-
-  return data;
-}
-
 async function findLatestPublishedProgramVersion(
   supabase: SupabaseClient,
   programId: string,

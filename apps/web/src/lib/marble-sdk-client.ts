@@ -53,3 +53,16 @@ export function useMarbleSdk(options: MarbleSdkOptions = {}) {
     ],
   );
 }
+
+export function useMarbleApiSdk() {
+  return useMemo(
+    () =>
+      new MarbleClient({
+        driver: {
+          apiUrl: "/api-v2",
+          type: "api",
+        },
+      }),
+    [],
+  );
+}

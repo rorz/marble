@@ -1,4 +1,4 @@
-import type { Database } from "@marble/supabase";
+import { toCamelKeys } from "@marble/lib/object";
 import {
   createBroadcastMutationGuard,
   type DeleteMutation,
@@ -12,28 +12,27 @@ import {
   buildTableNode,
   removeSidebarChildFromAll,
   removeSidebarNode,
+  type SidebarPipeRow,
+  type SidebarProgramRow,
+  type SidebarProjectRow,
+  type SidebarSourceRow,
+  type SidebarTableRow,
   type SidebarTreeData,
   upsertSidebarChild,
   upsertSidebarNode,
 } from "./sidebar-tree";
 
-type PipeRow = Database["public"]["Tables"]["pipe"]["Row"];
-type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
-type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
-type SourceRow = Database["public"]["Tables"]["source"]["Row"];
-type TableRow = Database["public"]["Tables"]["table"]["Row"];
-
 type SidebarMutation =
-  | DeleteMutation<"program:delete", ProgramRow>
-  | UpsertMutation<"program:upsert", ProgramRow>
-  | DeleteMutation<"project:delete", ProjectRow>
-  | UpsertMutation<"project:upsert", ProjectRow>
-  | DeleteMutation<"table:delete", TableRow>
-  | UpsertMutation<"table:upsert", TableRow>
-  | DeleteMutation<"source:delete", SourceRow>
-  | UpsertMutation<"source:upsert", SourceRow>
-  | DeleteMutation<"pipe:delete", PipeRow>
-  | UpsertMutation<"pipe:upsert", PipeRow>;
+  | DeleteMutation<"program:delete", Record<string, unknown>>
+  | UpsertMutation<"program:upsert", Record<string, unknown>>
+  | DeleteMutation<"project:delete", Record<string, unknown>>
+  | UpsertMutation<"project:upsert", Record<string, unknown>>
+  | DeleteMutation<"table:delete", Record<string, unknown>>
+  | UpsertMutation<"table:upsert", Record<string, unknown>>
+  | DeleteMutation<"source:delete", Record<string, unknown>>
+  | UpsertMutation<"source:upsert", Record<string, unknown>>
+  | DeleteMutation<"pipe:delete", Record<string, unknown>>
+  | UpsertMutation<"pipe:upsert", Record<string, unknown>>;
 
 const sidebarMutationTypes = {
   "pipe:delete": true,
@@ -51,10 +50,13 @@ const sidebarMutationTypes = {
 export const isSidebarMutation =
   createBroadcastMutationGuard<SidebarMutation>(sidebarMutationTypes);
 
-function resolveProjectIdForPipe(current: SidebarTreeData, pipe: PipeRow) {
+function resolveProjectIdForPipe(
+  current: SidebarTreeData,
+  pipe: SidebarPipeRow,
+) {
   for (const project of current.projects) {
     for (const child of project.children) {
-      if (child.id === pipe.source_id || child.id === pipe.table_id) {
+      if (child.id === pipe.sourceId || child.id === pipe.tableId) {
         return project.id;
       }
     }
@@ -74,14 +76,16 @@ export function applySidebarMutation(
         programs: removeSidebarNode(current.programs, mutation.id),
       };
 
-    case "program:upsert":
+    case "program:upsert": {
+      const program = toCamelKeys(mutation.row) as SidebarProgramRow;
+
       if (
-        !mutation.row.first_party &&
-        !current.ownerProfileIds.includes(mutation.row.owner_profile_id)
+        !program.firstParty &&
+        !current.ownerProfileIds.includes(program.ownerProfileId)
       ) {
         return {
           ...current,
-          programs: removeSidebarNode(current.programs, mutation.row.id),
+          programs: removeSidebarNode(current.programs, program.id),
         };
       }
 
@@ -89,9 +93,10 @@ export function applySidebarMutation(
         ...current,
         programs: upsertSidebarNode(
           current.programs,
-          buildProgramNode(mutation.row),
+          buildProgramNode(program),
         ),
       };
+    }
 
     case "project:delete":
       return {
@@ -100,22 +105,24 @@ export function applySidebarMutation(
       };
 
     case "project:upsert": {
-      if (!current.ownerProfileIds.includes(mutation.row.owner_profile_id)) {
+      const project = toCamelKeys(mutation.row) as SidebarProjectRow;
+
+      if (!current.ownerProfileIds.includes(project.ownerProfileId)) {
         return {
           ...current,
-          projects: removeSidebarNode(current.projects, mutation.row.id),
+          projects: removeSidebarNode(current.projects, project.id),
         };
       }
 
       const existing = current.projects.find(
-        (project) => project.id === mutation.row.id,
+        (currentProject) => currentProject.id === project.id,
       );
 
       return {
         ...current,
         projects: upsertSidebarNode(
           current.projects,
-          buildProjectNode(mutation.row, existing?.children ?? []),
+          buildProjectNode(project, existing?.children ?? []),
         ),
       };
     }
@@ -127,12 +134,10 @@ export function applySidebarMutation(
       };
 
     case "table:upsert": {
-      const projects = removeSidebarChildFromAll(
-        current.projects,
-        mutation.row.id,
-      );
+      const table = toCamelKeys(mutation.row) as SidebarTableRow;
+      const projects = removeSidebarChildFromAll(current.projects, table.id);
 
-      if (!projects.some((project) => project.id === mutation.row.project_id)) {
+      if (!projects.some((project) => project.id === table.projectId)) {
         return {
           ...current,
           projects,
@@ -143,8 +148,8 @@ export function applySidebarMutation(
         ...current,
         projects: upsertSidebarChild(
           projects,
-          mutation.row.project_id,
-          buildTableNode(mutation.row),
+          table.projectId,
+          buildTableNode(table),
         ),
       };
     }
@@ -156,12 +161,10 @@ export function applySidebarMutation(
       };
 
     case "source:upsert": {
-      const projects = removeSidebarChildFromAll(
-        current.projects,
-        mutation.row.id,
-      );
+      const source = toCamelKeys(mutation.row) as SidebarSourceRow;
+      const projects = removeSidebarChildFromAll(current.projects, source.id);
 
-      if (!projects.some((project) => project.id === mutation.row.project_id)) {
+      if (!projects.some((project) => project.id === source.projectId)) {
         return {
           ...current,
           projects,
@@ -172,8 +175,8 @@ export function applySidebarMutation(
         ...current,
         projects: upsertSidebarChild(
           projects,
-          mutation.row.project_id,
-          buildSourceNode(mutation.row),
+          source.projectId,
+          buildSourceNode(source),
         ),
       };
     }
@@ -185,15 +188,13 @@ export function applySidebarMutation(
       };
 
     case "pipe:upsert": {
-      const projects = removeSidebarChildFromAll(
-        current.projects,
-        mutation.row.id,
-      );
+      const pipe = toCamelKeys(mutation.row) as SidebarPipeRow;
+      const projects = removeSidebarChildFromAll(current.projects, pipe.id);
       const nextCurrent = {
         ...current,
         projects,
       };
-      const projectId = resolveProjectIdForPipe(nextCurrent, mutation.row);
+      const projectId = resolveProjectIdForPipe(nextCurrent, pipe);
       const projectNode = projectId
         ? projects.find((project) => project.id === projectId)
         : null;
@@ -207,15 +208,13 @@ export function applySidebarMutation(
         projects: upsertSidebarChild(
           projects,
           projectId,
-          buildPipeNode(mutation.row, projectId, {
+          buildPipeNode(pipe, projectId, {
             sourceLabel:
-              projectNode?.children.find(
-                (child) => child.id === mutation.row.source_id,
-              )?.label ?? "Untitled Source",
+              projectNode?.children.find((child) => child.id === pipe.sourceId)
+                ?.label ?? "Untitled Source",
             tableLabel:
-              projectNode?.children.find(
-                (child) => child.id === mutation.row.table_id,
-              )?.label ?? "Untitled Table",
+              projectNode?.children.find((child) => child.id === pipe.tableId)
+                ?.label ?? "Untitled Table",
           }),
         ),
       };

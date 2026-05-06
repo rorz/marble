@@ -17,11 +17,8 @@ import {
 } from "@marble/ui";
 import { KeyIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
-import { callMarbleClient } from "../../../lib/marble-client";
-
-type SecretRecord = Awaited<
-  ReturnType<typeof import("./actions").listSecrets>
->[number];
+import { useMarbleApiSdk } from "../../../lib/marble-sdk-client";
+import type { SecretRecord } from "./actions";
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -36,39 +33,8 @@ function sortSecrets(secrets: SecretRecord[]) {
   ].sort(
     (left, right) =>
       left.name.localeCompare(right.name) ||
-      new Date(right.updated_at).getTime() -
-        new Date(left.updated_at).getTime(),
+      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
   );
-}
-
-function createSecret(input: { name: string; value: string }) {
-  return callMarbleClient<SecretRecord>("/secrets", {
-    body: {
-      category: "UserDefined",
-      name: input.name,
-      value: input.value,
-    },
-    method: "POST",
-  });
-}
-
-function updateSecret(
-  secretId: string,
-  input: {
-    name?: string;
-    value?: string;
-  },
-) {
-  return callMarbleClient<SecretRecord>(`/secrets/${secretId}`, {
-    body: input,
-    method: "PATCH",
-  });
-}
-
-function deleteSecret(secretId: string) {
-  return callMarbleClient(`/secrets/${secretId}`, {
-    method: "DELETE",
-  });
 }
 
 export function SecretsPageView({
@@ -76,6 +42,7 @@ export function SecretsPageView({
 }: {
   initialSecrets: SecretRecord[];
 }) {
+  const sdk = useMarbleApiSdk();
   const [secrets, setSecrets] = useState(() => sortSecrets(initialSecrets));
   const [selectedSecretId, setSelectedSecretId] = useState<string | null>(
     initialSecrets[0]?.id ?? null,
@@ -142,7 +109,7 @@ export function SecretsPageView({
 
     try {
       if (creating) {
-        const created = await createSecret({
+        const created = await sdk.secrets.create({
           name: trimmedName,
           value: draftValue,
         });
@@ -172,17 +139,20 @@ export function SecretsPageView({
         return;
       }
 
-      const updated = await updateSecret(selectedSecret.id, {
-        ...(hasNameChange
-          ? {
-              name: trimmedName,
-            }
-          : {}),
-        ...(hasValueChange
-          ? {
-              value: draftValue,
-            }
-          : {}),
+      const updated = await sdk.secrets.update({
+        id: selectedSecret.id,
+        values: {
+          ...(hasNameChange
+            ? {
+                name: trimmedName,
+              }
+            : {}),
+          ...(hasValueChange
+            ? {
+                value: draftValue,
+              }
+            : {}),
+        },
       });
 
       setSecrets((current) =>
@@ -214,7 +184,9 @@ export function SecretsPageView({
     setFormError(null);
 
     try {
-      await deleteSecret(selectedSecret.id);
+      await sdk.secrets.delete({
+        id: selectedSecret.id,
+      });
       const remainingSecrets = secrets.filter(
         (secret) => secret.id !== selectedSecret.id,
       );
@@ -268,9 +240,7 @@ export function SecretsPageView({
                       <div>Stored in Vault.</div>
                       <div className="text-[11px] text-zinc-400">
                         Updated{" "}
-                        {DATE_TIME_FORMATTER.format(
-                          new Date(secret.updated_at),
-                        )}
+                        {DATE_TIME_FORMATTER.format(new Date(secret.updatedAt))}
                       </div>
                     </div>
                   }

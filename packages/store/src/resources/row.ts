@@ -23,7 +23,38 @@ export class RowCollection implements RowCollectionApi {
   public readonly create = (input: CreateRowInput) =>
     this.deps.db.insert("row", input);
 
-  public readonly delete = (id: string) => this.deps.db.delete("row", id);
+  public readonly delete = async (id: string) => {
+    const row = await this.get(id);
+    const cells = await this.deps.db.list("cell", {
+      rowId: id,
+    });
+
+    if (cells.length > 0) {
+      const { error: runError } = await this.deps.supabase
+        .from("program_run")
+        .delete()
+        .in(
+          "target_cell_id",
+          cells.map((cell) => cell.id),
+        );
+
+      if (runError) {
+        throw new Error(runError.message);
+      }
+    }
+
+    const { error: cellError } = await this.deps.supabase
+      .from("cell")
+      .delete()
+      .eq("row_id", id);
+
+    if (cellError) {
+      throw new Error(cellError.message);
+    }
+
+    await this.deps.db.delete("row", id);
+    return row;
+  };
 
   public readonly get = (id: string) => this.deps.db.get("row", id);
 

@@ -12,7 +12,7 @@ import {
   SparklesIcon,
   UserIcon,
 } from "@heroicons/react/24/outline";
-import type { Database } from "@marble/supabase";
+import type { MarbleClient } from "@marble/sdk";
 import {
   cx,
   MarbleAlert,
@@ -59,7 +59,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { callMarbleClient } from "../../../lib/marble-client";
+import { useMarbleApiSdk } from "../../../lib/marble-sdk-client";
 import { createDefaultProgram } from "../../../lib/program-client";
 import {
   ENVIRONMENT_VARIABLE_NAME_PATTERN,
@@ -69,19 +69,21 @@ import {
   parseProgramSecretConfig,
 } from "../../../lib/program-manifest";
 import { changeTargetKey, getChangeTargetProps } from "../change-spotlight";
+import type { ProgramsPageData } from "./actions";
 import * as actions from "./actions";
 
-type FullProgram = Awaited<ReturnType<typeof actions.listPrograms>>[number];
-type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
-type ProgramVersionRow = Database["public"]["Tables"]["program_version"]["Row"];
-type ProgramFileRow = Database["public"]["Tables"]["program_file"]["Row"];
-type ProgramVersionWithFiles = FullProgram["program_version"][number];
+type FullProgram = ProgramsPageData["programs"][number];
+type ProgramVersionWithFiles = FullProgram["programVersions"][number];
+type ProgramFile = ProgramVersionWithFiles["programFiles"][number];
+type ProgramVersionMutation = Awaited<
+  ReturnType<typeof actions.createDraftVersion>
+>["version"];
 type PublishedProgramVersionWithFiles = ProgramVersionWithFiles & {
-  published_at: string;
+  publishedAt: string;
   version: number;
 };
 type EditableProgramFile = Pick<
-  ProgramFileRow,
+  ProgramFile,
   "content" | "filename" | "filetype"
 >;
 type MonacoLanguage = "json" | "markdown" | "typescript";
@@ -93,9 +95,7 @@ type PendingChange = {
   summary: string;
   tag: string;
 };
-type SecretRecord = Awaited<
-  ReturnType<typeof actions.loadProgramsPageData>
->["secrets"][number];
+type SecretRecord = Awaited<ProgramsPageData["secrets"][number]>;
 type SecretBindingInput = Awaited<
   ReturnType<typeof actions.updateProgramSecretBindings>
 >[number];
@@ -222,8 +222,8 @@ function countLabel(count: number, singular: string, plural = `${singular}s`) {
 
 function comparePrograms(left: FullProgram, right: FullProgram) {
   return (
-    new Date(right.updated_at).getTime() -
-      new Date(left.updated_at).getTime() || left.name.localeCompare(right.name)
+    new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime() ||
+    left.name.localeCompare(right.name)
   );
 }
 
@@ -239,29 +239,29 @@ function sortProgramVersions(programVersions: ProgramVersionWithFiles[]) {
   ]
     .filter(
       (version): version is PublishedProgramVersionWithFiles =>
-        version.published_at !== null && version.version !== null,
+        version.publishedAt !== null && version.version !== null,
     )
     .sort((left, right) => (right.version ?? 0) - (left.version ?? 0));
 }
 
 function getLatestPublishedVersion(program: FullProgram | undefined) {
-  return sortProgramVersions(program?.program_version ?? [])[0] ?? null;
+  return sortProgramVersions(program?.programVersions ?? [])[0] ?? null;
 }
 
 function getDraftVersion(program: FullProgram | undefined) {
-  if (!program?.program_version?.length) {
+  if (!program?.programVersions?.length) {
     return null;
   }
 
   return (
     [
-      ...program.program_version,
+      ...program.programVersions,
     ]
-      .filter((version) => version.published_at === null)
+      .filter((version) => version.publishedAt === null)
       .sort(
         (left, right) =>
-          new Date(right.updated_at).getTime() -
-          new Date(left.updated_at).getTime(),
+          new Date(right.updatedAt).getTime() -
+          new Date(left.updatedAt).getTime(),
       )[0] ?? null
   );
 }
@@ -275,39 +275,29 @@ function normalizeJsonEditorValue(value: string) {
 }
 
 function normalizeProgramVersionMutation(
-  version: ProgramVersionRow & {
-    files?: ProgramFileRow[];
-    program_file?: ProgramFileRow[];
-  },
+  version: ProgramVersionMutation | ProgramVersionWithFiles,
 ) {
-  return {
-    ...version,
-    program_file: version.program_file ?? version.files ?? [],
-  } satisfies ProgramVersionWithFiles;
+  return version satisfies ProgramVersionWithFiles;
 }
 
-function renameProgram(programId: string, name: string) {
-  return callMarbleClient<ProgramRow>(`/programs/${programId}`, {
-    body: {
+function renameProgram(sdk: MarbleClient, programId: string, name: string) {
+  return sdk.programs.update({
+    id: programId,
+    values: {
       name,
     },
-    method: "PATCH",
   });
 }
 
 function updateProgramSecretBindings(
+  sdk: MarbleClient,
   programId: string,
   bindings: SecretBindingInput[],
 ) {
-  return callMarbleClient<SecretBindingInput[]>(
-    `/programs/${programId}/secrets`,
-    {
-      body: {
-        bindings,
-      },
-      method: "PUT",
-    },
-  );
+  return sdk.secretBindings.setProgram({
+    bindings,
+    programId,
+  });
 }
 
 function normalizeStoredProgramSecretConfig(secretConfig: unknown) {
@@ -548,7 +538,7 @@ function buildFieldsFromSchema(schema: Record<string, unknown>): {
 }
 
 function normalizeProgramFiles(
-  programFiles: ProgramFileRow[] | null | undefined,
+  programFiles: ProgramFile[] | null | undefined,
 ): EditableProgramFile[] {
   return (programFiles ?? []).map((file) => ({
     content: file.content,
@@ -871,9 +861,7 @@ function VersionHistoryRow({
   activeBadge?: string;
   onSelect?: () => void;
   targetKey?: string;
-  version: ProgramVersionRow & {
-    program_file: ProgramFileRow[];
-  };
+  version: ProgramVersionWithFiles;
 }>) {
   return (
     <button
@@ -902,11 +890,11 @@ function VersionHistoryRow({
           ) : null}
         </div>
         <span className="text-[11px] text-taupe-500">
-          {DATE_TIME_FORMATTER.format(new Date(version.updated_at))}
+          {DATE_TIME_FORMATTER.format(new Date(version.updatedAt))}
         </span>
       </div>
       <div className="mt-1 text-[11px] text-taupe-600">
-        {countLabel(version.program_file.length, "file")} in this snapshot
+        {countLabel(version.programFiles.length, "file")} in this snapshot
       </div>
     </button>
   );
@@ -924,7 +912,7 @@ function CurrentWorkspaceRow({
   onSelect: () => void;
 }>) {
   const timestamp =
-    draftVersion?.updated_at ?? latestPublishedVersion?.updated_at;
+    draftVersion?.updatedAt ?? latestPublishedVersion?.updatedAt;
 
   return (
     <button
@@ -1091,13 +1079,9 @@ function WorkspaceFileTreeRow({
 type ProgramsPageViewProps = {
   initialMode?: "draft" | "master";
   initialProgramId?: string;
-  initialProgramSecretBindings: Awaited<
-    ReturnType<typeof actions.loadProgramsPageData>
-  >["programSecretBindings"];
+  initialProgramSecretBindings: ProgramsPageData["programSecretBindings"];
   initialPrograms: FullProgram[];
-  initialSecrets: Awaited<
-    ReturnType<typeof actions.loadProgramsPageData>
-  >["secrets"];
+  initialSecrets: ProgramsPageData["secrets"];
 };
 
 export function ProgramsPageView({
@@ -1108,6 +1092,7 @@ export function ProgramsPageView({
   initialSecrets,
 }: ProgramsPageViewProps) {
   const router = useRouter();
+  const sdk = useMarbleApiSdk();
   const [programs, setPrograms] = useState(() => sortPrograms(initialPrograms));
   const [programSecretBindings, setProgramSecretBindings] = useState(
     initialProgramSecretBindings,
@@ -1116,7 +1101,7 @@ export function ProgramsPageView({
   const [createError, setCreateError] = useState<null | string>(null);
   const [createPending, setCreatePending] = useState(false);
   const [librarySurface, setLibrarySurface] = useState<LibrarySurface>(() =>
-    initialPrograms.some((program) => program.first_party) ? "marble" : "mine",
+    initialPrograms.some((program) => program.firstParty) ? "marble" : "mine",
   );
   const [editingSurface, setEditingSurface] = useState<
     null | "crumb" | "title"
@@ -1207,12 +1192,12 @@ export function ProgramsPageView({
   const isLocalDraftProgram = initialMode === "draft" && !selectedProgram;
   const isDraftProgram = isLocalDraftProgram || draftVersion !== null;
   const isEditorRoute = isDraftProgram || Boolean(initialProgramId);
-  const firstPartyPrograms = programs.filter((program) => program.first_party);
-  const customPrograms = programs.filter((program) => !program.first_party);
+  const firstPartyPrograms = programs.filter((program) => program.firstParty);
+  const customPrograms = programs.filter((program) => !program.firstParty);
   const visiblePrograms =
     librarySurface === "marble" ? firstPartyPrograms : customPrograms;
   const programVersions = selectedProgram
-    ? sortProgramVersions(selectedProgram.program_version)
+    ? sortProgramVersions(selectedProgram.programVersions)
     : [];
   const selectedHistoricalVersion =
     selectedVersionView === "current"
@@ -1222,13 +1207,13 @@ export function ProgramsPageView({
         ) ?? null);
   const viewingHistoricalVersion = selectedHistoricalVersion !== null;
   const visibleVersion = selectedHistoricalVersion ?? workingVersion;
-  const latestVersionInputSchema = visibleVersion?.input_schema;
+  const latestVersionInputSchema = visibleVersion?.inputSchema;
   const visibleFiles = viewingHistoricalVersion
-    ? normalizeProgramFiles(selectedHistoricalVersion?.program_file)
+    ? normalizeProgramFiles(selectedHistoricalVersion?.programFiles)
     : files;
   const visibleSecretDeclarations = viewingHistoricalVersion
     ? createEditableProgramSecretDeclarations(
-        selectedHistoricalVersion?.secret_config,
+        selectedHistoricalVersion?.secretConfig,
       )
     : secretConfigDraft;
   const visibleSecretConfigState = getEditableProgramSecretConfigState(
@@ -1241,42 +1226,42 @@ export function ProgramsPageView({
     ? (programSecretBindings[selectedProgram.id] ?? {})
     : {};
   const latestFileContentByName = new Map(
-    normalizeProgramFiles(latestPublishedVersion?.program_file).map((file) => [
+    normalizeProgramFiles(latestPublishedVersion?.programFiles).map((file) => [
       file.filename,
       file.content,
     ]),
   );
   const workingFileContentByName = new Map(
-    normalizeProgramFiles(workingVersion?.program_file).map((file) => [
+    normalizeProgramFiles(workingVersion?.programFiles).map((file) => [
       file.filename,
       file.content,
     ]),
   );
   const latestInputSchemaStr = JSON.stringify(
-    latestPublishedVersion?.input_schema ?? {},
+    latestPublishedVersion?.inputSchema ?? {},
     null,
     2,
   );
   const workingInputSchemaStr = JSON.stringify(
-    workingVersion?.input_schema ?? {},
+    workingVersion?.inputSchema ?? {},
     null,
     2,
   );
   const latestOutputConfigStr = JSON.stringify(
-    latestPublishedVersion?.output_config ?? {},
+    latestPublishedVersion?.outputConfig ?? {},
     null,
     2,
   );
   const workingOutputConfigStr = JSON.stringify(
-    workingVersion?.output_config ?? {},
+    workingVersion?.outputConfig ?? {},
     null,
     2,
   );
   const latestSecretConfigStr = getProgramSecretConfigComparisonValue(
-    latestPublishedVersion?.secret_config,
+    latestPublishedVersion?.secretConfig,
   );
   const workingSecretConfigStr = getProgramSecretConfigComparisonValue(
-    workingVersion?.secret_config,
+    workingVersion?.secretConfig,
   );
   const currentSecretConfigState =
     getEditableProgramSecretConfigState(secretConfigDraft);
@@ -1288,10 +1273,10 @@ export function ProgramsPageView({
   const normalizedInputSchemaStr = normalizeJsonEditorValue(inputSchemaStr);
   const normalizedOutputConfigStr = normalizeJsonEditorValue(outputConfigStr);
   const visibleInputSchemaStr = viewingHistoricalVersion
-    ? JSON.stringify(selectedHistoricalVersion?.input_schema ?? {}, null, 2)
+    ? JSON.stringify(selectedHistoricalVersion?.inputSchema ?? {}, null, 2)
     : inputSchemaStr;
   const visibleOutputConfigStr = viewingHistoricalVersion
-    ? JSON.stringify(selectedHistoricalVersion?.output_config ?? {}, null, 2)
+    ? JSON.stringify(selectedHistoricalVersion?.outputConfig ?? {}, null, 2)
     : outputConfigStr;
   const nextVersionNumber = latestPublishedVersion
     ? (latestPublishedVersion.version ?? 0) + 1
@@ -1371,7 +1356,7 @@ export function ProgramsPageView({
     (currentSecretConfigStr === null
       ? true
       : currentSecretConfigStr !== workingSecretConfigStr) ||
-    files.length !== (workingVersion?.program_file.length ?? 0) ||
+    files.length !== (workingVersion?.programFiles.length ?? 0) ||
     files.some(
       (file) => workingFileContentByName.get(file.filename) !== file.content,
     );
@@ -1390,7 +1375,7 @@ export function ProgramsPageView({
     (currentSecretConfigStr === null
       ? true
       : currentSecretConfigStr !== latestSecretConfigStr) ||
-    files.length !== (latestPublishedVersion?.program_file.length ?? 0) ||
+    files.length !== (latestPublishedVersion?.programFiles.length ?? 0) ||
     files.some(
       (file) => latestFileContentByName.get(file.filename) !== file.content,
     );
@@ -1406,12 +1391,12 @@ export function ProgramsPageView({
             : null;
   const fields = visibleVersion
     ? buildFieldsFromSchema(
-        visibleVersion.input_schema as Record<string, unknown>,
+        visibleVersion.inputSchema as Record<string, unknown>,
       )
     : [];
   const hasManualInput =
     (
-      (visibleVersion?.output_config as Record<string, unknown> | undefined)
+      (visibleVersion?.outputConfig as Record<string, unknown> | undefined)
         ?.flags as Record<string, unknown> | undefined
     )?.allowManualInput === true;
   const isWorkspaceDropzoneVisible = workspaceDragDepth > 0;
@@ -1484,12 +1469,12 @@ export function ProgramsPageView({
     }
 
     if (workingVersion) {
-      const nextFiles = normalizeProgramFiles(workingVersion.program_file);
+      const nextFiles = normalizeProgramFiles(workingVersion.programFiles);
 
       setProgName(selectedProgram?.name ?? "Untitled Program");
       setFiles(nextFiles);
       setSecretConfigDraft(
-        createEditableProgramSecretDeclarations(workingVersion.secret_config),
+        createEditableProgramSecretDeclarations(workingVersion.secretConfig),
       );
       setActiveFile(nextFiles[0]?.filename ?? null);
       setOpenTabs(
@@ -1499,8 +1484,8 @@ export function ProgramsPageView({
             ]
           : [],
       );
-      setInputSchemaStr(JSON.stringify(workingVersion.input_schema, null, 2));
-      setOutputConfigStr(JSON.stringify(workingVersion.output_config, null, 2));
+      setInputSchemaStr(JSON.stringify(workingVersion.inputSchema, null, 2));
+      setOutputConfigStr(JSON.stringify(workingVersion.outputConfig, null, 2));
       return;
     }
 
@@ -1619,6 +1604,7 @@ export function ProgramsPageView({
 
       try {
         const savedBindings = await updateProgramSecretBindings(
+          sdk,
           selectedProgram.id,
           secretBindingMapToEntries(nextBindings),
         );
@@ -1641,6 +1627,7 @@ export function ProgramsPageView({
     },
     [
       programSecretBindings,
+      sdk,
       selectedProgram,
     ],
   );
@@ -1734,10 +1721,7 @@ export function ProgramsPageView({
   const upsertProgramVersion = useCallback(
     (
       programId: string,
-      nextVersion: ProgramVersionRow & {
-        files?: ProgramFileRow[];
-        program_file?: ProgramFileRow[];
-      },
+      nextVersion: ProgramVersionMutation | ProgramVersionWithFiles,
     ) => {
       const normalizedVersion = normalizeProgramVersionMutation(nextVersion);
 
@@ -1747,13 +1731,13 @@ export function ProgramsPageView({
             program.id === programId
               ? {
                   ...program,
-                  program_version: [
-                    ...program.program_version.filter(
+                  programVersions: [
+                    ...program.programVersions.filter(
                       (version) => version.id !== normalizedVersion.id,
                     ),
                     normalizedVersion,
                   ],
-                  updated_at: normalizedVersion.updated_at,
+                  updatedAt: normalizedVersion.updatedAt,
                 }
               : program,
           ),
@@ -1778,7 +1762,7 @@ export function ProgramsPageView({
               ? {
                   ...program,
                   name,
-                  updated_at: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
                 }
               : program,
           ),
@@ -1866,7 +1850,7 @@ export function ProgramsPageView({
     updateSelectedProgramName(nextName);
 
     try {
-      const updated = await renameProgram(selectedProgram.id, nextName);
+      const updated = await renameProgram(sdk, selectedProgram.id, nextName);
 
       updateSelectedProgramName(updated.name);
       setProgName(updated.name);
@@ -1879,6 +1863,7 @@ export function ProgramsPageView({
     }
   }, [
     progName,
+    sdk,
     selectedProgram,
     updateSelectedProgramName,
   ]);
@@ -1892,23 +1877,23 @@ export function ProgramsPageView({
 
     try {
       const sourceFiles = normalizeProgramFiles(
-        selectedHistoricalVersion.program_file,
+        selectedHistoricalVersion.programFiles,
       );
       const { version } = await actions.createDraftVersion(
         selectedProgram.id,
-        selectedHistoricalVersion.input_schema,
-        selectedHistoricalVersion.output_config,
+        selectedHistoricalVersion.inputSchema,
+        selectedHistoricalVersion.outputConfig,
         sourceFiles,
         normalizeStoredProgramSecretConfig(
-          selectedHistoricalVersion.secret_config,
+          selectedHistoricalVersion.secretConfig,
         ),
       );
       const persistedDraft = upsertProgramVersion(selectedProgram.id, version);
-      const nextFiles = normalizeProgramFiles(persistedDraft.program_file);
+      const nextFiles = normalizeProgramFiles(persistedDraft.programFiles);
 
       setFiles(nextFiles);
       setSecretConfigDraft(
-        createEditableProgramSecretDeclarations(persistedDraft.secret_config),
+        createEditableProgramSecretDeclarations(persistedDraft.secretConfig),
       );
       setActiveFile(nextFiles[0]?.filename ?? null);
       setOpenTabs(
@@ -1918,8 +1903,8 @@ export function ProgramsPageView({
             ]
           : [],
       );
-      setInputSchemaStr(JSON.stringify(persistedDraft.input_schema, null, 2));
-      setOutputConfigStr(JSON.stringify(persistedDraft.output_config, null, 2));
+      setInputSchemaStr(JSON.stringify(persistedDraft.inputSchema, null, 2));
+      setOutputConfigStr(JSON.stringify(persistedDraft.outputConfig, null, 2));
       setSelectedVersionView("current");
       setResult(null);
 
@@ -2464,6 +2449,7 @@ export function ProgramsPageView({
 
       if (nextName !== selectedProgram.name) {
         const updatedProgram = await renameProgram(
+          sdk,
           selectedProgram.id,
           nextName,
         );
@@ -2553,7 +2539,7 @@ export function ProgramsPageView({
     setCreateError(null);
 
     try {
-      const { programId } = await createDefaultProgram();
+      const { programId } = await createDefaultProgram(sdk);
       router.push(`/programs/${programId}`);
     } catch (error) {
       setCreateError(error instanceof Error ? error.message : String(error));
@@ -2561,6 +2547,7 @@ export function ProgramsPageView({
     }
   }, [
     router,
+    sdk,
   ]);
 
   if (!isEditorRoute) {
@@ -2710,14 +2697,14 @@ export function ProgramsPageView({
                             </span>
                             <span>
                               {DATE_FORMATTER.format(
-                                new Date(program.updated_at),
+                                new Date(program.updatedAt),
                               )}
                             </span>
                           </>
                         }
                         descriptionClassName="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500"
                         icon={
-                          program.first_party ? (
+                          program.firstParty ? (
                             <SparklesIcon className="h-4 w-4 text-orange-600" />
                           ) : (
                             <CodeBracketIcon className="h-4 w-4 text-taupe-500" />
@@ -2728,7 +2715,7 @@ export function ProgramsPageView({
                           visibleLatestVersion ? (
                             <span className="font-mono text-[11px] text-taupe-500">
                               {countLabel(
-                                visibleLatestVersion.program_file.length,
+                                visibleLatestVersion.programFiles.length,
                                 "file",
                               )}
                             </span>
@@ -3053,7 +3040,7 @@ export function ProgramsPageView({
                   />
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {selectedProgram?.first_party ? (
+                    {selectedProgram?.firstParty ? (
                       <MarbleBadge
                         caps
                         tone="info"
@@ -3746,7 +3733,7 @@ export function ProgramsPageView({
 
               <MarbleWorkbenchSection
                 actions={
-                  selectedProgram?.first_party ? (
+                  selectedProgram?.firstParty ? (
                     <MarbleBadge
                       caps
                       tone="warning"

@@ -6,6 +6,7 @@ import type {
   DbUpdate,
   Entity,
   ListParams,
+  MarbleStoreOptions,
   ResourceActions,
   ResourceContext,
   TableWithIdName,
@@ -23,6 +24,8 @@ export type ResourceDeps = {
   actions: ResourceActions;
   context: ResourceContext;
   db: SupabaseDb;
+  serviceSupabase?: SupabaseClient;
+  supabase: SupabaseClient;
 };
 
 export type ListOrder<T extends TableWithIdName> = {
@@ -100,6 +103,8 @@ type SupabaseDb = {
     where?: ListParams<T>,
   ) => Promise<Entity<T>>;
 };
+
+const SUPABASE_SELECT_PAGE_SIZE = 1000;
 
 const throwSupabaseError = (
   error: {
@@ -272,32 +277,52 @@ const createSupabaseDb = (
     }),
   list: async (tableName, where = {}, options = {}) =>
     timeDbCall(context, `db_list_${tableName}`, async () => {
-      const request = supabase
-        .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
-          tableName,
-        )
-        .select<"*", DbRow<typeof tableName>>("*");
+      const rows: DbRow<typeof tableName>[] = [];
+      const requestedLimit = options.limit ?? Number.POSITIVE_INFINITY;
 
-      const match = toSupabaseMatch(where);
-      let filteredRequest =
-        Object.keys(match).length === 0 ? request : request.match(match);
-
-      for (const order of options.orderBy ?? []) {
-        filteredRequest = filteredRequest.order(
-          toSnakeKey(order.column) as never,
-          {
-            ascending: order.ascending ?? true,
-          },
+      for (let from = 0; rows.length < requestedLimit; ) {
+        const pageSize = Math.min(
+          SUPABASE_SELECT_PAGE_SIZE,
+          requestedLimit - rows.length,
         );
+        const request = supabase
+          .from<
+            typeof tableName,
+            Database["public"]["Tables"][typeof tableName]
+          >(tableName)
+          .select<"*", DbRow<typeof tableName>>("*");
+
+        const match = toSupabaseMatch(where);
+        let filteredRequest =
+          Object.keys(match).length === 0 ? request : request.match(match);
+
+        for (const order of options.orderBy ?? []) {
+          filteredRequest = filteredRequest.order(
+            toSnakeKey(order.column) as never,
+            {
+              ascending: order.ascending ?? true,
+            },
+          );
+        }
+
+        const { data, error } = await filteredRequest.range(
+          from,
+          from + pageSize - 1,
+        );
+
+        throwSupabaseError(error);
+
+        const page = data ?? [];
+        rows.push(...page);
+
+        if (page.length < pageSize) {
+          break;
+        }
+
+        from += pageSize;
       }
 
-      const { data, error } = await (options.limit === undefined
-        ? filteredRequest
-        : filteredRequest.limit(options.limit));
-
-      throwSupabaseError(error);
-
-      return (data ?? []).map((row) => toCamelKeys(row));
+      return rows.map((row) => toCamelKeys(row));
     }),
   update: async (tableName, id, values, where) =>
     timeDbCall(context, `db_update_${tableName}`, async () => {
@@ -323,13 +348,12 @@ const createSupabaseDb = (
 export const createResourceDeps = ({
   actions = {},
   context,
+  serviceSupabase,
   supabase,
-}: {
-  actions?: ResourceActions;
-  context: ResourceContext;
-  supabase: SupabaseClient;
-}): ResourceDeps => ({
+}: MarbleStoreOptions): ResourceDeps => ({
   actions,
   context,
   db: createSupabaseDb(supabase, context),
+  serviceSupabase,
+  supabase,
 });

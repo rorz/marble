@@ -13,5 +13,3 @@ export function readCliEnv(runtimeEnv: Record<string, string | undefined>) {
     server,
   });
 }
-
-type CliEnv = ReturnType<typeof readCliEnv>;

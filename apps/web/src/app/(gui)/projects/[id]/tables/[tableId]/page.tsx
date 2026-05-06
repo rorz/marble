@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "../../../../../../lib/auth";
-import * as actions from "../../../../tables/[id]/actions";
+import { loadTablePageDataForUser } from "../../../../tables/[id]/actions";
 import TablePageView from "../../../../tables/[id]/view";
 
 export default async function ProjectTablePage(props: {
@@ -9,14 +9,14 @@ export default async function ProjectTablePage(props: {
     tableId: string;
   }>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const { tableId } = await props.params;
   let tablePageData: Awaited<
-    ReturnType<typeof actions.loadTablePageData>
+    ReturnType<typeof loadTablePageDataForUser>
   > | null = null;
 
   try {
-    tablePageData = await actions.loadTablePageData(tableId);
+    tablePageData = await loadTablePageDataForUser(user.id, tableId);
   } catch {
     tablePageData = null;
   }

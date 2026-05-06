@@ -1,15 +1,9 @@
 import { MarblePane } from "@marble/ui";
-import { requireUser } from "../../../lib/auth";
-import { listProjectSummariesForUser } from "../../../lib/project-data";
-import { listOwnedProfileIds } from "../../../lib/supabase/service-role";
+import { listProjectIndexData } from "../../../lib/project-data";
 import { ProjectsPageView } from "./view";
 
 export default async function ProjectsPage() {
-  const user = await requireUser();
-  const [projects, ownerProfileIds] = await Promise.all([
-    listProjectSummariesForUser(user.id),
-    listOwnedProfileIds(user.id),
-  ]);
+  const { ownerProfileIds, projects, userId } = await listProjectIndexData();
 
   return (
     <MarblePane
@@ -23,7 +17,7 @@ export default async function ProjectsPage() {
       <ProjectsPageView
         initialProjects={projects}
         ownerProfileIds={ownerProfileIds}
-        userId={user.id}
+        userId={userId}
       />
     </MarblePane>
   );

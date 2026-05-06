@@ -1,6 +1,5 @@
 "use client";
 
-import type { Database } from "@marble/supabase";
 import {
   MarbleAlert,
   MarbleBadge,
@@ -28,7 +27,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
-import { sourceEventFromDatabaseRow } from "../../../../../lib/marble-resources";
+import { sourceEventFromBroadcastRow } from "../../../../../lib/marble-resources";
 import { useMarbleSdk } from "../../../../../lib/marble-sdk-client";
 import {
   buildPipeMappingSummary,
@@ -43,7 +42,6 @@ import {
 } from "../../../change-spotlight";
 import * as actions from "./actions";
 
-type SourceEventRecord = Database["public"]["Tables"]["source_event"]["Row"];
 type Source = ProjectSourceWorkspaceData["sources"][number];
 type PipeMappingInput = {
   columnId: string;
@@ -784,7 +782,7 @@ export function ProjectSourceDetailPageView({
         return;
       }
 
-      const nextEvent = sourceEventFromDatabaseRow(record as SourceEventRecord);
+      const nextEvent = sourceEventFromBroadcastRow(record);
 
       if (nextEvent.sourceId !== currentSourceId) {
         return;

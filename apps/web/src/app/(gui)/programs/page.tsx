@@ -1,8 +1,10 @@
-import * as actions from "./actions";
+import { requireUser } from "../../../lib/auth";
+import { loadProgramsPageDataForUser } from "./actions";
 import { ProgramsPageView } from "./view";
 
 export default async function ProgramsPage() {
-  const pageData = await actions.loadProgramsPageData();
+  const user = await requireUser();
+  const pageData = await loadProgramsPageDataForUser(user.id);
 
   return (
     <ProgramsPageView

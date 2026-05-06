@@ -1,5 +1,5 @@
+import { toCamelKeys } from "@marble/lib/object";
 import type { MarbleClient } from "@marble/sdk";
-import type { Database } from "@marble/supabase";
 
 export type MarbleProject = Awaited<
   ReturnType<MarbleClient["projects"]["get"]>
@@ -35,31 +35,14 @@ export type ProjectInputColumn = {
   tableName: string;
 };
 
-type ProjectRow = Database["public"]["Tables"]["project"]["Row"];
-type SourceRow = Database["public"]["Tables"]["source"]["Row"];
-type SourceEventRow = Database["public"]["Tables"]["source_event"]["Row"];
-type PipeRow = Database["public"]["Tables"]["pipe"]["Row"];
-type TableRow = Database["public"]["Tables"]["table"]["Row"];
+type BroadcastRow = Record<string, unknown>;
 
-export function projectFromDatabaseRow(row: ProjectRow): MarbleProject {
-  return {
-    createdAt: row.created_at,
-    folderPath: row.folder_path,
-    id: row.id,
-    name: row.name,
-    ownerProfileId: row.owner_profile_id,
-    updatedAt: row.updated_at,
-  };
+export function projectFromBroadcastRow(row: BroadcastRow): MarbleProject {
+  return toCamelKeys(row) as MarbleProject;
 }
 
-export function tableFromDatabaseRow(row: TableRow): MarbleTable {
-  return {
-    createdAt: row.created_at,
-    id: row.id,
-    name: row.name,
-    projectId: row.project_id,
-    updatedAt: row.updated_at,
-  };
+export function tableFromBroadcastRow(row: BroadcastRow): MarbleTable {
+  return toCamelKeys(row) as MarbleTable;
 }
 
 export function projectTableFromSdkTable(
@@ -73,39 +56,16 @@ export function projectTableFromSdkTable(
   };
 }
 
-export function sourceFromDatabaseRow(row: SourceRow): MarbleSource {
-  return {
-    createdAt: row.created_at,
-    id: row.id,
-    name: row.name,
-    payloadSchema: row.payload_schema,
-    projectId: row.project_id,
-    updatedAt: row.updated_at,
-    webhookToken: row.webhook_token,
-  };
+export function sourceFromBroadcastRow(row: BroadcastRow): MarbleSource {
+  return toCamelKeys(row) as MarbleSource;
 }
 
-export function sourceEventFromDatabaseRow(
-  row: SourceEventRow,
+export function sourceEventFromBroadcastRow(
+  row: BroadcastRow,
 ): MarbleSourceEvent {
-  return {
-    createdAt: row.created_at,
-    id: row.id,
-    parsedPayload: row.parsed_payload,
-    parseError: row.parse_error,
-    projectId: row.project_id,
-    rawPayload: row.raw_payload,
-    sourceId: row.source_id,
-  };
+  return toCamelKeys(row) as MarbleSourceEvent;
 }
 
-export function pipeFromDatabaseRow(row: PipeRow): MarblePipe {
-  return {
-    createdAt: row.created_at,
-    id: row.id,
-    mappings: row.mappings as MarblePipe["mappings"],
-    sourceId: row.source_id,
-    tableId: row.table_id,
-    updatedAt: row.updated_at,
-  };
+export function pipeFromBroadcastRow(row: BroadcastRow): MarblePipe {
+  return toCamelKeys(row) as MarblePipe;
 }

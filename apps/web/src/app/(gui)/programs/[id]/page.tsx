@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import * as actions from "../actions";
+import { requireUser } from "../../../../lib/auth";
+import { loadProgramsPageDataForUser } from "../actions";
 import { ProgramsPageView } from "../view";
 
 export default async function ProgramPage(props: {
@@ -7,8 +8,9 @@ export default async function ProgramPage(props: {
     id: string;
   }>;
 }) {
+  const user = await requireUser();
   const { id } = await props.params;
-  const pageData = await actions.loadProgramsPageData();
+  const pageData = await loadProgramsPageDataForUser(user.id);
 
   if (!pageData.programs.some((program) => program.id === id)) {
     notFound();

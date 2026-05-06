@@ -16,24 +16,6 @@ export function createServiceRoleClient(headers?: Record<string, string>) {
   });
 }
 
-async function resolveOwnedProfileId(userId: string) {
-  const { data, error } = await createServiceRoleClient()
-    .from("profile")
-    .select("id")
-    .eq("owner_user_id", userId)
-    .order("created_at", {
-      ascending: true,
-    })
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) {
-    throw new Error("Could not find profile for user");
-  }
-
-  return data.id;
-}
-
 export async function maybeResolveOwnedProfileId(userId: string) {
   const { data, error } = await createServiceRoleClient()
     .from("profile")
@@ -50,20 +32,4 @@ export async function maybeResolveOwnedProfileId(userId: string) {
   }
 
   return data?.id;
-}
-
-export async function listOwnedProfileIds(userId: string) {
-  const { data, error } = await createServiceRoleClient()
-    .from("profile")
-    .select("id")
-    .eq("owner_user_id", userId)
-    .order("created_at", {
-      ascending: true,
-    });
-
-  if (error) {
-    throw error;
-  }
-
-  return (data ?? []).map((profile) => profile.id);
 }

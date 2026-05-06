@@ -1,5 +1,7 @@
 "use client";
 
+import { toCamelKeys } from "@marble/lib/object";
+import type { MarbleClient } from "@marble/sdk";
 import {
   cx,
   MarbleAlert,
@@ -39,7 +41,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { callMarbleClient } from "../../../lib/marble-client";
+import { useMarbleApiSdk } from "../../../lib/marble-sdk-client";
 import {
   createBroadcastMutationGuard,
   type DeleteMutation,
@@ -47,7 +49,7 @@ import {
 } from "../../../lib/realtime/broadcast-mutations";
 import { usePrivateBroadcast } from "../../../lib/realtime/private-broadcast";
 import {
-  compareByCreatedAtDesc,
+  compareByCreatedAtCamelDesc,
   getErrorMessage,
   isOptimisticId,
   makeOptimisticId,
@@ -73,8 +75,8 @@ const CREATED_AT_FORMATTER = new Intl.DateTimeFormat("en-GB", {
 });
 const VISIBLE_KEY_COUNT = 3;
 type ProfileMutation =
-  | DeleteMutation<"profile:delete", ProfileRecord>
-  | UpsertMutation<"profile:upsert", ProfileRecord>;
+  | DeleteMutation<"profile:delete", Record<string, unknown>>
+  | UpsertMutation<"profile:upsert", Record<string, unknown>>;
 
 const isProfileMutation = createBroadcastMutationGuard<ProfileMutation>({
   "profile:delete": true,
@@ -92,7 +94,7 @@ function readProfileDraft(formData: FormData) {
   }
 
   return {
-    external_name:
+    externalName:
       typeof externalNameValue === "string" && externalNameValue.trim()
         ? externalNameValue.trim()
         : null,
@@ -101,52 +103,42 @@ function readProfileDraft(formData: FormData) {
         ? iconValue.trim()
         : DEFAULT_AGENT_PROFILE_ICON,
     name,
-  } satisfies Pick<ProfileRecord, "external_name" | "icon" | "name">;
+  } satisfies Pick<ProfileRecord, "externalName" | "icon" | "name">;
 }
 
-function profileDraftToApiBody(draft: ReturnType<typeof readProfileDraft>) {
-  return {
-    externalName: draft.external_name,
-    icon: draft.icon,
-    name: draft.name,
-  };
-}
-
-function createProfile(draft: ReturnType<typeof readProfileDraft>) {
-  return callMarbleClient<ProfileRecord>("/profiles", {
-    body: {
-      ...profileDraftToApiBody(draft),
-      type: "Agent",
-    },
-    method: "POST",
+function createProfile(
+  sdk: MarbleClient,
+  draft: ReturnType<typeof readProfileDraft>,
+) {
+  return sdk.profiles.create({
+    ...draft,
+    type: "Agent",
   });
 }
 
 function updateProfile(
+  sdk: MarbleClient,
   profileId: string,
   draft: ReturnType<typeof readProfileDraft>,
 ) {
-  return callMarbleClient<ProfileRecord>(`/profiles/${profileId}`, {
-    body: profileDraftToApiBody(draft),
-    method: "PATCH",
+  return sdk.profiles.update({
+    id: profileId,
+    values: draft,
   });
 }
 
-function deleteProfile(profileId: string) {
-  return callMarbleClient(`/profiles/${profileId}`, {
-    method: "DELETE",
+function deleteProfile(sdk: MarbleClient, profileId: string) {
+  return sdk.profiles.delete({
+    id: profileId,
   });
 }
 
-async function createProfileKey(profile: ManagedProfileRecord) {
-  const created = await callMarbleClient<{
-    key: ProfileKeyRecord;
-    token: string;
-  }>("/keys", {
-    body: {
-      ownerProfileId: profile.id,
-    },
-    method: "POST",
+async function createProfileKey(
+  sdk: MarbleClient,
+  profile: ManagedProfileRecord,
+) {
+  const created = await sdk.keys.create({
+    ownerProfileId: profile.id,
   });
 
   return {
@@ -157,23 +149,23 @@ async function createProfileKey(profile: ManagedProfileRecord) {
   };
 }
 
-async function revokeProfileKey(keyId: string) {
-  await callMarbleClient(`/keys/${keyId}`, {
-    method: "DELETE",
+async function revokeProfileKey(sdk: MarbleClient, keyId: string) {
+  const revoked = await sdk.keys.revoke({
+    id: keyId,
   });
 
   return {
     id: keyId,
-    revokedAt: new Date().toISOString(),
+    revokedAt: revoked.deletedAt ?? new Date().toISOString(),
   };
 }
 
 function compareByCreatedAtAsc(
-  left: Pick<ProfileRecord, "created_at">,
-  right: Pick<ProfileRecord, "created_at">,
+  left: Pick<ProfileRecord, "createdAt">,
+  right: Pick<ProfileRecord, "createdAt">,
 ) {
   return (
-    new Date(left.created_at).getTime() - new Date(right.created_at).getTime()
+    new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
   );
 }
 
@@ -195,14 +187,14 @@ function upsertProfile(
           ...profile,
           keys: existing?.keys ?? [],
         },
-    compareByCreatedAtDesc,
+    compareByCreatedAtCamelDesc,
   );
 }
 
 function upsertProfileKey(keys: ProfileKeyRecord[], key: ProfileKeyRecord) {
   return sortRows(
-    upsertRow(keys, key, compareByCreatedAtDesc),
-    compareByCreatedAtDesc,
+    upsertRow(keys, key, compareByCreatedAtCamelDesc),
+    compareByCreatedAtCamelDesc,
   );
 }
 
@@ -352,19 +344,19 @@ function ProfileSummary({
           >
             {profile.type}
           </MarbleBadge>
-          {profile.external_name ? (
+          {profile.externalName ? (
             <MarbleBadge
               caps
               tone="warning"
             >
-              {profile.external_name}
+              {profile.externalName}
             </MarbleBadge>
           ) : null}
           {extraBadges}
         </div>
         <MarbleCardDescription className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           <span>
-            Created {CREATED_AT_FORMATTER.format(new Date(profile.created_at))}
+            Created {CREATED_AT_FORMATTER.format(new Date(profile.createdAt))}
           </span>
           <span>
             {profile.keys.length} key{profile.keys.length === 1 ? "" : "s"}
@@ -402,9 +394,9 @@ function KeyList({
             <MarbleListRow
               align="start"
               aside={
-                key.deleted_at ? null : (
+                key.deletedAt ? null : (
                   <MarbleButton
-                    disabled={Boolean(key.deleted_at || revokingKeyId)}
+                    disabled={Boolean(key.deletedAt || revokingKeyId)}
                     onClick={() => onRevokeKey(key)}
                     size="xs"
                     type="button"
@@ -418,12 +410,12 @@ function KeyList({
                 <div className="flex flex-wrap gap-x-3 gap-y-1">
                   <span>
                     Created{" "}
-                    {CREATED_AT_FORMATTER.format(new Date(key.created_at))}
+                    {CREATED_AT_FORMATTER.format(new Date(key.createdAt))}
                   </span>
-                  {key.deleted_at ? (
+                  {key.deletedAt ? (
                     <span>
                       Revoked{" "}
-                      {CREATED_AT_FORMATTER.format(new Date(key.deleted_at))}
+                      {CREATED_AT_FORMATTER.format(new Date(key.deletedAt))}
                     </span>
                   ) : null}
                 </div>
@@ -433,9 +425,9 @@ function KeyList({
               meta={
                 <MarbleBadge
                   caps
-                  tone={key.deleted_at ? "error" : "success"}
+                  tone={key.deletedAt ? "error" : "success"}
                 >
-                  {key.deleted_at ? "Revoked" : "Active"}
+                  {key.deletedAt ? "Revoked" : "Active"}
                 </MarbleBadge>
               }
               size="sm"
@@ -678,6 +670,7 @@ export function ProfilesPageView({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const sdk = useMarbleApiSdk();
   const createFormRef = useRef<HTMLFormElement>(null);
   const [profiles, setProfiles] = useState(initialProfiles);
   const [optimisticProfiles, addOptimisticProfile] = useOptimistic(
@@ -720,10 +713,13 @@ export function ProfilesPageView({
           case "profile:delete":
             return removeRow(current, mutation.id);
 
-          case "profile:upsert":
-            return mutation.row.owner_user_id === userId
-              ? upsertProfile(current, mutation.row)
+          case "profile:upsert": {
+            const profile = toCamelKeys(mutation.row) as ProfileRecord;
+
+            return profile.ownerUserId === userId
+              ? upsertProfile(current, profile)
               : current;
+          }
         }
       });
     },
@@ -776,20 +772,20 @@ export function ProfilesPageView({
     }
 
     addOptimisticProfile({
-      created_at: new Date().toISOString(),
-      external_name: draft.external_name,
+      createdAt: new Date().toISOString(),
+      externalName: draft.externalName,
       icon: draft.icon,
       id: makeOptimisticId(),
       keys: [],
       name: draft.name,
-      owner_user_id: userId,
+      ownerUserId: userId,
       type: "Agent",
-      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     });
     setCreatePending(true);
     setError(null);
 
-    void createProfile(draft)
+    void createProfile(sdk, draft)
       .then((createdProfile) => {
         setProfiles((current) => upsertProfile(current, createdProfile));
         setIsCreateModalOpen(false);
@@ -820,7 +816,7 @@ export function ProfilesPageView({
     setError(null);
 
     try {
-      const updatedProfile = await updateProfile(profileId, draft);
+      const updatedProfile = await updateProfile(sdk, profileId, draft);
       setProfiles((current) => upsertProfile(current, updatedProfile));
       closeEditModal();
     } catch (caughtError) {
@@ -843,7 +839,7 @@ export function ProfilesPageView({
     setError(null);
 
     try {
-      await deleteProfile(profile.id);
+      await deleteProfile(sdk, profile.id);
       setProfiles((current) => removeRow(current, profile.id));
       setEditingId((current) => (current === profile.id ? null : current));
     } catch (caughtError) {
@@ -858,7 +854,7 @@ export function ProfilesPageView({
     setError(null);
 
     try {
-      const created = await createProfileKey(profile);
+      const created = await createProfileKey(sdk, profile);
       setProfiles((current) =>
         current.map((entry) =>
           entry.id === created.profileId
@@ -913,7 +909,7 @@ export function ProfilesPageView({
     setError(null);
 
     try {
-      const revoked = await revokeProfileKey(key.id);
+      const revoked = await revokeProfileKey(sdk, key.id);
       setProfiles((current) =>
         current.map((entry) =>
           entry.id === profile.id
@@ -923,7 +919,7 @@ export function ProfilesPageView({
                   entryKey.id === key.id
                     ? {
                         ...entryKey,
-                        deleted_at: revoked.revokedAt,
+                        deletedAt: revoked.revokedAt,
                       }
                     : entryKey,
                 ),
@@ -943,7 +939,7 @@ export function ProfilesPageView({
   ].sort(compareByCreatedAtAsc);
   const agentProfiles = sortRows(
     optimisticProfiles.filter((profile) => profile.type === "Agent"),
-    compareByCreatedAtDesc,
+    compareByCreatedAtCamelDesc,
   );
   const primaryHumanProfile = humanProfiles[0] ?? null;
   const additionalHumanProfiles = humanProfiles.slice(1);
@@ -1023,7 +1019,7 @@ export function ProfilesPageView({
             savingId === editingProfile.id ? "Saving changes" : "Save changes"
           }
           defaults={{
-            externalName: editingProfile.external_name,
+            externalName: editingProfile.externalName,
             name: editingProfile.name,
           }}
           description="Adjust the name, provider label, or icon shown for this agent profile."

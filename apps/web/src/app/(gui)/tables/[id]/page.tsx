@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "../../../../lib/auth";
-import * as actions from "./actions";
+import { loadTablePageDataForUser } from "./actions";
 import TablePageView from "./view";
 
 export default async function TablePage(props: {
@@ -8,14 +8,14 @@ export default async function TablePage(props: {
     id: string;
   }>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const { id } = await props.params;
   let tablePageData: Awaited<
-    ReturnType<typeof actions.loadTablePageData>
+    ReturnType<typeof loadTablePageDataForUser>
   > | null = null;
 
   try {
-    tablePageData = await actions.loadTablePageData(id);
+    tablePageData = await loadTablePageDataForUser(user.id, id);
   } catch {
     tablePageData = null;
   }

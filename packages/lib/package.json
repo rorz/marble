@@ -1,6 +1,7 @@
 {
   "exports": {
     "./assert": "./assert/index.ts",
+    "./object": "./object/index.ts",
     "./string": "./string/index.ts"
   },
   "name": "@marble/lib",

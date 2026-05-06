@@ -8,11 +8,10 @@ type CurrentUser = {
 
 export async function getCurrentUser() {
   const supabase = await createClient();
-  const { data: claimsData, error: claimsError } =
-    await supabase.auth.getClaims();
-  const userId = claimsData?.claims?.sub;
+  const { data, error } = await supabase.auth.getUser();
+  const userId = data.user?.id;
 
-  if (claimsError || !userId) {
+  if (error || !userId) {
     return null;
   }
 

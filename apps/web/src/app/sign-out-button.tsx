@@ -47,21 +47,3 @@ export function useSignOut() {
     signOut,
   };
 }
-
-function SignOutButton() {
-  const { error, pending, signOut } = useSignOut();
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <button
-        className="rounded border border-stone-300 px-3 py-2 text-sm text-stone-900 transition hover:bg-stone-100 disabled:cursor-not-allowed disabled:opacity-50"
-        disabled={pending}
-        onClick={() => void signOut()}
-        type="button"
-      >
-        {pending ? "Signing out..." : "Sign out"}
-      </button>
-      {error ? <p className="text-red-500 text-xs">{error}</p> : null}
-    </div>
-  );
-}

@@ -108,6 +108,43 @@ Allowed operations:
 - `update` - Update mappings or move the pipe to another source/table pair in the same project.
 - `delete` - Delete a pipe.
 
+## programs
+
+Programs describe executable table-column behavior and include version/configuration context for editor surfaces.
+
+Allowed operations:
+
+- `create` - Create a user-owned program, optionally with an initial draft version.
+- `listForEditor` - List first-party programs and programs owned by the current user, including versions and files needed by the program and table-column editors.
+- `update` - Rename a user-owned program.
+
+Program lifecycle stays separate from file editing. Do not hide program-file mutations inside program or version array patches.
+
+## programVersions
+
+Program versions own input schema, output config, secret config, publish state, and test execution for a program version.
+
+Allowed operations:
+
+- `create` - Create a draft or published version for a program.
+- `update` - Update draft configuration or publish a draft version.
+- `test` - Execute a version through an injected runtime action without persisting a cell result.
+
+## programFiles
+
+Program files belong to a program version and hold editable runtime source/configuration content.
+
+Allowed operations:
+
+- `create` - Create a file on an editable draft version.
+- `list` - List files for one or more readable versions.
+- `get` - Read one file.
+- `syncForVersion` - Reconcile the complete file set for an editable draft version.
+- `update` - Update filename, filetype, or content on an editable draft version.
+- `delete` - Delete a file from an editable draft version.
+
+Program files are a first-class resource because the editor mutates files directly. Keeping them behind top-level program or version patches makes ownership and update intent ambiguous.
+
 ## rows
 
 Rows belong to tables. Row lifecycle owns cell materialization/deletion for that row, but user-facing row insertion should usually be exposed through table-owned actions.
@@ -129,6 +166,7 @@ Allowed operations:
 
 - `create` - Create a column and materialize cells for existing rows.
 - `list` - List columns by table.
+- `listReferenceable` - List current-user columns that can be used as reference/manual input targets in GUI editors.
 - `get` - Read one column.
 - `update` - Update column configuration.
 - `delete` - Delete a column and its cells.
@@ -149,3 +187,73 @@ Explicitly disallowed unless this document changes:
 - `cells.create()` - cells should be materialized by row, column, or table actions.
 - `cells.delete()` - cells should be deleted by row, column, or table lifecycle actions.
 - `cells.update()` - use named actions such as `setManualValue`.
+
+## secrets
+
+Secrets are user-owned Vault entries. Public reads return metadata only; plaintext values are write-only and must never be returned by SDK, API, CLI, or store metadata operations.
+
+Allowed operations:
+
+- `create` - Create a named secret and store the plaintext value in Vault.
+- `list` - List secret metadata for the current user.
+- `get` - Read one secret's metadata.
+- `update` - Rename a secret or replace its Vault value.
+- `delete` - Delete a secret and its Vault value.
+
+## secretBindings
+
+Secret bindings connect declared environment names to user-owned secret metadata for program and column editor surfaces. Binding values never expose plaintext secret values.
+
+Allowed operations:
+
+- `listPrograms` - List program secret bindings for one or more programs.
+- `setProgram` - Replace the bindings for a program.
+- `listColumns` - List column secret bindings for one or more columns.
+- `setColumn` - Replace the bindings for a column.
+
+Program bindings belong here rather than on `programs.update` because they update deployment/runtime configuration, not the program entity or version files. Column bindings belong here rather than `columns.update` for the same reason.
+
+## profiles
+
+Profiles are current-user actor identities used by API keys and profile-scoped resources.
+
+Allowed operations:
+
+- `create` - Create an agent profile for the current user.
+- `list` - List current-user profiles, optionally filtered by type.
+- `get` - Read one current-user profile.
+- `update` - Rename or edit a current-user agent profile.
+- `delete` - Delete a current-user agent profile.
+
+Human profile lifecycle is system-owned; user-facing profile deletion must stay restricted to agent profiles unless this document changes.
+
+## keys
+
+Keys are profile-owned API credentials. Public reads return key metadata only; token material is only returned at creation time.
+
+Allowed operations:
+
+- `create` - Create an API key for an owned profile and return the one-time token.
+- `list` - List key metadata for current-user profiles, optionally including deleted/revoked keys.
+- `revoke` - Revoke a key owned by a current-user profile.
+
+## events
+
+Events are current-user audit/activity feed records used by the GUI event feed and change radar.
+
+Allowed operations:
+
+- `listForCurrentUser` - List the current user's event feed, with filtering needed by GUI feed/radar surfaces.
+- `resolveTargets` - Resolve event target IDs to display metadata for rows, columns, and program versions.
+
+Event creation remains internal to resource actions and database triggers. Do not expose generic `events.create`.
+
+## sidebar
+
+Sidebar data is a current-user aggregate read for GUI navigation and command palette bootstrap.
+
+Allowed operations:
+
+- `getData` - Return current-user owner profile IDs, profile summaries, visible projects, programs, tables, sources, and pipes for sidebar rendering.
+
+This aggregate belongs on `sidebar` because it intentionally spans multiple resources for a single GUI bootstrap read; modelling it as child-resource CRUD would make the web app reassemble database joins itself.

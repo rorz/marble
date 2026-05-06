@@ -1,9 +1,9 @@
 import { MarblePane } from "@marble/ui";
-import * as actions from "./actions";
+import { listSecrets } from "./actions";
 import { SecretsPageView } from "./view";
 
 export default async function SecretsPage() {
-  const secrets = await actions.listSecrets();
+  const secrets = await listSecrets();
 
   return (
     <MarblePane

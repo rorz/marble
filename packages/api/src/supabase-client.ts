@@ -7,13 +7,17 @@ import { marbleRouter } from "./router";
 type SupabaseClientApiContextInput = {
   profileId: string;
   requestId?: string;
+  serviceSupabase?: SupabaseClient;
   supabase: SupabaseClient;
+  userId?: string;
 };
 
 export function createSupabaseClientApiContext({
   profileId,
   requestId,
+  serviceSupabase,
   supabase,
+  userId,
 }: SupabaseClientApiContextInput): ApiContext {
   const timings: ApiTimingEntry[] = [];
   const recordTiming = (name: string, durationMs: number) => {
@@ -24,17 +28,16 @@ export function createSupabaseClientApiContext({
   };
 
   return {
-    auth: {
-      profileId,
-      type: "supabase-client",
-    },
+    actor: null,
     recordTiming,
     requestId: requestId ?? crypto.randomUUID(),
     store: new MarbleStore({
       context: {
         profileId,
         recordTiming,
+        userId,
       },
+      serviceSupabase,
       supabase,
     }),
     timings,
@@ -64,10 +67,14 @@ async function resolveSupabaseClientProfileId(supabase: SupabaseClient) {
 
 export function createSupabaseClientRouterClient({
   profileId: explicitProfileId,
+  serviceSupabase,
   supabase,
+  userId,
 }: {
   profileId?: string;
+  serviceSupabase?: SupabaseClient;
   supabase: SupabaseClient;
+  userId?: string;
 }) {
   let profileId: Promise<string> | null = null;
   const getProfileId = () => {
@@ -83,7 +90,9 @@ export function createSupabaseClientRouterClient({
     context: async () =>
       createSupabaseClientApiContext({
         profileId: await getProfileId(),
+        serviceSupabase,
         supabase,
+        userId,
       }),
   });
 }

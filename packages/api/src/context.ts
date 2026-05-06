@@ -1,17 +1,32 @@
-import { getApiKeyTokenFromHeaders } from "@marble/keys";
+import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
 import { MarbleStore } from "@marble/store";
-import { createClient } from "@marble/supabase";
+import { createClient, type SupabaseClient } from "@marble/supabase";
 import { ORPCError } from "@orpc/server";
+import { createExecutorActions } from "./executor";
 
 export type MarbleApiConfig = {
+  executor?: {
+    transport?: {
+      fetch: (request: Request) => Promise<Response> | Response;
+    };
+    url: string;
+  };
   supabase: {
     publishableKey: string;
+    serviceRoleKey: string;
     url: string;
   };
 };
 
-type MarbleApiRuntime = {
+export type MarbleApiRuntime = {
+  executor?: {
+    transport?: {
+      fetch: (request: Request) => Promise<Response> | Response;
+    };
+    url: string;
+  };
   publishableKey: string;
+  serviceRoleKey: string;
   supabaseUrl: string;
 };
 
@@ -20,43 +35,45 @@ export type ApiTimingEntry = {
   name: string;
 };
 
-export type ApiAuth =
+export type ApiActor =
   | {
+      keyId: string;
       profileId: string;
-      type: "supabase-client";
+      type: "api-key";
+      userId: string;
     }
   | {
       accessToken: string;
       profileId: string;
-      type: "forwarded";
-      userId?: string;
-    }
-  | {
-      profileId: string;
-      type: "public-docs";
+      type: "supabase-session";
+      userId: string;
     };
 
 export type ApiContext = {
-  auth: ApiAuth;
+  actor: ApiActor | null;
   recordTiming: (name: string, durationMs: number) => void;
   requestId: string;
+  runtime?: MarbleApiRuntime;
   store: MarbleStore;
   timings: ApiTimingEntry[];
 };
 
 const OPENAPI_DOCS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
-type ForwardedApiAuth = Extract<
-  ApiAuth,
-  {
-    type: "forwarded";
-  }
->;
 
 export function createMarbleApiRuntime(
   config: MarbleApiConfig,
 ): MarbleApiRuntime {
   return {
+    ...(config.executor
+      ? {
+          executor: {
+            transport: config.executor.transport,
+            url: config.executor.url.replace(/\/$/, ""),
+          },
+        }
+      : {}),
     publishableKey: config.supabase.publishableKey,
+    serviceRoleKey: config.supabase.serviceRoleKey,
     supabaseUrl: config.supabase.url,
   };
 }
@@ -79,11 +96,12 @@ function getBearerToken(request: Request) {
   return credentials.trim();
 }
 
-function requireForwardedAuth(request: Request): ForwardedApiAuth {
+function requireSupabaseSessionActor(request: Request): ApiActor {
   const profileId = request.headers.get("x-marble-auth-profile-id")?.trim();
+  const userId = request.headers.get("x-marble-auth-user-id")?.trim();
   const accessToken = getBearerToken(request);
 
-  if (!profileId || !accessToken) {
+  if (!profileId || !userId || !accessToken) {
     throw new ORPCError("UNAUTHORIZED", {
       message: "Missing Marble auth context.",
     });
@@ -92,27 +110,54 @@ function requireForwardedAuth(request: Request): ForwardedApiAuth {
   return {
     accessToken,
     profileId,
-    type: "forwarded",
-    userId: request.headers.get("x-marble-auth-user-id")?.trim() || undefined,
+    type: "supabase-session",
+    userId,
   };
 }
 
-function resolveApiAuth(request: Request): ForwardedApiAuth {
-  const token = getApiKeyTokenFromHeaders(request.headers);
+async function requireApiKeyActor(
+  serviceSupabase: SupabaseClient,
+  token: string,
+): Promise<ApiActor> {
+  const keyAuth = await resolveApiKeyAuth(serviceSupabase, token);
+  const userId = keyAuth?.profile?.owner_user_id;
 
-  if (!token) {
-    return requireForwardedAuth(request);
+  if (!keyAuth || !userId) {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: "Invalid Marble API key.",
+    });
   }
 
-  throw new ORPCError("UNAUTHORIZED", {
-    message: "Marble API keys are not supported by this RLS-backed API yet.",
-  });
+  return {
+    keyId: keyAuth.id,
+    profileId: keyAuth.owner_profile_id,
+    type: "api-key",
+    userId,
+  };
 }
 
-function createForwardedSupabaseClient(
+async function resolveHostedApiActor(
+  request: Request,
+  serviceSupabase: SupabaseClient,
+): Promise<ApiActor> {
+  const token = getApiKeyTokenFromHeaders(request.headers);
+
+  if (token) {
+    return requireApiKeyActor(serviceSupabase, token);
+  }
+
+  return requireSupabaseSessionActor(request);
+}
+
+function createActorSupabaseClient(
   runtime: MarbleApiRuntime,
-  auth: ForwardedApiAuth,
+  serviceSupabase: SupabaseClient,
+  actor: ApiActor,
 ) {
+  if (actor.type === "api-key") {
+    return serviceSupabase;
+  }
+
   return createClient(runtime.supabaseUrl, runtime.publishableKey, {
     auth: {
       autoRefreshToken: false,
@@ -121,7 +166,7 @@ function createForwardedSupabaseClient(
     },
     global: {
       headers: {
-        Authorization: `Bearer ${auth.accessToken}`,
+        Authorization: `Bearer ${actor.accessToken}`,
       },
     },
   });
@@ -131,8 +176,12 @@ export async function createHostedApiContext(
   request: Request,
   runtime: MarbleApiRuntime,
 ): Promise<ApiContext> {
-  const auth = resolveApiAuth(request);
-  const supabase = createForwardedSupabaseClient(runtime, auth);
+  const serviceSupabase = createClient(
+    runtime.supabaseUrl,
+    runtime.serviceRoleKey,
+  );
+  const actor = await resolveHostedApiActor(request, serviceSupabase);
+  const supabase = createActorSupabaseClient(runtime, serviceSupabase, actor);
   const timings: ApiTimingEntry[] = [];
   const recordTiming = (name: string, durationMs: number) => {
     timings.push({
@@ -142,15 +191,19 @@ export async function createHostedApiContext(
   };
 
   return {
-    auth,
+    actor,
     recordTiming,
     requestId:
       request.headers.get("x-marble-request-id") ?? crypto.randomUUID(),
+    runtime,
     store: new MarbleStore({
+      actions: createExecutorActions(runtime, actor, request),
       context: {
-        profileId: auth.profileId,
+        profileId: actor.profileId,
         recordTiming,
+        userId: actor.userId,
       },
+      serviceSupabase,
       supabase,
     }),
     timings,
@@ -170,13 +223,11 @@ export function createOpenApiDocsContext(
   });
 
   return {
-    auth: {
-      profileId: OPENAPI_DOCS_PROFILE_ID,
-      type: "public-docs",
-    },
+    actor: null,
     recordTiming: () => {},
     requestId:
       request.headers.get("x-marble-request-id") ?? crypto.randomUUID(),
+    runtime,
     store: new MarbleStore({
       context: {
         profileId: OPENAPI_DOCS_PROFILE_ID,

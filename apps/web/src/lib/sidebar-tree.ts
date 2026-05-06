@@ -1,35 +1,48 @@
-import type { Database } from "@marble/supabase";
 import { buildPipeTitle } from "./pipe-display";
 
-export type SidebarProjectRow = Pick<
-  Database["public"]["Tables"]["project"]["Row"],
-  "id" | "name" | "owner_profile_id" | "updated_at"
->;
+export type SidebarProjectRow = {
+  id: string;
+  name: string;
+  ownerProfileId: string;
+  updatedAt: string;
+};
 
-export type SidebarProgramRow = Pick<
-  Database["public"]["Tables"]["program"]["Row"],
-  "first_party" | "id" | "name" | "owner_profile_id" | "updated_at"
->;
+export type SidebarProgramRow = {
+  firstParty: boolean;
+  id: string;
+  name: string;
+  ownerProfileId: string;
+  updatedAt: string;
+};
 
-export type SidebarTableRow = Pick<
-  Database["public"]["Tables"]["table"]["Row"],
-  "id" | "name" | "project_id" | "updated_at"
->;
+export type SidebarTableRow = {
+  id: string;
+  name: string;
+  projectId: string;
+  updatedAt: string;
+};
 
-export type SidebarSourceRow = Pick<
-  Database["public"]["Tables"]["source"]["Row"],
-  "id" | "name" | "project_id" | "updated_at"
->;
+export type SidebarSourceRow = {
+  id: string;
+  name: string;
+  projectId: string;
+  updatedAt: string;
+};
 
-export type SidebarPipeRow = Pick<
-  Database["public"]["Tables"]["pipe"]["Row"],
-  "id" | "source_id" | "table_id" | "updated_at"
->;
+export type SidebarPipeRow = {
+  id: string;
+  sourceId: string;
+  tableId: string;
+  updatedAt: string;
+};
 
-export type SidebarProfileRecord = Pick<
-  Database["public"]["Tables"]["profile"]["Row"],
-  "external_name" | "icon" | "id" | "name" | "type"
->;
+export type SidebarProfileRecord = {
+  externalName: null | string;
+  icon: null | string;
+  id: string;
+  name: string;
+  type: "Agent" | "Human";
+};
 
 export type SidebarTreeNode = {
   children: SidebarTreeNode[];
@@ -98,8 +111,8 @@ export function buildProjectNode(
     id: project.id,
     kind: "project",
     label: project.name || "Untitled Project",
-    ownerProfileId: project.owner_profile_id,
-    updatedAt: project.updated_at,
+    ownerProfileId: project.ownerProfileId,
+    updatedAt: project.updatedAt,
   };
 }
 
@@ -110,29 +123,29 @@ export function buildProgramNode(program: SidebarProgramRow): SidebarTreeNode {
     id: program.id,
     kind: "program",
     label: program.name || "Untitled Program",
-    updatedAt: program.updated_at,
+    updatedAt: program.updatedAt,
   };
 }
 
 export function buildTableNode(table: SidebarTableRow): SidebarTreeNode {
   return {
     children: [],
-    href: `/projects/${table.project_id}/tables/${table.id}`,
+    href: `/projects/${table.projectId}/tables/${table.id}`,
     id: table.id,
     kind: "table",
     label: table.name || "Untitled Table",
-    updatedAt: table.updated_at,
+    updatedAt: table.updatedAt,
   };
 }
 
 export function buildSourceNode(source: SidebarSourceRow): SidebarTreeNode {
   return {
     children: [],
-    href: `/projects/${source.project_id}/sources/${source.id}`,
+    href: `/projects/${source.projectId}/sources/${source.id}`,
     id: source.id,
     kind: "source",
     label: source.name || "Untitled Source",
-    updatedAt: source.updated_at,
+    updatedAt: source.updatedAt,
   };
 }
 
@@ -153,7 +166,7 @@ export function buildPipeNode(
       sourceLabel: labels?.sourceLabel,
       tableLabel: labels?.tableLabel,
     }),
-    updatedAt: pipe.updated_at,
+    updatedAt: pipe.updatedAt,
   };
 }
 
@@ -184,21 +197,6 @@ export function upsertSidebarChild(
             childNode,
             ...node.children.filter((child) => child.id !== childNode.id),
           ]),
-        }
-      : node,
-  );
-}
-
-function removeSidebarChild(
-  nodes: SidebarTreeNode[],
-  parentId: string,
-  childId: string,
-) {
-  return nodes.map((node) =>
-    node.id === parentId
-      ? {
-          ...node,
-          children: removeSidebarNode(node.children, childId),
         }
       : node,
   );

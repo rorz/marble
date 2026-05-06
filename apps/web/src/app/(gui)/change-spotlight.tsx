@@ -874,17 +874,6 @@ function buildPreviewTargetKeys(targetKeys: string[]) {
   ]);
 }
 
-function queueChangeSpotlight(targetKeys: string[]) {
-  queueChangeSpotlightDeck([
-    {
-      href: "",
-      id: "queued-change",
-      label: "Recent change",
-      targetKeys,
-    },
-  ]);
-}
-
 export function queueChangeSpotlightDeck(
   groups: ChangeSpotlightQueueGroup[],
   activeGroupId = groups[0]?.id,

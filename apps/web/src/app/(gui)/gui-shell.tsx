@@ -1,6 +1,6 @@
 "use client";
 
-import type { Database } from "@marble/supabase";
+import type { MarbleClient } from "@marble/sdk";
 import {
   cx,
   MarbleBadge,
@@ -66,8 +66,10 @@ import {
   type SidebarTreeState,
   updateSidebarTreeStateForKey,
 } from "../../lib/gui-sidebar";
-import { callMarbleClient } from "../../lib/marble-client";
-import { useMarbleSdkFactory } from "../../lib/marble-sdk-client";
+import {
+  useMarbleApiSdk,
+  useMarbleSdkFactory,
+} from "../../lib/marble-sdk-client";
 import { createDefaultProgram } from "../../lib/program-client";
 import { usePrivateBroadcast } from "../../lib/realtime/private-broadcast";
 import { getErrorMessage } from "../../lib/realtime-crud";
@@ -102,15 +104,12 @@ type SidebarGroup = {
   }[];
 }[];
 
-function createDefaultProfile() {
-  return callMarbleClient<ProfileRow>("/profiles", {
-    body: {
-      externalName: null,
-      icon: "🤖",
-      name: "Untitled Agent",
-      type: "Agent",
-    },
-    method: "POST",
+function createDefaultProfile(sdk: MarbleClient) {
+  return sdk.profiles.create({
+    externalName: null,
+    icon: "🤖",
+    name: "Untitled Agent",
+    type: "Agent",
   });
 }
 
@@ -201,7 +200,6 @@ const utilityRoutes: {
   },
 ];
 
-type ProfileRow = Database["public"]["Tables"]["profile"]["Row"];
 type CommandPaletteItem = {
   detail: string;
   icon: ReactNode;
@@ -724,6 +722,7 @@ export function GuiShell({
       getSdk,
     ],
   );
+  const apiSdk = useMarbleApiSdk();
   const {
     error: signOutError,
     pending: signOutPending,
@@ -1060,7 +1059,7 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const { programId } = await createDefaultProgram();
+      const { programId } = await createDefaultProgram(apiSdk);
       router.push(`/programs/${programId}`);
     } catch (error) {
       handleCommandPaletteError(error);
@@ -1070,7 +1069,7 @@ export function GuiShell({
     closeCommandPalette();
 
     try {
-      const profile = await createDefaultProfile();
+      const profile = await createDefaultProfile(apiSdk);
       router.push(`/profiles?edit=${profile.id}`);
     } catch (error) {
       handleCommandPaletteError(error);

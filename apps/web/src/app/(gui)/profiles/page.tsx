@@ -1,52 +1,25 @@
-import { apiKeyPreview, listApiKeysForProfiles } from "@marble/keys";
 import { MarblePane } from "@marble/ui";
 import { requireUser } from "../../../lib/auth";
-import { createClient } from "../../../lib/supabase/server";
-import { createServiceRoleClient } from "../../../lib/supabase/service-role";
-import {
-  type ManagedProfileRecord,
-  PROFILE_RECORD_SELECT,
-  type ProfileRecord,
-} from "./shared";
+import { createServerMarbleSdk } from "../../../lib/marble-sdk-server";
+import type { ManagedProfileRecord } from "./shared";
 import { ProfilesPageView } from "./view";
 
 export default async function Profile4Page() {
   const user = await requireUser();
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("profile")
-    .select(PROFILE_RECORD_SELECT)
-    .eq("owner_user_id", user.id)
-    .order("created_at", {
-      ascending: false,
-    });
-
-  if (error) {
-    throw error;
-  }
-
-  const profiles = (data ?? []) as ProfileRecord[];
-  const keys = await listApiKeysForProfiles(
-    createServiceRoleClient(),
-    profiles.map((profile) => profile.id),
-    {
+  const sdk = await createServerMarbleSdk();
+  const [profiles, keys] = await Promise.all([
+    sdk.profiles.list({}),
+    sdk.keys.list({
       includeDeleted: true,
-    },
-  );
+    }),
+  ]);
   const keysByProfileId = new Map<string, ManagedProfileRecord["keys"]>();
 
   for (const key of keys) {
-    const profileKeys = keysByProfileId.get(key.owner_profile_id) ?? [];
+    const profileKeys = keysByProfileId.get(key.ownerProfileId) ?? [];
 
-    profileKeys.push({
-      created_at: key.created_at,
-      deleted_at: key.deleted_at,
-      id: key.id,
-      owner_profile_id: key.owner_profile_id,
-      prefix: key.prefix,
-      preview: apiKeyPreview(key.prefix),
-    });
-    keysByProfileId.set(key.owner_profile_id, profileKeys);
+    profileKeys.push(key);
+    keysByProfileId.set(key.ownerProfileId, profileKeys);
   }
 
   return (

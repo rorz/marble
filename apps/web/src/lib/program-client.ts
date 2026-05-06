@@ -1,16 +1,9 @@
-import type { Database } from "@marble/supabase";
-import { callMarbleClient } from "./marble-client";
+import type { MarbleClient } from "@marble/sdk";
 
-type Program = Database["public"]["Tables"]["program"]["Row"];
-type ProgramFile = Database["public"]["Tables"]["program_file"]["Row"];
-type ProgramVersion = Database["public"]["Tables"]["program_version"]["Row"];
 type EditableProgramFile = {
   content: string;
   filename: string;
   filetype: "Json" | "Markdown" | "TypeScript";
-};
-type ProgramVersionWithFiles = ProgramVersion & {
-  files: ProgramFile[];
 };
 
 const DEFAULT_PROGRAM_NAME = "Untitled Program";
@@ -55,28 +48,31 @@ function createDefaultProgramFiles(name: string): EditableProgramFile[] {
   ];
 }
 
-export async function createDefaultProgram() {
+export async function createDefaultProgram(sdk: MarbleClient) {
   const files = createDefaultProgramFiles(DEFAULT_PROGRAM_NAME);
-  const program = await callMarbleClient<
-    Program & {
-      initialVersion: ProgramVersionWithFiles;
-    }
-  >("/programs", {
-    body: {
-      initialVersion: {
-        files,
-        inputSchema: DEFAULT_PROGRAM_INPUT_SCHEMA,
-        outputConfig: DEFAULT_PROGRAM_OUTPUT_CONFIG,
-        publish: false,
-        secretConfig: [],
-      },
-      name: DEFAULT_PROGRAM_NAME,
+  const program = await sdk.programs.create({
+    initialVersion: {
+      inputSchema: DEFAULT_PROGRAM_INPUT_SCHEMA,
+      outputConfig: DEFAULT_PROGRAM_OUTPUT_CONFIG,
+      publish: false,
+      secretConfig: [],
     },
-    method: "POST",
+    name: DEFAULT_PROGRAM_NAME,
+  });
+
+  const initialVersion = program.initialVersion;
+
+  if (!initialVersion) {
+    throw new Error("Could not create initial program version.");
+  }
+
+  await sdk.programFiles.syncForVersion({
+    files,
+    versionId: initialVersion.id,
   });
 
   return {
     programId: program.id,
-    versionId: program.initialVersion.id,
+    versionId: initialVersion.id,
   };
 }
