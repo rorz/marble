@@ -1,1 +1,1 @@
-export { rootCommand } from "./cli";
+export { createRootCommand, rootCommand } from "./root";

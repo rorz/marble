@@ -9,9 +9,11 @@ import type { ContractRouterClient } from "@orpc/contract";
 type RpcLinkOptions = ConstructorParameters<typeof RPCLink>[0];
 type MarbleApiFetch = RpcLinkOptions["fetch"];
 type MarbleApiHeaders = RpcLinkOptions["headers"];
+type MarbleActorSource = "CLI" | "RAW_API" | "WEB_APP";
 
 export type MarbleClientDriver =
   | {
+      actorSource?: MarbleActorSource;
       apiKey: string;
       apiUrl: string;
       fetch?: MarbleApiFetch;
@@ -19,6 +21,7 @@ export type MarbleClientDriver =
       type: "api";
     }
   | {
+      actorSource?: MarbleActorSource;
       apiUrl: string;
       fetch?: MarbleApiFetch;
       headers?: MarbleApiHeaders;
@@ -52,6 +55,7 @@ function resolveHostedApiRpcUrl(apiUrl: string) {
 }
 
 function createHostedApiClient(options: {
+  actorSource?: MarbleActorSource;
   apiKey?: string;
   apiUrl: string;
   fetch?: MarbleApiFetch;
@@ -75,7 +79,9 @@ function createHostedApiClient(options: {
         headers.set("x-marble-profile-id", options.profileId);
       }
 
-      headers.set("x-marble-actor-source", "SDK");
+      if (options.actorSource) {
+        headers.set("x-marble-actor-source", options.actorSource);
+      }
 
       return headers;
     },
