@@ -1,9 +1,10 @@
 {
   "dependencies": {
-    "@marble/contracts": "workspace:*",
     "@marble/keys": "workspace:*",
     "@marble/lib": "workspace:*",
-    "@marble/supabase": "workspace:*"
+    "@marble/supabase": "workspace:*",
+    "jsonpath-plus": "catalog:base",
+    "zod": "catalog:base"
   },
   "devDependencies": {
     "@types/node": "catalog:base",

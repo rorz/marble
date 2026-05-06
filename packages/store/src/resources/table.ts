@@ -1,5 +1,6 @@
 import type { ResourceDeps } from "../db";
 import type { CreateParams, Entity, UpdateParams } from "../types";
+import { requireProfileId } from "../types";
 
 type Table = Entity<"table">;
 
@@ -37,13 +38,19 @@ export class TableCollection {
   public readonly get = (input: IdObject) =>
     this.deps.db.get("table", input.id);
 
-  public readonly insertRows = (input: InsertRowsInput) =>
-    this.deps.db.insertTableRows({
+  public readonly insertRows = async (input: InsertRowsInput) => {
+    const result = await this.deps.db.insertTableRows({
       idx: input.idx,
-      ownerProfileId: this.deps.context.profileId,
+      ownerProfileId: requireProfileId(this.deps.context),
       quantity: input.quantity,
       tableId: input.id,
     });
+
+    return {
+      cellCount: result.cellCount,
+      rowCount: result.rowCount,
+    };
+  };
 
   public readonly list = (input: ListTablesInput) =>
     this.deps.db.list("table", input);

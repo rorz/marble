@@ -668,7 +668,36 @@ BEGIN
     'rowCount',
     (SELECT COUNT(*) FROM inserted_rows),
     'cellCount',
-    (SELECT COUNT(*) FROM inserted_cells)
+    (SELECT COUNT(*) FROM inserted_cells),
+    'rows',
+    COALESCE(
+      (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', inserted_rows.id,
+            'idx', inserted_rows.idx
+          )
+          ORDER BY inserted_rows.idx
+        )
+        FROM inserted_rows
+      ),
+      '[]'::jsonb
+    ),
+    'cells',
+    COALESCE(
+      (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', inserted_cells.id,
+            'rowId', inserted_cells.row_id,
+            'columnId', inserted_cells.column_id
+          )
+          ORDER BY inserted_cells.row_id, inserted_cells.column_id
+        )
+        FROM inserted_cells
+      ),
+      '[]'::jsonb
+    )
   )
   INTO inserted_result;
 

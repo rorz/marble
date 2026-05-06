@@ -22,14 +22,13 @@ export type MarbleClientDriver =
       apiUrl: string;
       fetch?: MarbleApiFetch;
       headers?: MarbleApiHeaders;
+      profileId?: string;
       type: "web-session";
     }
   | {
       client: SupabaseClient;
       profileId?: string;
-      serviceClient?: SupabaseClient;
       type: "supabase";
-      userId?: string;
     };
 
 export type MarbleClientOptions = {
@@ -57,6 +56,7 @@ function createHostedApiClient(options: {
   apiUrl: string;
   fetch?: MarbleApiFetch;
   headers?: MarbleApiHeaders;
+  profileId?: string;
 }) {
   const link = new RPCLink({
     fetch: options.fetch,
@@ -69,6 +69,10 @@ function createHostedApiClient(options: {
 
       if (options.apiKey) {
         headers.set("Authorization", `Bearer ${options.apiKey}`);
+      }
+
+      if (options.profileId) {
+        headers.set("x-marble-profile-id", options.profileId);
       }
 
       headers.set("x-marble-actor-source", "SDK");
@@ -105,11 +109,15 @@ export class MarbleClient {
       options.driver.type === "supabase"
         ? (createSupabaseClientRouterClient({
             profileId: options.driver.profileId,
-            serviceSupabase: options.driver.serviceClient,
             supabase: options.driver.client,
-            userId: options.driver.userId,
           }) as ContractRouterClient<MarbleContract>)
-        : createHostedApiClient(options.driver);
+        : createHostedApiClient({
+            ...options.driver,
+            profileId:
+              options.driver.type === "web-session"
+                ? options.driver.profileId
+                : undefined,
+          });
 
     this.cells = rpcClient.cells;
     this.columns = rpcClient.columns;

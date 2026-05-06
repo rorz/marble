@@ -16,16 +16,25 @@ export function createServiceRoleClient(headers?: Record<string, string>) {
   });
 }
 
-export async function maybeResolveOwnedProfileId(userId: string) {
-  const { data, error } = await createServiceRoleClient()
+export async function maybeResolveOwnedProfileId(
+  userId: string,
+  profileId?: string | null,
+) {
+  let request = createServiceRoleClient()
     .from("profile")
     .select("id")
     .eq("owner_user_id", userId)
+    .eq("type", "Human")
     .order("created_at", {
       ascending: true,
     })
-    .limit(1)
-    .maybeSingle();
+    .limit(1);
+
+  if (profileId) {
+    request = request.eq("id", profileId);
+  }
+
+  const { data, error } = await request.maybeSingle();
 
   if (error) {
     throw error;

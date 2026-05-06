@@ -51,6 +51,7 @@ async function resolveSupabaseClientProfileId(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("profile")
     .select("id")
+    .eq("type", "Human")
     .order("created_at", {
       ascending: true,
     })

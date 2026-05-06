@@ -35,6 +35,29 @@ Rules:
 - Use camelCase for TypeScript operation names and kebab-case for HTTP path segments. For example, `projects.getMostRecentProject()` maps to `GET /projects/most-recent`.
 - For multi-row, multi-cell, or ordered operations, strongly consider a Postgres RPC implementation behind the store. The public oRPC operation and the database RPC may share intent, but they are different layers.
 
+## Internal worker runtime
+
+Executor and ingestor workers may use `@marble/store` resource rails with a service-role Supabase client for trusted orchestration that is not expressible as normal public SDK operations. This is an internal workspace-only surface, not a public API, CLI, or user-facing SDK surface. It may resolve plaintext secrets, mutate run/cell state, and materialize webhook data, so it must not be mounted on public contracts or exposed through generic resource CRUD.
+
+Allowed worker operations:
+
+- `keys.authenticateToken` - Resolve a presented API key into the worker auth context.
+- `sources.authorizeWebhook` - Verify a source webhook token without returning source data.
+- `sourceEvents.ingestWebhook` - Append a source event, materialize mapped table rows/cells, and queue runs for written cells.
+- `programRuns.createPendingForCellIds` - Mark cells pending and create program runs for executor scheduling.
+- `programRuns.loadMany` - Load full run context required by the executor runtime.
+- `programRuns.loadInputContextForRun` - Load persisted cell, row, column, dependency-cell, and input-schema data needed for executor input resolution.
+- `programRuns.loadInputContextForCellId` - Load the same persisted input context for a dependent cell candidate before queueing.
+- `programRuns.resolveOwnerUserIdForProfile` - Resolve a profile owner for trusted test execution secret lookup.
+- `programRuns.resolveEnvironmentVariablesForSecretDeclarations` - Resolve plaintext secret values from already-validated secret declarations.
+- `programRuns.persistFailure` - Persist failed run output to the target cell and run.
+- `programRuns.persistSuccess` - Persist successful run input/output to the target cell and run.
+- `programRuns.setCellState` - Persist a non-run cell state such as an auto-queue validation block.
+- `programRuns.listDependentCandidateCellIds` - Find dependent cell candidates after successful upstream runs; executor remains responsible for contract validation.
+- `programRuns.loadProgramVersionTestData` - Load files and config required for a program version test run.
+
+These operations stay on store resources because they are orchestration actions spanning multiple resource aggregates. Splitting them into public child-resource CRUD would either expose secret material or force executor/ingestor workers to rebuild database semantics locally.
+
 ## projects
 
 Projects are top-level user-owned workspaces.

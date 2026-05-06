@@ -1,8 +1,3 @@
-import {
-  ColumnOutputSchema,
-  ColumnRunCondition,
-  ProgramOutputConfig,
-} from "@marble/contracts";
 import type { Json } from "@marble/supabase";
 import type { ResourceDeps } from "../db";
 import type { CreateParams, Entity, UpdateParams } from "../types";
@@ -51,8 +46,11 @@ export type ColumnCollectionApi = {
 };
 
 function getOutputSchema(outputConfig: unknown) {
-  const parsed = ProgramOutputConfig.safeParse(outputConfig);
-  return parsed.success ? parsed.data.schema : {};
+  if (!outputConfig || typeof outputConfig !== "object") {
+    return {};
+  }
+
+  return "schema" in outputConfig ? outputConfig.schema : {};
 }
 
 function hasAllowManualInput(outputSchema: unknown) {
@@ -71,40 +69,7 @@ function hasAllowManualInput(outputSchema: unknown) {
   );
 }
 
-function formatZodIssues(
-  issues: Array<{
-    message: string;
-    path: PropertyKey[];
-  }>,
-) {
-  return issues
-    .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
-    .join("; ");
-}
-
-function parseOutputSchema(value: unknown): Json {
-  const parsed = ColumnOutputSchema.safeParse(value);
-
-  if (!parsed.success) {
-    throw new Error(
-      `Invalid column output schema: ${formatZodIssues(parsed.error.issues)}`,
-    );
-  }
-
-  return parsed.data as Json;
-}
-
-function parseRunCondition(value: unknown): Json {
-  const parsed = ColumnRunCondition.safeParse(value);
-
-  if (!parsed.success) {
-    throw new Error(
-      `Invalid column run condition: ${formatZodIssues(parsed.error.issues)}`,
-    );
-  }
-
-  return parsed.data as Json;
-}
+const asJson = (value: unknown): Json => value as Json;
 
 function extractDependenciesFromTemplate(template: string) {
   const sourceColumnIds = new Set<string>();
@@ -246,11 +211,11 @@ export class ColumnCollection implements ColumnCollectionApi {
       idx,
       inputTemplate: input.inputTemplate,
       name: input.name,
-      outputSchema: parseOutputSchema(
+      outputSchema: asJson(
         input.outputSchema ?? getOutputSchema(programVersion.outputConfig),
       ),
       programVersionId: input.programVersionId,
-      runCondition: parseRunCondition(input.runCondition ?? false),
+      runCondition: asJson(input.runCondition ?? false),
       tableId: input.tableId,
     });
     const rows = await this.deps.db.list("row", {
@@ -368,12 +333,12 @@ export class ColumnCollection implements ColumnCollectionApi {
       ...(input.outputSchema === undefined
         ? {}
         : {
-            outputSchema: parseOutputSchema(input.outputSchema),
+            outputSchema: asJson(input.outputSchema),
           }),
       ...(input.runCondition === undefined
         ? {}
         : {
-            runCondition: parseRunCondition(input.runCondition),
+            runCondition: asJson(input.runCondition),
           }),
     });
 

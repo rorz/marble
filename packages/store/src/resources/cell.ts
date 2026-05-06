@@ -1,6 +1,7 @@
 import type { Json } from "@marble/supabase";
 import type { ResourceDeps } from "../db";
 import type { CellRunInput, CellRunResult, Entity } from "../types";
+import { requireProfileId } from "../types";
 
 export type Cell = Entity<"cell">;
 
@@ -97,7 +98,7 @@ export class CellCollection implements CellCollectionApi {
       throw new Error(projectError?.message ?? "Project not found.");
     }
 
-    if (project.owner_profile_id !== this.deps.context.profileId) {
+    if (project.owner_profile_id !== requireProfileId(this.deps.context)) {
       throw new Error("Cell not found.");
     }
 

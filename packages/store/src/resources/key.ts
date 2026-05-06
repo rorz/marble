@@ -2,6 +2,7 @@ import {
   apiKeyPreview,
   createApiKeyMaterial,
   listApiKeysForProfiles,
+  resolveApiKeyAuth,
 } from "@marble/keys";
 import type { ResourceDeps } from "../db";
 
@@ -12,6 +13,12 @@ export type ApiKey = {
   ownerProfileId: string;
   prefix: string;
   preview: string;
+};
+
+export type ApiKeyAuth = {
+  keyId: string;
+  profileId: string;
+  userId?: string;
 };
 
 type ListKeysInput = {
@@ -54,6 +61,25 @@ function toApiKey(key: {
 
 export class KeyCollection {
   public constructor(private readonly deps: ResourceDeps) {}
+
+  public readonly authenticateToken = async (
+    token: string,
+  ): Promise<ApiKeyAuth | null> => {
+    const keyAuth = await resolveApiKeyAuth(
+      requireServiceSupabase(this.deps),
+      token,
+    );
+
+    if (!keyAuth) {
+      return null;
+    }
+
+    return {
+      keyId: keyAuth.id,
+      profileId: keyAuth.owner_profile_id,
+      userId: keyAuth.profile?.owner_user_id,
+    };
+  };
 
   private readonly requireOwnedProfile = async (profileId: string) => {
     const profile = await this.deps.db.get("profile", profileId, {

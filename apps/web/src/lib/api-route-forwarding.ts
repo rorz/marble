@@ -60,6 +60,7 @@ export async function forwardMarbleApiRequest(
   const debugTiming = shouldDebugTiming(req);
   const timings: string[] = [];
   const apiKeyToken = getApiKeyTokenFromHeaders(req.headers);
+  const requestedProfileId = req.headers.get("x-marble-profile-id")?.trim();
   let authContext: {
     accessToken?: string;
     keyId?: string;
@@ -153,7 +154,10 @@ export async function forwardMarbleApiRequest(
       }
 
       const profileStartedAt = performance.now();
-      const profileId = await maybeResolveOwnedProfileId(user.id);
+      const profileId = await maybeResolveOwnedProfileId(
+        user.id,
+        requestedProfileId,
+      );
       timings.push(
         `profile;dur=${Math.round(performance.now() - profileStartedAt)}`,
       );
@@ -189,6 +193,10 @@ export async function forwardMarbleApiRequest(
 
   const forwardedReq = new Request(url, req);
   forwardedReq.headers.set("x-marble-request-id", requestId);
+  forwardedReq.headers.delete("x-marble-profile-id");
+  forwardedReq.headers.delete("x-marble-auth-profile-id");
+  forwardedReq.headers.delete("x-marble-auth-user-id");
+  forwardedReq.headers.delete("x-marble-auth-key-id");
 
   if (authContext) {
     forwardedReq.headers.delete("Authorization");

@@ -1,12 +1,12 @@
 import { getSandbox } from "@cloudflare/sandbox";
 import {
-  ColumnRunCondition,
   type JsonValue,
   ProgramOutputConfig,
   RunReturnValue,
 } from "@marble/contracts";
-import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
-import { createClient, type Json, type SupabaseClient } from "@marble/supabase";
+import { getApiKeyTokenFromHeaders } from "@marble/keys";
+import { MarbleStore, type StoredProgramRun } from "@marble/store";
+import { createClient } from "@marble/supabase";
 import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { createMiddleware } from "hono/factory";
@@ -20,15 +20,11 @@ import {
   executeAndValidateBatch,
   failureStateFromError,
   formatZodIssues,
-  loadProgramVersionFiles,
-  loadStoredRuns,
-  persistStoredRunFailure,
-  resolveCellExecutionCandidate,
+  listReadyDependentCellIds,
   resolveEnvironmentVariablesForProgramVersion,
   resolveEnvironmentVariablesForRun,
-  resolveStoredRunInput,
+  resolveProgramRunInput,
   runtimeInputFromValue,
-  type StoredRun,
 } from "./runner.js";
 
 export { Sandbox } from "@cloudflare/sandbox";
@@ -44,7 +40,7 @@ type ExecutorEnv = {
           userId?: string;
         }
       | undefined;
-    supabase: SupabaseClient;
+    store: MarbleStore;
   };
 };
 
@@ -165,8 +161,21 @@ const zodValidator = <
 const envMiddleware = createMiddleware<ExecutorEnv>(async (c, next) => {
   try {
     c.set(
-      "supabase",
-      createClient(c.env.SUPABASE_URL, c.env.SUPABASE_SERVICE_ROLE_KEY),
+      "store",
+      (() => {
+        const supabase = createClient(
+          c.env.SUPABASE_URL,
+          c.env.SUPABASE_SERVICE_ROLE_KEY,
+        );
+
+        return new MarbleStore({
+          context: {
+            eventSource: "RAW_API",
+          },
+          serviceSupabase: supabase,
+          supabase,
+        });
+      })(),
     );
   } catch (error) {
     throw httpError(500, "INTERNAL ERROR: Database misconfigured!", error);
@@ -210,19 +219,20 @@ const authMiddleware = createMiddleware<ExecutorEnv>(async (c, next) => {
     return;
   }
 
-  if (!presentedToken) {
-    throw httpError(401, "Missing authorization header");
-  }
-
-  const keyAuth = await resolveApiKeyAuth(c.var.supabase, presentedToken);
+  const keyAuth = await c.var.store.keys.authenticateToken(presentedToken);
   if (!keyAuth) {
     throw httpError(401, "Incorrect credentials");
   }
 
   c.set("auth", {
-    keyId: keyAuth.id,
-    profileId: keyAuth.owner_profile_id,
+    keyId: keyAuth.keyId,
+    profileId: keyAuth.profileId,
     type: "api-key",
+    ...(keyAuth.userId
+      ? {
+          userId: keyAuth.userId,
+        }
+      : {}),
   });
   await next();
 });
@@ -312,368 +322,9 @@ app.notFound((c) =>
   ),
 );
 
-async function createPendingRunsForCellIds(
-  supabase: SupabaseClient,
-  cellIds: string[],
-) {
-  const uniqueCellIds = Array.from(new Set(cellIds));
-
-  if (uniqueCellIds.length === 0) {
-    return [] as string[];
-  }
-
-  const { data: cells, error: cellError } = await supabase
-    .from("cell")
-    .select("id, column_id")
-    .in("id", uniqueCellIds);
-
-  if (cellError) {
-    throw new Error(cellError.message);
-  }
-
-  const cellsById = new Map(
-    (cells ?? []).map((cell) => [
-      cell.id,
-      cell,
-    ]),
-  );
-
-  if (cellsById.size !== uniqueCellIds.length) {
-    throw new Error("Could not resolve every dependent cell for execution.");
-  }
-
-  const columnIds = Array.from(
-    new Set(
-      uniqueCellIds.map((cellId) => {
-        const cell = cellsById.get(cellId);
-
-        if (!cell) {
-          throw new Error(`Dependent cell '${cellId}' was not found.`);
-        }
-
-        return cell.column_id;
-      }),
-    ),
-  );
-  const { data: columns, error: columnError } = await supabase
-    .from("column")
-    .select("id, program_version_id")
-    .in("id", columnIds);
-
-  if (columnError) {
-    throw new Error(columnError.message);
-  }
-
-  const programVersionIdByColumnId = new Map(
-    (columns ?? []).map((column) => [
-      column.id,
-      column.program_version_id,
-    ]),
-  );
-
-  const { error: pendingStateError } = await supabase
-    .from("cell")
-    .update({
-      state: {
-        ok: null,
-      } as Json,
-    })
-    .in("id", uniqueCellIds);
-
-  if (pendingStateError) {
-    throw new Error(pendingStateError.message);
-  }
-
-  const { data: runs, error: runError } = await supabase
-    .from("program_run")
-    .insert(
-      uniqueCellIds.map((cellId) => {
-        const cell = cellsById.get(cellId);
-
-        if (!cell) {
-          throw new Error(`Dependent cell '${cellId}' was not found.`);
-        }
-
-        const programVersionId = programVersionIdByColumnId.get(cell.column_id);
-
-        if (!programVersionId) {
-          throw new Error(
-            `Program version for dependent column '${cell.column_id}' was not found.`,
-          );
-        }
-
-        return {
-          program_version_id: programVersionId,
-          target_cell_id: cellId,
-        };
-      }),
-    )
-    .select("id, target_cell_id");
-
-  if (runError) {
-    throw new Error(runError.message);
-  }
-
-  const runIdByCellId = new Map(
-    (runs ?? []).map((run) => [
-      run.target_cell_id,
-      run.id,
-    ]),
-  );
-
-  return uniqueCellIds.map((cellId) => {
-    const runId = runIdByCellId.get(cellId);
-
-    if (!runId) {
-      throw new Error(`Dependent run for cell '${cellId}' was not created.`);
-    }
-
-    return runId;
-  });
-}
-
-async function listReadyDependentCellIds(
-  c: Context<ExecutorEnv>,
-  successfulRuns: StoredRun[],
-  visitedCellIds: Set<string>,
-) {
-  const sourceColumnIds = Array.from(
-    new Set(successfulRuns.map((run) => run.cell.column.id)),
-  );
-
-  if (sourceColumnIds.length === 0) {
-    return [] as string[];
-  }
-
-  const { data: dependencies, error: dependencyError } = await c.var.supabase
-    .from("column_dependency")
-    .select("source_column_id, target_column_id")
-    .in("source_column_id", sourceColumnIds);
-
-  if (dependencyError) {
-    throw new Error(dependencyError.message);
-  }
-
-  const dependencyRows = dependencies ?? [];
-
-  if (dependencyRows.length === 0) {
-    return [] as string[];
-  }
-
-  const targetColumnIds = Array.from(
-    new Set(dependencyRows.map((dependency) => dependency.target_column_id)),
-  );
-  const { data: targetColumns, error: targetColumnError } = await c.var.supabase
-    .from("column")
-    .select("id, table_id, run_condition")
-    .in("id", targetColumnIds);
-
-  if (targetColumnError) {
-    throw new Error(targetColumnError.message);
-  }
-
-  const targetColumnById = new Map(
-    (targetColumns ?? [])
-      .filter(
-        (column) =>
-          ColumnRunCondition.safeParse(column.run_condition).data === true,
-      )
-      .map((column) => [
-        column.id,
-        column,
-      ]),
-  );
-
-  if (targetColumnById.size === 0) {
-    return [] as string[];
-  }
-
-  const targetColumnIdsBySourceColumnId = new Map<string, string[]>();
-
-  for (const dependency of dependencyRows) {
-    if (!targetColumnById.has(dependency.target_column_id)) {
-      continue;
-    }
-
-    const current =
-      targetColumnIdsBySourceColumnId.get(dependency.source_column_id) ?? [];
-
-    current.push(dependency.target_column_id);
-    targetColumnIdsBySourceColumnId.set(dependency.source_column_id, current);
-  }
-
-  const externalTableIds = new Set<string>();
-  const externalIdxValues = new Set<number>();
-
-  for (const run of successfulRuns) {
-    const row = Array.isArray(run.cell.row) ? run.cell.row[0] : run.cell.row;
-
-    if (!row) {
-      continue;
-    }
-
-    for (const targetColumnId of targetColumnIdsBySourceColumnId.get(
-      run.cell.column.id,
-    ) ?? []) {
-      const targetColumn = targetColumnById.get(targetColumnId);
-
-      if (!targetColumn || targetColumn.table_id === row.table_id) {
-        continue;
-      }
-
-      externalTableIds.add(targetColumn.table_id);
-      externalIdxValues.add(row.idx);
-    }
-  }
-
-  const { data: externalRows, error: externalRowError } =
-    externalTableIds.size === 0 || externalIdxValues.size === 0
-      ? {
-          data: [],
-          error: null,
-        }
-      : await c.var.supabase
-          .from("row")
-          .select("id, idx, table_id")
-          .in("table_id", Array.from(externalTableIds))
-          .in("idx", Array.from(externalIdxValues));
-
-  if (externalRowError) {
-    throw new Error(externalRowError.message);
-  }
-
-  const rowIdByTableAndIdx = new Map(
-    (externalRows ?? []).map((row) => [
-      `${row.table_id}:${row.idx}`,
-      row.id,
-    ]),
-  );
-  const candidatePairs = new Map<
-    string,
-    {
-      columnId: string;
-      rowId: string;
-    }
-  >();
-
-  for (const run of successfulRuns) {
-    const row = Array.isArray(run.cell.row) ? run.cell.row[0] : run.cell.row;
-
-    if (!row) {
-      continue;
-    }
-
-    for (const targetColumnId of targetColumnIdsBySourceColumnId.get(
-      run.cell.column.id,
-    ) ?? []) {
-      const targetColumn = targetColumnById.get(targetColumnId);
-
-      if (!targetColumn) {
-        continue;
-      }
-
-      const targetRowId =
-        targetColumn.table_id === row.table_id
-          ? row.id
-          : rowIdByTableAndIdx.get(`${targetColumn.table_id}:${row.idx}`);
-
-      if (!targetRowId) {
-        continue;
-      }
-
-      candidatePairs.set(`${targetRowId}:${targetColumn.id}`, {
-        columnId: targetColumn.id,
-        rowId: targetRowId,
-      });
-    }
-  }
-
-  if (candidatePairs.size === 0) {
-    return [] as string[];
-  }
-
-  const candidatePairValues = Array.from(candidatePairs.values());
-  const { data: candidateCells, error: candidateCellError } =
-    await c.var.supabase
-      .from("cell")
-      .select("id, row_id, column_id")
-      .in(
-        "row_id",
-        Array.from(new Set(candidatePairValues.map((pair) => pair.rowId))),
-      )
-      .in(
-        "column_id",
-        Array.from(new Set(candidatePairValues.map((pair) => pair.columnId))),
-      );
-
-  if (candidateCellError) {
-    throw new Error(candidateCellError.message);
-  }
-
-  const candidateCellIdByPair = new Map(
-    (candidateCells ?? []).map((cell) => [
-      `${cell.row_id}:${cell.column_id}`,
-      cell.id,
-    ]),
-  );
-  const candidateCellIds = Array.from(
-    new Set(
-      candidatePairValues
-        .map((pair) =>
-          candidateCellIdByPair.get(`${pair.rowId}:${pair.columnId}`),
-        )
-        .filter((cellId): cellId is string => cellId !== undefined),
-    ),
-  ).filter((cellId) => !visitedCellIds.has(cellId));
-
-  const resolvedCandidates = await Promise.all(
-    candidateCellIds.map(async (cellId) => {
-      try {
-        return await resolveCellExecutionCandidate(c.var.supabase, cellId);
-      } catch (error) {
-        console.error(
-          `[${c.get("requestId")}] Skipping dependent cell ${cellId}`,
-          error,
-        );
-        return null;
-      }
-    }),
-  );
-
-  const blockedCandidates = resolvedCandidates.filter(
-    (
-      candidate,
-    ): candidate is Extract<
-      Awaited<ReturnType<typeof resolveCellExecutionCandidate>>,
-      {
-        status: "blocked";
-      }
-    > => candidate !== null && candidate.status === "blocked",
-  );
-
-  await Promise.all(
-    blockedCandidates.map((candidate) =>
-      c.var.supabase
-        .from("cell")
-        .update({
-          state: candidate.state as Json,
-        })
-        .eq("id", candidate.cellId),
-    ),
-  );
-
-  return resolvedCandidates.flatMap((candidate) =>
-    candidate?.status === "ready"
-      ? [
-          candidate.cellId,
-        ]
-      : [],
-  );
-}
-
 async function triggerDependentRuns(
   c: Context<ExecutorEnv>,
-  successfulRuns: StoredRun[],
+  successfulRuns: StoredProgramRun[],
   visitedCellIds: Set<string>,
 ) {
   if (successfulRuns.length === 0) {
@@ -681,11 +332,11 @@ async function triggerDependentRuns(
   }
 
   try {
-    const candidateCellIds = await listReadyDependentCellIds(
-      c,
+    const candidateCellIds = await listReadyDependentCellIds(c.var.store, {
+      requestId: c.get("requestId"),
       successfulRuns,
       visitedCellIds,
-    );
+    });
 
     if (candidateCellIds.length === 0) {
       return;
@@ -695,10 +346,8 @@ async function triggerDependentRuns(
       visitedCellIds.add(cellId);
     }
 
-    const runIds = await createPendingRunsForCellIds(
-      c.var.supabase,
-      candidateCellIds,
-    );
+    const runIds =
+      await c.var.store.programRuns.createPendingForCellIds(candidateCellIds);
 
     await executeStoredRunsInternal(c, runIds, visitedCellIds);
   } catch (error) {
@@ -714,10 +363,10 @@ async function executeStoredRunsInternal(
   runIds: string[],
   visitedCellIds = new Set<string>(),
 ) {
-  const runs = await loadStoredRuns(c.var.supabase, runIds);
+  const runs = await c.var.store.programRuns.loadMany(runIds);
   const resultsByRunId = new Map<string, z.infer<typeof BatchRunItemSchema>>();
-  const runsByColumnId = new Map<string, StoredRun[]>();
-  const successfulRuns: StoredRun[] = [];
+  const runsByColumnId = new Map<string, StoredProgramRun[]>();
+  const successfulRuns: StoredProgramRun[] = [];
 
   for (const run of runs) {
     visitedCellIds.add(run.target_cell_id);
@@ -738,15 +387,15 @@ async function executeStoredRunsInternal(
   for (const group of runsByColumnId.values()) {
     const resolvableJobs: Array<{
       outputSchemaConfig: JsonValue;
-      parsedInput: Json;
-      run: StoredRun;
+      parsedInput: JsonValue;
+      run: StoredProgramRun;
       runInput: JsonValue;
     }> = [];
 
     for (const run of group) {
       try {
-        const { parsedInput, runInput } = await resolveStoredRunInput(
-          c.var.supabase,
+        const { parsedInput, runInput } = await resolveProgramRunInput(
+          c.var.store,
           run,
         );
 
@@ -763,7 +412,7 @@ async function executeStoredRunsInternal(
         );
 
         const failState = failureStateFromError(error);
-        await persistStoredRunFailure(c.var.supabase, run, run.id, failState);
+        await c.var.store.programRuns.persistFailure(run, failState);
         resultsByRunId.set(run.id, {
           cellId: run.target_cell_id,
           output: failState,
@@ -779,7 +428,7 @@ async function executeStoredRunsInternal(
 
     try {
       const environmentVariables = await resolveEnvironmentVariablesForRun(
-        c.var.supabase,
+        c.var.store,
         resolvableJobs[0].run,
       );
       const outputs = await executeAndValidateBatch(
@@ -807,21 +456,11 @@ async function executeStoredRunsInternal(
             throw new Error(`Missing batch result for run '${job.run.id}'.`);
           }
 
-          await Promise.all([
-            c.var.supabase
-              .from("cell")
-              .update({
-                state: output,
-              })
-              .eq("id", job.run.target_cell_id),
-            c.var.supabase
-              .from("program_run")
-              .update({
-                input: job.parsedInput,
-                output,
-              })
-              .eq("id", job.run.id),
-          ]);
+          await c.var.store.programRuns.persistSuccess({
+            output,
+            parsedInput: job.parsedInput,
+            run: job.run,
+          });
 
           if (output.ok) {
             successfulRuns.push(job.run);
@@ -844,12 +483,7 @@ async function executeStoredRunsInternal(
       const failState = failureStateFromError(error);
       await Promise.all(
         resolvableJobs.map((job) =>
-          persistStoredRunFailure(
-            c.var.supabase,
-            job.run,
-            job.run.id,
-            failState,
-          ),
+          c.var.store.programRuns.persistFailure(job.run, failState),
         ),
       );
 
@@ -953,42 +587,44 @@ const liveBatchRunHandler = async (c: Context<ExecutorEnv>) => {
 const testHandler = async (c: Context<ExecutorEnv>) => {
   const query = (c.req as TestValidatedRequest).valid("query");
   const body = (c.req as TestValidatedRequest).valid("json");
-  const [files, versionRecord] = await Promise.all([
-    loadProgramVersionFiles(c.var.supabase, query.programVersionId),
-    c.var.supabase
-      .from("program_version")
-      .select("output_config, program_id, secret_config")
-      .eq("id", query.programVersionId)
-      .maybeSingle(),
-  ]);
+  let versionData: Awaited<
+    ReturnType<MarbleStore["programRuns"]["loadProgramVersionTestData"]>
+  >;
 
-  if (versionRecord.error) {
-    throw httpError(500, versionRecord.error.message, versionRecord.error);
-  }
+  try {
+    versionData = await c.var.store.programRuns.loadProgramVersionTestData(
+      query.programVersionId,
+    );
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.toLowerCase().includes("was not found")
+    ) {
+      throw httpError(404, error.message, error);
+    }
 
-  if (!versionRecord.data) {
     throw httpError(
-      404,
-      `Program version '${query.programVersionId}' was not found`,
+      500,
+      error instanceof Error ? error.message : "Program version lookup failed.",
+      error,
     );
   }
 
   try {
     const environmentVariables =
-      await resolveEnvironmentVariablesForProgramVersion(c.var.supabase, {
+      await resolveEnvironmentVariablesForProgramVersion(c.var.store, {
         auth: c.var.auth,
-        programId: versionRecord.data.program_id,
-        secretConfig: versionRecord.data.secret_config as Json | null,
+        programId: versionData.programId,
+        secretConfig: versionData.secretConfig as JsonValue | null,
       });
     const output = await executeAndValidate(
       getSandbox(
         c.env.Sandbox,
-        `${query.programVersionId ?? "inline"}--test--${query.testKey ?? crypto.randomUUID().slice(0, 6)}`,
+        `${query.programVersionId}--test--${query.testKey ?? crypto.randomUUID().slice(0, 6)}`,
       ),
-      files,
+      versionData.files,
       runtimeInputFromValue(body.input),
-      ProgramOutputConfig.parse(versionRecord.data.output_config)
-        .schema as JsonValue,
+      ProgramOutputConfig.parse(versionData.outputConfig).schema as JsonValue,
       environmentVariables,
     );
 

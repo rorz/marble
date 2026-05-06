@@ -47,7 +47,16 @@ type InsertTableRowsInput = {
 
 type InsertTableRowsResult = {
   cellCount: number;
+  cells: {
+    columnId: string;
+    id: string;
+    rowId: string;
+  }[];
   rowCount: number;
+  rows: {
+    id: string;
+    idx: number;
+  }[];
 };
 
 type CreateSourceEventInput = {
@@ -57,7 +66,16 @@ type CreateSourceEventInput = {
 
 type TableInsertRowsRpcResult = {
   cellCount: number;
+  cells?: {
+    columnId: string;
+    id: string;
+    rowId: string;
+  }[];
   rowCount: number;
+  rows?: {
+    id: string;
+    idx: number;
+  }[];
 };
 
 type SupabaseDb = {
@@ -429,7 +447,12 @@ const createSupabaseDb = (
 
       const result = parseTableInsertRowsResult(data);
 
-      return result;
+      return {
+        cellCount: result.cellCount,
+        cells: result.cells ?? [],
+        rowCount: result.rowCount,
+        rows: result.rows ?? [],
+      };
     }),
   list: async (tableName, where = {}, options = {}) =>
     timeDbCall(context, `db_list_${tableName}`, async () => {

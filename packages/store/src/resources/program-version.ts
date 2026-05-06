@@ -1,8 +1,3 @@
-import {
-  ProgramInputSchema,
-  ProgramOutputConfig,
-  parseProgramSecretConfig,
-} from "@marble/contracts";
 import type { Json } from "@marble/supabase";
 import type { ResourceDeps } from "../db";
 import type {
@@ -37,44 +32,9 @@ function asJson(value: unknown): Json {
   return value as Json;
 }
 
-function formatZodIssues(
-  issues: Array<{
-    message: string;
-    path: PropertyKey[];
-  }>,
-) {
-  return issues
-    .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
-    .join("; ");
-}
-
-function parseInputSchema(input: unknown): Json {
-  const parsed = ProgramInputSchema.safeParse(input);
-
-  if (!parsed.success) {
-    throw new Error(
-      `Invalid program input schema: ${formatZodIssues(parsed.error.issues)}`,
-    );
-  }
-
-  return parsed.data as Json;
-}
-
-function parseOutputConfig(input: unknown): Json {
-  const parsed = ProgramOutputConfig.safeParse(input);
-
-  if (!parsed.success) {
-    throw new Error(
-      `Invalid program output config: ${formatZodIssues(parsed.error.issues)}`,
-    );
-  }
-
-  return parsed.data as Json;
-}
-
-function parseSecretConfig(input: unknown): Json {
-  return parseProgramSecretConfig(input) as unknown as Json;
-}
+const parseInputSchema = asJson;
+const parseOutputConfig = asJson;
+const parseSecretConfig = asJson;
 
 async function nextProgramVersionNumber(deps: ResourceDeps, programId: string) {
   const { data, error } = await requireServiceSupabase(deps)

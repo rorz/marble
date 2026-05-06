@@ -34,6 +34,12 @@ export {
   type UpdateProgramFileInput,
 } from "./resources/program-file";
 export {
+  ProgramRunCollection,
+  type ProgramRunInputContext,
+  type ProgramVersionTestData,
+  type StoredProgramRun,
+} from "./resources/program-run";
+export {
   type ProgramVersion,
   ProgramVersionCollection,
 } from "./resources/program-version";

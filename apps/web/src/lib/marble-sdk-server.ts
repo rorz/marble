@@ -1,9 +1,12 @@
 import "server-only";
 
-import { MarbleClient } from "@marble/sdk";
+import { createSupabaseClientRouterClient } from "@marble/api/supabase-client";
 import { requireUser } from "./auth";
 import { createClient } from "./supabase/server";
-import { createServiceRoleClient } from "./supabase/service-role";
+import {
+  createServiceRoleClient,
+  maybeResolveOwnedProfileId,
+} from "./supabase/service-role";
 
 const PROFILELESS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
 
@@ -14,15 +17,18 @@ export async function createServerMarbleSdk(
     createClient(),
     requireUser(),
   ]);
+  const profileId =
+    options.profileId ?? (await maybeResolveOwnedProfileId(user.id));
 
-  return new MarbleClient({
-    driver: {
-      client: supabase,
-      profileId: options.profileId ?? PROFILELESS_PROFILE_ID,
-      serviceClient: createServiceRoleClient(),
-      type: "supabase",
-      userId: user.id,
-    },
+  if (!profileId) {
+    throw new Error("Could not find a human profile for the current user.");
+  }
+
+  return createSupabaseClientRouterClient({
+    profileId,
+    serviceSupabase: createServiceRoleClient(),
+    supabase,
+    userId: user.id,
   });
 }
 

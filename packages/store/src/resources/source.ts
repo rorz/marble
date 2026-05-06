@@ -24,6 +24,34 @@ const DEFAULT_SOURCE_PAYLOAD_SCHEMA = {
 export class SourceCollection {
   public constructor(private readonly deps: ResourceDeps) {}
 
+  private readonly requireServiceSupabase = () => {
+    if (!this.deps.serviceSupabase) {
+      throw new Error(
+        "Source webhook auth requires a service Supabase client.",
+      );
+    }
+
+    return this.deps.serviceSupabase;
+  };
+
+  public readonly authorizeWebhook = async (input: {
+    sourceId: string;
+    token: string;
+  }) => {
+    const { data, error } = await this.requireServiceSupabase()
+      .from("source")
+      .select("id")
+      .eq("id", input.sourceId)
+      .eq("webhook_token", input.token)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return data !== null;
+  };
+
   public readonly create = async (input: CreateSourceInput) => {
     return this.deps.db.insert("source", {
       name: input.name ?? "Untitled Source",

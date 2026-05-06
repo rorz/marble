@@ -1,5 +1,6 @@
 import type { ListOptions, ResourceDeps } from "../db";
 import type { CreateParams, Entity, UpdateParams } from "../types";
+import { requireProfileId } from "../types";
 
 type Project = Entity<"project">;
 
@@ -12,11 +13,9 @@ type UpdateProjectInput = ProjectIdObject & {
 };
 
 export class ProjectCollection {
-  private readonly ownerProfileId: string;
+  public constructor(private readonly deps: ResourceDeps) {}
 
-  public constructor(private readonly deps: ResourceDeps) {
-    this.ownerProfileId = deps.context.profileId;
-  }
+  private readonly ownerProfileId = () => requireProfileId(this.deps.context);
 
   public readonly create = (
     input: Partial<Pick<CreateParams<"project">, "folderPath" | "name">> = {},
@@ -24,17 +23,17 @@ export class ProjectCollection {
     this.deps.db.insert("project", {
       folderPath: input.folderPath ?? [],
       name: input.name ?? "Untitled Project",
-      ownerProfileId: this.ownerProfileId,
+      ownerProfileId: this.ownerProfileId(),
     });
 
   public readonly delete = ({ projectId }: ProjectIdObject) =>
     this.deps.db.delete("project", projectId, {
-      ownerProfileId: this.ownerProfileId,
+      ownerProfileId: this.ownerProfileId(),
     });
 
   public readonly get = ({ projectId }: ProjectIdObject) =>
     this.deps.db.get("project", projectId, {
-      ownerProfileId: this.ownerProfileId,
+      ownerProfileId: this.ownerProfileId(),
     });
 
   public readonly list = (
@@ -45,13 +44,13 @@ export class ProjectCollection {
       "project",
       {
         name: input.name,
-        ownerProfileId: this.ownerProfileId,
+        ownerProfileId: this.ownerProfileId(),
       },
       options,
     );
 
   public readonly update = ({ projectId, values }: UpdateProjectInput) =>
     this.deps.db.update("project", projectId, values, {
-      ownerProfileId: this.ownerProfileId,
+      ownerProfileId: this.ownerProfileId(),
     });
 }

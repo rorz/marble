@@ -11,38 +11,19 @@ import {
   resolveColumnConfig,
 } from "@marble/contracts";
 import { assert } from "@marble/lib/assert";
-import type { Json, SupabaseClient, Tables } from "@marble/supabase";
+import type {
+  MarbleStore,
+  ProgramRunInputContext,
+  ProgramVersionTestData,
+  StoredProgramRun,
+} from "@marble/store";
 import { z } from "zod";
 import {
   BATCH_EXECUTOR_FILE_CONTENT,
   EXECUTOR_FILE_CONTENT,
 } from "./constants";
 
-type ProgramFile = Pick<
-  Tables<"program_file">,
-  "content" | "filename" | "filetype"
->;
-type ExecutionSecret = {
-  category: Tables<"secret">["category"];
-  id: string;
-  name: string;
-  value: string;
-};
-type ExecutionSecretMetadata = Pick<
-  Tables<"secret">,
-  "category" | "id" | "name"
->;
-type SecretBinding = {
-  envName: string;
-  secretId: string;
-};
-type MissingSecretConfiguration = {
-  bindingSource: "column" | "implicit" | "program";
-  description?: string;
-  envName: string;
-  label: string;
-  required: boolean;
-};
+type ProgramFile = ProgramVersionTestData["files"][number];
 type BatchExecutionJob = {
   key: string;
   runInput: JsonValue;
@@ -52,7 +33,7 @@ type BatchExecutionResult = {
   output: RunReturnValueType;
 };
 type BatchExecutorItem = {
-  error?: Json;
+  error?: JsonValue;
   key: string;
   ok: boolean;
   value?: JsonValue;
@@ -60,10 +41,15 @@ type BatchExecutorItem = {
 type BatchExecutorEnvelope = {
   results: BatchExecutorItem[];
 };
+type ExecutorAuthContext =
+  | {
+      profileId?: string;
+      userId?: string;
+    }
+  | undefined;
 type CellExecutionCandidateResolution =
   | {
       cellId: string;
-      programVersionId: string;
       status: "ready";
     }
   | {
@@ -71,19 +57,34 @@ type CellExecutionCandidateResolution =
       state: RunReturnValueType;
       status: "blocked";
     };
+type MissingSecretConfiguration = {
+  bindingSource: "column" | "implicit" | "program";
+  description?: string;
+  envName: string;
+  label: string;
+  required: boolean;
+};
 
-const executionSecretSchema = z.object({
-  category: z.enum([
-    "Managed",
-    "UserDefined",
-  ]),
-  id: z.string().uuid(),
-  name: z.string(),
-  value: z.string(),
-});
-const secretBindingSchema = z.object({
-  env_name: z.string(),
-  secret_id: z.string().uuid(),
+export const formatZodIssues = (issues: z.ZodIssue[]): string =>
+  issues
+    .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
+    .join("; ");
+
+const createFailureState = (
+  errorType: string,
+  message: string,
+  detail?: JsonValue,
+): RunReturnValueType => ({
+  error: {
+    type: errorType,
+    ...(detail == null
+      ? {}
+      : {
+          detail: detail as unknown as JsonValue,
+        }),
+  },
+  message,
+  ok: false,
 });
 
 class MissingSecretConfigurationError extends Error {
@@ -104,43 +105,25 @@ class MissingSecretConfigurationError extends Error {
       {
         missingSecrets,
         sentinel: "WAITING_FOR_SECRET_CONFIGURATION",
-      } as unknown as Json,
+      } as unknown as JsonValue,
     );
   }
 }
 
-export const formatZodIssues = (issues: z.ZodIssue[]): string =>
-  issues
-    .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
-    .join("; ");
-
-const createFailureState = (
-  errorType: string,
-  message: string,
-  detail?: Json,
-): RunReturnValueType => ({
-  error: {
-    type: errorType,
-    ...(detail == null
-      ? {}
-      : {
-          detail: detail as unknown as JsonValue,
-        }),
-  },
-  message,
-  ok: false,
-});
-
 export const failureStateFromError = (error: unknown): RunReturnValueType => {
-  if (error instanceof MissingSecretConfigurationError) {
-    return error.failState;
+  if (
+    error instanceof Error &&
+    error.name === "MissingSecretConfigurationError" &&
+    "failState" in error
+  ) {
+    return error.failState as RunReturnValueType;
   }
 
   if (error instanceof z.ZodError) {
     return createFailureState(
       "Validation",
       formatZodIssues(error.issues),
-      error.issues as unknown as Json,
+      error.issues as unknown as JsonValue,
     );
   }
 
@@ -187,159 +170,209 @@ function firstRelation<T>(value: T | T[] | null | undefined): T | undefined {
   return value ?? undefined;
 }
 
-async function listSecretMetadataForOwnerUserId(
-  supabase: SupabaseClient,
-  ownerUserId: string,
-) {
-  const { data, error } = await supabase
-    .from("secret")
-    .select("category, id, name")
-    .eq("owner_user_id", ownerUserId)
-    .order("name", {
-      ascending: true,
-    });
+function resolveInputContext(context: ProgramRunInputContext) {
+  const rowContext: Record<string, JsonValue> = {
+    cell: {
+      manualInputValue: context.cell.manual_input,
+    },
+    columns: context.columns as unknown as JsonValue,
+  };
+  const inputTemplate = JSON.parse(context.column.input_template) as JsonValue;
+  const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
+  const inputPayloadSchema = ProgramInputSchema.parse(
+    context.programVersion.input_schema,
+  );
+  const parsedInput = z
+    .fromJSONSchema(inputPayloadSchema)
+    .parse(resolvedInput) as JsonValue;
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []) as ExecutionSecretMetadata[];
+  return {
+    parsedInput,
+    runInput: createRuntimeEnvelope(parsedInput, context.cell.manual_input),
+  };
 }
 
-async function listSelectedSecretsForOwnerUserId(
-  supabase: SupabaseClient,
-  ownerUserId: string,
-  secretIds: string[],
+export async function resolveProgramRunInput(
+  store: MarbleStore,
+  run: StoredProgramRun,
 ) {
-  const uniqueSecretIds = Array.from(new Set(secretIds));
-
-  if (uniqueSecretIds.length === 0) {
-    return [] as ExecutionSecret[];
-  }
-
-  const { data, error } = await supabase.rpc("secret_store_resolve_selected", {
-    p_owner_user_id: ownerUserId,
-    p_secret_ids: uniqueSecretIds,
-  });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return z.array(executionSecretSchema).parse(data ?? []) as ExecutionSecret[];
+  return resolveInputContext(
+    await store.programRuns.loadInputContextForRun(run),
+  );
 }
 
-async function resolveOwnerUserIdForProfile(
-  supabase: SupabaseClient,
-  profileId: string,
-) {
-  const { data, error } = await supabase
-    .from("profile")
-    .select("owner_user_id")
-    .eq("id", profileId)
-    .maybeSingle();
+async function resolveCellExecutionCandidate(
+  store: MarbleStore,
+  cellId: string,
+): Promise<CellExecutionCandidateResolution | null> {
+  const context = await store.programRuns.loadInputContextForCellId(cellId);
+  const state = context.cell.state as {
+    ok?: boolean | null;
+  } | null;
 
-  if (error) {
-    throw new Error(error.message);
+  if (state?.ok === null) {
+    return null;
   }
 
-  if (!data) {
-    throw new Error(`Profile '${profileId}' was not found.`);
+  if (
+    ColumnRunCondition.safeParse(context.column.run_condition).data !== true
+  ) {
+    return null;
   }
 
-  return data.owner_user_id;
-}
+  try {
+    resolveInputContext(context);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return {
+        cellId: context.cell.id,
+        state: createFailureState(
+          "AutoQueueSkipped",
+          `Not queued because resolved input failed schema validation: ${formatZodIssues(
+            error.issues,
+          )}`,
+          {
+            issues: error.issues as unknown as JsonValue,
+            sentinel: "AUTO_QUEUE_INPUT_VALIDATION_FAILED",
+          } as JsonValue,
+        ),
+        status: "blocked",
+      };
+    }
 
-async function listProgramSecretBindingsForOwnerUserId(
-  supabase: SupabaseClient,
-  ownerUserId: string,
-  programId: string,
-) {
-  const { data, error } = await supabase
-    .from("program_secret_binding")
-    .select("env_name, secret_id")
-    .eq("owner_user_id", ownerUserId)
-    .eq("program_id", programId)
-    .order("env_name", {
-      ascending: true,
-    });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return z
-    .array(secretBindingSchema)
-    .parse(data ?? [])
-    .map((binding) => ({
-      envName: binding.env_name,
-      secretId: binding.secret_id,
-    })) as SecretBinding[];
-}
-
-async function listColumnSecretBindings(
-  supabase: SupabaseClient,
-  columnId: string,
-) {
-  const { data, error } = await supabase
-    .from("column_secret_binding")
-    .select("env_name, secret_id")
-    .eq("column_id", columnId)
-    .order("env_name", {
-      ascending: true,
-    });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return z
-    .array(secretBindingSchema)
-    .parse(data ?? [])
-    .map((binding) => ({
-      envName: binding.env_name,
-      secretId: binding.secret_id,
-    })) as SecretBinding[];
-}
-
-async function listResolvedSecretBindings(
-  supabase: SupabaseClient,
-  options: {
-    columnId?: string;
-    ownerUserId: string;
-    programId: string;
-  },
-) {
-  const [programBindings, columnBindings] = await Promise.all([
-    listProgramSecretBindingsForOwnerUserId(
-      supabase,
-      options.ownerUserId,
-      options.programId,
-    ),
-    options.columnId
-      ? listColumnSecretBindings(supabase, options.columnId)
-      : Promise.resolve([] as SecretBinding[]),
-  ]);
-  const bindingSourceByEnvName = new Map<
-    string,
-    MissingSecretConfiguration["bindingSource"]
-  >();
-  const selectedSecretIdByEnvName = new Map<string, string>();
-
-  for (const binding of programBindings) {
-    bindingSourceByEnvName.set(binding.envName, "program");
-    selectedSecretIdByEnvName.set(binding.envName, binding.secretId);
-  }
-
-  for (const binding of columnBindings) {
-    bindingSourceByEnvName.set(binding.envName, "column");
-    selectedSecretIdByEnvName.set(binding.envName, binding.secretId);
+    throw error;
   }
 
   return {
-    bindingSourceByEnvName,
-    selectedSecretIdByEnvName,
+    cellId: context.cell.id,
+    status: "ready",
   };
+}
+
+export async function listReadyDependentCellIds(
+  store: MarbleStore,
+  input: {
+    requestId?: string;
+    successfulRuns: StoredProgramRun[];
+    visitedCellIds: Set<string>;
+  },
+) {
+  const candidateCellIds =
+    await store.programRuns.listDependentCandidateCellIds(input);
+  const resolvedCandidates = await Promise.all(
+    candidateCellIds.map(async (cellId) => {
+      try {
+        return await resolveCellExecutionCandidate(store, cellId);
+      } catch (error) {
+        console.error(
+          `[${input.requestId ?? "unknown"}] Skipping dependent cell ${cellId}`,
+          error,
+        );
+        return null;
+      }
+    }),
+  );
+
+  await Promise.all(
+    resolvedCandidates.flatMap((candidate) =>
+      candidate?.status === "blocked"
+        ? [
+            store.programRuns.setCellState({
+              cellId: candidate.cellId,
+              state: candidate.state,
+            }),
+          ]
+        : [],
+    ),
+  );
+
+  return resolvedCandidates.flatMap((candidate) =>
+    candidate?.status === "ready"
+      ? [
+          candidate.cellId,
+        ]
+      : [],
+  );
+}
+
+function ownerUserIdForRun(run: StoredProgramRun) {
+  const row = firstRelation(run.cell.row);
+  const table = firstRelation(row?.table);
+  const project = firstRelation(table?.project);
+  const profile = firstRelation(project?.profile);
+
+  if (!profile?.owner_user_id) {
+    throw new Error("Could not resolve the run owner for secret loading.");
+  }
+
+  return profile.owner_user_id;
+}
+
+async function resolveDeclaredEnvironmentVariables(
+  store: MarbleStore,
+  input: {
+    columnId?: string;
+    ownerUserId: string;
+    programId: string;
+    secretConfig?: JsonValue | null;
+  },
+) {
+  const declarations =
+    input.secretConfig === undefined || input.secretConfig === null
+      ? []
+      : parseProgramSecretConfig(input.secretConfig);
+  const resolved =
+    await store.programRuns.resolveEnvironmentVariablesForSecretDeclarations({
+      columnId: input.columnId,
+      declarations,
+      ownerUserId: input.ownerUserId,
+      programId: input.programId,
+    });
+
+  if (resolved.missingSecrets.length > 0) {
+    throw new MissingSecretConfigurationError(resolved.missingSecrets);
+  }
+
+  return resolved.environmentVariables;
+}
+
+export function resolveEnvironmentVariablesForRun(
+  store: MarbleStore,
+  run: StoredProgramRun,
+) {
+  return resolveDeclaredEnvironmentVariables(store, {
+    columnId: run.cell.column_id,
+    ownerUserId: ownerUserIdForRun(run),
+    programId: run.program_version.program_id,
+    secretConfig: run.program_version.secret_config as JsonValue | null,
+  });
+}
+
+export async function resolveEnvironmentVariablesForProgramVersion(
+  store: MarbleStore,
+  options: {
+    auth: ExecutorAuthContext;
+    programId: string;
+    secretConfig?: JsonValue | null;
+  },
+) {
+  const ownerUserId =
+    options.auth?.userId ??
+    (options.auth?.profileId
+      ? await store.programRuns.resolveOwnerUserIdForProfile(
+          options.auth.profileId,
+        )
+      : undefined);
+
+  if (!ownerUserId) {
+    return {};
+  }
+
+  return resolveDeclaredEnvironmentVariables(store, {
+    ownerUserId,
+    programId: options.programId,
+    secretConfig: options.secretConfig,
+  });
 }
 
 const prepareExecutionEnvironment = async (
@@ -438,7 +471,7 @@ function validateOutputValue(
       return createFailureState(
         "Parser",
         `Output validation failed: ${formatZodIssues(validation.error.issues)}`,
-        validation.error.issues as unknown as Json,
+        validation.error.issues as unknown as JsonValue,
       );
     }
 
@@ -482,13 +515,13 @@ export const executeAndValidate = async (
   const rawOutput = (() => {
     if (!executionResult.success) {
       const stderr = executionResult.stderr.trim() || "Program crashed";
-      let detail: Json | undefined;
+      let detail: JsonValue | undefined;
       let message = stderr;
 
       try {
         const parsedError = JSON.parse(stderr);
         if (parsedError && typeof parsedError === "object") {
-          detail = parsedError as Json;
+          detail = parsedError as JsonValue;
           const parsedRecord = parsedError as Record<string, unknown>;
           message =
             typeof parsedRecord.message === "string" && parsedRecord.message
@@ -616,8 +649,6 @@ export const executeAndValidateBatch = async (
   });
 };
 
-const STORED_RUN_SELECT = `*, program_version(*, program!program_version_program_id_fkey(*), program_file(*)), cell!target_cell_id(*, row!cell_row_id_fkey(*, table!row_table_id_fkey(*, project!table_project_id_fkey(*, profile!project_owner_profile_id_fkey(*)))), column!cell_column_id_fkey(*))`;
-
 export const runtimeInputFromValue = (input: JsonValue): JsonValue => {
   const parsedRunInput = RunInput.safeParse(input);
   if (parsedRunInput.success) {
@@ -625,596 +656,4 @@ export const runtimeInputFromValue = (input: JsonValue): JsonValue => {
   }
 
   return createRuntimeEnvelope(input);
-};
-
-type ExecutionInputContext = {
-  cell: Pick<Tables<"cell">, "id" | "manual_input" | "state">;
-  column: Pick<
-    Tables<"column">,
-    | "id"
-    | "input_template"
-    | "program_version_id"
-    | "run_condition"
-    | "table_id"
-  >;
-  programVersion: Pick<Tables<"program_version">, "id" | "input_schema">;
-  row: Pick<Tables<"row">, "id" | "idx" | "table_id">;
-};
-
-function createExecutionInputContextFromStoredRun(
-  run: StoredRun,
-): ExecutionInputContext {
-  const row = firstRelation(run.cell.row);
-
-  if (!row) {
-    throw new Error("Could not resolve the run row.");
-  }
-
-  return {
-    cell: {
-      id: run.cell.id,
-      manual_input: run.cell.manual_input,
-      state: run.cell.state,
-    },
-    column: {
-      id: run.cell.column.id,
-      input_template: run.cell.column.input_template,
-      program_version_id: run.cell.column.program_version_id,
-      run_condition: run.cell.column.run_condition,
-      table_id: run.cell.column.table_id,
-    },
-    programVersion: {
-      id: run.program_version.id,
-      input_schema: run.program_version.input_schema,
-    },
-    row: {
-      id: row.id,
-      idx: row.idx,
-      table_id: row.table_id,
-    },
-  };
-}
-
-async function loadExecutionInputContextForCell(
-  supabase: SupabaseClient,
-  cellId: string,
-): Promise<ExecutionInputContext> {
-  const { data: cellRecord, error: cellError } = await supabase
-    .from("cell")
-    .select(
-      "id, manual_input, state, row!cell_row_id_fkey(id, idx, table_id), column!cell_column_id_fkey(id, input_template, program_version_id, run_condition, table_id)",
-    )
-    .eq("id", cellId)
-    .maybeSingle();
-
-  if (cellError) {
-    throw new Error(cellError.message);
-  }
-
-  if (!cellRecord) {
-    throw new Error(`No cell found for '${cellId}'.`);
-  }
-
-  const row = firstRelation(cellRecord.row);
-  const column = firstRelation(cellRecord.column);
-
-  if (!row || !column) {
-    throw new Error(
-      `Could not resolve execution context for cell '${cellId}'.`,
-    );
-  }
-
-  const { data: programVersion, error: programVersionError } = await supabase
-    .from("program_version")
-    .select("id, input_schema")
-    .eq("id", column.program_version_id)
-    .maybeSingle();
-
-  if (programVersionError) {
-    throw new Error(programVersionError.message);
-  }
-
-  if (!programVersion) {
-    throw new Error(
-      `Program version '${column.program_version_id}' was not found.`,
-    );
-  }
-
-  return {
-    cell: {
-      id: cellRecord.id,
-      manual_input: cellRecord.manual_input,
-      state: cellRecord.state,
-    },
-    column: {
-      id: column.id,
-      input_template: column.input_template,
-      program_version_id: column.program_version_id,
-      run_condition: column.run_condition,
-      table_id: column.table_id,
-    },
-    programVersion: {
-      id: programVersion.id,
-      input_schema: programVersion.input_schema,
-    },
-    row: {
-      id: row.id,
-      idx: row.idx,
-      table_id: row.table_id,
-    },
-  };
-}
-
-async function resolveExecutionInputFromContext(
-  supabase: SupabaseClient,
-  context: ExecutionInputContext,
-) {
-  const { data: dependencies, error: dependenciesError } = await supabase
-    .from("column_dependency")
-    .select("source_column_id")
-    .eq("target_column_id", context.column.id);
-
-  if (dependenciesError) {
-    throw new Error(dependenciesError.message);
-  }
-
-  const sourceColumnIds =
-    dependencies?.map((entry) => entry.source_column_id) ?? [];
-  const { data: sourceColumnData, error: sourceColumnError } =
-    sourceColumnIds.length === 0
-      ? {
-          data: [],
-          error: null,
-        }
-      : await supabase
-          .from("column")
-          .select("id, table_id")
-          .in("id", sourceColumnIds);
-
-  if (sourceColumnError) {
-    throw new Error(sourceColumnError.message);
-  }
-
-  const sourceColumns = sourceColumnData ?? [];
-  const externalTableIds = Array.from(
-    new Set(
-      sourceColumns
-        .map((column) => column.table_id)
-        .filter((tableId) => tableId !== context.row.table_id),
-    ),
-  );
-  const { data: externalRowData, error: externalRowError } =
-    externalTableIds.length === 0
-      ? {
-          data: [],
-          error: null,
-        }
-      : await supabase
-          .from("row")
-          .select("id, table_id")
-          .eq("idx", context.row.idx)
-          .in("table_id", externalTableIds);
-
-  if (externalRowError) {
-    throw new Error(externalRowError.message);
-  }
-
-  const rowsByTableId = new Map(
-    (externalRowData ?? []).map((row) => [
-      row.table_id,
-      row.id,
-    ]),
-  );
-  const dependencyRowIds = Array.from(
-    new Set(
-      sourceColumns.flatMap((column) =>
-        column.table_id === context.row.table_id
-          ? [
-              context.row.id,
-            ]
-          : rowsByTableId.has(column.table_id)
-            ? [
-                rowsByTableId.get(column.table_id) as string,
-              ]
-            : [],
-      ),
-    ),
-  );
-  const { data: dependencyCellData, error: dependencyCellError } =
-    sourceColumns.length === 0 || dependencyRowIds.length === 0
-      ? {
-          data: [],
-          error: null,
-        }
-      : await supabase
-          .from("cell")
-          .select("*")
-          .in("column_id", sourceColumnIds)
-          .in("row_id", dependencyRowIds);
-
-  if (dependencyCellError) {
-    throw new Error(dependencyCellError.message);
-  }
-
-  const dependencyCells = dependencyCellData ?? [];
-  const columns = Object.fromEntries(
-    dependencyCells.map((cell) => {
-      const state = cell.state as {
-        ok?: boolean;
-        value?: JsonValue;
-      } | null;
-
-      return [
-        cell.column_id,
-        {
-          value: state?.ok ? (state.value ?? null) : null,
-        },
-      ];
-    }),
-  ) as Record<string, JsonValue>;
-
-  const rowContext: Record<string, JsonValue> = {
-    cell: {
-      manualInputValue: context.cell.manual_input,
-    },
-    columns,
-  };
-  const inputTemplate: JsonValue = JSON.parse(context.column.input_template);
-  const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
-  const inputPayloadSchema = ProgramInputSchema.parse(
-    context.programVersion.input_schema,
-  );
-  const parsedInput = z.fromJSONSchema(inputPayloadSchema).parse(resolvedInput);
-
-  return {
-    parsedInput: parsedInput as Json,
-    runInput: createRuntimeEnvelope(
-      parsedInput as JsonValue,
-      context.cell.manual_input,
-    ),
-  };
-}
-
-const loadStoredRun = async (supabase: SupabaseClient, runId: string) => {
-  const { data, error } = await supabase
-    .from("program_run")
-    .select(STORED_RUN_SELECT)
-    .eq("id", runId);
-
-  const run = data?.at(0);
-  if (!run || error) {
-    throw new Error(error?.message ?? "No run found.");
-  }
-
-  return run;
-};
-
-export type StoredRun = Awaited<ReturnType<typeof loadStoredRun>>;
-
-export const loadStoredRuns = async (
-  supabase: SupabaseClient,
-  runIds: string[],
-) => {
-  const uniqueRunIds = Array.from(new Set(runIds));
-  if (uniqueRunIds.length === 0) {
-    return [] as StoredRun[];
-  }
-
-  const { data, error } = await supabase
-    .from("program_run")
-    .select(STORED_RUN_SELECT)
-    .in("id", uniqueRunIds);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  const runsById = new Map(
-    (data ?? []).map((run) => [
-      run.id,
-      run,
-    ]),
-  );
-
-  for (const runId of uniqueRunIds) {
-    if (!runsById.has(runId)) {
-      throw new Error(`No run found for '${runId}'.`);
-    }
-  }
-
-  return runIds.map((runId) => {
-    const run = runsById.get(runId);
-
-    if (!run) {
-      throw new Error(`No run found for '${runId}'.`);
-    }
-
-    return run;
-  });
-};
-
-export const persistStoredRunFailure = async (
-  supabase: SupabaseClient,
-  run: StoredRun,
-  runId: string,
-  failState: RunReturnValueType,
-) => {
-  await Promise.all([
-    supabase
-      .from("cell")
-      .update({
-        state: failState,
-      })
-      .eq("id", run.target_cell_id),
-    supabase
-      .from("program_run")
-      .update({
-        output: failState as unknown as Json,
-      })
-      .eq("id", runId),
-  ]);
-};
-
-export const resolveStoredRunInput = async (
-  supabase: SupabaseClient,
-  run: StoredRun,
-) => {
-  return resolveExecutionInputFromContext(
-    supabase,
-    createExecutionInputContextFromStoredRun(run),
-  );
-};
-
-export const resolveCellExecutionCandidate = async (
-  supabase: SupabaseClient,
-  cellId: string,
-): Promise<CellExecutionCandidateResolution | null> => {
-  const context = await loadExecutionInputContextForCell(supabase, cellId);
-  const state = context.cell.state as {
-    ok?: boolean | null;
-  } | null;
-
-  if (state?.ok === null) {
-    return null;
-  }
-
-  if (
-    ColumnRunCondition.safeParse(context.column.run_condition).data !== true
-  ) {
-    return null;
-  }
-
-  try {
-    await resolveExecutionInputFromContext(supabase, context);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return {
-        cellId: context.cell.id,
-        state: createFailureState(
-          "AutoQueueSkipped",
-          `Not queued because resolved input failed schema validation: ${formatZodIssues(
-            error.issues,
-          )}`,
-          {
-            issues: error.issues as unknown as Json,
-            sentinel: "AUTO_QUEUE_INPUT_VALIDATION_FAILED",
-          } as Json,
-        ),
-        status: "blocked",
-      };
-    }
-
-    throw error;
-  }
-
-  return {
-    cellId: context.cell.id,
-    programVersionId: context.column.program_version_id,
-    status: "ready",
-  };
-};
-
-async function resolveDeclaredEnvironmentVariables(
-  supabase: SupabaseClient,
-  options: {
-    columnId?: string;
-    ownerUserId: string;
-    programId: string;
-    secretConfig?: Json | null;
-  },
-) {
-  const declarations =
-    options.secretConfig === undefined || options.secretConfig === null
-      ? []
-      : parseProgramSecretConfig(options.secretConfig);
-  const declarationByEnvName = new Map(
-    declarations.map((declaration) => [
-      declaration.env,
-      declaration,
-    ]),
-  );
-  const { bindingSourceByEnvName, selectedSecretIdByEnvName } =
-    await listResolvedSecretBindings(supabase, {
-      columnId: options.columnId,
-      ownerUserId: options.ownerUserId,
-      programId: options.programId,
-    });
-  const missingSecrets: MissingSecretConfiguration[] = [];
-
-  if (declarations.length > 0) {
-    const secretMetadata = await listSecretMetadataForOwnerUserId(
-      supabase,
-      options.ownerUserId,
-    );
-    const secretIdByName = new Map(
-      secretMetadata.map((secret) => [
-        secret.name,
-        secret.id,
-      ]),
-    );
-
-    for (const declaration of declarations) {
-      if (selectedSecretIdByEnvName.has(declaration.env)) {
-        continue;
-      }
-
-      const implicitSecretId = secretIdByName.get(declaration.env);
-
-      if (implicitSecretId) {
-        selectedSecretIdByEnvName.set(declaration.env, implicitSecretId);
-        continue;
-      }
-
-      if (!declaration.required) {
-        continue;
-      }
-
-      missingSecrets.push({
-        bindingSource: "implicit",
-        ...(declaration.description === undefined
-          ? {}
-          : {
-              description: declaration.description,
-            }),
-        envName: declaration.env,
-        label: declaration.label,
-        required: declaration.required,
-      });
-    }
-  }
-
-  const resolvedSecrets = await listSelectedSecretsForOwnerUserId(
-    supabase,
-    options.ownerUserId,
-    Array.from(new Set(selectedSecretIdByEnvName.values())),
-  );
-  const resolvedSecretValueById = new Map(
-    resolvedSecrets.map((secret) => [
-      secret.id,
-      secret.value,
-    ]),
-  );
-  const environmentVariables: Record<string, string> = {};
-
-  for (const [envName, secretId] of selectedSecretIdByEnvName) {
-    const selectedValue = resolvedSecretValueById.get(secretId);
-
-    if (selectedValue !== undefined) {
-      environmentVariables[envName] = selectedValue;
-      continue;
-    }
-
-    const declaration = declarationByEnvName.get(envName);
-    const bindingSource = bindingSourceByEnvName.get(envName) ?? "implicit";
-
-    if (
-      !bindingSourceByEnvName.has(envName) &&
-      declaration?.required !== true
-    ) {
-      continue;
-    }
-
-    if (
-      missingSecrets.some((missingSecret) => missingSecret.envName === envName)
-    ) {
-      continue;
-    }
-
-    missingSecrets.push({
-      bindingSource,
-      ...(declaration?.description === undefined
-        ? {}
-        : {
-            description: declaration.description,
-          }),
-      envName,
-      label: declaration?.label ?? envName,
-      required:
-        bindingSourceByEnvName.has(envName) || declaration?.required === true,
-    });
-  }
-
-  return {
-    environmentVariables,
-    missingSecrets,
-  };
-}
-
-export const resolveEnvironmentVariablesForProgramVersion = async (
-  supabase: SupabaseClient,
-  options: {
-    auth:
-      | {
-          profileId?: string;
-          userId?: string;
-        }
-      | undefined;
-    programId: string;
-    secretConfig?: Json | null;
-  },
-) => {
-  const ownerUserId =
-    options.auth?.userId ??
-    (options.auth?.profileId
-      ? await resolveOwnerUserIdForProfile(supabase, options.auth.profileId)
-      : undefined);
-
-  if (!ownerUserId) {
-    return {};
-  }
-
-  const resolved = await resolveDeclaredEnvironmentVariables(supabase, {
-    ownerUserId,
-    programId: options.programId,
-    secretConfig: options.secretConfig,
-  });
-
-  if (resolved.missingSecrets.length > 0) {
-    throw new MissingSecretConfigurationError(resolved.missingSecrets);
-  }
-
-  return resolved.environmentVariables;
-};
-
-export const resolveEnvironmentVariablesForRun = async (
-  supabase: SupabaseClient,
-  run: StoredRun,
-) => {
-  const row = firstRelation(run.cell.row);
-  const table = firstRelation(row?.table);
-  const project = firstRelation(table?.project);
-  const profile = firstRelation(project?.profile);
-
-  if (!profile?.owner_user_id) {
-    throw new Error("Could not resolve the run owner for secret loading.");
-  }
-
-  const resolved = await resolveDeclaredEnvironmentVariables(supabase, {
-    columnId: run.cell.column_id,
-    ownerUserId: profile.owner_user_id,
-    programId: run.program_version.program_id,
-    secretConfig: run.program_version.secret_config as Json | null | undefined,
-  });
-
-  if (resolved.missingSecrets.length > 0) {
-    throw new MissingSecretConfigurationError(resolved.missingSecrets);
-  }
-
-  return resolved.environmentVariables;
-};
-
-export const loadProgramVersionFiles = async (
-  supabase: SupabaseClient,
-  programVersionId: string,
-): Promise<ProgramFile[]> => {
-  const { data, error } = await supabase
-    .from("program_file")
-    .select("*")
-    .eq("version_id", programVersionId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data ?? [];
 };

@@ -7,6 +7,7 @@ import { PipeCollection } from "./resources/pipe";
 import { ProfileCollection } from "./resources/profile";
 import { ProgramCollection } from "./resources/program";
 import { ProgramFileCollection } from "./resources/program-file";
+import { ProgramRunCollection } from "./resources/program-run";
 import { ProgramVersionCollection } from "./resources/program-version";
 import { ProjectCollection } from "./resources/project";
 import { RowCollection } from "./resources/row";
@@ -26,6 +27,7 @@ export class MarbleStore {
   readonly pipes: PipeCollection;
   readonly programs: ProgramCollection;
   readonly programFiles: ProgramFileCollection;
+  readonly programRuns: ProgramRunCollection;
   readonly programVersions: ProgramVersionCollection;
   readonly profiles: ProfileCollection;
   readonly projects: ProjectCollection;
@@ -47,6 +49,7 @@ export class MarbleStore {
     this.pipes = new PipeCollection(deps);
     this.programs = new ProgramCollection(deps);
     this.programFiles = new ProgramFileCollection(deps);
+    this.programRuns = new ProgramRunCollection(deps);
     this.programVersions = new ProgramVersionCollection(deps);
     this.profiles = new ProfileCollection(deps);
     this.projects = new ProjectCollection(deps);

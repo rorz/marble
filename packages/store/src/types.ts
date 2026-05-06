@@ -87,11 +87,19 @@ export type ResourceRow<Name extends TableName> = Tables<Name>;
 export type ResourceContext = {
   actorKeyId?: string;
   eventSource?: "CLI" | "RAW_API" | "WEB_APP";
-  profileId: string;
+  profileId?: string;
   recordTiming?: (name: string, durationMs: number) => void;
   requestId?: string;
   userId?: string;
 };
+
+export function requireProfileId(context: ResourceContext) {
+  if (!context.profileId) {
+    throw new Error("This operation requires a profile context.");
+  }
+
+  return context.profileId;
+}
 
 export type CellRunInput = {
   manualInput?: string | null;
