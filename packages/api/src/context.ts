@@ -12,7 +12,7 @@ export type MarbleApiConfig = {
     url: string;
   };
   supabase: {
-    jwtSecret?: string;
+    jwtSecret: string;
     publishableKey: string;
     serviceRoleKey: string;
     url: string;
@@ -26,7 +26,7 @@ export type MarbleApiRuntime = {
     };
     url: string;
   };
-  jwtSecret?: string;
+  jwtSecret: string;
   publishableKey: string;
   serviceRoleKey: string;
   supabaseUrl: string;
