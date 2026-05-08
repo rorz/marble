@@ -1183,12 +1183,12 @@ BEGIN
 
   IF topic IS NOT NULL THEN
     PERFORM realtime.send(
-      jsonb_strip_nulls(jsonb_build_object(
+      jsonb_build_object(
         'event', TG_OP,
         'id', mutation_id,
         'row', mutation_row,
         'type', mutation_type
-      )),
+      ),
       'table_mutation',
       topic,
       TRUE

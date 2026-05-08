@@ -340,6 +340,10 @@ function isTerminalCellState(state: CellState) {
   return state?.ok === true || state?.ok === false;
 }
 
+function isRunningCellState(state: CellState) {
+  return state?.ok === null;
+}
+
 function displayCellValue(cell: Cell | undefined): string {
   const state = getCellState(cell);
   if (!state) return cell?.manualInput ?? "";
@@ -1131,7 +1135,7 @@ function CellWithRunButton(props: CustomCellRendererProps) {
   const state = columnId
     ? (props.data?.[`_state:${columnId}`] as CellState)
     : null;
-  const isLoading = state?.ok === null;
+  const isLoading = isRunningCellState(state);
   const isFailed = state?.ok === false;
   const isNull = !state;
 
@@ -1625,6 +1629,40 @@ export default function TablePageView({
     null,
   );
 
+  const applyRunningCellMutation = (cell: Cell) => {
+    const pending = pendingCellsRef.current;
+    const currentCell = cellsRef.current.find(
+      (current) => current.id === cell.id,
+    );
+
+    pending.inserts.delete(cell.id);
+    pending.updates.delete(cell.id);
+    runningCellIdsRef.current.add(cell.id);
+    upsertLocalCells([
+      {
+        ...cell,
+        manualInput: currentCell?.manualInput ?? cell.manualInput,
+        state: {
+          ok: null,
+        } as Cell["state"],
+      },
+    ]);
+  };
+
+  const queueSettledCellMutation = (cell: Cell) => {
+    if (isTerminalCellState(getCellState(cell))) {
+      runningCellIdsRef.current.delete(cell.id);
+    }
+
+    const existing = cellsRef.current.some((current) => current.id === cell.id);
+
+    if (existing) {
+      pendingCellsRef.current.updates.set(cell.id, cell);
+    } else {
+      pendingCellsRef.current.inserts.set(cell.id, cell);
+    }
+  };
+
   const flushCells = () => {
     const pending = pendingCellsRef.current;
 
@@ -1696,33 +1734,13 @@ export default function TablePageView({
     if (mutation.type === "cell:upsert") {
       const cell = normalizeBroadcastCell(mutation.row);
       const state = getCellState(cell);
-      const currentCell = cellsRef.current.find(
-        (current) => current.id === cell.id,
-      );
-      const nextCell =
-        runningCellIdsRef.current.has(cell.id) && !isTerminalCellState(state)
-          ? {
-              ...cell,
-              manualInput: currentCell?.manualInput ?? cell.manualInput,
-              state: {
-                ok: null,
-              } as Cell["state"],
-            }
-          : cell;
 
-      if (isTerminalCellState(state)) {
-        runningCellIdsRef.current.delete(cell.id);
+      if (isRunningCellState(state)) {
+        applyRunningCellMutation(cell);
+        return;
       }
 
-      const existing = cellsRef.current.some(
-        (current) => current.id === nextCell.id,
-      );
-
-      if (existing) {
-        pending.updates.set(nextCell.id, nextCell);
-      } else {
-        pending.inserts.set(nextCell.id, nextCell);
-      }
+      queueSettledCellMutation(cell);
     }
 
     if (cellFlushTimeoutRef.current) {

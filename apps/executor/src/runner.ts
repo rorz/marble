@@ -54,6 +54,11 @@ type CellExecutionCandidateResolution =
     }
   | {
       cellId: string;
+      clearState: boolean;
+      status: "waiting";
+    }
+  | {
+      cellId: string;
       state: RunReturnValueType;
       status: "blocked";
     };
@@ -97,6 +102,43 @@ const createFailureState = (
   message,
   ok: false,
 });
+
+function getFailureStateSentinel(state: unknown) {
+  if (!state || typeof state !== "object") {
+    return undefined;
+  }
+
+  const error = (
+    state as {
+      error?: unknown;
+    }
+  ).error;
+
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+
+  const detail = (
+    error as {
+      detail?: unknown;
+    }
+  ).detail;
+
+  if (!detail || typeof detail !== "object") {
+    return undefined;
+  }
+
+  const sentinel = (
+    detail as {
+      sentinel?: unknown;
+    }
+  ).sentinel;
+  return typeof sentinel === "string" ? sentinel : undefined;
+}
+
+function hasUnreadyInputDependencies(context: ProgramRunInputContext) {
+  return Object.values(context.columns).some((column) => !column.ready);
+}
 
 class MissingSecretConfigurationError extends Error {
   failState: RunReturnValueType;
@@ -231,6 +273,16 @@ async function resolveCellExecutionCandidate(
     return null;
   }
 
+  if (hasUnreadyInputDependencies(context)) {
+    return {
+      cellId: context.cell.id,
+      clearState:
+        getFailureStateSentinel(context.cell.state) ===
+        "AUTO_QUEUE_INPUT_VALIDATION_FAILED",
+      status: "waiting",
+    };
+  }
+
   try {
     resolveInputContext(context);
   } catch (error) {
@@ -293,7 +345,14 @@ export async function listReadyDependentCellIds(
               state: candidate.state,
             }),
           ]
-        : [],
+        : candidate?.status === "waiting" && candidate.clearState
+          ? [
+              store.programRuns.setCellState({
+                cellId: candidate.cellId,
+                state: null,
+              }),
+            ]
+          : [],
     ),
   );
 

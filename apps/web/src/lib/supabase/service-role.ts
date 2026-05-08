@@ -20,7 +20,22 @@ export async function maybeResolveOwnedProfileId(
   userId: string,
   profileId?: string | null,
 ) {
-  let request = createServiceRoleClient()
+  if (profileId) {
+    const { data, error } = await createServiceRoleClient()
+      .from("profile")
+      .select("id")
+      .eq("id", profileId)
+      .eq("owner_user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    return data?.id;
+  }
+
+  const { data, error } = await createServiceRoleClient()
     .from("profile")
     .select("id")
     .eq("owner_user_id", userId)
@@ -28,13 +43,8 @@ export async function maybeResolveOwnedProfileId(
     .order("created_at", {
       ascending: true,
     })
-    .limit(1);
-
-  if (profileId) {
-    request = request.eq("id", profileId);
-  }
-
-  const { data, error } = await request.maybeSingle();
+    .limit(1)
+    .maybeSingle();
 
   if (error) {
     throw error;

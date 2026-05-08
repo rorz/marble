@@ -114,6 +114,7 @@ export type ProgramRunInputContext = ProgramRunBaseInputContext & {
   columns: Record<
     string,
     {
+      ready: boolean;
       value: JsonValue;
     }
   >;
@@ -591,18 +592,40 @@ async function loadInputContext(
     throw new Error(dependencyCellError.message);
   }
 
-  const dependencyCells = dependencyCellData ?? [];
+  const dependencyCellByColumnAndRowId = new Map(
+    (dependencyCellData ?? []).map((cell) => [
+      `${cell.column_id}:${cell.row_id}`,
+      cell,
+    ]),
+  );
+  const dependencyRowIdByColumnId = new Map(
+    sourceColumns.map((column) => [
+      column.id,
+      column.table_id === context.row.table_id
+        ? context.row.id
+        : rowsByTableId.get(column.table_id),
+    ]),
+  );
   const columns = Object.fromEntries(
-    dependencyCells.map((cell) => {
-      const state = cell.state as {
-        ok?: boolean;
-        value?: JsonValue;
-      } | null;
+    sourceColumns.map((column) => {
+      const rowId = dependencyRowIdByColumnId.get(column.id);
+      const cell = rowId
+        ? dependencyCellByColumnAndRowId.get(`${column.id}:${rowId}`)
+        : undefined;
+      const state = cell?.state as
+        | {
+            ok?: boolean;
+            value?: JsonValue;
+          }
+        | null
+        | undefined;
+      const ready = state?.ok === true;
 
       return [
-        cell.column_id,
+        column.id,
         {
-          value: state?.ok ? (state.value ?? null) : null,
+          ready,
+          value: ready ? (state.value ?? null) : null,
         },
       ];
     }),
