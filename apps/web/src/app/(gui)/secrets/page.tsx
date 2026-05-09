@@ -8,7 +8,7 @@ export default async function SecretsPage() {
   return (
     <MarblePane
       className="max-w-6xl"
-      description="Named credentials are stored in Vault, then reused as program defaults with optional per-column overrides."
+      description="Define secrets that can be used by your programs in order to call external APIs and services."
       title="Secrets"
       width="Full"
     >

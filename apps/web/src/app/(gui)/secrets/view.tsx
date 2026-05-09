@@ -7,6 +7,7 @@ import {
   MarbleButton,
   MarbleCard,
   MarbleCardContent,
+  MarbleCardFooter,
   MarbleCardHeader,
   MarbleCardTitle,
   MarbleEmptyState,
@@ -122,7 +123,7 @@ export function SecretsPageView({
         );
         setCreating(false);
         setSelectedSecretId(created.id);
-        marbleToast.success("Secret saved to Vault");
+        marbleToast.success("Secret saved");
         return;
       }
 
@@ -219,7 +220,7 @@ export function SecretsPageView({
             },
           ]}
         >
-          <MarbleCardTitle>Vault entries</MarbleCardTitle>
+          <MarbleCardTitle>Secrets in this project</MarbleCardTitle>
         </MarbleCardHeader>
         <MarbleCardContent className="min-h-0 px-0 pb-0">
           {secrets.length === 0 ? (
@@ -237,7 +238,6 @@ export function SecretsPageView({
                   align="start"
                   description={
                     <div className="space-y-1">
-                      <div>Stored in Vault.</div>
                       <div className="text-[11px] text-zinc-400">
                         Updated{" "}
                         {DATE_TIME_FORMATTER.format(new Date(secret.updatedAt))}
@@ -286,8 +286,8 @@ export function SecretsPageView({
         </MarbleCardHeader>
         <MarbleCardContent className="flex h-full min-h-0 flex-col gap-4">
           <MarbleAlert tone="neutral">
-            Secret values are written into Vault. Existing values are never
-            shown again here.
+            Secrets are treated as sensitive values: they are stored securely
+            and never shown in the UI.
           </MarbleAlert>
 
           <div className="space-y-1.5">
@@ -324,7 +324,6 @@ export function SecretsPageView({
           {selectedSecret && !creating ? (
             <div className="rounded-xs border border-taupe-200 bg-white/70 px-3 py-2 text-xs text-taupe-600">
               <div className="flex items-center justify-between gap-3">
-                <span>Stored under your account.</span>
                 <MarbleBadge
                   caps
                   tone={
@@ -342,29 +341,28 @@ export function SecretsPageView({
           {formError ? (
             <MarbleAlert tone="error">{formError}</MarbleAlert>
           ) : null}
-
-          <div className="mt-auto flex items-center justify-between gap-3 border-t border-taupe-200 pt-4">
-            <MarbleButton
-              disabled={pending || creating || !selectedSecret}
-              onClick={handleDelete}
-              variant="red"
-            >
-              <span className="inline-flex items-center gap-2">
-                <TrashIcon size={14} />
-                Delete
-              </span>
-            </MarbleButton>
-
-            <MarbleButton
-              className={cx("min-w-32")}
-              disabled={pending}
-              onClick={handleSave}
-              variant="orange"
-            >
-              {pending ? "Saving..." : creating ? "Create secret" : "Save"}
-            </MarbleButton>
-          </div>
         </MarbleCardContent>
+        <MarbleCardFooter>
+          <MarbleButton
+            disabled={pending || creating || !selectedSecret}
+            onClick={handleDelete}
+            variant="red"
+          >
+            <span className="inline-flex items-center gap-2">
+              <TrashIcon size={14} />
+              Delete
+            </span>
+          </MarbleButton>
+
+          <MarbleButton
+            className={cx("min-w-32")}
+            disabled={pending}
+            onClick={handleSave}
+            variant="orange"
+          >
+            {pending ? "Saving..." : creating ? "Create secret" : "Save"}
+          </MarbleButton>
+        </MarbleCardFooter>
       </MarbleCard>
     </div>
   );
