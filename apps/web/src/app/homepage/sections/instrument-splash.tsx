@@ -7,12 +7,19 @@ import {
 } from "../ui/splash";
 import { MarketingTiltCard } from "../ui/tilt-card";
 
+type InstrumentSplashSectionProps = {
+  /** Real platform cell count — seeds the instrument's LCD. */
+  totalCells?: number;
+};
+
 /**
  * The K.O. II homage — a fake-hardware "Marble device" rendered in
  * CSS, floating in 3D inside a full-bleed splash. Carries the agentic
  * thesis on the left, the device on the right.
  */
-export function InstrumentSplashSection() {
+export function InstrumentSplashSection({
+  totalCells,
+}: InstrumentSplashSectionProps = {}) {
   return (
     <MarketingSplash
       height="tall"
@@ -58,7 +65,7 @@ export function InstrumentSplashSection() {
             float
             maxTilt={8}
           >
-            <MarketingInstrument />
+            <MarketingInstrument counterSeed={totalCells} />
           </MarketingTiltCard>
         </div>
       </MarketingSplashContent>

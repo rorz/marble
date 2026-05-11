@@ -9,7 +9,18 @@ import {
   MarketingCardTitle,
 } from "../ui/card";
 import { MarketingLogoMark, MarketingLogoStrip } from "../ui/logo-strip";
+import { BRAND_REGISTRY, type BrandId } from "../ui/logos";
 import { Section, SectionHeader, SectionInner } from "../ui/section";
+
+const PROVIDER_BRANDS: BrandId[] = [
+  "openai",
+  "anthropic",
+  "google",
+  "mistral",
+  "groq",
+  "openrouter",
+  "ollama",
+];
 
 export function ByokSection() {
   return (
@@ -57,41 +68,26 @@ export function ByokSection() {
             </div>
 
             <MarketingLogoStrip label="Drop-in providers">
-              <MarketingLogoMark
-                name="OpenAI"
-                size="sm"
-                tone="light"
-              />
-              <MarketingLogoMark
-                name="Anthropic"
-                size="sm"
-                tone="light"
-              />
-              <MarketingLogoMark
-                name="Google"
-                size="sm"
-                tone="light"
-              />
-              <MarketingLogoMark
-                name="Mistral"
-                size="sm"
-                tone="light"
-              />
-              <MarketingLogoMark
-                name="Groq"
-                size="sm"
-                tone="light"
-              />
-              <MarketingLogoMark
-                name="OpenRouter"
-                size="sm"
-                tone="light"
-              />
-              <MarketingLogoMark
-                name="Ollama"
-                size="sm"
-                tone="light"
-              />
+              {PROVIDER_BRANDS.map((id) => {
+                const entry = BRAND_REGISTRY[id];
+                const Glyph = entry.Glyph;
+                return (
+                  <MarketingLogoMark
+                    glyph={
+                      <Glyph
+                        // Provider strip lives on a `cream`/`light` tile
+                        // — switch to a darker tone so the glyph reads.
+                        className="text-taupe-800"
+                        size={20}
+                      />
+                    }
+                    key={id}
+                    name={entry.name}
+                    size="sm"
+                    tone="light"
+                  />
+                );
+              })}
             </MarketingLogoStrip>
 
             <div className="flex flex-wrap gap-2">

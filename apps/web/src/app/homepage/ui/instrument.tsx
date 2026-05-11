@@ -35,6 +35,12 @@ type MarketingInstrumentProps = {
   model?: ReactNode;
   /** Big brand wordmark in the panel header. */
   brand?: ReactNode;
+  /** Seed value for the headline display counter (real cell count). */
+  counterSeed?: number;
+  /** Label for the headline display. */
+  counterLabel?: ReactNode;
+  /** Suffix unit ("cells", "ms", etc.). */
+  counterSuffix?: ReactNode;
   className?: string;
 };
 
@@ -135,6 +141,9 @@ export function MarketingInstrument({
   spec = "EP-001 / RT-MARBLE",
   model = "OSS · MIT · v0.0.1",
   brand = "MARBLE",
+  counterSeed = 4_283_117,
+  counterLabel = "CELLS RUN · LIVE",
+  counterSuffix = "cells",
   className,
 }: MarketingInstrumentProps) {
   return (
@@ -151,14 +160,14 @@ export function MarketingInstrument({
           <MarketingPanelLabel index="01">DISPLAY</MarketingPanelLabel>
           <MarketingLCD
             caption="cells materialized · streaming"
-            label="MS BURNED · LIVE"
+            label={counterLabel}
             size="lg"
           >
             <MarketingLCDCounter
               pad={10}
-              start={4_283_117}
+              start={counterSeed}
               step={17}
-              suffix="ms"
+              suffix={counterSuffix}
             />
           </MarketingLCD>
           <MarketingLCD

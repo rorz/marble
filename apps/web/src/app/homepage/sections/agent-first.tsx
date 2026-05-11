@@ -2,12 +2,14 @@ import {
   GraphIcon,
   LightbulbIcon,
   PuzzlePieceIcon,
+  StarIcon,
   TableIcon,
   TerminalIcon,
 } from "@phosphor-icons/react/ssr";
 import { MarketingAnnotation } from "../ui/annotation";
 import { MarketingCardGrid } from "../ui/card";
 import { MarketingKey, MarketingKeypad } from "../ui/keypad";
+import { BRAND_REGISTRY, type BrandId } from "../ui/logos";
 import {
   MarketingPanel,
   MarketingPanelDivider,
@@ -16,54 +18,74 @@ import {
 import { Section, SectionHeader, SectionInner } from "../ui/section";
 import { MarketingTile } from "../ui/tile";
 
-const AGENTS: Array<{
-  glyph: string;
-  index: string;
+const AGENT_KEYS: Array<{
+  brand: BrandId | "yours";
   caption: string;
+  index: string;
   active?: boolean;
 }> = [
   {
+    brand: "claude",
     caption: "claude",
-    glyph: "C",
     index: "A1",
   },
   {
+    brand: "codex",
     caption: "codex",
-    glyph: "X",
     index: "A2",
   },
   {
     active: true,
+    brand: "cursor",
     caption: "cursor",
-    glyph: "/",
     index: "A3",
   },
   {
+    brand: "continue",
     caption: "continue",
-    glyph: "→",
     index: "A4",
   },
   {
+    brand: "opencode",
     caption: "opencode",
-    glyph: "{}",
     index: "A5",
   },
   {
+    brand: "aider",
     caption: "aider",
-    glyph: "+",
     index: "A6",
   },
   {
+    brand: "windsurf",
     caption: "windsurf",
-    glyph: "≈",
     index: "A7",
   },
   {
+    brand: "yours",
     caption: "your own",
-    glyph: "★",
     index: "A8",
   },
 ];
+
+function renderAgentGlyph(brand: BrandId | "yours") {
+  if (brand === "yours") {
+    return (
+      <StarIcon
+        className="text-orange-300"
+        size={26}
+        weight="bold"
+      />
+    );
+  }
+  const entry = BRAND_REGISTRY[brand];
+  const Glyph = entry.Glyph;
+  return (
+    <Glyph
+      className={entry.tone}
+      size={26}
+    />
+  );
+}
 
 export function AgentFirstSection() {
   return (
@@ -114,11 +136,11 @@ export function AgentFirstSection() {
             columns={8}
             gap="md"
           >
-            {AGENTS.map((agent) => (
+            {AGENT_KEYS.map((agent) => (
               <MarketingKey
                 active={agent.active}
                 caption={agent.caption}
-                glyph={agent.glyph}
+                glyph={renderAgentGlyph(agent.brand)}
                 index={agent.index}
                 key={agent.index}
                 led

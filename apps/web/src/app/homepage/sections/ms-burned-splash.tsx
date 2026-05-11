@@ -17,8 +17,30 @@ import { MarketingTicker } from "../ui/ticker";
  * "Live compute burn" page-break. A dark splash with a giant LCD on
  * the left and three live tickers on the right. The whole thing
  * communicates "you only pay for the milliseconds you actually use".
+ *
+ * Seeds the counters from real platform totals when supplied.
  */
-export function MsBurnedSplashSection() {
+
+type MsBurnedSplashSectionProps = {
+  /** Real platform totals — seed the headline counter. */
+  totalCells?: number;
+  /** Total program runs ever recorded. */
+  totalRuns?: number;
+  /** Total platform agents. */
+  totalAgents?: number;
+};
+
+export function MsBurnedSplashSection({
+  totalCells,
+  totalRuns,
+  totalAgents,
+}: MsBurnedSplashSectionProps = {}) {
+  // Seed the headline counter from real cell count when available.
+  // Otherwise fall back to an evocative starting integer.
+  const cellsSeed = totalCells ?? 8_124_473;
+  const runsSeed = totalRuns ?? 37;
+  const agentsSeed = totalAgents ?? 1184;
+
   return (
     <div className="bg-taupe-900">
       <MarketingMarquee
@@ -57,15 +79,15 @@ export function MsBurnedSplashSection() {
               <span className="text-orange-400">unit of compute.</span>
             </MarketingSplashTitle>
             <MarketingLCD
-              caption="rolling 24h · streaming"
-              label="MS BURNED · GLOBAL"
+              caption="cells materialized · platform-wide · live"
+              label="CELLS RUN · GLOBAL"
               size="xl"
             >
               <MarketingLCDCounter
                 pad={12}
-                start={812_447_318}
-                step={97}
-                suffix="ms"
+                start={cellsSeed}
+                step={17}
+                suffix="cells"
               />
             </MarketingLCD>
           </div>
@@ -75,26 +97,29 @@ export function MsBurnedSplashSection() {
               label="CELLS / SEC"
               pad={5}
               progress
-              start={142}
+              start={Math.min(
+                9999,
+                Math.max(40, Math.floor(cellsSeed / 86400)),
+              )}
               step="random"
               suffix="cells"
             />
             <MarketingTicker
-              label="PROGRAMS RUNNING"
-              pad={4}
+              label="RUNS RECORDED"
+              pad={6}
               progress
-              start={37}
+              start={runsSeed}
               step={1}
-              suffix="prg"
+              suffix="runs"
               tone="cream"
             />
             <MarketingTicker
-              label="EDGE ISOLATES"
+              label="AGENTS ON PLATFORM"
               pad={4}
               progress
-              start={1184}
+              start={agentsSeed}
               step="random"
-              suffix="iso"
+              suffix="agents"
             />
             <div className="flex items-center gap-3 rounded-xs border-2 border-orange-500/30 bg-orange-500/10 px-4 py-3 font-mono text-eyebrow text-orange-300">
               <LightningIcon
