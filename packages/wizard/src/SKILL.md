@@ -43,382 +43,288 @@ If you're an agent and your human has asked you to "make me a (workflow | table 
 
 | Rule | Summary |
 | --- | --- |
+| One shape, one shape only | The CLI is `marble <resource> <operation> [json]`. Resource and operation names mirror the API contract exactly. No bespoke flags, no convenience shorthands, no positional arguments other than the JSON payload. |
 | Separate user input from program logic | In table workflows, do not make a business-logic program consume its own cell manual input as the primary operator input. Create a dedicated user-input column first, run it, then feed its output downstream through `inputTemplate`. |
-| Prefer singular CLI commands | Use the singular resource commands by default. Reach for raw plural commands only when you need direct API-shaped control. |
-| Cells are materialized, not created | Do not invent a `cell create` step. Create rows or columns, then list the resulting cells. |
-| Stored runs own output state | Use `run start` for normal execution. Do not force final `cell.state` unless you are doing low-level debugging or recovery work. |
-| Batch execution stays cell-shaped | `run start` can target one cell, many cells, or a rectangular cell range. Marble batches compatible cells through one sandbox process, but the mental model stays per-cell. |
-| Dependencies wake up from execution, not from manual input alone | Updating `cell.manual_input` only stores input. Downstream columns only auto-queue after upstream cells execute, write output state, and the target column has `runCondition: true`. |
+| Cells are materialized, not created | There is no cell create operation. Create rows or columns, then list the resulting cells. |
+| Stored runs own output state | Use `cells.run` for normal execution. Do not force final `cell.state` unless you are doing low-level debugging or recovery work. |
+| Run one cell per call | The CLI runs one cell per `cells.run` invocation. If you need to run several cells, call `cells.run` once per cell. Marble batches compatible cells server-side. |
+| Dependencies wake up from execution, not from manual input alone | Updating a cell's manual input only stores input. Downstream columns only auto-queue after upstream cells execute, write output state, and the target column has `runCondition: true`. |
+| `program-dir` is the only filesystem helper | `program-dir upsert` and `program-dir test` are the only non-passthrough CLI commands. Everything else is a contract pass-through. |
 
 Promote durable workflow findings into this section when they should change future operator behavior. Do not use it as a changelog or a bucket for one-off exceptions.
 
 ## Exact CLI Shape
 
-The CLI has two layers:
-
-- Preferred human-facing commands: singular resources with positional args and flags.
-- Raw escape hatch commands: plural resource names with JSON payloads.
-
-Prefer the singular commands unless you explicitly need the raw API-shaped interface.
-
-### Human-facing command shape
+The CLI is a JSON pass-through to the Marble API contract. Every command takes the form:
 
 ```sh
-marble <singular-resource> <verb> [args...] [flags...]
-# fallback: bunx marble-cli@latest <singular-resource> <verb> [args...] [flags...]
+marble <resource> <operation> [json-input]
+# fallback: bunx marble-cli@latest <resource> <operation> [json-input]
 ```
 
-Examples:
+- `<resource>` and `<operation>` mirror `marbleContract` exactly. Resources are plural (`cells`, `tables`, `programs`, `secretBindings`, …). Operations are camelCase (`get`, `list`, `create`, `update`, `delete`, `insertRows`, `setManualValue`, `listForCurrentUser`, `syncForVersion`, …).
+- `[json-input]` is the operation's input payload, expressed as a single JSON object. Quote it with single quotes so the shell keeps it as one argument.
+- Output is the operation's return value, pretty-printed as JSON to stdout. Errors land on stderr with structured details when available (oRPC error code, status, message, data). Exit code is `0` on success and `1` on failure.
+
+### Reading input from somewhere other than argv
+
+- Pass `--input-file <path>` to read the JSON payload from a file.
+- Pass `--input-file -` or use the positional input `-` to read from stdin.
+
+### Empty input
+
+If an operation accepts no input (or all its input fields are optional), call it without a payload:
 
 ```sh
-marble table create "Apollo Email Enrichment"
-marble column create "Person Name" --table <tableId> --program <programId> --output-schema '{"type":"string"}'
-marble row create --table <tableId> --count 3
-marble cell set <cellId> "Ada Lovelace"
-marble run start <cellId>
-marble run start <cellId1> <cellId2> <cellId3>
-marble run start --range <startCellId>..<endCellId>
-marble program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
+marble projects getMostRecentProject
+marble sidebar getData
+marble programs listForEditor
 ```
 
-### Raw command shape
-
-The raw mode is still positional JSON:
+### Examples
 
 ```sh
-marble <plural-resource> <verb> [args...]
-# fallback: bunx marble-cli@latest <plural-resource> <verb> [args...]
-```
-
-Use help at every level:
-
-```sh
-marble --help
-marble program --help
-marble programs --help
-marble column create --help
-```
-
-CLI specifics:
-
-- There are no nested `tables <id> columns add` commands in the CLI.
-- Prefer singular commands such as `table create`, `column create`, `row create`, `cell set`, `run start`, and `program test`.
-- Use plural resource commands when you need direct raw JSON control.
-- `list` takes one optional JSON object of flat scalar query params. It becomes query-string parameters.
-- `create` takes one JSON object payload.
-- `update` takes `<id>` plus one JSON object payload.
-- `delete` takes `<id>`.
-- Quote JSON with single quotes so it stays a single shell argument.
-- Use camelCase keys in examples. The API also accepts snake_case and kebab-case equivalents, but camelCase is the house style in the code.
-
-## Resource Commands
-
-Human-facing commands:
-
-- `project`: `create`, `list`, `get`, `update`, `delete`
-- `profile`: `list`, `get`
-- `key`: `list`, `get`
-- `secret`: `list`, `get`, `create`, `update`, `delete`
-- `table`: `create`, `list`, `get`, `update`, `delete`
-- `column`: `create`, `list`, `get`, `update`, `delete`, `secret list`, `secret set`
-- `row`: `create`, `list`, `get`, `update`, `delete`
-- `cell`: `list`, `get`, `set`, `update`
-- `run`: `start`, `list`, `get`, `execute`
-- `program`: `list`, `get`, `delete`, `upsert`, `test`, `secret list`, `secret set`
-- `source`: `create`, `list`, `get`, `update`, `delete`
-- `source-event`: `list`, `get`
-- `pipe`: `create`, `list`, `get`, `update`, `delete`
-
-Raw plural commands:
-
-- `profiles`: `list`, `get`, `create`, `update`
-- `events`: `list`, `get`
-- `keys`: `list`, `get`, `create`, `delete`
-- `tables`: `list`, `get`, `create`, `update`, `delete`
-- `columns`: `list`, `get`, `create`, `update`, `delete`
-- `column-dependencies`: `list`, `get`
-- `rows`: `list`, `get`, `create`, `update`, `delete`
-- `cells`: `list`, `get`, `update`
-- `programs`: `list`, `get`, `create`, `update`, `delete`, `upsert`, `test`
-- `program-versions`: `list`, `get`, `create`, `update`, `delete`
-- `program-files`: `list`, `get`, `create`, `update`, `delete`
-- `program-runs`: `list`, `get`, `create`, `update`, `delete`
-
-Raw snake-case resources also get camelCase aliases:
-
-- `column-dependencies` or `columnDependencies`
-- `program-versions` or `programVersions`
-- `program-files` or `programFiles`
-- `program-runs` or `programRuns`
-
-## Human-Facing Command Shapes
-
-### Table
-
-```sh
-marble table create "Apollo Email Enrichment"
-marble table list
-marble table get <tableId>
-marble table update <tableId> --name "Apollo Email Enrichment v2"
-marble table delete <tableId>
-```
-
-### Profile
-
-```sh
-marble profile list
-marble profile get <profileId>
-```
-
-### Key
-
-```sh
-marble key list
-marble key list --include-deleted
-marble key get <keyId>
-```
-
-### Secret
-
-```sh
-marble secret list
-marble secret list --name APOLLO_API_KEY
-marble secret create APOLLO_API_KEY --value-env APOLLO_API_KEY
-marble secret update <secretId> --value-env APOLLO_API_KEY
-marble secret delete <secretId>
-```
-
-### Column
-
-```sh
-marble column create "Person Name" --table <tableId> --program <programId> --output-schema '{"type":"string"}'
-marble column list --table <tableId>
-marble column get <columnId>
-marble column update <columnId> --name "Full Name"
-marble column delete <columnId>
-marble column secret list <columnId>
-marble column secret set <columnId> --binding APOLLO_API_KEY=<secretId>
-```
-
-### Row
-
-```sh
-marble row create --table <tableId>
-marble row create --table <tableId> --count 3
-marble row list --table <tableId>
-marble row update <rowId> --idx 4
-marble row delete <rowId>
-```
-
-### Cell
-
-```sh
-marble cell list --table <tableId>
-marble cell get <cellId>
-marble cell set <cellId> "Ada Lovelace"
-marble cell update <cellId> --clear-manual-input
-```
-
-`cell set` and `cell update --manual-input` only change the cell's manual input. They do not execute the column or produce final output state.
-
-### Run
-
-```sh
-marble run start <cellId>
-marble run start <cellId> --manual-input "Ada Lovelace"
-marble run start <cellId1> <cellId2> <cellId3>
-marble run start --range <startCellId>..<endCellId>
-marble run list --cell <cellId>
-marble run get <runId>
-marble run execute <runId>
-```
-
-Important details:
-
-- `run start` accepts explicit cell IDs, a `--range <startCellId>..<endCellId>` selector, or both together.
-- Ranges must stay inside one table. Marble resolves the rectangular area bounded by the two cell IDs.
-- Batch starts stay cell-shaped. Marble still creates one stored `program_run` per cell and writes one final `cell.state` per cell.
-- Compatible cells are executed through one sandbox process when possible. This reduces sandbox churn without changing the user-facing program contract.
-- Per-cell failures stay isolated. A thrown error in one `main(input)` call should not poison sibling cells in the same batch, although a hard sandbox/bootstrap failure can still fail the whole batch.
-
-### Program
-
-```sh
-marble program list
-marble program get <programId>
-marble program upsert /tmp/marble-programs/reverse-string
-marble program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
-marble program delete <programId>
-marble program secret list <programId>
-marble program secret set <programId> --binding APOLLO_API_KEY=<secretId>
-```
-
-### Source
-
-```sh
-marble source create "Apollo Person Enrichment Source" --project <projectId> --payload-schema '{"type":"object"}'
-marble source list --project <projectId>
-marble source get <sourceId>
-marble source update <sourceId> --name "Apollo Inbound Source"
-marble source-event list --source <sourceId> --limit 5
-```
-
-### Pipe
-
-```sh
-marble pipe create --source <sourceId> --table <tableId> --mappings '[{"columnId":"<columnId>","jsonPath":"$.personName"}]'
-marble pipe list --source <sourceId>
-marble pipe get <pipeId>
-marble pipe update <pipeId> --mappings-file ./pipe-mappings.json
-marble pipe delete <pipeId>
-```
-
-## Raw CRUD Command Shapes
-
-### List
-
-```sh
-marble tables list
-marble columns list '{"tableId":"<tableId>"}'
+marble projects create '{"name":"Apollo Email Enrichment"}'
+marble tables create '{"projectId":"<projectId>","name":"Apollo Email Enrichment"}'
+marble columns create '{"tableId":"<tableId>","name":"Person Name","programVersionId":"<versionId>","outputSchema":{"type":"string"}}'
+marble tables insertRows '{"id":"<tableId>","idx":0,"quantity":3}'
 marble cells list '{"rowId":"<rowId>"}'
-marble program-versions list '{"programId":"<programId>"}'
+marble cells setManualValue '{"id":"<cellId>","value":"Ada Lovelace"}'
+marble cells run '{"id":"<cellId>"}'
+marble program-dir upsert /tmp/marble-programs/reverse-string
 ```
 
-Use flat scalar filters only. Good:
+### Discovering operations
 
-```json
-{"tableId":"<uuid>","programVersionId":"<uuid>"}
-```
-
-Do not pass nested objects or arrays to `list`. The CLI serializes filters into query params.
-
-### Get
+The CLI auto-generates its surface from the contract. To discover what's available:
 
 ```sh
-marble tables get <tableId>
-marble columns get <columnId>
+marble --help                           # list every resource and top-level subcommand
+marble <resource> --help                # list every operation on that resource
+marble <resource> <operation> --help    # one-line summary plus the HTTP route
+marble describe                         # JSON list of every resource.operation
+marble describe <resource>              # operations for one resource as JSON
+marble describe <resource> <operation>  # operation route + full input/output JSON schemas
 ```
 
-### Create
+`marble describe <resource> <operation>` is the canonical way for an agent to know exactly what JSON to pass and what JSON to expect back.
+
+## Operation Catalogue
+
+This is the same surface as `@marble/sdk` and `@marble/contracts`. The CLI does not add or remove operations.
+
+- `cells`: `get`, `list`, `run`, `setManualValue`
+- `columns`: `create`, `delete`, `get`, `list`, `listReferenceable`, `update`
+- `events`: `listForCurrentUser`, `resolveTargets`
+- `keys`: `create`, `list`, `revoke`
+- `pipes`: `create`, `delete`, `get`, `list`, `update`
+- `profiles`: `create`, `delete`, `get`, `list`, `update`
+- `programFiles`: `create`, `delete`, `get`, `list`, `syncForVersion`, `update`
+- `programs`: `create`, `listForEditor`, `update`
+- `programVersions`: `create`, `test`, `update`
+- `projects`: `create`, `delete`, `get`, `getMostRecentProject`, `list`, `update`
+- `rows`: `delete`, `get`, `list`, `update`
+- `secretBindings`: `listColumns`, `listPrograms`, `setColumn`, `setProgram`
+- `secrets`: `create`, `delete`, `get`, `list`, `update`
+- `sidebar`: `getData`
+- `sourceEvents`: `create`, `get`, `list`
+- `sources`: `create`, `delete`, `get`, `list`, `update`
+- `tables`: `create`, `delete`, `get`, `insertRows`, `list`, `update`
+
+Plus the filesystem helper:
+
+- `program-dir`: `upsert <dir>`, `test <dir> [json]`
+
+If an operation is not in this catalogue, the CLI cannot perform it. To add one, add it to the contract first (see `docs/internal/data-interface-definitions.md` in the Marble codebase).
+
+## Operations You Will Use Most
+
+### Projects
 
 ```sh
-marble tables create '{"name":"Apollo Email Enrichment"}'
-marble rows create '{"tableId":"<tableId>","count":3}'
+marble projects create '{"name":"Apollo Email Enrichment"}'
+marble projects list
+marble projects list '{"name":"Apollo Email Enrichment"}'
+marble projects get '{"projectId":"<projectId>"}'
+marble projects getMostRecentProject
+marble projects update '{"projectId":"<projectId>","values":{"name":"Apollo Email Enrichment v2"}}'
+marble projects delete '{"projectId":"<projectId>"}'
 ```
 
-### Update
+### Tables
 
 ```sh
-marble tables update <tableId> '{"name":"Apollo Email Enrichment v2"}'
-marble cells update <cellId> '{"manualInput":"Ada Lovelace"}'
+marble tables create '{"projectId":"<projectId>","name":"Apollo Email Enrichment"}'
+marble tables list '{"projectId":"<projectId>"}'
+marble tables get '{"id":"<tableId>"}'
+marble tables update '{"id":"<tableId>","values":{"name":"Apollo Email Enrichment v2"}}'
+marble tables insertRows '{"id":"<tableId>","idx":0,"quantity":3}'
+marble tables delete '{"id":"<tableId>"}'
 ```
 
-### Delete
+`tables.insertRows` is the canonical way to add rows. It materializes cells for every existing column on the table. There is no `rows.create` operation.
+
+### Columns
 
 ```sh
-marble rows delete <rowId>
-marble programs delete <programId>
+marble columns create '{"tableId":"<tableId>","name":"Person Name","programVersionId":"<versionId>","inputTemplate":"{}","outputSchema":{"type":"string"}}'
+marble columns list '{"tableId":"<tableId>"}'
+marble columns listReferenceable
+marble columns get '{"id":"<columnId>"}'
+marble columns update '{"id":"<columnId>","values":{"name":"Full Name"}}'
+marble columns delete '{"id":"<columnId>"}'
 ```
 
-## Payload Shapes That Matter
+Column input shape:
 
-Use these exact shapes when wiring workflows, especially when falling back to raw plural commands:
+- `programVersionId` is required. Resolve it from `programs.listForEditor` or capture it from a `program-dir upsert` result.
+- `inputTemplate` is a JSON string containing the resolver template. Default to `"{}"` if the column only consumes manual input.
+- `outputSchema` is a JSON schema object (not a string). Omit to inherit from the program version's base output config.
+- `runCondition` is optional. Use `true` to auto-queue this column when its inputs are ready.
+- `idx` is optional. Omit to append the column at the end.
 
-### Table payload
+### Rows
 
-```json
-{
-  "name": "Apollo Email Enrichment",
-  "ownerProfileId": "<optional-profile-id>"
-}
+```sh
+marble rows list '{"tableId":"<tableId>"}'
+marble rows get '{"id":"<rowId>"}'
+marble rows update '{"id":"<rowId>","values":{"idx":4}}'
+marble rows delete '{"id":"<rowId>"}'
 ```
 
-### Column payload
+There is no `rows.create` — use `tables.insertRows` instead.
 
-```json
-{
-  "tableId": "<table-id>",
-  "name": "Enriched Email",
-  "programId": "<program-id>",
-  "programVersionId": "<optional-version-id>",
-  "inputTemplate": "{\"personName.$\":\"$.columns.<personColumnId>.value\"}",
-  "outputSchema": {
-    "type": "string"
-  }
-}
+### Cells
+
+```sh
+marble cells list '{"rowId":"<rowId>"}'
+marble cells list '{"columnId":"<columnId>"}'
+marble cells list '{"rowId":"<rowId>","columnId":"<columnId>"}'
+marble cells get '{"id":"<cellId>"}'
+marble cells setManualValue '{"id":"<cellId>","value":"Ada Lovelace"}'
+marble cells setManualValue '{"id":"<cellId>","value":null}'
+marble cells run '{"id":"<cellId>"}'
+marble cells run '{"id":"<cellId>","manualInput":"Ada Lovelace"}'
 ```
 
-Critical details:
+- `cells.list` requires `rowId`, `columnId`, or both. There is no whole-table list — fetch rows first, then list cells per row.
+- `cells.setManualValue` with `"value":null` clears the manual input.
+- `cells.run` runs one cell. To run many cells, call `cells.run` once per cell ID. Marble batches compatible cells server-side.
+- There is no `cells.create` or `cells.delete`. Cells are materialized by `tables.insertRows` and `columns.create`, and removed by parent deletes.
 
-- Pass **either** `programId` or `programVersionId`. `programId` resolves to the latest version. `programVersionId` pins a specific version.
-- `inputTemplate` is a **string containing JSON**, not a nested object.
-- `outputSchema` is actual JSON, not a string.
-- If `inputTemplate` is omitted, it defaults to `"{}"`.
-- If `outputSchema` is omitted, Marble copies the base schema from the resolved program version.
-- `idx` is optional. Omit it to append the column at the end. Only send it when you need a specific position.
+### Programs
 
-### Row payload
-
-```json
-{
-  "tableId": "<table-id>",
-  "count": 1
-}
+```sh
+marble programs listForEditor
+marble programs create '{"name":"Reverse String"}'
+marble programs update '{"id":"<programId>","values":{"name":"Reverse String v2"}}'
 ```
 
-If `count > 1`, do not send `idx`. For a single row, omit `idx` unless you need to place it at a specific index.
+The `programs` contract does not include delete or get-by-id — use `listForEditor` and filter by ID. Use `program-dir upsert` to sync a local directory to a program.
 
-### Cell manual-input payload
+### Program Versions
 
-```json
-{
-  "manualInput": "Ada Lovelace"
-}
+```sh
+marble programVersions create '{"programId":"<programId>","inputSchema":{},"outputConfig":{"schema":{"type":"string"}}}'
+marble programVersions update '{"id":"<versionId>","values":{"publish":true}}'
+marble programVersions test '{"programVersionId":"<versionId>","inputConfig":{"mode":"uppercase"},"manualInput":"hello"}'
 ```
 
-For normal operator workflows, stop there and use `run start` to execute the cell. Do not force `state` unless you are doing low-level debugging or recovery work.
+### Program Files
 
-### Program run payload
-
-```json
-{
-  "targetCellId": "<cell-id>",
-  "programVersionId": "<program-version-id>"
-}
+```sh
+marble programFiles list '{"versionId":"<versionId>"}'
+marble programFiles get '{"id":"<fileId>"}'
+marble programFiles create '{"versionId":"<versionId>","filename":"README.md","filetype":"Markdown","content":"# Notes"}'
+marble programFiles syncForVersion '{"versionId":"<versionId>","files":[{"filename":"main.ts","filetype":"TypeScript","content":"export default async function (){ return 1 }"}]}'
+marble programFiles update '{"id":"<fileId>","values":{"content":"updated"}}'
+marble programFiles delete '{"id":"<fileId>"}'
 ```
 
-For ordinary runs:
+`filetype` is one of `"Json"`, `"Markdown"`, `"TypeScript"`.
 
-- Prefer `run start <cellId>` instead of raw `program-runs create`.
-- Prefer `run start <cellId1> <cellId2> ...` or `run start --range <startCellId>..<endCellId>` when you want batch execution without changing the program contract.
-- Let Marble create the stored run and let the executor populate `input`, `output`, and the final `cell.state`.
-- Treat direct `output` or `cell.state` writes as low-level escape hatches, not the default execution path.
+### Sources, Source Events, Pipes
 
-### Program file payload
+```sh
+marble sources create '{"projectId":"<projectId>","name":"Apollo Inbound","payloadSchema":{"type":"object"}}'
+marble sources list '{"projectId":"<projectId>"}'
+marble sources get '{"id":"<sourceId>"}'
+marble sources update '{"id":"<sourceId>","values":{"name":"Apollo Person Enrichment"}}'
 
-```json
-{
-  "versionId": "<program-version-id>",
-  "filename": "README.md",
-  "filetype": "Markdown",
-  "content": "# Notes"
-}
+marble sourceEvents create '{"sourceId":"<sourceId>","rawPayload":{"personName":"Ada"}}'
+marble sourceEvents list '{"sourceId":"<sourceId>","limit":10}'
+marble sourceEvents get '{"id":"<eventId>"}'
+
+marble pipes create '{"sourceId":"<sourceId>","tableId":"<tableId>","mappings":[{"columnId":"<columnId>","jsonPath":"$.personName"}]}'
+marble pipes list '{"sourceId":"<sourceId>"}'
+marble pipes update '{"id":"<pipeId>","values":{"mappings":[{"columnId":"<columnId>","jsonPath":"$.fullName"}]}}'
+marble pipes delete '{"id":"<pipeId>"}'
 ```
 
-## Program Directory Contract
+### Secrets And Secret Bindings
 
-`programs upsert` and `programs test` expect a local directory. These files are required:
+```sh
+marble secrets create '{"name":"APOLLO_API_KEY","value":"abc123"}'
+marble secrets list
+marble secrets list '{"name":"APOLLO_API_KEY"}'
+marble secrets get '{"id":"<secretId>"}'
+marble secrets update '{"id":"<secretId>","values":{"value":"new-value"}}'
+marble secrets delete '{"id":"<secretId>"}'
+
+marble secretBindings listPrograms '{"programIds":["<programId>"]}'
+marble secretBindings setProgram '{"programId":"<programId>","bindings":[{"envName":"APOLLO_API_KEY","secretId":"<secretId>"}]}'
+marble secretBindings listColumns '{"columnIds":["<columnId>"]}'
+marble secretBindings setColumn '{"columnId":"<columnId>","bindings":[{"envName":"APOLLO_API_KEY","secretId":"<secretId>"}]}'
+```
+
+`secrets.create` and `secrets.update` are the only places plaintext values appear. Reads return metadata only.
+
+### Profiles, Keys, Events, Sidebar
+
+```sh
+marble profiles list
+marble profiles list '{"type":"Agent"}'
+marble profiles get '{"id":"<profileId>"}'
+marble profiles create '{"name":"My Agent","type":"Agent"}'
+marble profiles update '{"id":"<profileId>","values":{"name":"My Agent v2"}}'
+marble profiles delete '{"id":"<profileId>"}'
+
+marble keys create '{"ownerProfileId":"<profileId>"}'
+marble keys list
+marble keys list '{"includeDeleted":true}'
+marble keys revoke '{"id":"<keyId>"}'
+
+marble events listForCurrentUser
+marble events listForCurrentUser '{"limit":50,"excludeSources":["RAW_API"]}'
+marble events resolveTargets '{"columnIds":["<columnId>"],"rowIds":["<rowId>"]}'
+
+marble sidebar getData
+```
+
+`keys.create` returns the one-time token in the response — capture it immediately, it is never returned again.
+
+## Program Directory Helper
+
+`program-dir` is the only CLI command that is not a pass-through to a single contract operation. It is a filesystem affordance that composes `programs.listForEditor`, `programs.create` (if needed), `programVersions.create` or `programVersions.update`, `programFiles.syncForVersion`, and a final `programVersions.update` to publish.
+
+```sh
+marble program-dir upsert <directory>
+marble program-dir test <directory> '{"inputConfig":{"mode":"uppercase"},"manualInput":"hello"}'
+marble program-dir test <directory> --input-file ./test-input.json
+```
+
+The directory must contain:
 
 - `main.ts`
 - `package.json`
 - `input-schema.json`
 - `output-config.json`
 
-All non-dot files in the directory are uploaded. Filetype inference is:
+All non-dot files in the directory are uploaded. Filetype inference:
 
-- `.json` -> `Json`
-- `.md` -> `Markdown`
-- everything else -> `TypeScript`
+- `.json` → `Json`
+- `.md` → `Markdown`
+- everything else → `TypeScript`
 
 ### `main.ts`
 
@@ -444,109 +350,58 @@ export default async function ({ system, cell, input }) {
 
 ### `package.json`
 
-- `package.json.name` is the program identity used by `programs upsert`.
-- If a program with the same name already exists, `upsert` creates a new version on that program.
-- If the name is new, `upsert` creates a new program plus its initial version.
-
-Example:
+- `name` is the program identity used by `program-dir upsert`. If a program with the same name already exists, `upsert` creates a new version on it; otherwise it creates a new program plus its initial version.
+- `marble.secrets` declares the environment variables the program needs. The Wizard will not bind any values for you — bind them with `secretBindings.setProgram` (or `setColumn`) after upsert.
 
 ```json
 {
-  "name": "Example Program"
+  "name": "Reverse String",
+  "marble": {
+    "secrets": [
+      { "env": "APOLLO_API_KEY", "label": "Apollo API key", "required": true }
+    ]
+  }
 }
 ```
 
 ### `input-schema.json`
 
-- This must be a JSON object compatible with Marble's current JSON-schema subset.
+- A JSON object compatible with Marble's current JSON-schema subset.
 - `{}` is allowed for programs that only read `cell.manualInputValue`.
-
-Example:
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "mode": {
-      "type": "string"
-    }
-  }
-}
-```
 
 ### `output-config.json`
 
-- This must match the current `ProgramOutputConfig` shape.
+- Must match the current `ProgramOutputConfig` shape.
 - `schema` is required.
 - `flags.allowManualInput` and `flags.allowInference` are optional.
 - `overloads` is optional.
 
-Example:
-
 ```json
 {
-  "flags": {
-    "allowManualInput": true
-  },
-  "schema": {
-    "type": "string"
-  }
+  "flags": { "allowManualInput": true },
+  "schema": { "type": "string" }
 }
 ```
 
-## Programs Upsert And Test
+### `program-dir test` input shape
 
-Use `program upsert` when you want to publish a directory as the newest version of a program:
-
-```sh
-marble program upsert /tmp/marble-programs/reverse-string
-```
-
-Use `program test` when you want to upsert first and then hit `/test` for the newly created version:
+The positional JSON for `program-dir test` is the same shape as `programVersions.test`, but `programVersionId` is filled in for you after the upsert. Just pass `inputConfig` and (optionally) `manualInput`:
 
 ```sh
-marble program test /tmp/marble-programs/reverse-string --input '{"mode":"uppercase"}'
+marble program-dir test /tmp/marble-programs/reverse-string '{"inputConfig":{"mode":"uppercase"},"manualInput":"hello"}'
 ```
 
-If you pass `--input`, Marble turns it into:
-
-```json
-{
-  "system": {
-    "providers": {}
-  },
-  "cell": {},
-  "input": {
-    "mode": "uppercase"
-  }
-}
-```
-
-If you need to control `cell.manualInputValue`, use `--manual-input`:
+If you only need manual input:
 
 ```sh
-marble program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
+marble program-dir test /tmp/marble-programs/reverse-string '{"inputConfig":{},"manualInput":"hello"}'
 ```
 
-That is for program-level testing. Do not mirror that shape directly into a table design unless the workflow genuinely wants the logic program to own manual input. In normal tables, prefer a dedicated user-input column that feeds the logic column through `inputTemplate`.
-
-If you need full control, use `--full-input`:
-
-```sh
-marble program test /tmp/marble-programs/reverse-string --full-input '{"system":{"providers":{}},"cell":{"manualInputValue":"hello"},"input":{"mode":"uppercase"}}'
-```
-
-The raw plural form still exists:
-
-```sh
-marble programs test /tmp/marble-programs/reverse-string '{"system":{"providers":{}},"cell":{"manualInputValue":"hello"},"input":{"mode":"uppercase"}}'
-```
-
-`program test` is not a local dry run. It always upserts first, so repeated tests create repeated remote versions.
+`program-dir test` always upserts first, so repeated tests create repeated remote versions.
 
 ## Input Template Syntax
 
-`inputTemplate` is stored as a JSON string on the column. Inside that JSON string, use the current resolver syntax.
+`inputTemplate` lives on the column and is stored as a JSON string. Inside that JSON string, use the resolver syntax.
 
 Map another column's value:
 
@@ -567,16 +422,16 @@ Inline interpolation:
 
 Manual-input-only columns can use `{}` and read `cell.manualInputValue` directly.
 
-With the human-facing `column create` command, pass real JSON and let the CLI stringify it for transport:
+Because the contract treats `inputTemplate` as a string, you have to escape it when embedding inside the outer JSON payload:
 
 ```sh
-marble column create "Enriched Email" --table <tableId> --program <programId> --input-template '{"personName.$":"$.columns.<personColumnId>.value","companyName.$":"$.columns.<companyColumnId>.value"}' --output-schema '{"type":"string"}' --run-condition true
+marble columns create '{"tableId":"<tableId>","name":"Enriched Email","programVersionId":"<versionId>","inputTemplate":"{\"personName.$\":\"$.columns.<personColumnId>.value\",\"companyName.$\":\"$.columns.<companyColumnId>.value\"}","outputSchema":{"type":"string"},"runCondition":true}'
 ```
 
-When you fall back to raw plural commands, escape it because `inputTemplate` itself must be a string:
+If escaping is painful, write the payload to a file and use `--input-file`:
 
 ```sh
-marble columns create '{"tableId":"<tableId>","name":"Enriched Email","programId":"<programId>","inputTemplate":"{\"personName.$\":\"$.columns.<personColumnId>.value\",\"companyName.$\":\"$.columns.<companyColumnId>.value\"}","outputSchema":{"type":"string"},"runCondition":true}'
+marble columns create --input-file ./column.json
 ```
 
 ## Standard Workflow
@@ -585,63 +440,59 @@ marble columns create '{"tableId":"<tableId>","name":"Enriched Email","programId
 
 1. Create a temp directory under `/tmp/marble-programs`.
 2. Write `main.ts`, `package.json`, `input-schema.json`, and `output-config.json`.
-3. Run `program test` with `--input`, `--manual-input`, or `--full-input`.
+3. Run `marble program-dir test <dir> '{"inputConfig":{...},"manualInput":"..."}'`.
 4. Fix any schema or runtime issue until the test succeeds.
 5. Record the returned program and version IDs.
 
-Example:
-
-```sh
-marble program test /tmp/marble-programs/reverse-string --manual-input "hello" --input '{"mode":"uppercase"}'
-```
-
 ### Wire A Program Into A Table
 
-1. Create or identify the table.
-2. Upsert the programs you want to use.
-3. Create dedicated user-input columns first for any operator-entered values.
-4. List columns to capture their IDs.
-5. Create downstream columns with `--input-template`.
-6. Create starter rows with `row create`.
-7. Resolve the created cell IDs from the row and column IDs.
-8. Update the user-input cells with manual input as needed.
-9. Start runs in dependency order so each column's output is produced by a stored run, not by a forced cell state.
+1. Create or identify the project (`marble projects create` / `marble projects list`).
+2. Create or identify the table (`marble tables create`).
+3. Upsert the programs you want to use (`marble program-dir upsert`).
+4. Create dedicated user-input columns first for any operator-entered values.
+5. List columns to capture their IDs (`marble columns list '{"tableId":"<id>"}'`).
+6. Create downstream columns with `inputTemplate`.
+7. Materialize rows with `tables.insertRows`.
+8. List the rows, then list each row's cells.
+9. Set manual input on the user-input cells with `cells.setManualValue`.
+10. Start runs on the source cells with `cells.run`. Downstream cells with `runCondition: true` will auto-queue once their inputs validate.
 
 Important:
 
-- There is no `cell create` command or API route. Cells are materialized automatically when you create rows or columns.
-- When you create a single row, the API returns the row object, not the cells for that row. Fetch the row's cells next and identify the target cells by `column_id`.
-- Prefer `cell list --row <rowId>` or raw `cells list '{"rowId":"<rowId>"}'` when populating test data. `cell list --table <tableId>` is fine for inspection, but less precise for selecting a specific cell to update.
-- `cell set` updates `manualInput` only. It does not execute the cell's program or write the final `state`.
-- When several cells in the same dependency layer are ready, prefer one `run start` command with multiple cell IDs instead of a loop of one-cell starts.
-- Use `run start --range <startCellId>..<endCellId>` when you want to execute a rectangular slice of a table without manually enumerating each cell.
+- There is no `cells.create` or `cells.delete` operation. Cells are materialized by `tables.insertRows` and `columns.create`, and deleted by parent deletes.
+- `tables.insertRows` returns aggregate counts (`rowCount`, `cellCount`), not the inserted rows or cells. Fetch them afterwards with `rows.list` and `cells.list`.
+- `cells.setManualValue` updates manual input only. It does not execute the cell's program or write the final state.
+- Loop `cells.run` for each cell you want to execute. Marble batches compatible cells server-side; the CLI does not need to.
 - Treat direct manual input on a business-logic column as a smell. If the value is meant to be supplied by an operator, give it its own user-input column and reference that column from downstream logic.
-- The executor should own final `cell.state` writes. In normal table workflows, use `run start` so realtime activity and stored run history line up with what the UI expects.
+- The executor should own final `cell.state` writes. In normal table workflows, use `cells.run` so realtime activity and stored run history line up with what the UI expects.
 
-Example:
-
-```sh
-marble table create "Apollo Email Enrichment"
-marble program upsert /tmp/marble-programs/user-input
-marble program upsert /tmp/marble-programs/apollo-email
-marble program list
-marble column create "Person Name" --table <tableId> --program <userInputProgramId> --output-schema '{"type":"string"}'
-marble column create "Company Name" --table <tableId> --program <userInputProgramId> --output-schema '{"type":"string"}'
-marble column list --table <tableId>
-marble column create "Enriched Email" --table <tableId> --program <apolloProgramId> --input-template '{"personName.$":"$.columns.<personColumnId>.value","companyName.$":"$.columns.<companyColumnId>.value"}' --output-schema '{"type":"string"}' --run-condition true
-marble row create --table <tableId>
-marble row list --table <tableId>
-marble cell list --row <rowId>
-marble cell set <personCellId> "Ada"
-marble cell set <companyCellId> "Analytical Engines"
-marble run start <personCellId> <companyCellId>
-```
-
-If you prefer raw commands for the cell lookup step:
+Worked example (uses bash variables for clarity):
 
 ```sh
-marble rows create '{"tableId":"<tableId>","count":1}'
-marble cells list '{"rowId":"<rowId>"}'
+PROJECT_ID=$(marble projects create '{"name":"Apollo Email Enrichment"}' | jq -r .id)
+
+USER_INPUT=$(marble program-dir upsert /tmp/marble-programs/user-input | jq -r .version.id)
+APOLLO=$(marble program-dir upsert /tmp/marble-programs/apollo-email | jq -r .version.id)
+
+TABLE_ID=$(marble tables create '{"projectId":"'$PROJECT_ID'","name":"Apollo Email Enrichment"}' | jq -r .id)
+
+PERSON_COL=$(marble columns create '{"tableId":"'$TABLE_ID'","name":"Person Name","programVersionId":"'$USER_INPUT'","outputSchema":{"type":"string"}}' | jq -r .id)
+COMPANY_COL=$(marble columns create '{"tableId":"'$TABLE_ID'","name":"Company Name","programVersionId":"'$USER_INPUT'","outputSchema":{"type":"string"}}' | jq -r .id)
+
+INPUT_TEMPLATE='{"personName.$":"$.columns.'$PERSON_COL'.value","companyName.$":"$.columns.'$COMPANY_COL'.value"}'
+marble columns create '{"tableId":"'$TABLE_ID'","name":"Enriched Email","programVersionId":"'$APOLLO'","inputTemplate":'"$(echo "$INPUT_TEMPLATE" | jq -Rs .)"',"outputSchema":{"type":"string"},"runCondition":true}'
+
+marble tables insertRows '{"id":"'$TABLE_ID'","idx":0,"quantity":1}'
+
+ROW_ID=$(marble rows list '{"tableId":"'$TABLE_ID'"}' | jq -r '.[0].id')
+PERSON_CELL=$(marble cells list '{"rowId":"'$ROW_ID'","columnId":"'$PERSON_COL'"}' | jq -r '.[0].id')
+COMPANY_CELL=$(marble cells list '{"rowId":"'$ROW_ID'","columnId":"'$COMPANY_COL'"}' | jq -r '.[0].id')
+
+marble cells setManualValue '{"id":"'$PERSON_CELL'","value":"Ada"}'
+marble cells setManualValue '{"id":"'$COMPANY_CELL'","value":"Analytical Engines"}'
+
+marble cells run '{"id":"'$PERSON_CELL'"}'
+marble cells run '{"id":"'$COMPANY_CELL'"}'
 ```
 
 ## General Approach
@@ -654,10 +505,12 @@ When asked to create a table or workflow, break the task into composable steps.
 - Combine columnar results into a final synthesis column when needed.
 - Use dedicated user-input columns for simple user-provided values, then feed those outputs into downstream logic columns.
 - Prefer object-shaped program input once a function has more than a handful of inputs.
+- Run `marble describe <resource> <operation>` whenever you're unsure of the exact input shape. It returns the canonical JSON schema.
 
 ### Don't
 
-- Invent CLI subcommands that do not exist, or forget that raw plural commands are still available when you need them.
+- Invent CLI subcommands. The only commands that exist are the auto-generated `<resource> <operation>` pairs, `describe`, and `program-dir`.
+- Pass anything other than a single JSON payload. There are no `--name`, `--project`, `--input-template`, `--range`, `--manual-input` flags.
 - Build one monolithic program when several columns would be clearer.
 - Make a business-logic program operate on its own table manual input when a separate user-input column would express the workflow more clearly.
 - Assume provider credentials exist unless Marble or the user explicitly provides them.
@@ -666,21 +519,14 @@ When asked to create a table or workflow, break the task into composable steps.
 ## Troubleshooting
 
 - If CLI requests fail, inspect `.env` for `MARBLE_API_URL` and `MARBLE_API_KEY`.
-- If `list` filters do not work, make sure the filter object is flat and scalar-only.
-- If `column create` or `column update` fails, check whether `--input-template` and `--output-schema` are valid JSON.
-- If raw `columns create` or `columns update` fails, check whether `inputTemplate` was passed as a string and `outputSchema` as real JSON.
-- If the CLI prints `Invalid request`, read the structured `Details:` block. Marble now returns the underlying validation issues instead of just the top-line error.
-- If `row create` fails with `idx cannot be used when count is greater than 1`, drop `--idx` or set `--count` back to `1`.
-- If you need to seed a few test values, do not try to create cells directly. Create rows first, fetch the row's cells, set `manualInput`, then use `run start` for each cell you actually want to execute.
-- If `run start --range` fails, confirm both bounding cells are in the same table and that you used the exact `startCellId..endCellId` form.
-- If one cell in a batch fails, inspect that cell's stored run and output payload first. Batch mode isolates normal `main(input)` failures per cell.
-- If an entire batch fails at once, suspect shared bootstrap problems: syntax errors, missing dependencies, import-time crashes, or sandbox-level failures.
-- If a value seems to "magically appear," check whether you forced `cell.state` somewhere. In the normal flow, visible output should be traceable to a stored run.
-- If `program test` fails, fix the runtime code, `input-schema.json`, or `output-config.json`, then rerun it.
-- If a dependent column is blank, confirm the `inputTemplate` references the correct column IDs.
-- If a downstream cell is blank after you set manual input on its sources, make sure you ran the source cells first. Dependencies read prior cell output state, not raw manual input.
-- If a downstream cell still does not run after its sources execute successfully, inspect `column_dependency`, the target column's `runCondition`, and the target column's parsed input schema. Marble only auto-queues dependents whose `runCondition` is `true` and whose resolved input validates.
-- If a program cannot see provider credentials, check both program-level bindings (`program secret`) and any per-column overrides (`column secret`).
+- If you're unsure what JSON an operation accepts, run `marble describe <resource> <operation>` to get the canonical input/output JSON schema.
+- If the CLI prints an error envelope, read the structured `code`, `status`, `message`, and `data` fields. `data` typically contains Zod validation issues with the exact field path that failed.
+- If a `list` operation rejects your payload, double-check it matches the contract — most `list` payloads are tight (e.g. `{"tableId":"<id>"}`, not `{"table_id":"<id>"}`).
+- If you need to seed test values, do not try to create cells directly. Use `tables.insertRows` first, fetch the row's cells with `cells.list '{"rowId":"<id>"}'`, set manual input, then call `cells.run` per cell.
+- If `cells.run` returns success but downstream cells stay blank, check `column_dependency`, the target column's `runCondition`, and the resolved input. Marble only auto-queues dependents whose `runCondition` is `true` and whose resolved input validates.
+- If a program cannot see provider credentials, check both program-level bindings (`secretBindings.setProgram`) and any per-column overrides (`secretBindings.setColumn`).
+- If `program-dir upsert` fails on the manifest, confirm `package.json` has a non-empty `name`. If `package.json.marble.secrets` is present, confirm each entry has an `env` that is a valid shell identifier.
+- If `program-dir test` returns a non-`ok` result, inspect `error`, `errorType`, and `detail` in the response — those come straight from the executor.
 - If the repo becomes dirty during CLI-only work, move temp artifacts to `/tmp` and clean up anything you created in the workspace.
 
 # Agentic Blitz Guide
@@ -689,24 +535,24 @@ If your human has instructed you to create a table or workflow then this particu
 
 Since we haven't got much time for chit-chat, here's the lowdown:
 
-1. DON'T USE your sandbox -- `fetch` will not work there, you must break out and use the standard execution environment.
-2. VERIFY the connection to the Marble API with the api key found in `.env` first. If this key doesn't exist or does not authenticate, then just halt any process now and ask the user to fix it for you.
-3. Create resources in this order (using the documentation above as a guide)
-  - Temporary local program files to test your assumptions (NOT remote Programs)
-  - Remote project
-  - Remote secrets and secret bindings for any provider credentials
-  - Remote table
-  - Remote programs, including a dedicated user-input program when the workflow needs operator-entered values
-  - Remote columns -- create user-input columns before dependent logic columns
-  - Remote sources and pipes when the workflow ingests external payloads
-  - Insert ~10 blank rows to pad the table out a bit
+1. DON'T USE your sandbox — `fetch` will not work there, you must break out and use the standard execution environment.
+2. VERIFY the connection to the Marble API with the API key found in `.env` first. If this key doesn't exist or does not authenticate, then halt and ask the user to fix it for you. A cheap probe is `marble profiles list`.
+3. Create resources in this order (using the documentation above as a guide):
+   - Temporary local program files to test your assumptions (NOT remote Programs).
+   - Remote project (`marble projects create`).
+   - Remote secrets and `secretBindings` for any provider credentials.
+   - Remote table (`marble tables create`).
+   - Remote programs via `marble program-dir upsert`, including a dedicated user-input program when the workflow needs operator-entered values.
+   - Remote columns (`marble columns create`) — create user-input columns before dependent logic columns.
+   - Remote sources and pipes when the workflow ingests external payloads.
+   - Insert ~10 blank rows with `marble tables insertRows '{"id":"<tableId>","idx":0,"quantity":10}'` to pad the table out a bit.
 4. When the human asks you to "test with a few cells", do not invent a cell-creation step. Use this loop instead:
-  - Create one row
-  - Capture the returned `row.id`
-  - List that row's cells
-  - Match the target cells by `column_id`
-  - Set manual input on the user-input cells, not on downstream logic cells
-  - Start stored runs on the source cells. Downstream cells whose inputs validate should now auto-queue.
-  - When several same-layer cells are ready, batch them in one `run start` command instead of firing one command per cell
+   - `marble tables insertRows '{"id":"<tableId>","idx":0,"quantity":1}'` to materialize one row.
+   - `marble rows list '{"tableId":"<tableId>"}'` to capture the row IDs.
+   - `marble cells list '{"rowId":"<rowId>"}'` to capture the cells for that row.
+   - Match the target cells by `columnId`.
+   - `marble cells setManualValue '{"id":"<cellId>","value":"<value>"}'` on the user-input cells only.
+   - `marble cells run '{"id":"<cellId>"}'` on each source cell. Downstream cells whose inputs validate will auto-queue.
+   - When several same-layer cells are ready, just call `cells.run` once per cell — Marble batches compatible cells server-side.
 
 That's it!

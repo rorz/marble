@@ -49,12 +49,12 @@ await marble.projects.update({
 ```
 
 ```sh
-marble projects create "Post-event contacts"
-marble projects list --name "Post-event contacts"
-marble projects get <project-id>
-marble projects get-most-recent
-marble projects update <project-id> --name "Enriched contacts"
-marble projects delete <project-id>
+marble projects create '{"name":"Post-event contacts"}'
+marble projects list '{"name":"Post-event contacts"}'
+marble projects get '{"projectId":"<project-id>"}'
+marble projects getMostRecentProject
+marble projects update '{"projectId":"<project-id>","values":{"name":"Enriched contacts"}}'
+marble projects delete '{"projectId":"<project-id>"}'
 ```
 
 ```sh
@@ -73,6 +73,12 @@ curl -H "Authorization: Bearer $MARBLE_API_KEY" \
 The same example action is available through the typed RPC transport as
 `marble.projects.getMostRecentProject()`.
 
+The CLI is a pure JSON pass-through to the contract. Resource names and
+operation names mirror `marbleContract` exactly. The CLI exposes no extra
+verbs, flags, or convenience shorthands — its surface is generated from
+`@marble/contracts`. See `marble describe` for the catalogue of every
+operation, its HTTP route, and its input/output JSON schema.
+
 ## HTTP Naming
 
 Prefer clear, static collection subpaths for named collection reads:
@@ -89,3 +95,11 @@ Use camelCase for TypeScript operation names and kebab-case for HTTP path segmen
 Before adding or exposing a data operation, read `docs/internal/data-interface-definitions.md`.
 
 If the operation belongs, declare it once in `packages/contracts`, implement it in `packages/api`, and let SDK, CLI, REST, RPC, and generated docs follow that shape.
+
+The CLI is auto-generated from `marbleContract`. Once an operation lands in
+the contract, it is available as `marble <resource> <operation>` and
+`marble describe <resource> <operation>` with no extra wiring. If you find
+yourself wanting CLI-specific flags, defaults, or convenience commands,
+stop. Either the contract is wrong or the affordance belongs in the SDK.
+The one and only exception is the filesystem helper `marble program-dir`,
+which composes contract calls around local file reads.

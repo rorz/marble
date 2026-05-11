@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { requireUser } from "../../lib/auth";
+import { requireUserIdentity } from "../../lib/auth";
 import {
   AGENT_SIDEBAR_MODE_COOKIE_NAME,
   AGENT_SIDEBAR_WIDTH_COOKIE_NAME,
@@ -18,7 +18,7 @@ export default async function GuiLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await requireUser();
+  const user = await requireUserIdentity();
   const [cookieStore, initialSidebarData] = await Promise.all([
     cookies(),
     listSidebarDataForUser(user.id),
@@ -49,6 +49,9 @@ export default async function GuiLayout({
       initialSidebarMode={initialSidebarMode}
       initialSidebarTreeState={initialSidebarTreeState}
       initialSidebarWidth={initialSidebarWidth}
+      userAvatarUrl={user.avatarUrl}
+      userDisplayName={user.displayName}
+      userEmail={user.email}
       userId={user.id}
     >
       {children}

@@ -12,6 +12,7 @@ import {
   cx,
   MarbleAlert,
   MarbleBadge,
+  MarbleBrandMark,
   MarbleButton,
   MarbleCard,
   MarbleCardContent,
@@ -38,7 +39,6 @@ import {
   MarbleWorkbenchSection,
   MarbleWorkbenchTab,
   MarbleWorkbenchTabs,
-  MarbleWorkspaceMark,
   marbleToast,
 } from "@marble/ui";
 import {
@@ -2589,7 +2589,7 @@ export function ProgramsPageView({
                 <LibraryDockButton
                   active={librarySurface === "marble"}
                   count={firstPartyPrograms.length}
-                  icon={<MarbleWorkspaceMark className="size-10" />}
+                  icon={<MarbleBrandMark className="size-10" />}
                   label="Marble"
                   onClick={() => setLibrarySurface("marble")}
                   subtitle="First party"

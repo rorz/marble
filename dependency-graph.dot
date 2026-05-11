@@ -193,6 +193,7 @@ digraph MarbleDependencyGraph {
   web -> sdk;
   web -> ui;
 
+  cli -> contracts;
   cli -> sdk;
 
   executor -> contracts;

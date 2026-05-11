@@ -6,6 +6,13 @@ type CurrentUser = {
   id: string;
 };
 
+type CurrentUserIdentity = {
+  avatarUrl: string | null;
+  displayName: string;
+  email: string | null;
+  id: string;
+};
+
 export async function getCurrentUser() {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
@@ -18,6 +25,38 @@ export async function getCurrentUser() {
   return {
     id: userId,
   } satisfies CurrentUser;
+}
+
+export async function getCurrentUserIdentity() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.getUser();
+  const user = data.user;
+
+  if (error || !user) {
+    return null;
+  }
+
+  const metadata = (user.user_metadata ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  const fullName = readNonEmptyString(metadata, "full_name");
+  const name = readNonEmptyString(metadata, "name");
+  const avatarUrl = readNonEmptyString(metadata, "avatar_url");
+  const email = user.email ?? null;
+  const displayName = deriveDisplayName({
+    email,
+    fullName,
+    id: user.id,
+    name,
+  });
+
+  return {
+    avatarUrl,
+    displayName,
+    email,
+    id: user.id,
+  } satisfies CurrentUserIdentity;
 }
 
 export async function getCurrentSupabaseAccessToken() {
@@ -47,4 +86,58 @@ export async function requireUser() {
   }
 
   return user;
+}
+
+export async function requireUserIdentity() {
+  const user = await getCurrentUserIdentity();
+
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  return user;
+}
+
+function readNonEmptyString(
+  metadata: Record<string, unknown> | null,
+  key: string,
+): string | null {
+  if (!metadata) {
+    return null;
+  }
+
+  const value = metadata[key];
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed.length === 0 ? null : trimmed;
+}
+
+function deriveDisplayName(params: {
+  email: string | null;
+  fullName: string | null;
+  id: string;
+  name: string | null;
+}): string {
+  if (params.fullName) {
+    return params.fullName;
+  }
+
+  if (params.name) {
+    return params.name;
+  }
+
+  if (params.email) {
+    const local = params.email.split("@").at(0)?.trim();
+
+    if (local && local.length > 0) {
+      return local;
+    }
+  }
+
+  return params.id.slice(0, 8);
 }

@@ -178,8 +178,8 @@ If you add or reshape a top-level resource, you are not done when the migration 
    The web app forwards through the API using a service-role client. That means every mounted resource must perform its own access checks. Do not rely on RLS alone for forwarded web requests. Audit collection and item handlers for list/get/create/update/delete, including nested routes.
 6. Update ownership helpers instead of copying logic.
    If a new resource changes how ownership works, centralize the new ownership and accessibility rules in the resource's package-private API module, such as `packages/api/src/<resource>/actions.ts`, and update existing resources to use them.
-7. Update CLI surfaces.
-   Audit both the raw plural resource commands and the ergonomic singular commands in `packages/cli/src/cli.ts`. Remove or replace stale flags and assumptions; do not leave the human-friendly CLI pointing at the old ownership model.
+7. Confirm CLI parity (no edits required by default).
+   `packages/cli` auto-generates its entire surface from `marbleContract`. Once the contract changes, the CLI catalogue, help, and `marble describe` output update automatically. You only edit `packages/cli/src` when the change is structural — for example, adding a new top-level filesystem helper or changing JSON input/output plumbing — never to "add a command for the new resource".
 8. Update the web app entry points and navigation.
    Audit auth redirects, proxy allowlists, landing pages, top-level navigation, server actions, and any “empty state” or “create first X” flows so the new resource is actually the primary UI concept where intended.
 9. Audit references, execution, and eventing.
@@ -200,7 +200,7 @@ If you add or reshape a top-level resource, you are not done when the migration 
 - `packages/api/src/data.ts`
 - `packages/api/src/router/*`
 - `packages/api/src/<resource>/*`
-- `packages/cli/src/cli.ts`
+- `packages/cli/src/root.ts`
 - `apps/web/src/lib/auth.ts`
 - `apps/web/src/lib/supabase/proxy.ts`
 - `apps/web/src/app/(web)/*`

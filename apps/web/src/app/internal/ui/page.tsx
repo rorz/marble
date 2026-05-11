@@ -2,11 +2,14 @@
 
 import {
   cx,
+  MarbleAccountMark,
+  MarbleAccountPopover,
   MarbleActivityRadar,
   MarbleActivityRadarPanel,
   MarbleActivityRadarTrigger,
   MarbleAlert,
   MarbleBadge,
+  MarbleBrandMark,
   MarbleButton,
   MarbleCard,
   MarbleCardContent,
@@ -64,8 +67,6 @@ import {
   MarbleWorkbenchSection,
   MarbleWorkbenchTab,
   MarbleWorkbenchTabs,
-  MarbleWorkspaceMark,
-  MarbleWorkspacePopover,
   marbleToast,
 } from "@marble/ui";
 import {
@@ -80,12 +81,16 @@ import {
   QuestionIcon,
   SignOutIcon,
   SparkleIcon,
-  SquaresFourIcon,
   TerminalIcon,
   TrashIcon,
+  UserCircleIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react/ssr";
 import { type ReactNode, useState } from "react";
+
+const DEMO_AVATAR_URL = `data:image/svg+xml;utf8,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" fill="#f97316"/><text x="16" y="22" text-anchor="middle" fill="white" font-family="ui-sans-serif,system-ui,sans-serif" font-size="16" font-weight="700">M</text></svg>',
+)}`;
 
 const badgeTones = [
   "neutral",
@@ -401,45 +406,26 @@ export default function UiPage() {
     },
   ];
 
-  const workspaceSections: MarbleContextPopoverSection[] = [
+  const accountSections: MarbleContextPopoverSection[] = [
     {
-      id: "workspace-primary",
+      id: "account-actions",
       items: [
         {
-          icon: <UsersThreeIcon size={16} />,
-          id: "workspace-team",
-          label: "Team directory",
-          onSelect: () => handleMenuSelect("Team directory"),
-        },
-        {
-          icon: <SquaresFourIcon size={16} />,
-          id: "workspace-apps",
-          label: "Apps and integrations",
-          onSelect: () => handleMenuSelect("Apps and integrations"),
+          icon: <UserCircleIcon size={16} />,
+          id: "account-settings",
+          label: "Account settings",
+          onSelect: () => handleMenuSelect("Account settings"),
         },
       ],
     },
     {
-      id: "workspace-secondary",
+      id: "account-session",
       items: [
         {
-          detail: "Default",
-          icon: <SparkleIcon size={16} />,
-          id: "workspace-brand",
-          label: "Workspace appearance",
-          onSelect: () => handleMenuSelect("Workspace appearance"),
-        },
-        {
-          icon: <GearSixIcon size={16} />,
-          id: "workspace-settings",
-          label: "Workspace settings",
-          onSelect: () => handleMenuSelect("Workspace settings"),
-        },
-        {
           icon: <SignOutIcon size={16} />,
-          id: "workspace-sign-out",
+          id: "account-sign-out",
           label: "Sign out",
-          onSelect: () => handleMenuSelect("Workspace sign out"),
+          onSelect: () => handleMenuSelect("Sign out"),
           tone: "danger",
         },
       ],
@@ -1867,20 +1853,74 @@ export default function UiPage() {
             </DemoPanel>
 
             <DemoPanel
-              description="Workspace mark, full trigger, compact trigger, and custom status treatment."
-              title="Workspace popovers"
+              description="Decorative Marble glyph for brand chrome. Not tied to identity or workspace data."
+              title="Brand mark"
+            >
+              <div className="flex items-end gap-4 rounded-xs border border-taupe-200 bg-white p-4">
+                <div className="flex flex-col items-center gap-1.5">
+                  <MarbleBrandMark />
+                  <span className="text-eyebrow-xs text-taupe-500">
+                    Default
+                  </span>
+                </div>
+                <div className="flex flex-col items-center gap-1.5">
+                  <MarbleBrandMark className="size-10" />
+                  <span className="text-eyebrow-xs text-taupe-500">Larger</span>
+                </div>
+              </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Identity mark with initials fallback, avatar URL state, full trigger, and compact trigger."
+              title="Account popover"
             >
               <div className="space-y-4">
-                <div className="flex items-start gap-3 rounded-xs border border-taupe-200 bg-white p-4">
-                  <MarbleWorkspaceMark />
-                  <MarbleWorkspaceMark className="size-10" />
+                <div className="flex flex-wrap items-end gap-3 rounded-xs border border-taupe-200 bg-white p-4">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <MarbleAccountMark displayName="Rory Marshall" />
+                    <span className="text-eyebrow-xs text-taupe-500">
+                      Initials
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1.5">
+                    <MarbleAccountMark displayName="rory" />
+                    <span className="text-eyebrow-xs text-taupe-500">
+                      Single
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1.5">
+                    <MarbleAccountMark />
+                    <span className="text-eyebrow-xs text-taupe-500">
+                      Empty
+                    </span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1.5">
+                    <MarbleAccountMark
+                      avatarUrl={DEMO_AVATAR_URL}
+                      className="size-10"
+                      displayName="Rory Marshall"
+                    />
+                    <span className="text-eyebrow-xs text-taupe-500">
+                      Avatar
+                    </span>
+                  </div>
                 </div>
 
-                <MarbleWorkspacePopover
+                <MarbleAccountPopover
                   className="w-full"
-                  description="Default workspace"
-                  name="Marble"
-                  sections={workspaceSections}
+                  description="rory@marble.dev"
+                  displayName="Rory Marshall"
+                  name="Rory Marshall"
+                  sections={accountSections}
+                />
+
+                <MarbleAccountPopover
+                  avatarUrl={DEMO_AVATAR_URL}
+                  className="w-full"
+                  description="rory@marble.dev"
+                  displayName="Rory Marshall"
+                  name="Rory Marshall"
+                  sections={accountSections}
                 />
 
                 <div className="flex items-center justify-between rounded-xs border border-taupe-200 bg-white p-3">
@@ -1889,22 +1929,18 @@ export default function UiPage() {
                       Compact trigger
                     </div>
                     <div className="text-sm text-taupe-600">
-                      Useful in header chrome where space is tighter.
+                      Used by the GUI shell when the sidebar collapses to icon
+                      rail.
                     </div>
                   </div>
 
-                  <MarbleWorkspacePopover
+                  <MarbleAccountPopover
+                    avatarUrl={DEMO_AVATAR_URL}
                     compact
-                    name="Marble"
-                    sections={workspaceSections}
-                    status={
-                      <MarbleBadge
-                        caps
-                        tone="success"
-                      >
-                        live
-                      </MarbleBadge>
-                    }
+                    description="rory@marble.dev"
+                    displayName="Rory Marshall"
+                    name="Rory Marshall"
+                    sections={accountSections}
                   />
                 </div>
 

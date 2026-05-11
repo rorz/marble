@@ -1,4 +1,8 @@
 export {
+  MarbleAccountMark,
+  MarbleAccountPopover,
+} from "./components/account-popover";
+export {
   MarbleActivityRadar,
   type MarbleActivityRadarBatch,
   MarbleActivityRadarPanel,
@@ -16,6 +20,7 @@ export {
   MarbleBadge,
   type MarbleBadgeProps,
 } from "./components/badge";
+export { MarbleBrandMark } from "./components/brand-mark";
 export {
   MarbleButton,
   type MarbleButtonIcon,
@@ -188,10 +193,4 @@ export {
   MarbleWorkbenchTabs,
   type MarbleWorkbenchTabsProps,
 } from "./components/workbench";
-export {
-  MarbleWorkspaceMark,
-  type MarbleWorkspaceMarkProps,
-  MarbleWorkspacePopover,
-  type MarbleWorkspacePopoverProps,
-} from "./components/workspace-popover";
 export { cx } from "./utils/cx";

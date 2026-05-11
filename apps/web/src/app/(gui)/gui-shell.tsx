@@ -3,6 +3,7 @@
 import type { MarbleClient } from "@marble/sdk";
 import {
   cx,
+  MarbleAccountPopover,
   MarbleBadge,
   MarbleButton,
   MarbleCommandDialog,
@@ -18,7 +19,6 @@ import {
   MarbleSheetFooter,
   MarbleSheetHeader,
   MarbleSheetTitle,
-  MarbleWorkspacePopover,
 } from "@marble/ui";
 import {
   BookOpenTextIcon,
@@ -36,7 +36,9 @@ import {
   PipeIcon,
   RobotIcon,
   SidebarIcon,
+  SignOutIcon,
   TableIcon,
+  UserCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
 
@@ -679,6 +681,9 @@ export function GuiShell({
   initialSidebarMode,
   initialSidebarTreeState,
   initialSidebarWidth,
+  userAvatarUrl,
+  userDisplayName,
+  userEmail,
   userId,
 }: {
   children: ReactNode;
@@ -688,6 +693,9 @@ export function GuiShell({
   initialSidebarMode: SidebarMode;
   initialSidebarTreeState: SidebarTreeState;
   initialSidebarWidth: number;
+  userAvatarUrl: string | null;
+  userDisplayName: string;
+  userEmail: string | null;
   userId: string;
 }) {
   const [agentSidebarMode, setAgentSidebarMode] = useState<SidebarMode>(
@@ -827,89 +835,35 @@ export function GuiShell({
     event.stopPropagation();
     popCommandPalettePage();
   };
-  const workspaceMenuSections = [
+  const accountMenuSections = [
     {
-      id: "workspace-core",
+      id: "account-actions",
       items: [
         {
           icon: (
-            <IdentificationBadgeIcon
+            <UserCircleIcon
               size={16}
               weight="regular"
             />
           ),
-          id: "workspace-profiles",
-          label: "Profiles",
-          onSelect: () => router.push("/profiles"),
-        },
-        {
-          icon: (
-            <BriefcaseMetalIcon
-              size={16}
-              weight="regular"
-            />
-          ),
-          id: "workspace-projects",
-          label: "Projects",
-          onSelect: () => router.push("/projects"),
-        },
-        {
-          icon: (
-            <FileCodeIcon
-              size={16}
-              weight="regular"
-            />
-          ),
-          id: "workspace-programs",
-          label: "Programs",
-          onSelect: () => router.push("/programs"),
+          id: "account-settings",
+          label: "Account settings",
+          onSelect: () => router.push("/account"),
         },
       ],
     },
     {
-      id: "workspace-tools",
-      items: [
-        {
-          icon: (
-            <RobotIcon
-              size={16}
-              weight="regular"
-            />
-          ),
-          id: "workspace-automations",
-          label: "Automations",
-          onSelect: () => router.push("/automations"),
-        },
-        {
-          icon: (
-            <BookOpenTextIcon
-              size={16}
-              weight="regular"
-            />
-          ),
-          id: "workspace-events",
-          label: "Events",
-          onSelect: () => router.push("/events"),
-        },
-        {
-          icon: (
-            <LifebuoyIcon
-              size={16}
-              weight="regular"
-            />
-          ),
-          id: "workspace-help",
-          label: "Help",
-          onSelect: openHelpCommandPalette,
-        },
-      ],
-    },
-    {
-      id: "workspace-session",
+      id: "account-session",
       items: [
         {
           disabled: signOutPending,
-          id: "workspace-sign-out",
+          icon: (
+            <SignOutIcon
+              size={16}
+              weight="regular"
+            />
+          ),
+          id: "account-sign-out",
           label: signOutPending ? "Signing out..." : "Sign out",
           onSelect: () => {
             void signOut();
@@ -2269,12 +2223,14 @@ export function GuiShell({
             <div
               className={cx("flex w-full items-center", sidebar.brandClassName)}
             >
-              <MarbleWorkspacePopover
+              <MarbleAccountPopover
+                avatarUrl={userAvatarUrl ?? undefined}
                 className={cx(sidebar.iconOnly ? null : "flex-1")}
                 compact={sidebar.iconOnly}
-                description="Default workspace"
-                name="Verdn"
-                sections={workspaceMenuSections}
+                description={userEmail ?? undefined}
+                displayName={userDisplayName}
+                name={userDisplayName}
+                sections={accountMenuSections}
               />
 
               {sidebar.iconOnly ? null : (

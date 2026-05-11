@@ -3,7 +3,10 @@
     "marble": "./dist/cli.js"
   },
   "dependencies": {
+    "@marble/contracts": "workspace:*",
     "@marble/sdk": "workspace:*",
+    "@orpc/client": "catalog:base",
+    "@orpc/contract": "catalog:base",
     "@t3-oss/env-core": "catalog:base",
     "commander": "catalog:base",
     "dotenv": "catalog:base",
