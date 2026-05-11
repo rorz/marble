@@ -29,8 +29,8 @@ const marbleModalContentVariants = cva("px-5 py-4");
 const marbleModalFooterVariants = cva(
   "flex items-center justify-end gap-2 border-zinc-200 border-t px-5 py-4",
 );
-const marbleModalTitleVariants = cva("font-semibold text-sm text-zinc-900");
-const marbleModalDescriptionVariants = cva("text-sm text-zinc-600");
+const marbleModalTitleVariants = cva("font-semibold text-base text-zinc-900");
+const marbleModalDescriptionVariants = cva("text-base text-zinc-600");
 
 export type MarbleModalProps = {
   ariaDescribedBy?: string;

@@ -26,6 +26,7 @@ import {
   MarbleInput,
   MarbleListRow,
   MarbleModal,
+  MarbleModalClose,
   MarbleModalContent,
   MarbleModalDescription,
   MarbleModalFooter,
@@ -3984,6 +3985,7 @@ export function ProgramsPageView({
           >
             <MarbleModalHeader>
               <MarbleModalTitle>New file</MarbleModalTitle>
+              <MarbleModalClose onClick={closeNewFileModal} />
             </MarbleModalHeader>
             <MarbleModalContent className="space-y-4">
               <MarbleModalDescription>

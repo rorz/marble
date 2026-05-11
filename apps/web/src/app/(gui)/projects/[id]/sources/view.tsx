@@ -6,6 +6,7 @@ import {
   MarbleButton,
   MarbleCard,
   MarbleCardContent,
+  MarbleCardDescription,
   MarbleCardFooter,
   MarbleCardHeader,
   MarbleCardSection,
@@ -479,10 +480,6 @@ function resolveGeneratedJsonPath(value: unknown, path: string) {
   return currentValue;
 }
 
-function buildPipeDetailHref(projectId: string, pipeId: string) {
-  return `/projects/${projectId}/pipes/${pipeId}`;
-}
-
 export function ProjectSourceDetailPageView({
   initialData,
   initialPipeId = null,
@@ -511,8 +508,7 @@ export function ProjectSourceDetailPageView({
     sortByUpdatedAtDesc(initialData.pipes),
   );
   const currentSourceId = initialSourceId;
-  const [currentPipeId, setCurrentPipeId] = useState(initialPipeId);
-  const [creatingNextPipe, setCreatingNextPipe] = useState(false);
+  const currentPipeId = initialPipeId;
   const [selectedSourceEventId, setSelectedSourceEventId] = useState<
     null | string
   >(null);
@@ -728,8 +724,6 @@ export function ProjectSourceDetailPageView({
   const configuredPipeColumnCount = pipeMappingsDraft.filter(
     (mapping) => mapping.jsonPath.trim().length > 0,
   ).length;
-  const firstSourceId = sources[0]?.id ?? "";
-  const firstTableId = tableOptions[0]?.id ?? "";
   const pipeCreateDisabled =
     sources.length === 0 ||
     tableOptions.length === 0 ||
@@ -1153,40 +1147,6 @@ export function ProjectSourceDetailPageView({
     }
   };
 
-  const handleCreatePipe = async () => {
-    if (!firstSourceId || !firstTableId) {
-      setPipeError(
-        "Create at least one source and one table before adding a pipe.",
-      );
-      return;
-    }
-
-    setCreatingNextPipe(true);
-    setPipeError(null);
-
-    try {
-      const created = await sdk.pipes.create({
-        mappings: [],
-        sourceId: firstSourceId,
-        tableId: firstTableId,
-      });
-
-      setPipes((current) =>
-        sortByUpdatedAtDesc([
-          created,
-          ...current,
-        ]),
-      );
-      setCurrentPipeId(created.id);
-      router.push(buildPipeDetailHref(projectId, created.id));
-      marbleToast.success("Pipe created");
-    } catch (error) {
-      setPipeError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setCreatingNextPipe(false);
-    }
-  };
-
   const handleDeletePipe = () => {
     if (!selectedPipe || pipePending) {
       return;
@@ -1549,23 +1509,22 @@ export function ProjectSourceDetailPageView({
               className="w-full max-w-5xl"
               tone="subtle"
             >
-              <MarbleCardHeader
-                actions={[
-                  {
-                    children: creatingNextPipe ? "Creating" : "New pipe",
-                    disabled: creatingNextPipe,
-                    onClick: () => void handleCreatePipe(),
-                    variant: "light",
-                  },
-                ]}
-              >
+              <MarbleCardHeader divided>
                 <MarbleCardTitle>Pipe settings</MarbleCardTitle>
+                <MarbleCardDescription>
+                  Pipes only write into input-eligible cells, then start those
+                  cells. Row-level follow-on work can wake up later through
+                  column conditions.
+                </MarbleCardDescription>
               </MarbleCardHeader>
-              <MarbleCardContent className="space-y-4">
-                {pipeError ? (
-                  <MarbleAlert tone="error">{pipeError}</MarbleAlert>
-                ) : null}
 
+              {pipeError ? (
+                <MarbleCardSection>
+                  <MarbleAlert tone="error">{pipeError}</MarbleAlert>
+                </MarbleCardSection>
+              ) : null}
+
+              <MarbleCardSection>
                 <div className="grid gap-4 md:grid-cols-2">
                   <MarbleField label="Source">
                     <MarbleSelect
@@ -1608,150 +1567,144 @@ export function ProjectSourceDetailPageView({
                     </MarbleSelect>
                   </MarbleField>
                 </div>
+              </MarbleCardSection>
 
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="space-y-1">
-                      <div className="font-medium text-sm text-zinc-900">
-                        Table input columns
-                      </div>
-                      <div className="text-xs text-zinc-500">
-                        {configuredPipeColumnCount} of{" "}
-                        {availablePipeColumns.length} columns mapped
-                        {` · ${pipeSuggestionSummary}`}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <MarbleButton
-                        disabled={
-                          pipePathCandidates.length === 0 ||
-                          availablePipeColumns.length === 0
-                        }
-                        onClick={handleAutoMapPipeColumns}
-                        size="xs"
-                        variant="light"
-                      >
-                        Auto-map by name
-                      </MarbleButton>
-                      <MarbleButton
-                        disabled={pipeMappingsDraft.length === 0}
-                        onClick={() => setPipeMappingsDraft([])}
-                        size="xs"
-                        variant="light"
-                      >
-                        Clear mapped
-                      </MarbleButton>
-                    </div>
+              <MarbleCardSection className="space-y-4">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div className="space-y-1">
+                    <MarbleCardTitle>Table input columns</MarbleCardTitle>
+                    <MarbleCardDescription>
+                      {configuredPipeColumnCount} of{" "}
+                      {availablePipeColumns.length} columns mapped
+                      {` · ${pipeSuggestionSummary}`}
+                    </MarbleCardDescription>
                   </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <MarbleButton
+                      disabled={
+                        pipePathCandidates.length === 0 ||
+                        availablePipeColumns.length === 0
+                      }
+                      onClick={handleAutoMapPipeColumns}
+                      size="xs"
+                      variant="light"
+                    >
+                      Auto-map by name
+                    </MarbleButton>
+                    <MarbleButton
+                      disabled={pipeMappingsDraft.length === 0}
+                      onClick={() => setPipeMappingsDraft([])}
+                      size="xs"
+                      variant="light"
+                    >
+                      Clear mapped
+                    </MarbleButton>
+                  </div>
+                </div>
 
-                  {availablePipeColumns.length === 0 ? (
-                    <MarbleEmptyState
-                      description="Choose a table with input-eligible columns to configure this pipe."
-                      title="No input columns for this table"
-                    />
-                  ) : (
-                    <div className="overflow-hidden rounded-xs border border-taupe-200 bg-white/60">
-                      {availablePipeColumns.map((column) => {
-                        const mapping = pipeMappingByColumnId.get(column.id);
-                        const isMapped = mapping !== undefined;
-                        const hasJsonPath =
-                          mapping?.jsonPath.trim().length !== 0;
-                        const suggestedCandidate =
-                          pipePathCandidateByNormalizedKey.get(
-                            normalizePipeFieldName(column.name),
-                          );
+                {availablePipeColumns.length === 0 ? (
+                  <MarbleEmptyState
+                    description="Choose a table with input-eligible columns to configure this pipe."
+                    title="No input columns for this table"
+                  />
+                ) : (
+                  <div className="overflow-hidden rounded-xs border border-taupe-200 bg-white">
+                    {availablePipeColumns.map((column) => {
+                      const mapping = pipeMappingByColumnId.get(column.id);
+                      const isMapped = mapping !== undefined;
+                      const hasJsonPath = mapping?.jsonPath.trim().length !== 0;
+                      const suggestedCandidate =
+                        pipePathCandidateByNormalizedKey.get(
+                          normalizePipeFieldName(column.name),
+                        );
+                      const statusText = !isMapped
+                        ? "Not mapped."
+                        : hasJsonPath
+                          ? "This path will write into the column when the event payload resolves."
+                          : "Type or pick a JSONPath for this column.";
 
-                        return (
-                          <div
-                            className="grid gap-3 border-b border-taupe-200 px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto]"
-                            key={column.id}
-                          >
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <div className="truncate font-medium text-sm text-zinc-950">
-                                  {column.name}
-                                </div>
-                                {hasJsonPath ? (
-                                  <MarbleBadge tone="success">
-                                    Mapped
-                                  </MarbleBadge>
-                                ) : null}
-                              </div>
-                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
-                                <span className="font-mono text-[11px]">
-                                  {column.id}
-                                </span>
-                                {suggestedCandidate && !hasJsonPath ? (
-                                  <span>
-                                    Suggested {suggestedCandidate.path}
-                                  </span>
-                                ) : null}
-                              </div>
+                      return (
+                        <div
+                          className="grid items-center gap-4 border-b border-taupe-200 px-4 py-3 last:border-b-0 md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto]"
+                          key={column.id}
+                        >
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="truncate font-medium text-sm text-zinc-950">
+                                {column.name}
+                              </span>
+                              {hasJsonPath ? (
+                                <MarbleBadge
+                                  caps
+                                  tone="success"
+                                >
+                                  Mapped
+                                </MarbleBadge>
+                              ) : null}
                             </div>
-
-                            <div className="space-y-1.5">
-                              <MarbleSearchSelect
-                                disabled={!isMapped}
-                                onChange={(event) =>
-                                  updatePipeMapping(column.id, {
-                                    jsonPath: event.target.value,
-                                  })
-                                }
-                                options={pipePathSuggestionOptions}
-                                placeholder={
-                                  suggestedCandidate?.path ?? "$.record.email"
-                                }
-                                value={mapping?.jsonPath ?? ""}
-                                wrapperClassName="w-full"
-                              />
-                              <div className="text-[11px] text-zinc-500">
-                                {!isMapped
-                                  ? "Not mapped."
-                                  : hasJsonPath
-                                    ? "This path will write into the column when the event payload resolves."
-                                    : "Type or pick a JSONPath for this column."}
-                              </div>
-                            </div>
-
-                            <div className="flex items-center">
-                              <MarbleButton
-                                onClick={() => togglePipeMapping(column.id)}
-                                size="xs"
-                                variant={isMapped ? "dark" : "light"}
-                              >
-                                {isMapped ? "Mapped" : "Map"}
-                              </MarbleButton>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                              <span className="font-mono text-[11px]">
+                                {column.id}
+                              </span>
+                              {suggestedCandidate && !hasJsonPath ? (
+                                <span>Suggested {suggestedCandidate.path}</span>
+                              ) : null}
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
 
-                <MarbleAlert tone="neutral">
-                  Pipes only write into input-eligible cells, then start those
-                  cells. Row-level follow-on work can wake up later through
-                  column conditions.
-                </MarbleAlert>
+                          <div className="space-y-1.5">
+                            <MarbleSearchSelect
+                              disabled={!isMapped}
+                              onChange={(event) =>
+                                updatePipeMapping(column.id, {
+                                  jsonPath: event.target.value,
+                                })
+                              }
+                              options={pipePathSuggestionOptions}
+                              placeholder={
+                                suggestedCandidate?.path ?? "$.record.email"
+                              }
+                              value={mapping?.jsonPath ?? ""}
+                              wrapperClassName="w-full"
+                            />
+                            <p className="text-[11px] text-zinc-500">
+                              {statusText}
+                            </p>
+                          </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <MarbleButton
-                    disabled={pipePending || pipeCreateDisabled}
-                    onClick={() => void handleSavePipe()}
-                    variant="dark"
-                  >
-                    {pipePending ? "Saving" : "Save pipe"}
-                  </MarbleButton>
-                </div>
+                          <MarbleButton
+                            onClick={() => togglePipeMapping(column.id)}
+                            size="xs"
+                            variant={isMapped ? "dark" : "light"}
+                          >
+                            {isMapped ? "Mapped" : "Map"}
+                          </MarbleButton>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </MarbleCardSection>
 
+              <MarbleCardFooter>
                 {pipeCreateDisabled ? (
-                  <MarbleAlert tone="warning">
+                  <MarbleAlert
+                    className="mr-auto"
+                    size="sm"
+                    tone="warning"
+                  >
                     Create at least one source and one table with an
                     input-eligible column before you add pipes.
                   </MarbleAlert>
                 ) : null}
-              </MarbleCardContent>
+                <MarbleButton
+                  disabled={pipePending || pipeCreateDisabled}
+                  onClick={() => void handleSavePipe()}
+                  variant="dark"
+                >
+                  {pipePending ? "Saving" : "Save pipe"}
+                </MarbleButton>
+              </MarbleCardFooter>
             </MarbleCard>
           </div>
         )}

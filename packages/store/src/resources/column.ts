@@ -53,14 +53,14 @@ function getOutputSchema(outputConfig: unknown) {
   return "schema" in outputConfig ? outputConfig.schema : {};
 }
 
-function hasAllowManualInput(outputSchema: unknown) {
-  if (!outputSchema || typeof outputSchema !== "object") {
+function outputConfigAllowsManualInput(outputConfig: unknown) {
+  if (!outputConfig || typeof outputConfig !== "object") {
     return false;
   }
 
   return (
     (
-      outputSchema as {
+      outputConfig as {
         flags?: {
           allowManualInput?: boolean;
         };
@@ -270,7 +270,10 @@ export class ColumnCollection implements ColumnCollectionApi {
     this.deps.db.list("column", input);
 
   public readonly listReferenceable = async () => {
-    const projects = await this.deps.db.list("project");
+    const [projects, allProgramVersions] = await Promise.all([
+      this.deps.db.list("project"),
+      this.deps.db.list("program_version"),
+    ]);
     const tables = await Promise.all(
       projects.map((project) =>
         this.deps.db.list("table", {
@@ -298,6 +301,12 @@ export class ColumnCollection implements ColumnCollectionApi {
         table,
       ]),
     );
+    const programVersionAllowsManualInputById = new Map(
+      allProgramVersions.map((version) => [
+        version.id,
+        outputConfigAllowsManualInput(version.outputConfig),
+      ]),
+    );
 
     return columns.flat().flatMap((column) => {
       const table = tableById.get(column.tableId);
@@ -309,7 +318,9 @@ export class ColumnCollection implements ColumnCollectionApi {
 
       return [
         {
-          allowManualInput: hasAllowManualInput(column.outputSchema),
+          allowManualInput:
+            programVersionAllowsManualInputById.get(column.programVersionId) ===
+            true,
           id: column.id,
           label: `${project.name} / ${table.name} / ${column.name}`,
           name: column.name,

@@ -21,6 +21,7 @@ import {
   MarbleInput,
   MarbleListRow,
   MarbleModal,
+  MarbleModalClose,
   MarbleModalContent,
   MarbleModalDescription,
   MarbleModalFooter,
@@ -547,7 +548,11 @@ function ProfileEditorModal({
         ref={formRef}
       >
         <MarbleModalHeader>
-          <MarbleModalTitle className="text-base">{title}</MarbleModalTitle>
+          <MarbleModalTitle>{title}</MarbleModalTitle>
+          <MarbleModalClose
+            disabled={disabled}
+            onClick={onClose}
+          />
         </MarbleModalHeader>
         <MarbleModalContent className="space-y-4">
           <MarbleModalDescription>{description}</MarbleModalDescription>
@@ -597,9 +602,8 @@ function NewKeyModal({
       size="md"
     >
       <MarbleModalHeader>
-        <MarbleModalTitle className="text-base">
-          New key for {profileName}
-        </MarbleModalTitle>
+        <MarbleModalTitle>New key for {profileName}</MarbleModalTitle>
+        <MarbleModalClose onClick={onClose} />
       </MarbleModalHeader>
       <MarbleModalContent className="space-y-4">
         <MarbleModalDescription>

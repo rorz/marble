@@ -32,13 +32,13 @@ function dedupePipes(pipes: MarblePipe[]) {
   );
 }
 
-function hasAllowManualInput(outputSchema: unknown) {
-  if (!outputSchema || typeof outputSchema !== "object") {
+function outputConfigAllowsManualInput(outputConfig: unknown) {
+  if (!outputConfig || typeof outputConfig !== "object") {
     return false;
   }
 
   const flags = (
-    outputSchema as {
+    outputConfig as {
       flags?: {
         allowManualInput?: boolean;
       };
@@ -72,7 +72,7 @@ export async function getProjectSourceWorkspaceData(projectId: string) {
   }
 
   const { project, sdk } = resolved;
-  const [tables, sources, sourceEvents] = await Promise.all([
+  const [tables, sources, sourceEvents, programEditorData] = await Promise.all([
     sdk.tables.list({
       projectId,
     }),
@@ -83,6 +83,7 @@ export async function getProjectSourceWorkspaceData(projectId: string) {
       limit: 120,
       projectId,
     }),
+    sdk.programs.listForEditor({}),
   ]);
   const projectTables = tables.map((table) =>
     projectTableFromSdkTable(table, project),
@@ -91,6 +92,12 @@ export async function getProjectSourceWorkspaceData(projectId: string) {
     projectTables.map((table) => [
       table.id,
       table,
+    ]),
+  );
+  const programVersionAllowsManualInputById = new Map(
+    programEditorData.programVersions.map((version) => [
+      version.id,
+      outputConfigAllowsManualInput(version.outputConfig),
     ]),
   );
   const tableColumns = await Promise.all(
@@ -111,8 +118,11 @@ export async function getProjectSourceWorkspaceData(projectId: string) {
   return {
     inputColumns: tableColumns.flat().flatMap((column) => {
       const table = tableById.get(column.tableId);
+      const allowsManualInput =
+        programVersionAllowsManualInputById.get(column.programVersionId) ===
+        true;
 
-      return table && hasAllowManualInput(column.outputSchema)
+      return table && allowsManualInput
         ? [
             toProjectInputColumn(column, table),
           ]

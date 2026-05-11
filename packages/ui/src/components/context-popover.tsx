@@ -16,6 +16,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { cx } from "../utils/cx";
 
 type MarbleContextPopoverItem = {
@@ -87,7 +88,12 @@ export function MarbleContextPopover({
     left: number;
     top: number;
   }>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const hasCustomTrigger = children !== undefined && children !== null;
+
+  useEffect(() => {
+    setPortalTarget(document.body);
+  }, []);
   const menuSections = useMemo(() => {
     if (sections) {
       return sections.filter((section) => section.items.length > 0);
@@ -442,113 +448,119 @@ export function MarbleContextPopover({
       }
     };
 
+  const menuNode =
+    isOpen && portalTarget
+      ? createPortal(
+          <div
+            className={cx(
+              "fixed z-[1000] min-w-36 rounded-xs border border-zinc-200 bg-white p-1 shadow-lg shadow-zinc-950/10",
+              menuClassName,
+            )}
+            id={menuId}
+            ref={menuRef}
+            role="menu"
+            style={{
+              left: menuPosition?.left ?? 0,
+              top: menuPosition?.top ?? 0,
+              visibility: menuPosition ? "visible" : "hidden",
+            }}
+            tabIndex={-1}
+          >
+            {header ? <div className="px-1 pb-1">{header}</div> : null}
+            {menuSections.map((section, sectionIndex) => {
+              const indexOffset = menuSections
+                .slice(0, sectionIndex)
+                .reduce(
+                  (total, currentSection) =>
+                    total + currentSection.items.length,
+                  0,
+                );
+
+              return (
+                <div
+                  className={cx(
+                    sectionIndex === 0 && !header
+                      ? null
+                      : "mt-1 border-zinc-200 border-t pt-1",
+                  )}
+                  key={getSectionKey(section)}
+                >
+                  {section.label ? (
+                    <div className="px-3 pb-1 font-medium text-[10px] text-zinc-400 uppercase tracking-[0.2em]">
+                      {section.label}
+                    </div>
+                  ) : null}
+                  {section.items.map((item, itemIndex) => {
+                    const index = indexOffset + itemIndex;
+
+                    return (
+                      <button
+                        className={cx(
+                          "flex w-full items-start gap-3 rounded-[6px] px-3 py-2 text-left transition-colors",
+                          item.disabled
+                            ? "cursor-not-allowed text-zinc-400"
+                            : "cursor-pointer text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 focus-visible:bg-zinc-100 focus-visible:text-zinc-950 focus-visible:outline-none",
+                          item.tone === "danger" && !item.disabled
+                            ? "text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50 focus-visible:text-red-700"
+                            : null,
+                        )}
+                        disabled={item.disabled}
+                        key={getItemKey(item)}
+                        onBlur={() => item.onBlur?.()}
+                        onClick={() => {
+                          item.onBlur?.();
+                          item.onPointerLeave?.();
+                          dismissMenu();
+                          item.onSelect();
+                        }}
+                        onFocus={() => item.onFocus?.()}
+                        onKeyDown={handleItemKeyDown(index)}
+                        onPointerEnter={() => item.onPointerEnter?.()}
+                        onPointerLeave={() => item.onPointerLeave?.()}
+                        ref={(element) => {
+                          itemRefs.current[index] = element;
+                        }}
+                        role="menuitem"
+                        type="button"
+                      >
+                        {item.icon ? (
+                          <span className="flex size-4 shrink-0 translate-y-0.5 items-center justify-center">
+                            {item.icon}
+                          </span>
+                        ) : null}
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span className="truncate font-medium text-sm">
+                            {item.label}
+                          </span>
+                          {item.description ? (
+                            <div className="mt-0.5 text-xs text-zinc-500">
+                              {item.description}
+                            </div>
+                          ) : null}
+                        </span>
+                        {item.detail ? (
+                          <span className="flex shrink-0 items-center justify-center self-center text-xs text-zinc-400">
+                            {item.detail}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>,
+          portalTarget,
+        )
+      : null;
+
   return (
     <div
       className={cx("relative inline-flex", className)}
       ref={rootRef}
     >
       {renderTrigger()}
-
-      {isOpen ? (
-        <div
-          className={cx(
-            "fixed z-[1000] min-w-36 rounded-xs border border-zinc-200 bg-white p-1 shadow-lg shadow-zinc-950/10",
-            menuClassName,
-          )}
-          id={menuId}
-          ref={menuRef}
-          role="menu"
-          style={{
-            left: menuPosition?.left ?? 0,
-            top: menuPosition?.top ?? 0,
-            visibility: menuPosition ? "visible" : "hidden",
-          }}
-          tabIndex={-1}
-        >
-          {header ? <div className="px-1 pb-1">{header}</div> : null}
-          {menuSections.map((section, sectionIndex) => {
-            const indexOffset = menuSections
-              .slice(0, sectionIndex)
-              .reduce(
-                (total, currentSection) => total + currentSection.items.length,
-                0,
-              );
-
-            return (
-              <div
-                className={cx(
-                  sectionIndex === 0 && !header
-                    ? null
-                    : "mt-1 border-zinc-200 border-t pt-1",
-                )}
-                key={getSectionKey(section)}
-              >
-                {section.label ? (
-                  <div className="px-3 pb-1 font-medium text-[10px] text-zinc-400 uppercase tracking-[0.2em]">
-                    {section.label}
-                  </div>
-                ) : null}
-                {section.items.map((item, itemIndex) => {
-                  const index = indexOffset + itemIndex;
-
-                  return (
-                    <button
-                      className={cx(
-                        "flex w-full items-start gap-3 rounded-[6px] px-3 py-2 text-left transition-colors",
-                        item.disabled
-                          ? "cursor-not-allowed text-zinc-400"
-                          : "cursor-pointer text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950 focus-visible:bg-zinc-100 focus-visible:text-zinc-950 focus-visible:outline-none",
-                        item.tone === "danger" && !item.disabled
-                          ? "text-red-600 hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50 focus-visible:text-red-700"
-                          : null,
-                      )}
-                      disabled={item.disabled}
-                      key={getItemKey(item)}
-                      onBlur={() => item.onBlur?.()}
-                      onClick={() => {
-                        item.onBlur?.();
-                        item.onPointerLeave?.();
-                        dismissMenu();
-                        item.onSelect();
-                      }}
-                      onFocus={() => item.onFocus?.()}
-                      onKeyDown={handleItemKeyDown(index)}
-                      onPointerEnter={() => item.onPointerEnter?.()}
-                      onPointerLeave={() => item.onPointerLeave?.()}
-                      ref={(element) => {
-                        itemRefs.current[index] = element;
-                      }}
-                      role="menuitem"
-                      type="button"
-                    >
-                      {item.icon ? (
-                        <span className="flex size-4 shrink-0 translate-y-0.5 items-center justify-center">
-                          {item.icon}
-                        </span>
-                      ) : null}
-                      <span className="flex min-w-0 flex-1 flex-col">
-                        <span className="truncate font-medium text-sm">
-                          {item.label}
-                        </span>
-                        {item.description ? (
-                          <div className="mt-0.5 text-xs text-zinc-500">
-                            {item.description}
-                          </div>
-                        ) : null}
-                      </span>
-                      {item.detail ? (
-                        <span className="flex shrink-0 items-center justify-center self-center text-xs text-zinc-400">
-                          {item.detail}
-                        </span>
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
+      {menuNode}
     </div>
   );
 }

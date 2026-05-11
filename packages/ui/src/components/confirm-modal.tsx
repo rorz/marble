@@ -4,8 +4,11 @@ import type { ReactNode } from "react";
 import { MarbleButton, type MarbleButtonProps } from "./button";
 import {
   MarbleModal,
+  MarbleModalClose,
   MarbleModalContent,
+  MarbleModalDescription,
   MarbleModalFooter,
+  MarbleModalHeader,
   type MarbleModalProps,
   MarbleModalTitle,
 } from "./modal";
@@ -40,13 +43,16 @@ export function MarbleConfirmModal({
       onClose={onClose}
       size={size}
     >
-      <MarbleModalContent className="space-y-2 pb-5 pt-5">
+      <MarbleModalHeader>
         <MarbleModalTitle>{state.title}</MarbleModalTitle>
-        {state.message ? (
-          <p className="text-sm text-zinc-600">{state.message}</p>
-        ) : null}
-      </MarbleModalContent>
-      <MarbleModalFooter className="border-t-0 pt-0">
+        <MarbleModalClose onClick={onClose} />
+      </MarbleModalHeader>
+      {state.message ? (
+        <MarbleModalContent>
+          <MarbleModalDescription>{state.message}</MarbleModalDescription>
+        </MarbleModalContent>
+      ) : null}
+      <MarbleModalFooter>
         <MarbleButton onClick={onClose}>
           {state.cancelLabel ?? "Cancel"}
         </MarbleButton>

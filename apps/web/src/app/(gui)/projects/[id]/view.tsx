@@ -8,11 +8,13 @@ import {
   MarbleCardContent,
   MarbleConfirmModal,
   type MarbleConfirmModalState,
+  MarbleContextPopover,
   MarbleEditableText,
   MarbleEmptyState,
   MarbleListRow,
   MarblePane,
   MarblePaneEditableCrumb,
+  marbleToast,
 } from "@marble/ui";
 import { FunnelIcon, PipeIcon, TableIcon } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
@@ -437,6 +439,92 @@ export function ProjectPageView({
     }
   };
 
+  const requestDeleteSource = (sourceId: string, sourceName: string) => {
+    setConfirmState({
+      confirmLabel: "Delete source",
+      message: `Delete source "${sourceName}"? Pipes that read from this source will also be removed.`,
+      onConfirm: () => {
+        void performDeleteSource(sourceId, sourceName);
+      },
+      title: "Delete source",
+    });
+  };
+
+  const performDeleteSource = async (sourceId: string, sourceName: string) => {
+    setError(null);
+
+    try {
+      await sdk.sources.delete({
+        id: sourceId,
+      });
+      setSources((current) => current.filter((row) => row.id !== sourceId));
+      setPipes((current) =>
+        current.filter((pipe) => pipe.sourceId !== sourceId),
+      );
+      marbleToast.success(`Source "${sourceName}" deleted`);
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    }
+  };
+
+  const requestDeletePipe = (pipeId: string, pipeTitle: string) => {
+    setConfirmState({
+      confirmLabel: "Delete pipe",
+      message: `Delete pipe "${pipeTitle}"?`,
+      onConfirm: () => {
+        void performDeletePipe(pipeId, pipeTitle);
+      },
+      title: "Delete pipe",
+    });
+  };
+
+  const performDeletePipe = async (pipeId: string, pipeTitle: string) => {
+    setError(null);
+
+    try {
+      await sdk.pipes.delete({
+        id: pipeId,
+      });
+      setPipes((current) => current.filter((pipe) => pipe.id !== pipeId));
+      marbleToast.success(`Pipe "${pipeTitle}" deleted`);
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    }
+  };
+
+  const requestDeleteTable = (tableId: string, tableName: string) => {
+    setConfirmState({
+      confirmLabel: "Delete table",
+      message: `Delete table "${tableName}"? Its rows, cells, and any pipes that target it will also be deleted.`,
+      onConfirm: () => {
+        void performDeleteTable(tableId, tableName);
+      },
+      title: "Delete table",
+    });
+  };
+
+  const performDeleteTable = async (tableId: string, tableName: string) => {
+    setError(null);
+
+    try {
+      await sdk.tables.delete({
+        id: tableId,
+      });
+      setProject((current) => {
+        const tables = current.tables.filter((table) => table.id !== tableId);
+        return {
+          ...current,
+          tableCount: tables.length,
+          tables,
+        };
+      });
+      setPipes((current) => current.filter((pipe) => pipe.tableId !== tableId));
+      marbleToast.success(`Table "${tableName}" deleted`);
+    } catch (caughtError) {
+      setError(getErrorMessage(caughtError));
+    }
+  };
+
   return (
     <MarblePane
       crumbs={[
@@ -476,14 +564,6 @@ export function ProjectPageView({
             onEdit={() => startEditingName("title")}
             value={nameDraft}
           />
-
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
-            <span>{project.tableCount} tables</span>
-            <span>{sources.length} sources</span>
-            <span>{pipes.length} pipes</span>
-            <span>{project.folderPath.join(" / ") || "Root"}</span>
-            <span>{DATE_FORMATTER.format(new Date(project.updatedAt))}</span>
-          </div>
         </div>
 
         {error ? <MarbleAlert tone="error">{error}</MarbleAlert> : null}
@@ -523,17 +603,36 @@ export function ProjectPageView({
               </MarbleCardContent>
             ) : (
               <MarbleCardContent className="p-0">
-                {sources.map((source) => (
-                  <MarbleListRow
-                    description={`${sourceEventCountBySourceId.get(source.id) ?? 0} events captured`}
-                    key={source.id}
-                    onClick={() =>
-                      router.push(buildSourceDetailHref(source.id))
-                    }
-                    title={source.name || "Untitled Source"}
-                    {...getChangeTargetProps(changeTargetKey.source(source.id))}
-                  />
-                ))}
+                {sources.map((source) => {
+                  const sourceName = source.name || "Untitled Source";
+
+                  return (
+                    <MarbleListRow
+                      aside={
+                        <MarbleContextPopover
+                          ariaLabel={`Source actions for ${sourceName}`}
+                          items={[
+                            {
+                              label: "Delete source",
+                              onSelect: () =>
+                                requestDeleteSource(source.id, sourceName),
+                              tone: "danger",
+                            },
+                          ]}
+                        />
+                      }
+                      description={`${sourceEventCountBySourceId.get(source.id) ?? 0} events captured`}
+                      key={source.id}
+                      onClick={() =>
+                        router.push(buildSourceDetailHref(source.id))
+                      }
+                      title={sourceName}
+                      {...getChangeTargetProps(
+                        changeTargetKey.source(source.id),
+                      )}
+                    />
+                  );
+                })}
               </MarbleCardContent>
             )}
           </MarbleCard>
@@ -582,10 +681,27 @@ export function ProjectPageView({
                   const visiblePipeMappings = pipeMappings.slice(0, 4);
                   const hiddenPipeMappingCount =
                     pipeMappings.length - visiblePipeMappings.length;
+                  const pipeTitle = buildPipeTitle({
+                    sourceLabel: sourceNameById.get(pipe.sourceId),
+                    tableLabel: tableLabelById.get(pipe.tableId),
+                  });
 
                   return (
                     <MarbleListRow
                       align="start"
+                      aside={
+                        <MarbleContextPopover
+                          ariaLabel={`Pipe actions for ${pipeTitle}`}
+                          items={[
+                            {
+                              label: "Delete pipe",
+                              onSelect: () =>
+                                requestDeletePipe(pipe.id, pipeTitle),
+                              tone: "danger",
+                            },
+                          ]}
+                        />
+                      }
                       description={
                         pipeMappings.length > 0 ? (
                           <>
@@ -624,10 +740,7 @@ export function ProjectPageView({
                       }
                       key={pipe.id}
                       onClick={() => router.push(buildPipeDetailHref(pipe.id))}
-                      title={buildPipeTitle({
-                        sourceLabel: sourceNameById.get(pipe.sourceId),
-                        tableLabel: tableLabelById.get(pipe.tableId),
-                      })}
+                      title={pipeTitle}
                       {...getChangeTargetProps(changeTargetKey.pipe(pipe.id))}
                     />
                   );
@@ -672,17 +785,36 @@ export function ProjectPageView({
               </MarbleCardContent>
             ) : (
               <MarbleCardContent className="p-0">
-                {project.tables.map((table) => (
-                  <MarbleListRow
-                    description={`Updated ${DATE_FORMATTER.format(new Date(table.updatedAt))}`}
-                    key={table.id}
-                    onClick={() =>
-                      router.push(`/projects/${project.id}/tables/${table.id}`)
-                    }
-                    title={table.name || "Untitled Table"}
-                    {...getChangeTargetProps(changeTargetKey.table(table.id))}
-                  />
-                ))}
+                {project.tables.map((table) => {
+                  const tableName = table.name || "Untitled Table";
+
+                  return (
+                    <MarbleListRow
+                      aside={
+                        <MarbleContextPopover
+                          ariaLabel={`Table actions for ${tableName}`}
+                          items={[
+                            {
+                              label: "Delete table",
+                              onSelect: () =>
+                                requestDeleteTable(table.id, tableName),
+                              tone: "danger",
+                            },
+                          ]}
+                        />
+                      }
+                      description={`Updated ${DATE_FORMATTER.format(new Date(table.updatedAt))}`}
+                      key={table.id}
+                      onClick={() =>
+                        router.push(
+                          `/projects/${project.id}/tables/${table.id}`,
+                        )
+                      }
+                      title={tableName}
+                      {...getChangeTargetProps(changeTargetKey.table(table.id))}
+                    />
+                  );
+                })}
               </MarbleCardContent>
             )}
           </MarbleCard>
