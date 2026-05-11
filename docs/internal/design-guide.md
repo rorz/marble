@@ -1,80 +1,95 @@
+# The Four Basic Principles of Marble Design
 
-
-
-# The Four Basic Principles of Design 
-*The core premise of the following is that once you can name a principle, you can recognize it, and once you recognize it, you have power over it. Good design relies on four fundamental principles (often remembered by the acronym CRAP or PARC).*
+*Marble's UI system stands on four fundamental principles (the acronym **PARC**). Once you can name a principle, you can recognize it; once you recognize it, you have power over it. Every Marble surface — every pane, card, list row, and form — is PARC made concrete.*
 
 ## 1. Proximity
-**The Principle:** Group related items together. Move them physically close to each other so they are seen as one cohesive group rather than a bunch of unrelated bits.
-*   **The Purpose:** To organize information, reduce clutter, and give the reader a clear structure. Physical closeness implies a relationship.
-*   **How to get it:** Squint at the page and count the number of visual elements (how many times your eye stops). Group logically related items. 
-*   **What to avoid:** Don't stick things in the corners or middle just because the space is empty. Avoid "trapped" white space (white space stuck between elements).
+
+**The Principle:** Group related items together. Move them physically close so they read as one cohesive group, not a scatter of unrelated bits.
+
+*   **The Purpose:** Organize information, reduce clutter, give the reader a clear structure. Physical closeness implies relationship.
+*   **In Marble:** A card's header, body, and footer must read as one object — that's why `MarbleCard` ships with snap-to-bottom footer and flex-column composition baked into the primitive. A label and its input belong together — that's why `MarbleField` is one primitive, not a hand-rolled `<MarbleFieldLabel/><MarbleInput/>` stack. Pane crumbs sit with their pane title because they describe the same thing.
+*   **How to get it:** Squint at the surface and count the visual stops your eye makes. If two stops should be one, the spacing is too generous or a container is missing.
+*   **What to avoid:** "Trapped" whitespace — empty space stuck between elements that belong together. Don't park content in corners just to fill the canvas.
 
 ## 2. Alignment
-**The Principle:** Nothing should be placed on the page arbitrarily. Every element should have a visual connection with another element on the page. 
-*   **The Purpose:** To unify and organize the page. It creates a clean, sophisticated, and intentional look.
-*   **How to get it:** Find a strong vertical or horizontal edge and stick to it. Flush-left or flush-right alignments provide stronger, cleaner edges than centered text. 
-*   **What to avoid:** Avoid using more than one text alignment on the page (e.g., don't mix centered and flush-left). Avoid centered alignment unless you consciously want a very formal, sedate, or potentially dull look.
+
+**The Principle:** Nothing should be placed on the surface arbitrarily. Every element should have a visual connection with another element.
+
+*   **The Purpose:** Unify and organize the surface. Creates a clean, intentional look.
+*   **In Marble:** Padding, gap utilities, type scale, and border radii match adjacent components. A `p-4` card next to a `p-5` card looks like a mistake. A `gap-3` row next to a `gap-2` row is conflict, not contrast. Flush-left is the default — eyebrow labels, list row text, and pane crumbs all share the same left edge.
+*   **How to get it:** Find a strong vertical or horizontal edge and stick to it. Flush-left and flush-right alignments produce stronger, cleaner edges than centered text.
+*   **What to avoid:** Mixing alignments without intent. Centered alignment in product UI almost always reads as formal or sedate — rarely what a workbench wants.
 
 ## 3. Repetition
-**The Principle:** Repeat some aspect of the design throughout the entire piece. This could be a bold font, a thick line, a bullet style, a color, or a spatial arrangement.
-*   **The Purpose:** To unify the piece, create consistency, and add visual interest. It ties a multi-page document together.
-*   **How to get it:** Find existing consistencies (like headlines) and push them further. Turn them into conscious graphic design elements.
-*   **What to avoid:** Don't repeat an element so much that it becomes annoying or overwhelming. 
+
+**The Principle:** Repeat some aspect of the design throughout the entire piece — a font, a stroke, a color, a spatial arrangement.
+
+*   **The Purpose:** Unify the piece, create consistency, add visual interest. Ties a multi-surface product together.
+*   **In Marble:** Repetition is *why* `packages/ui` exists. Primitives enforce it. The orange stripe (`shadow-marble-stripe-left`) means "active" everywhere. The eyebrow ramp (`text-eyebrow-xs` / `text-eyebrow` / `text-eyebrow-lg`) means "label" everywhere. The `taupe-*` family means "surface" everywhere. If you catch yourself recomposing the same `border + bg + rounded` cocktail in two places, extend the primitive — don't normalize the override.
+*   **How to get it:** Find existing consistencies and push them further. Promote them from incidental to deliberate.
+*   **What to avoid:** Repeating an element until it becomes noise. Repetition without contrast is wallpaper.
 
 ## 4. Contrast
-**The Principle:** If two items are not exactly the same, make them **really different**. Don't be a wimp!
-*   **The Purpose:** To create visual interest (which draws the eye) and to establish a hierarchy of information so the reader can instantly navigate the page.
-*   **How to get it:** Contrast large type with small type, a bold font with a light font, a warm color with a cool color, or a horizontal element with a vertical one.
-*   **What to avoid:** Avoid "conflict." Conflict happens when two elements are *sort of* similar but not the same (e.g., a 12-point font next to a 14-point font, or two different serif typefaces on the same page). 
 
-# Color Theory and Typography Basics
+**The Principle:** If two items are not exactly the same, make them **really different**. Don't be a wimp.
+
+*   **The Purpose:** Create visual interest (draws the eye), establish hierarchy (lets the reader instantly navigate the surface).
+*   **In Marble:** Contrast a 14px body with a 24px title, a `font-medium` label with a `font-semibold` heading, a `taupe-50` surface with a `taupe-900` foreground. Use `orange-500` sparingly — it's the loudest voice in the room and earns its weight precisely because it isn't everywhere.
+*   **How to get it:** Contrast large with small, bold with light, warm with cool, horizontal with vertical, dense with airy.
+*   **What to avoid:** "Conflict." Conflict happens when two elements are *sort of* similar but not the same — two slightly different paddings, two slightly different greys, two sans families. Conflict reads as a mistake. Contrast reads as intent.
+
+# Color & Typography Basics
 
 ## Color Theory Fundamentals
-*   **The Color Wheel:** Built on Primary colors (Red, Yellow, Blue), Secondary colors (Green, Orange, Purple), and Tertiary colors (mixes like yellow-orange).
+
+*   **Hue / Tint / Shade:** A **hue** is the pure color. Add black for a **shade**. Add white for a **tint**. Marble's `taupe-*`, `zinc-*`, and `orange-*` ramps are hue-to-shade scales — pick the step, don't open-code a new hex.
 *   **Color Relationships:**
-    *   **Complementary:** Colors directly across from each other (e.g., red and green). Best used with one as a main color and the other as an accent.
-    *   **Triads:** Three colors equidistant on the wheel (e.g., red, yellow, blue).
-    *   **Analogous:** Colors next to each other on the wheel. Harmonious and calm.
-    *   **Monochromatic:** One hue combined with various tints and shades.
-*   **Shades and Tints:** A **hue** is the pure color. Add black to create a **shade**. Add white to create a **tint**.
-*   **Warm vs. Cool:** Warm colors (reds, oranges) come forward and demand attention. Cool colors (blues, greens) recede. Use warm colors sparingly for high impact.
-*   **CMYK vs. RGB:** Use **CMYK** (Cyan, Magenta, Yellow, Key/Black) for anything being **printed** on paper. Use **RGB** (Red, Green, Blue) for anything viewed on a **screen**.
+    *   **Complementary:** Colors across the wheel (e.g., red and green). One leads as the surface, the other lands as the accent. Marble's `taupe` / `orange` pairing behaves complementarily — taupe is the canvas, orange is the rare accent.
+    *   **Triads:** Three colors equidistant on the wheel. Rarely useful in product UI; reserved for explicitly playful contexts.
+    *   **Analogous:** Colors neighboring on the wheel. Harmonious and calm. Marble's warm-grey neighborhood (`taupe` ↔ `zinc` ↔ `amber`) is analogous.
+    *   **Monochromatic:** One hue, many tints and shades. Marble's `taupe-50` → `taupe-900` ramp is monochromatic and carries the majority of product chrome.
+*   **Warm vs. Cool:** Warm colors (reds, oranges) come forward and demand attention. Cool colors (blues, greens) recede. **Use warm sparingly for high impact** — exactly why `orange-*` is reserved for actives, accents, and CTAs in Marble, not for decoration.
+*   **Screen-only:** Marble is product UI. There is no print pipeline. Think in RGB / sRGB and use `var(--color-*)` custom properties or Tailwind utilities.
 
 ## The Six Categories of Type
-Understanding how typefaces are built allows you to combine them effectively.
-1.  **Oldstyle:** Based on hand-lettering of scribes. Features slanted serifs, a moderate thick/thin transition in the strokes, and diagonal stress. *Best for long blocks of body copy.* (e.g., Garamond, Times).
-2.  **Modern:** Mechanical and severe. Features thin, horizontal serifs, radical thick/thin transitions, and vertical stress. *Striking for large headers, but terrible for body text.* (e.g., Bodoni, Didot).
-3.  **Slab Serif:** Invented for advertising. Features thick, horizontal, "slabby" serifs and little to no thick/thin transition. *High readability, makes a darker page.* (e.g., Clarendon, Century Schoolbook).
-4.  **Sans Serif:** "Sans" means "without" serifs. Almost always monoweight (no thick/thin transition in the strokes). *Clean and contemporary.* (e.g., Helvetica, Arial, Proxima Nova).
-5.  **Script:** Appears to be hand-lettered with a calligraphy pen or brush. *Never use scripts in all-caps.*
-6.  **Decorative:** Distinctive, fun, and quirky. Easy to identify and should be used sparingly.
 
-# Combining Type & Practical Design Tips
+Understanding how typefaces are built lets you combine them effectively.
+
+1.  **Oldstyle:** Slanted serifs, moderate thick/thin transition, diagonal stress. *Best for long blocks of body copy.* (e.g., Garamond, Times.)
+2.  **Modern:** Mechanical and severe. Thin horizontal serifs, radical thick/thin transitions, vertical stress. *Striking for display, terrible for body.* (e.g., Bodoni, Didot.)
+3.  **Slab Serif:** Thick, horizontal "slabby" serifs and little to no thick/thin transition. *High readability, makes a darker block.* (e.g., Clarendon, Century Schoolbook.)
+4.  **Sans Serif:** "Sans" means "without" serifs. Almost always monoweight. *Clean and contemporary.* (e.g., Inter, Helvetica, Proxima Nova.) **Marble's product surface is sans-serif end-to-end** — the product face is utility, not literature.
+5.  **Script:** Hand-lettered with calligraphy or brush. *Never in product chrome; reserve for marketing surfaces, and never in all-caps.*
+6.  **Decorative:** Distinctive, fun, quirky. Use sparingly, and only where personality earns the cost.
+
+# Combining Type for the Web
 
 ## The 3 C's of Combining Type
-1.  **Concord:** Using only one type family without much variety. It keeps the page harmonious, quiet, and formal.
-2.  **Conflict:** Combining typefaces that are similar but not the same (e.g., two different serif fonts). It looks like a mistake. **Avoid this.**
-3.  **Contrast:** Combining clearly distinct typefaces and elements. Visually appealing and exciting. 
 
-## 6 Ways to Contrast Type
-*   **Size:** Big vs. Little. Don't contrast 12pt with 14pt; contrast 12pt with 36pt.
-*   **Weight:** Bold vs. Light. A heavy typeface immediately draws the eye and organizes information.
-*   **Structure:** How the letter is built. **Golden Rule:** *Never put two typefaces from the same category on the same page.* Combine a Serif with a Sans Serif. 
-*   **Form:** The shape of the letter. The easiest contrast of form is Caps vs. Lowercase, or Roman (straight up) vs. Italic (slanted/flowing). 
-*   **Direction:** Horizontal text vs. tall, vertical columns of text. (Avoid putting text on a diagonal slant unless you have a specific, justifiable reason).
-*   **Color:** Not just RGB/CMYK, but the "black and white" color/texture of the text block. A light, airy typeface creates a "gray" block, while a tightly packed, bold sans-serif creates a "black" block. 
+1.  **Concord:** One type family, minimal variety. Quiet, harmonious, formal. *Marble's product UI is concord-leaning — one sans family, contrast comes from weight and size, not from family-mixing.*
+2.  **Conflict:** Combining typefaces that are similar but not the same (e.g., two different sans families). Looks like a mistake. **Avoid.**
+3.  **Contrast:** Clearly distinct typefaces and elements. Exciting and intentional. *Marble's marketing surfaces may earn a second family — product chrome does not.*
 
-## Quick Tips for Practical Applications
-*   **Business Cards:** Standard size is 3.5 x 2 inches. **Do not use 12-point font**—it looks amateur and horsey; use 7 to 9-point for contact info. Avoid sticking information in all four corners.
-*   **Stationery (Letterhead & Envelopes):** Create a unified "package." Use the exact same focal point, alignments, and typefaces across the card, letterhead, and envelope.
-*   **Flyers & Postcards:** Create a single, massive focal point to grab attention immediately. Use strong subheads. Utilize negative (white) space. 
-*   **Newsletters:** Establish repetition (headers, footers, column widths, fonts) so it feels cohesive. First paragraphs should *not* be indented. If you indent paragraphs, do not add a blank line between them; choose one or the other.
-*   **Websites:** Repetition is critical for navigation so users know they are on the same site. Avoid typing long paragraphs across the entire width of the screen; keep line lengths short for readability.
+## 6 Ways to Contrast
 
-### The Ultimate Golden Rule:
-**DON'T BE A WIMP!** 
-Don't be afraid of empty space. Don't be afraid to make things asymmetrical. If you are going to make things different, make them *very* different. State your design problem in words, find the similarities causing the conflict, and apply PARC to fix it.
+*   **Size:** Big vs. little. Don't contrast 12px with 14px; contrast 12px with 36px. The eyebrow utilities and pane titles are sized for exactly this.
+*   **Weight:** Bold vs. light. Heavy weights draw the eye and organize information. Marble uses `font-medium` and `font-semibold` as workhorses; reserve `font-bold` for true display.
+*   **Structure:** How the letter is built. **Never put two typefaces from the same category on the same surface.** Combine a serif with a sans-serif, or stay in one category cleanly.
+*   **Form:** The shape of the letter. Caps vs. lowercase, roman vs. italic. The `text-eyebrow-*` utilities lean on uppercase form contrast — that's why they're capitalized and tracked.
+*   **Direction:** Horizontal vs. vertical. *Avoid diagonal text in product UI — there is no justifiable reason.*
+*   **Color:** Not just hue, but the visual *color* of the text block. A light, airy weight creates a "grey" block; a tight, bold weight creates a "black" block. Both are valid — pick deliberately.
+
+## Web-Specific Rules
+
+*   **Line length:** Keep lines short. Paragraphs spanning the full screen width are unreadable. Bias toward a constrained content column, even in dense product views.
+*   **Repetition is navigation:** Consistent chrome is how users know they're on the same product. The pane header, sidebar, and crumb pattern in Marble exist precisely to satisfy this.
+*   **Resolution-aware sizing:** Use `size={N}` for icons, `px`-based eyebrow tokens, and the 4px Tailwind spacing ramp. Pixel-perfect at 100% browser zoom is the floor, not the ceiling.
+
+### The Ultimate Golden Rule
+
+**DON'T BE A WIMP.**
+
+Don't be afraid of empty space. Don't be afraid of asymmetry. If you're going to make things different, make them *very* different. State the design problem in words, find the similarities causing the conflict, and apply PARC to fix it. The Marble UI System below is PARC made concrete — every primitive in the catalog is a load-bearing answer to one of these four principles.
 
 ## Product Surface Conventions
 
@@ -266,3 +281,86 @@ Every time you migrate a per-route hand-rolled pattern to a primitive:
 1. Look at every site that has the same pattern. Migrating one is not enough — if two consumers have it today, four will have it tomorrow.
 2. Delete the dead helper from the old site. Do not leave the local copy as a "fallback".
 3. Run `bun check` and confirm the showcase still renders the new primitive correctly.
+
+---
+
+# How Marble Wins Friends and Influences Users
+
+*An interface is a conversation. Like any conversation, it can go well or it can go badly. The PARC principles above describe how a Marble surface is **laid out** — proximity, alignment, repetition, contrast. This section describes how a Marble surface **carries itself** as a conversational partner. Use it as a periodic introspective: before you ship a surface, walk it through these eight questions and ask whether Marble is being someone the user would actually want to spend their day with.*
+
+## 1. Don't Criticize, Condemn, or Complain
+
+A user who hits a dead end is not the villain of the story. Empty states are not the place to lecture. Error messages are not where Marble gets to feel clever.
+
+*   **Audit:** Does this empty state explain *what to do next*? Does this error message tell the user what *they* can do, not what *Marble* failed to do?
+*   **Marble in practice:** `MarbleEmptyState` ships with `title`, `description`, and `actions[]` slots for a reason — the action is the kindness. An empty state without an action is a complaint dressed up as chrome.
+*   **Watch for:** Toasts that read like server logs ("Failed to fetch projects"). The user does not have a Network tab open in their head.
+
+## 2. Begin With Honest Appreciation
+
+When a user does something heavy — names a new program, materializes a table, signs in for the first time — the surface should *land*. Not with confetti, not with a brass band, but with the unmistakable feeling that the system noticed.
+
+*   **Audit:** Does the new resource appear immediately, with its name, in the sidebar? Does the user see themselves in the result?
+*   **Marble in practice:** `marbleToast` for the lightweight nod. The pane crumb settling on the new resource name for the durable signal. Optimistic insertion in the sidebar for the immediate one.
+*   **Watch for:** Celebrating cheaply. Confetti for "you saved a draft" is patronizing. Reserve real signals for real moments.
+
+## 3. Talk in Terms of the User's Interest
+
+The user did not come here to read about the system. They came here to do their work. Copy, labels, and chrome should be about *their* task, not about Marble's internal model.
+
+*   **Audit:** Does this label name what the user is trying to do, or what the system is doing? Is the verb in the user's vocabulary, or in ours?
+*   **Marble in practice:** "New program" is in the user's vocabulary. "Materialize the dependency graph" is in ours. Pick the former.
+*   **Watch for:** Implementation language leaking into product copy. "Squashed migration," "service-role client," "RPC call" — none of these are user-facing concepts.
+
+## 4. Be a Good Listener
+
+A surface that doesn't respond to the user is rude. Loading states, optimistic updates, and immediate visual acknowledgements are the UI's version of nodding while someone is talking.
+
+*   **Audit:** When the user clicks, types, drags, or selects, does the surface acknowledge it *immediately*? Is there a state for "I heard you and I'm working on it"?
+*   **Marble in practice:** Optimistic state in list rows. Skeleton chrome before a heavy load. `MarbleConfirmModal` pending state during the destructive action. `MarbleEditableText` snapping to its new value before the round-trip resolves.
+*   **Watch for:** Silent latency. A click with no response for 300ms reads as a conversation where the other person has stopped listening.
+
+## 5. Make the User Feel Important — and Do It Sincerely
+
+The user is not a "user." They are a person who chose to spend their attention on Marble. The surface should reflect that they are the protagonist of the session, not the audience for it.
+
+*   **Audit:** Is the user's name, avatar, and chosen workspace visible where it should be? Are *their* resources featured, or are *Marble's* features featured?
+*   **Marble in practice:** `MarbleAccountPopover` puts the person's name on the brand row. Project pages list the *user's* programs, sources, and pipes — not a marketing reel of capabilities.
+*   **Watch for:** Surfaces that talk about Marble. Surfaces should talk about the user's work.
+
+## 6. Don't Argue — Show
+
+The fastest way to lose a user's trust is to argue with them. If the surface insists "no, that's not what you meant," it loses, even when it's right.
+
+*   **Audit:** When a destructive action requires confirmation, does the surface explain *what* will happen and *why* rather than scolding? Does it let the user back out gracefully?
+*   **Marble in practice:** `MarbleConfirmModal` with a clear destructive button, a clear cancel button, and a body that explains the consequence in human terms. "Are you sure?" by itself does no work — tell them what they're sure *of*.
+*   **Watch for:** Modals that punish rather than inform. Disabled buttons with no explanation of why.
+
+## 7. Let Them Save Face
+
+Mistakes happen. The user will delete the wrong row, type the wrong number, click the wrong button. The surface's job in that moment is to make the recovery feel ordinary, not punitive.
+
+*   **Audit:** Is there an undo? Is the deleted resource recoverable? Does the surface treat the mistake as routine?
+*   **Marble in practice:** Soft-delete patterns, undo toasts, the `MarbleActivityRadar` changeset log. The mistake is a recoverable event, not a permanent scar.
+*   **Watch for:** Irreversible destruction guarded only by a stern prompt. The recovery path matters more than the prompt.
+
+## 8. Praise Every Improvement
+
+The smallest piece of progress deserves a quiet, honest acknowledgement. The completion of a row, the connection of a source, the first successful run of a program — these moments are the user's payoff, and the surface should treat them as such.
+
+*   **Audit:** When a long-running action succeeds, does the surface mark the win without overdoing it?
+*   **Marble in practice:** A toast for the moment, a refreshed list for the durable record, a stripe for the active row. Three different scales of acknowledgement for three different scales of moment.
+*   **Watch for:** Either extreme — silent completion (the user didn't see it) or theatrical completion (the user can't get past it).
+
+## The Marble Carnegie Test
+
+Before you ship a surface, ask: *if this surface were a person, would you want to work with them every day?*
+
+*   Are they warm without being saccharine?
+*   Do they remember you?
+*   Do they listen?
+*   Do they correct you without making you feel small?
+*   Do they celebrate your wins quietly and own their mistakes plainly?
+*   Do they talk about your work, or about themselves?
+
+If the answer to any of those is "no," the surface owes the user another pass. PARC makes the page legible. This makes it likeable.
