@@ -2,15 +2,68 @@ import {
   GraphIcon,
   LightbulbIcon,
   PuzzlePieceIcon,
-  RobotIcon,
   TableIcon,
   TerminalIcon,
 } from "@phosphor-icons/react/ssr";
 import { MarketingAnnotation } from "../ui/annotation";
 import { MarketingCardGrid } from "../ui/card";
-import { MarketingLogoMark, MarketingLogoStrip } from "../ui/logo-strip";
+import { MarketingKey, MarketingKeypad } from "../ui/keypad";
+import {
+  MarketingPanel,
+  MarketingPanelDivider,
+  MarketingPanelLabel,
+} from "../ui/panel";
 import { Section, SectionHeader, SectionInner } from "../ui/section";
 import { MarketingTile } from "../ui/tile";
+
+const AGENTS: Array<{
+  glyph: string;
+  index: string;
+  caption: string;
+  active?: boolean;
+}> = [
+  {
+    caption: "claude",
+    glyph: "C",
+    index: "A1",
+  },
+  {
+    caption: "codex",
+    glyph: "X",
+    index: "A2",
+  },
+  {
+    active: true,
+    caption: "cursor",
+    glyph: "/",
+    index: "A3",
+  },
+  {
+    caption: "continue",
+    glyph: "→",
+    index: "A4",
+  },
+  {
+    caption: "opencode",
+    glyph: "{}",
+    index: "A5",
+  },
+  {
+    caption: "aider",
+    glyph: "+",
+    index: "A6",
+  },
+  {
+    caption: "windsurf",
+    glyph: "≈",
+    index: "A7",
+  },
+  {
+    caption: "your own",
+    glyph: "★",
+    index: "A8",
+  },
+];
 
 export function AgentFirstSection() {
   return (
@@ -44,39 +97,58 @@ export function AgentFirstSection() {
           </MarketingAnnotation>
         </div>
 
-        <MarketingLogoStrip label="Works with">
-          <MarketingLogoMark
-            glyph={<RobotIcon size={20} />}
-            name="Claude"
-            tone="midnight"
+        {/* Agent keypad — the K.O. II move applied to agent compatibility. */}
+        <MarketingPanel
+          brand="WORKS WITH"
+          model="MCP · OPEN PROTOCOL"
+          spec="KIT-AGENTS / 08 SLOTS"
+          tone="dark"
+        >
+          <MarketingPanelLabel
+            className="mb-3"
+            index="01"
+          >
+            COMPATIBLE AGENTS
+          </MarketingPanelLabel>
+          <MarketingKeypad
+            columns={8}
+            gap="md"
+          >
+            {AGENTS.map((agent) => (
+              <MarketingKey
+                active={agent.active}
+                caption={agent.caption}
+                glyph={agent.glyph}
+                index={agent.index}
+                key={agent.index}
+                led
+                size="md"
+                tone="midnight"
+              />
+            ))}
+          </MarketingKeypad>
+          <MarketingPanelDivider
+            className="mt-6 mb-4"
+            label="02 / PROTOCOL"
           />
-          <MarketingLogoMark
-            glyph={<RobotIcon size={20} />}
-            name="Codex"
-            tone="midnight"
-          />
-          <MarketingLogoMark
-            glyph={<RobotIcon size={20} />}
-            name="Cursor"
-            tone="midnight"
-          />
-          <MarketingLogoMark
-            glyph={<RobotIcon size={20} />}
-            name="Continue"
-            tone="midnight"
-          />
-          <MarketingLogoMark
-            glyph={<RobotIcon size={20} />}
-            name="OpenCode"
-            tone="midnight"
-          />
-          <MarketingLogoMark
-            caption="& anything that"
-            glyph={<TerminalIcon size={20} />}
-            name="speaks MCP"
-            tone="midnight"
-          />
-        </MarketingLogoStrip>
+          <div className="flex flex-wrap items-center gap-3 font-mono text-eyebrow-xs">
+            <span className="rounded-full border-2 border-orange-500/60 px-3 py-1 text-orange-300">
+              MCP
+            </span>
+            <span className="rounded-full border-2 border-taupe-100/20 px-3 py-1 text-taupe-100/70">
+              REST
+            </span>
+            <span className="rounded-full border-2 border-taupe-100/20 px-3 py-1 text-taupe-100/70">
+              CLI
+            </span>
+            <span className="rounded-full border-2 border-taupe-100/20 px-3 py-1 text-taupe-100/70">
+              REALTIME
+            </span>
+            <span className="ml-2 text-taupe-100/50">
+              … and anything that speaks MCP.
+            </span>
+          </div>
+        </MarketingPanel>
 
         <MarketingCardGrid columns={4}>
           <MarketingTile

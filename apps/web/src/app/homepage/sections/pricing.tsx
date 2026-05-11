@@ -1,7 +1,14 @@
 import { MarbleButton } from "@marble/ui";
 import { CheckIcon, XIcon } from "@phosphor-icons/react/ssr";
 import { MarketingCard, MarketingCardEyebrow } from "../ui/card";
+import { MarketingDial, MarketingFader } from "../ui/dial";
+import { MarketingLCD, MarketingLCDCounter } from "../ui/lcd";
 import { MarketingPin } from "../ui/mark";
+import {
+  MarketingPanel,
+  MarketingPanelDivider,
+  MarketingPanelLabel,
+} from "../ui/panel";
 import { Section, SectionHeader, SectionInner } from "../ui/section";
 import { MarketingStat, MarketingStatGrid } from "../ui/stat";
 
@@ -39,34 +46,93 @@ export function PricingSection() {
           </MarketingPin>
         </div>
 
-        <MarketingCard
-          accent="poster"
-          className="flex flex-col gap-10 md:flex-row md:items-center md:justify-between md:gap-12"
-          tone="cream"
+        <MarketingPanel
+          brand="UNIT"
+          model="MS · LIVE"
+          spec="EP-001 / METERING"
+          tone="midnight"
         >
-          <div className="flex flex-col gap-3">
-            <MarketingCardEyebrow>Hosted plane</MarketingCardEyebrow>
-            <div className="flex items-baseline gap-4">
-              <span className="font-display font-medium text-7xl leading-none tracking-tight text-taupe-800 md:text-9xl">
-                ms
-              </span>
-              <span className="font-display font-medium text-3xl leading-none tracking-tight text-taupe-700 md:text-5xl">
-                = unit
-              </span>
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-[1.4fr_auto] md:gap-12">
+            <div className="flex flex-col gap-5">
+              <MarketingPanelLabel index="01">BILLING UNIT</MarketingPanelLabel>
+              <div className="flex items-baseline gap-4">
+                <span className="font-display font-medium text-7xl leading-none tracking-tight text-orange-400 md:text-9xl">
+                  ms
+                </span>
+                <span className="font-display font-medium text-3xl leading-none tracking-tight text-taupe-100/70 md:text-5xl">
+                  = unit
+                </span>
+              </div>
+              <p className="max-w-md text-base text-taupe-100/70 md:text-lg">
+                One number, billed at the unit the platform actually consumes.
+                No tiers. No seat ladders. No "starter" / "enterprise" gates.
+              </p>
+              <MarketingLCD
+                caption="last 60s · workspace meter"
+                label="MS · THIS MINUTE"
+                size="md"
+              >
+                <MarketingLCDCounter
+                  pad={7}
+                  start={48_217}
+                  step={29}
+                  suffix="ms"
+                />
+              </MarketingLCD>
+              <div>
+                <MarbleButton variant="orange">
+                  See live calculator
+                </MarbleButton>
+              </div>
             </div>
-            <p className="max-w-md text-base text-taupe-700 md:text-lg">
-              One number, billed at the unit the platform actually consumes. No
-              tiers. No seat ladders. No "starter" / "enterprise" gates.
-            </p>
-          </div>
 
-          <div className="flex flex-col gap-3 md:items-end">
-            <MarbleButton variant="orange">See live calculator</MarbleButton>
-            <span className="font-mono text-eyebrow text-taupe-500">
-              transparent · per-run breakdown
-            </span>
+            <div className="flex flex-col items-center gap-8 rounded-xs border-2 border-taupe-100/10 bg-taupe-900/40 p-6">
+              <MarketingPanelLabel
+                className="self-start"
+                index="02"
+              >
+                CALIBRATION
+              </MarketingPanelLabel>
+              <MarketingDial
+                caption="HOT"
+                label="THROUGHPUT"
+                size="lg"
+                sweep
+                tone="dark"
+              />
+              <div className="flex items-end gap-4">
+                <MarketingFader
+                  animate
+                  caption="0.74"
+                  height="md"
+                  label="AI"
+                  value={0.6}
+                />
+                <MarketingFader
+                  animate
+                  caption="0.42"
+                  height="md"
+                  label="CPU"
+                />
+                <MarketingFader
+                  animate
+                  caption="0.18"
+                  height="md"
+                  label="IO"
+                  value={0.2}
+                />
+              </div>
+            </div>
           </div>
-        </MarketingCard>
+          <MarketingPanelDivider
+            className="mt-6 mb-4"
+            label="03 / NOTE"
+          />
+          <span className="font-mono text-eyebrow-xs text-taupe-100/50">
+            Indicative values. Live calculator gives your workspace's exact
+            projection.
+          </span>
+        </MarketingPanel>
 
         <MarketingStatGrid columns={3}>
           <MarketingStat
@@ -99,6 +165,27 @@ export function PricingSection() {
         </MarketingStatGrid>
 
         <ComparisonTable />
+
+        {/* keep "subtle" MarketingCard chrome around the closer so the
+            visual rhythm doesn't end on a flat table. */}
+        <MarketingCard
+          accent="poster"
+          className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between"
+          tone="cream"
+        >
+          <div className="flex flex-col gap-2">
+            <MarketingCardEyebrow>04 / SELF-HOST</MarketingCardEyebrow>
+            <h3 className="font-display font-medium text-2xl leading-tight tracking-tight md:text-3xl">
+              Running it yourself? <span className="text-orange-500">$0.</span>{" "}
+              Forever.
+            </h3>
+            <p className="max-w-md text-base text-taupe-700 md:text-lg">
+              MIT license. Bring your own keys, your own infra, your own
+              metering. We never see your bytes.
+            </p>
+          </div>
+          <MarbleButton variant="orange">Self-host docs</MarbleButton>
+        </MarketingCard>
       </SectionInner>
     </Section>
   );
