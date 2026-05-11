@@ -52,7 +52,7 @@ function GlyphBase({
 // Agent / IDE / tooling marks
 // =========================================================
 
-export function ClaudeGlyph(props: BrandGlyphProps) {
+function ClaudeGlyph(props: BrandGlyphProps) {
   // Stylized sun-burst flare — Claude's warm Anthropic vibe.
   return (
     <GlyphBase {...props}>
@@ -74,7 +74,7 @@ export function ClaudeGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function CodexGlyph(props: BrandGlyphProps) {
+function CodexGlyph(props: BrandGlyphProps) {
   // Curly brace bracket pair with a dot — OpenAI's coding CLI vibe.
   return (
     <GlyphBase {...props}>
@@ -90,7 +90,7 @@ export function CodexGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function CursorGlyph(props: BrandGlyphProps) {
+function CursorGlyph(props: BrandGlyphProps) {
   // Cursor pointer triangle.
   return (
     <GlyphBase {...props}>
@@ -102,7 +102,7 @@ export function CursorGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function ContinueGlyph(props: BrandGlyphProps) {
+function ContinueGlyph(props: BrandGlyphProps) {
   // → arrow into a target dot.
   return (
     <GlyphBase {...props}>
@@ -118,7 +118,7 @@ export function ContinueGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function OpenCodeGlyph(props: BrandGlyphProps) {
+function OpenCodeGlyph(props: BrandGlyphProps) {
   // Hex-framed braces — open-source coding feel.
   return (
     <GlyphBase {...props}>
@@ -129,7 +129,7 @@ export function OpenCodeGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function AiderGlyph(props: BrandGlyphProps) {
+function AiderGlyph(props: BrandGlyphProps) {
   // + cross in a square — assistive pair-programming mark.
   return (
     <GlyphBase {...props}>
@@ -146,7 +146,7 @@ export function AiderGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function WindsurfGlyph(props: BrandGlyphProps) {
+function WindsurfGlyph(props: BrandGlyphProps) {
   // ≈ stacked waves.
   return (
     <GlyphBase {...props}>
@@ -156,7 +156,7 @@ export function WindsurfGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function McpGlyph(props: BrandGlyphProps) {
+function McpGlyph(props: BrandGlyphProps) {
   // Three-node connection — generic protocol mark.
   return (
     <GlyphBase {...props}>
@@ -188,7 +188,7 @@ export function McpGlyph(props: BrandGlyphProps) {
 // Model provider marks
 // =========================================================
 
-export function OpenAIGlyph(props: BrandGlyphProps) {
+function OpenAIGlyph(props: BrandGlyphProps) {
   // Hexagonal-knot approximation — concentric hexagon with center dot.
   return (
     <GlyphBase {...props}>
@@ -204,7 +204,7 @@ export function OpenAIGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function AnthropicGlyph(props: BrandGlyphProps) {
+function AnthropicGlyph(props: BrandGlyphProps) {
   // Stylized wing/spire mark — two intersecting triangles.
   return (
     <GlyphBase {...props}>
@@ -217,7 +217,7 @@ export function AnthropicGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function GoogleGlyph(props: BrandGlyphProps) {
+function GoogleGlyph(props: BrandGlyphProps) {
   // G-shape — three-quarter ring with a horizontal stub.
   return (
     <GlyphBase {...props}>
@@ -228,7 +228,7 @@ export function GoogleGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function MistralGlyph(props: BrandGlyphProps) {
+function MistralGlyph(props: BrandGlyphProps) {
   // Three stacked color-band stripes — Mistral's signature gradient.
   return (
     <GlyphBase {...props}>
@@ -262,7 +262,7 @@ export function MistralGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function GroqGlyph(props: BrandGlyphProps) {
+function GroqGlyph(props: BrandGlyphProps) {
   // Q with a cut — angular fast-inference vibe.
   return (
     <GlyphBase {...props}>
@@ -277,7 +277,7 @@ export function GroqGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function OllamaGlyph(props: BrandGlyphProps) {
+function OllamaGlyph(props: BrandGlyphProps) {
   // Llama silhouette — simplified to head + ears + neck.
   return (
     <GlyphBase {...props}>
@@ -291,7 +291,7 @@ export function OllamaGlyph(props: BrandGlyphProps) {
   );
 }
 
-export function OpenRouterGlyph(props: BrandGlyphProps) {
+function OpenRouterGlyph(props: BrandGlyphProps) {
   // Router fan-out — one node splits to three.
   return (
     <GlyphBase {...props}>
@@ -328,7 +328,7 @@ export function OpenRouterGlyph(props: BrandGlyphProps) {
 // Marble's brand kit (first-party)
 // =========================================================
 
-export function MarbleGlyph(props: BrandGlyphProps) {
+function MarbleGlyph(props: BrandGlyphProps) {
   // Orange-cornered marble disc — matches `MarbleBrandMark` in app UI.
   return (
     <GlyphBase {...props}>

@@ -6,6 +6,7 @@
     "clsx": "catalog:base",
     "cmdk": "catalog:base",
     "react": "catalog:base",
+    "react-dom": "catalog:base",
     "sonner": "catalog:base",
     "tailwind-merge": "catalog:base"
   },

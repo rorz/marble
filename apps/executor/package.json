@@ -2,9 +2,10 @@
   "author": "",
   "dependencies": {
     "@marble/contracts": "workspace:*",
+    "@marble/keys": "workspace:*",
     "@marble/lib": "workspace:*",
-    "@marble/sdk": "workspace:*",
     "@marble/store": "workspace:*",
+    "@marble/supabase": "workspace:*",
     "hono": "catalog:base",
     "zod": "catalog:base"
   },

@@ -25,9 +25,7 @@ type SecretBindingInput = {
   secretId: string;
 };
 
-export async function listProgramsForUser(
-  _userId: string,
-): Promise<FullProgram[]> {
+async function listProgramsForUser(_userId: string): Promise<FullProgram[]> {
   const sdk = await createServerMarbleSdk();
   return hydrateEditorPrograms(await sdk.programs.listForEditor({}));
 }

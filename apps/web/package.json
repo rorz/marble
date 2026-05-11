@@ -20,6 +20,7 @@
     "react": "catalog:base",
     "react-dom": "catalog:base",
     "react-simple-code-editor": "catalog:base",
+    "server-only": "catalog:base",
     "zod": "catalog:base"
   },
   "devDependencies": {

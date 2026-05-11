@@ -33,6 +33,7 @@ const CHECKS = [
   "migrations",
   "realtime",
   "seed",
+  "knip",
 ] as const;
 
 type CheckName = (typeof CHECKS)[number];

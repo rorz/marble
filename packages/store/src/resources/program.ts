@@ -9,7 +9,7 @@ type ProgramVersionRow = Database["public"]["Tables"]["program_version"]["Row"];
 type ProgramFileRow = Database["public"]["Tables"]["program_file"]["Row"];
 
 export type ProgramFile = Entity<"program_file">;
-export type ProgramVersion = Entity<"program_version">;
+type ProgramVersion = Entity<"program_version">;
 export type Program = Entity<"program">;
 export type ProgramEditorData = {
   programFiles: ProgramFile[];

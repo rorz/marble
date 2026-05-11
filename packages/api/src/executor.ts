@@ -85,7 +85,7 @@ async function readExecutorResponse(response: Response) {
   }
 }
 
-export function createExecutorProxy(
+function createExecutorProxy(
   runtime: MarbleApiRuntime,
   actor: ApiActor,
   request: Request,

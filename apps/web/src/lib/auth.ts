@@ -27,7 +27,7 @@ export async function getCurrentUser() {
   } satisfies CurrentUser;
 }
 
-export async function getCurrentUserIdentity() {
+async function getCurrentUserIdentity() {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
   const user = data.user;

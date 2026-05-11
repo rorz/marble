@@ -4,26 +4,6 @@ type RealtimePayload<Row> = {
   old: Partial<Row>;
 };
 
-export function compareByCreatedAtDesc<
-  T extends {
-    created_at: string;
-  },
->(left: T, right: T) {
-  return (
-    new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
-  );
-}
-
-export function compareByUpdatedAtDesc<
-  T extends {
-    updated_at: string;
-  },
->(left: T, right: T) {
-  return (
-    new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime()
-  );
-}
-
 export function compareByCreatedAtCamelDesc<
   T extends {
     createdAt: string;

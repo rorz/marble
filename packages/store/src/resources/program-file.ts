@@ -2,7 +2,7 @@ import type { ResourceDeps } from "../db";
 import type { CreateParams, DbRow, Entity, UpdateParams } from "../types";
 import { toCamelKeys } from "../types";
 
-export type ProgramFile = Entity<"program_file">;
+type ProgramFile = Entity<"program_file">;
 
 export type CreateProgramFileInput = Pick<
   CreateParams<"program_file">,

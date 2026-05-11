@@ -127,7 +127,7 @@ export type ProgramVersionTestResult = {
   output: unknown;
 };
 
-export type RuntimeActionResult = {
+type RuntimeActionResult = {
   payload: Record<string, unknown>;
   status: number;
 };
