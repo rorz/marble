@@ -922,6 +922,30 @@ export default function UiPage() {
                     </MarbleButton>
                   </MarbleCardFooter>
                 </MarbleCard>
+
+                <MarbleCard
+                  className="min-h-[20rem]"
+                  tone="subtle"
+                >
+                  <MarbleCardHeader>
+                    <MarbleCardTitle>Snap-to-bottom footer</MarbleCardTitle>
+                    <MarbleCardDescription>
+                      When a card has spare vertical space, the footer snaps to
+                      the bottom, draws a top border, and right-aligns its
+                      actions by default. No per-route className gymnastics
+                      required.
+                    </MarbleCardDescription>
+                  </MarbleCardHeader>
+                  <MarbleCardContent>
+                    <div className="rounded-xs border border-taupe-200 bg-white/70 p-3 text-sm text-taupe-600">
+                      Short content, tall card — primitives own the layout.
+                    </div>
+                  </MarbleCardContent>
+                  <MarbleCardFooter>
+                    <MarbleButton variant="red">Delete</MarbleButton>
+                    <MarbleButton variant="dark">Save</MarbleButton>
+                  </MarbleCardFooter>
+                </MarbleCard>
               </div>
             </DemoPanel>
 
@@ -1307,7 +1331,7 @@ export default function UiPage() {
 
                 <div className="h-80 overflow-hidden rounded-sm border border-taupe-200 bg-white shadow-sm">
                   <MarblePane
-                    description="A narrower reading column for setup and detail pages."
+                    description="A narrower reading column for setup and detail pages. Narrow panes also get extra top padding so the heading has room to breathe."
                     title="Narrow pane"
                     width="Narrow"
                   >

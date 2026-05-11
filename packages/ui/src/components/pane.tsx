@@ -128,9 +128,13 @@ export function MarblePane({
             "flex h-full min-h-0 w-full flex-col",
             width === "Narrow" ? "max-w-2xl" : "",
             isFramed
-              ? crumbs === undefined && width === "Narrow"
-                ? "pt-12"
-                : "pt-4"
+              ? crumbs === undefined
+                ? width === "Narrow"
+                  ? "pt-16"
+                  : "pt-12"
+                : width === "Narrow"
+                  ? "pt-10"
+                  : "pt-4"
               : "pt-0",
             className,
           )}

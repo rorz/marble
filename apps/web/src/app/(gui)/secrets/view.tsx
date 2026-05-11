@@ -284,7 +284,7 @@ export function SecretsPageView({
               : (selectedSecret?.name ?? "Secret details")}
           </MarbleCardTitle>
         </MarbleCardHeader>
-        <MarbleCardContent className="flex h-full min-h-0 flex-col gap-4">
+        <MarbleCardContent className="gap-4">
           <MarbleAlert tone="neutral">
             Secrets are treated as sensitive values: they are stored securely
             and never shown in the UI.

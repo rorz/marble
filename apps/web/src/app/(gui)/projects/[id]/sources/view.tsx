@@ -1420,7 +1420,7 @@ export function ProjectSourceDetailPageView({
                   </div>
                 </div>
               </MarbleCardSection>
-              <MarbleCardFooter className="justify-end border-t border-taupe-200 pt-4">
+              <MarbleCardFooter>
                 <MarbleButton
                   disabled={
                     sourcePending ||

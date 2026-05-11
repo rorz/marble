@@ -11,7 +11,7 @@ const marbleCardNoiseTexture =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")";
 
 const marbleCardVariants = cva(
-  "relative isolate overflow-hidden rounded-xs border",
+  "relative isolate flex flex-col overflow-hidden rounded-xs border",
   {
     defaultVariants: {
       tone: "default",
@@ -94,11 +94,13 @@ const marbleCardHeaderTextVariants = cva(
 const marbleCardHeaderActionsVariants = cva(
   "flex shrink-0 flex-wrap items-center gap-2 self-start",
 );
-const marbleCardContentVariants = cva("px-5 pb-5");
+const marbleCardContentVariants = cva("flex flex-col px-5 pb-5");
 const marbleCardSectionVariants = cva(
   "border-t border-taupe-200 px-5 py-5 first:border-t-0",
 );
-const marbleCardFooterVariants = cva("flex items-center gap-3 px-5 pb-5 pt-2");
+const marbleCardFooterVariants = cva(
+  "mt-auto flex items-center justify-end gap-3 border-t border-taupe-200 px-5 pt-4 pb-5",
+);
 const marbleCardTitleVariants = cva("font-semibold text-base text-zinc-900");
 const marbleCardDescriptionVariants = cva("text-sm text-zinc-600");
 
