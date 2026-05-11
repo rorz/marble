@@ -87,7 +87,17 @@ const marbleCardNoiseStyles: Record<MarbleCardTone, CSSProperties> = {
   },
 };
 
-const marbleCardHeaderVariants = cva("flex flex-col gap-1.5 p-5");
+const marbleCardHeaderVariants = cva("flex flex-col gap-1.5 p-5", {
+  defaultVariants: {
+    divided: false,
+  },
+  variants: {
+    divided: {
+      false: "",
+      true: "border-b border-taupe-200",
+    },
+  },
+});
 const marbleCardHeaderTextVariants = cva(
   "flex min-w-0 flex-1 flex-col gap-1.5",
 );
@@ -153,6 +163,7 @@ export type MarbleCardHeaderProps = HTMLAttributes<HTMLDivElement> & {
   disclosureHeader?: ReactNode;
   disclosureMenuClassName?: string;
   disclosureTriggerClassName?: string;
+  divided?: boolean;
 };
 
 export function MarbleCardHeader({
@@ -164,6 +175,7 @@ export function MarbleCardHeader({
   disclosureHeader,
   disclosureMenuClassName,
   disclosureTriggerClassName,
+  divided,
   ...props
 }: MarbleCardHeaderProps) {
   const hasHeaderActions =
@@ -172,7 +184,12 @@ export function MarbleCardHeader({
   if (!hasHeaderActions) {
     return (
       <div
-        className={cx(marbleCardHeaderVariants(), className)}
+        className={cx(
+          marbleCardHeaderVariants({
+            divided,
+          }),
+          className,
+        )}
         {...props}
       >
         {children}
@@ -183,7 +200,9 @@ export function MarbleCardHeader({
   return (
     <div
       className={cx(
-        marbleCardHeaderVariants(),
+        marbleCardHeaderVariants({
+          divided,
+        }),
         "gap-3 sm:flex-row sm:items-start sm:justify-between",
         className,
       )}

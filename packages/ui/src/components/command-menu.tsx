@@ -5,18 +5,34 @@ import { Command as CommandPrimitive } from "cmdk";
 import type { ComponentProps } from "react";
 import { cx } from "../utils/cx";
 
-const marbleCommandRootClassName =
-  "flex h-full w-full flex-col overflow-hidden rounded-xs border border-taupe-200 bg-white text-taupe-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]";
+const marbleCommandRootBaseClassName =
+  "flex h-full w-full flex-col overflow-hidden bg-white text-taupe-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]";
 
-export type MarbleCommandMenuProps = ComponentProps<typeof CommandPrimitive>;
+const marbleCommandRootClassName = cx(
+  marbleCommandRootBaseClassName,
+  "rounded-xs border border-taupe-200",
+);
+
+const marbleCommandEmbeddedClassName = cx(
+  marbleCommandRootBaseClassName,
+  "border-y border-taupe-200",
+);
+
+export type MarbleCommandMenuProps = ComponentProps<typeof CommandPrimitive> & {
+  embedded?: boolean;
+};
 
 export function MarbleCommandMenu({
   className,
+  embedded = false,
   ...props
 }: MarbleCommandMenuProps) {
   return (
     <CommandPrimitive
-      className={cx(marbleCommandRootClassName, className)}
+      className={cx(
+        embedded ? marbleCommandEmbeddedClassName : marbleCommandRootClassName,
+        className,
+      )}
       {...props}
     />
   );

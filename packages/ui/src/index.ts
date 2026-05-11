@@ -57,6 +57,11 @@ export {
   type MarbleCommandSeparatorProps,
 } from "./components/command-menu";
 export {
+  MarbleConfirmModal,
+  type MarbleConfirmModalProps,
+  type MarbleConfirmModalState,
+} from "./components/confirm-modal";
+export {
   MarbleContextPopover,
   type MarbleContextPopoverItem,
   type MarbleContextPopoverProps,
@@ -79,6 +84,10 @@ export {
   type MarbleEmptyStateProps,
 } from "./components/empty-state";
 export {
+  MarbleField,
+  type MarbleFieldProps,
+} from "./components/field";
+export {
   MarbleFieldLabel,
   type MarbleFieldLabelProps,
 } from "./components/field-label";
@@ -87,11 +96,17 @@ export {
   type MarbleInputProps,
 } from "./components/input";
 export {
+  MarbleJsonPreview,
+  type MarbleJsonPreviewProps,
+} from "./components/json-preview";
+export {
   MarbleListRow,
   type MarbleListRowProps,
 } from "./components/list-row";
 export {
   MarbleModal,
+  MarbleModalClose,
+  type MarbleModalCloseProps,
   MarbleModalContent,
   type MarbleModalContentProps,
   MarbleModalDescription,
@@ -133,6 +148,10 @@ export {
   type MarbleSelectProps,
 } from "./components/select";
 export {
+  MarbleSelectableTile,
+  type MarbleSelectableTileProps,
+} from "./components/selectable-tile";
+export {
   MarbleSheet,
   MarbleSheetClose,
   MarbleSheetContent,
@@ -147,6 +166,10 @@ export {
   MarbleSheetTitle,
   type MarbleSheetTitleProps,
 } from "./components/sheet";
+export {
+  MarbleStat,
+  type MarbleStatProps,
+} from "./components/stat";
 export {
   MarbleTextarea,
   type MarbleTextareaProps,

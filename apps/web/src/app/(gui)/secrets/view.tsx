@@ -10,8 +10,10 @@ import {
   MarbleCardFooter,
   MarbleCardHeader,
   MarbleCardTitle,
+  MarbleConfirmModal,
+  type MarbleConfirmModalState,
   MarbleEmptyState,
-  MarbleFieldLabel,
+  MarbleField,
   MarbleInput,
   MarbleListRow,
   marbleToast,
@@ -53,6 +55,8 @@ export function SecretsPageView({
   const [draftValue, setDraftValue] = useState("");
   const [pending, setPending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [confirmState, setConfirmState] =
+    useState<MarbleConfirmModalState | null>(null);
 
   useEffect(() => {
     setSecrets(sortSecrets(initialSecrets));
@@ -172,24 +176,31 @@ export function SecretsPageView({
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!selectedSecret || pending) {
       return;
     }
 
-    if (!window.confirm(`Delete secret "${selectedSecret.name}"?`)) {
-      return;
-    }
+    setConfirmState({
+      confirmLabel: "Delete",
+      message: `Delete secret "${selectedSecret.name}"?`,
+      onConfirm: () => {
+        void performDelete(selectedSecret.id);
+      },
+      title: "Delete secret",
+    });
+  };
 
+  const performDelete = async (secretId: string) => {
     setPending(true);
     setFormError(null);
 
     try {
       await sdk.secrets.delete({
-        id: selectedSecret.id,
+        id: secretId,
       });
       const remainingSecrets = secrets.filter(
-        (secret) => secret.id !== selectedSecret.id,
+        (secret) => secret.id !== secretId,
       );
 
       setSecrets(remainingSecrets);
@@ -209,12 +220,8 @@ export function SecretsPageView({
         <MarbleCardHeader
           actions={[
             {
-              children: (
-                <span className="inline-flex items-center gap-2">
-                  <PlusIcon size={14} />
-                  New secret
-                </span>
-              ),
+              children: "New secret",
+              iconLeft: PlusIcon,
               onClick: handleStartCreate,
               variant: "light",
             },
@@ -244,11 +251,8 @@ export function SecretsPageView({
                       </div>
                     </div>
                   }
-                  icon={
-                    <div className="flex size-9 items-center justify-center rounded-xs border border-taupe-200 bg-white/80 text-taupe-600">
-                      <KeyIcon size={16} />
-                    </div>
-                  }
+                  icon={<KeyIcon size={16} />}
+                  iconTone="neutral"
                   key={secret.id}
                   meta={
                     <MarbleBadge
@@ -290,8 +294,7 @@ export function SecretsPageView({
             and never shown in the UI.
           </MarbleAlert>
 
-          <div className="space-y-1.5">
-            <MarbleFieldLabel>Name</MarbleFieldLabel>
+          <MarbleField label="Name">
             <MarbleInput
               disabled={pending}
               onChange={(event) => setDraftName(event.target.value)}
@@ -300,12 +303,9 @@ export function SecretsPageView({
               value={draftName}
               wrapperClassName="w-full"
             />
-          </div>
+          </MarbleField>
 
-          <div className="space-y-1.5">
-            <MarbleFieldLabel>
-              {creating ? "Secret value" : "Replace value"}
-            </MarbleFieldLabel>
+          <MarbleField label={creating ? "Secret value" : "Replace value"}>
             <MarbleInput
               autoComplete="off"
               disabled={pending}
@@ -319,11 +319,15 @@ export function SecretsPageView({
               value={draftValue}
               wrapperClassName="w-full"
             />
-          </div>
+          </MarbleField>
 
           {selectedSecret && !creating ? (
-            <div className="rounded-xs border border-taupe-200 bg-white/70 px-3 py-2 text-xs text-taupe-600">
+            <MarbleAlert
+              size="sm"
+              tone="neutral"
+            >
               <div className="flex items-center justify-between gap-3">
+                <span>Category</span>
                 <MarbleBadge
                   caps
                   tone={
@@ -335,7 +339,7 @@ export function SecretsPageView({
                   {selectedSecret.category}
                 </MarbleBadge>
               </div>
-            </div>
+            </MarbleAlert>
           ) : null}
 
           {formError ? (
@@ -345,13 +349,11 @@ export function SecretsPageView({
         <MarbleCardFooter>
           <MarbleButton
             disabled={pending || creating || !selectedSecret}
+            iconLeft={TrashIcon}
             onClick={handleDelete}
             variant="red"
           >
-            <span className="inline-flex items-center gap-2">
-              <TrashIcon size={14} />
-              Delete
-            </span>
+            Delete
           </MarbleButton>
 
           <MarbleButton
@@ -364,6 +366,11 @@ export function SecretsPageView({
           </MarbleButton>
         </MarbleCardFooter>
       </MarbleCard>
+
+      <MarbleConfirmModal
+        onClose={() => setConfirmState(null)}
+        state={confirmState}
+      />
     </div>
   );
 }

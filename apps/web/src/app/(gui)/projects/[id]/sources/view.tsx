@@ -10,16 +10,18 @@ import {
   MarbleCardHeader,
   MarbleCardSection,
   MarbleCardTitle,
+  MarbleConfirmModal,
+  type MarbleConfirmModalState,
   MarbleCopyField,
   MarbleEditableText,
   MarbleEmptyState,
-  MarbleFieldLabel,
+  MarbleField,
+  MarbleJsonPreview,
   MarbleListRow,
   MarblePane,
   MarblePaneEditableCrumb,
   MarbleSearchSelect,
   MarbleSelect,
-  MarbleTextarea,
   marbleToast,
 } from "@marble/ui";
 import type { editor as MonacoEditorApi } from "monaco-editor";
@@ -542,6 +544,8 @@ export function ProjectSourceDetailPageView({
   >([]);
   const [pipeError, setPipeError] = useState<null | string>(null);
   const [pipePending, setPipePending] = useState(false);
+  const [confirmState, setConfirmState] =
+    useState<MarbleConfirmModalState | null>(null);
 
   const selectedSource = currentSourceId
     ? (sources.find((source) => source.id === currentSourceId) ?? null)
@@ -1051,30 +1055,37 @@ export function ProjectSourceDetailPageView({
     }
   };
 
-  const handleDeleteSource = async () => {
+  const handleDeleteSource = () => {
     if (!selectedSource || sourcePending) {
       return;
     }
 
-    if (!window.confirm(`Delete source "${sourceTitle(selectedSource)}"?`)) {
-      return;
-    }
+    setConfirmState({
+      confirmLabel: "Delete source",
+      message: `Delete source "${sourceTitle(selectedSource)}"?`,
+      onConfirm: () => {
+        void performDeleteSource(selectedSource.id);
+      },
+      title: "Delete source",
+    });
+  };
 
+  const performDeleteSource = async (sourceId: string) => {
     setSourcePending(true);
     setSourceError(null);
 
     try {
       await sdk.sources.delete({
-        id: selectedSource.id,
+        id: sourceId,
       });
       setSources((current) =>
-        current.filter((source) => source.id !== selectedSource.id),
+        current.filter((source) => source.id !== sourceId),
       );
       setPipes((current) =>
-        current.filter((pipe) => pipe.sourceId !== selectedSource.id),
+        current.filter((pipe) => pipe.sourceId !== sourceId),
       );
       setSourceEvents((current) =>
-        current.filter((event) => event.sourceId !== selectedSource.id),
+        current.filter((event) => event.sourceId !== sourceId),
       );
       router.push(`/projects/${projectId}`);
       marbleToast.success("Source deleted");
@@ -1176,7 +1187,7 @@ export function ProjectSourceDetailPageView({
     }
   };
 
-  const handleDeletePipe = async () => {
+  const handleDeletePipe = () => {
     if (!selectedPipe || pipePending) {
       return;
     }
@@ -1186,20 +1197,25 @@ export function ProjectSourceDetailPageView({
       tableLabel: tableLabelById.get(selectedPipe.tableId),
     });
 
-    if (!window.confirm(`Delete pipe "${selectedPipeTitle}"?`)) {
-      return;
-    }
+    setConfirmState({
+      confirmLabel: "Delete pipe",
+      message: `Delete pipe "${selectedPipeTitle}"?`,
+      onConfirm: () => {
+        void performDeletePipe(selectedPipe.id);
+      },
+      title: "Delete pipe",
+    });
+  };
 
+  const performDeletePipe = async (pipeId: string) => {
     setPipePending(true);
     setPipeError(null);
 
     try {
       await sdk.pipes.delete({
-        id: selectedPipe.id,
+        id: pipeId,
       });
-      setPipes((current) =>
-        current.filter((pipe) => pipe.id !== selectedPipe.id),
-      );
+      setPipes((current) => current.filter((pipe) => pipe.id !== pipeId));
       router.push(`/projects/${projectId}`);
       marbleToast.success("Pipe deleted");
     } catch (error) {
@@ -1393,8 +1409,10 @@ export function ProjectSourceDetailPageView({
                   <MarbleAlert tone="error">{sourceSchemaError}</MarbleAlert>
                 ) : null}
 
-                <div className="flex min-h-[18rem] flex-1 flex-col gap-1.5">
-                  <MarbleFieldLabel>Schema</MarbleFieldLabel>
+                <MarbleField
+                  className="flex min-h-[18rem] flex-1 flex-col"
+                  label="Schema"
+                >
                   <div className="min-h-0 flex-1 overflow-hidden rounded-xs border border-taupe-200 bg-white shadow-sm shadow-zinc-950/10">
                     <MonacoEditor
                       height="100%"
@@ -1418,7 +1436,7 @@ export function ProjectSourceDetailPageView({
                       value={sourceSchemaDraft}
                     />
                   </div>
-                </div>
+                </MarbleField>
               </MarbleCardSection>
               <MarbleCardFooter>
                 <MarbleButton
@@ -1493,27 +1511,19 @@ export function ProjectSourceDetailPageView({
                     <div className="flex min-h-0 flex-col gap-3">
                       {selectedSourceEvent ? (
                         <>
-                          <div className="space-y-1.5">
-                            <MarbleFieldLabel>Raw payload</MarbleFieldLabel>
-                            <MarbleTextarea
-                              className="min-h-[12rem] font-mono text-xs"
-                              readOnly
-                              value={formatJson(selectedSourceEvent.rawPayload)}
-                              wrapperClassName="w-full"
+                          <MarbleField label="Raw payload">
+                            <MarbleJsonPreview
+                              className="min-h-[12rem]"
+                              value={selectedSourceEvent.rawPayload}
                             />
-                          </div>
+                          </MarbleField>
 
-                          <div className="space-y-1.5">
-                            <MarbleFieldLabel>Parsed payload</MarbleFieldLabel>
-                            <MarbleTextarea
-                              className="min-h-[12rem] font-mono text-xs"
-                              readOnly
-                              value={formatJson(
-                                selectedSourceEvent.parsedPayload,
-                              )}
-                              wrapperClassName="w-full"
+                          <MarbleField label="Parsed payload">
+                            <MarbleJsonPreview
+                              className="min-h-[12rem]"
+                              value={selectedSourceEvent.parsedPayload}
                             />
-                          </div>
+                          </MarbleField>
 
                           {selectedSourceEvent.parseError ? (
                             <MarbleAlert tone="warning">
@@ -1557,8 +1567,7 @@ export function ProjectSourceDetailPageView({
                 ) : null}
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <MarbleFieldLabel>Source</MarbleFieldLabel>
+                  <MarbleField label="Source">
                     <MarbleSelect
                       onChange={(event) =>
                         setPipeSourceIdDraft(event.target.value)
@@ -1576,10 +1585,9 @@ export function ProjectSourceDetailPageView({
                         </option>
                       ))}
                     </MarbleSelect>
-                  </div>
+                  </MarbleField>
 
-                  <div className="space-y-1.5">
-                    <MarbleFieldLabel>Table</MarbleFieldLabel>
+                  <MarbleField label="Table">
                     <MarbleSelect
                       onChange={(event) => {
                         setPipeTableIdDraft(event.target.value);
@@ -1598,7 +1606,7 @@ export function ProjectSourceDetailPageView({
                         </option>
                       ))}
                     </MarbleSelect>
-                  </div>
+                  </MarbleField>
                 </div>
 
                 <div className="space-y-3">
@@ -1748,6 +1756,11 @@ export function ProjectSourceDetailPageView({
           </div>
         )}
       </div>
+
+      <MarbleConfirmModal
+        onClose={() => setConfirmState(null)}
+        state={confirmState}
+      />
     </MarblePane>
   );
 }

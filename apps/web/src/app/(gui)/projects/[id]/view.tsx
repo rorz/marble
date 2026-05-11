@@ -6,6 +6,8 @@ import {
   MarbleButton,
   MarbleCard,
   MarbleCardContent,
+  MarbleConfirmModal,
+  type MarbleConfirmModalState,
   MarbleEditableText,
   MarbleEmptyState,
   MarbleListRow,
@@ -122,6 +124,8 @@ export function ProjectPageView({
   const [creatingTable, setCreatingTable] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
   const [error, setError] = useState<null | string>(null);
+  const [confirmState, setConfirmState] =
+    useState<MarbleConfirmModalState | null>(null);
   const projectRef = useRef(project);
   projectRef.current = project;
   const sourcesRef = useRef(sources);
@@ -407,15 +411,18 @@ export function ProjectPageView({
     }
   };
 
-  const handleDeleteProject = async () => {
-    if (
-      !window.confirm(
-        `Delete ${project.name}? This also removes its tables and related data.`,
-      )
-    ) {
-      return;
-    }
+  const handleDeleteProject = () => {
+    setConfirmState({
+      confirmLabel: "Delete project",
+      message: `Delete ${project.name}? This also removes its tables and related data.`,
+      onConfirm: () => {
+        void performDeleteProject();
+      },
+      title: "Delete project",
+    });
+  };
 
+  const performDeleteProject = async () => {
     setDeletingProject(true);
     setError(null);
 
@@ -691,6 +698,11 @@ export function ProjectPageView({
           </MarbleButton>
         </div>
       </div>
+
+      <MarbleConfirmModal
+        onClose={() => setConfirmState(null)}
+        state={confirmState}
+      />
     </MarblePane>
   );
 }

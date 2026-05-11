@@ -14,6 +14,7 @@ const marbleAlertVariants = cva("rounded-xs border", {
     },
     tone: {
       error: "border-red-200 bg-red-50 text-red-700",
+      info: "border-cyan-200 bg-cyan-50 text-cyan-700",
       neutral: "border-zinc-200 bg-zinc-50 text-zinc-700",
       success: "border-emerald-200 bg-emerald-50 text-emerald-700",
       warning: "border-orange-200 bg-orange-50 text-orange-600",

@@ -1,7 +1,7 @@
 "use client";
 
 import { cva, type VariantProps } from "class-variance-authority";
-import type { HTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cx } from "../utils/cx";
@@ -206,5 +206,42 @@ export function MarbleModalDescription({
     >
       {children}
     </p>
+  );
+}
+
+export type MarbleModalCloseProps = ButtonHTMLAttributes<HTMLButtonElement>;
+
+export function MarbleModalClose({
+  children,
+  className,
+  type = "button",
+  ...props
+}: MarbleModalCloseProps) {
+  return (
+    <button
+      aria-label="Close dialog"
+      className={cx(
+        "flex size-8 items-center justify-center rounded-sm text-taupe-400 transition-colors hover:bg-taupe-100 hover:text-taupe-900",
+        className,
+      )}
+      type={type}
+      {...props}
+    >
+      {children ?? (
+        <svg
+          aria-hidden="true"
+          className="size-4"
+          fill="none"
+          viewBox="0 0 16 16"
+        >
+          <path
+            d="M4 4L12 12M12 4L4 12"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeWidth="1.5"
+          />
+        </svg>
+      )}
+    </button>
   );
 }

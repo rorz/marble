@@ -61,6 +61,29 @@ const marbleListRowButtonVariants = cva(
   },
 );
 
+const marbleListRowIconTileVariants = cva(
+  "flex items-center justify-center rounded-xs border",
+  {
+    defaultVariants: {
+      iconTone: "neutral",
+      size: "md",
+    },
+    variants: {
+      iconTone: {
+        neutral: "border-taupe-200 bg-white/80 text-taupe-600",
+        orange: "border-orange-200 bg-orange-50 text-orange-700",
+      },
+      size: {
+        compact: "size-8",
+        md: "size-9",
+        sm: "size-8",
+      },
+    },
+  },
+);
+
+type MarbleListRowIconTone = "neutral" | "orange";
+
 export type MarbleListRowProps = Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
   "title"
@@ -71,6 +94,7 @@ export type MarbleListRowProps = Omit<
     description?: ReactNode;
     descriptionClassName?: string;
     icon?: ReactNode;
+    iconTone?: MarbleListRowIconTone;
     meta?: ReactNode;
     title: ReactNode;
     titleClassName?: string;
@@ -86,6 +110,7 @@ export function MarbleListRow({
   descriptionClassName,
   disabled = false,
   icon,
+  iconTone,
   meta,
   size,
   title,
@@ -95,6 +120,20 @@ export function MarbleListRow({
   wrapperClassName,
   ...props
 }: MarbleListRowProps) {
+  const renderedIcon =
+    icon && iconTone ? (
+      <div
+        className={marbleListRowIconTileVariants({
+          iconTone,
+          size,
+        })}
+      >
+        {icon}
+      </div>
+    ) : icon ? (
+      <div className="shrink-0">{icon}</div>
+    ) : null;
+
   return (
     <div
       className={cx(
@@ -119,7 +158,7 @@ export function MarbleListRow({
         type={type}
         {...props}
       >
-        {icon ? <div className="shrink-0">{icon}</div> : null}
+        {renderedIcon}
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

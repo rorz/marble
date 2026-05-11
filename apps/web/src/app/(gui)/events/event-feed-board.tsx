@@ -13,7 +13,9 @@ import {
   MarbleCardHeader,
   MarbleCardTitle,
   MarbleEmptyState,
+  MarbleJsonPreview,
   MarbleListRow,
+  MarbleStat,
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
@@ -131,18 +133,6 @@ function formatRelativeTime(value: string) {
 
 function formatAbsoluteTime(value: string) {
   return ABSOLUTE_TIME_FORMATTER.format(new Date(value));
-}
-
-function formatJson(value: unknown) {
-  if (value === null || value === undefined) {
-    return "null";
-  }
-
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
 }
 
 function parseDiffEntries(diff: unknown): EventDiffEntry[] {
@@ -290,12 +280,11 @@ function upsertEvent(current: EventRow[], nextEvent: EventRow, limit: number) {
 
 function EventDetailField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="space-y-1">
-      <div className="text-[10px] text-zinc-500 uppercase tracking-[0.18em]">
-        {label}
-      </div>
-      <div className="break-all text-sm text-zinc-900">{value}</div>
-    </div>
+    <MarbleStat
+      label={label}
+      tone="subtle"
+      value={<span className="break-all">{value}</span>}
+    />
   );
 }
 
@@ -305,9 +294,12 @@ function EventSnapshot({ title, value }: { title: string; value: unknown }) {
       <div className="border-taupe-200 border-b px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-[0.18em]">
         {title}
       </div>
-      <pre className="max-h-72 overflow-auto px-3 py-3 font-mono text-[11px] leading-5 text-zinc-700">
-        {formatJson(value)}
-      </pre>
+      <MarbleJsonPreview
+        borderClassName="border-0"
+        className="max-h-72 rounded-none"
+        size="sm"
+        value={value}
+      />
     </div>
   );
 }
@@ -669,25 +661,26 @@ export function EventFeedBoard({
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <div className="text-[10px] text-zinc-500 uppercase tracking-[0.18em]">
-                    Changed paths
-                  </div>
-                  {selectedEventDiffEntries.length === 0 ? (
-                    <p className="text-sm text-zinc-500">No diff entries.</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5">
-                      {selectedEventDiffEntries.map((entry) => (
-                        <MarbleBadge
-                          key={`${selectedEvent.id}-${entry.key}`}
-                          tone="neutral"
-                        >
-                          {entry.path.join(".") || "(root)"}
-                        </MarbleBadge>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <MarbleStat
+                  label="Changed paths"
+                  tone="subtle"
+                  value={
+                    selectedEventDiffEntries.length === 0 ? (
+                      <span className="text-zinc-500">No diff entries.</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedEventDiffEntries.map((entry) => (
+                          <MarbleBadge
+                            key={`${selectedEvent.id}-${entry.key}`}
+                            tone="neutral"
+                          >
+                            {entry.path.join(".") || "(root)"}
+                          </MarbleBadge>
+                        ))}
+                      </div>
+                    )
+                  }
+                />
 
                 <div className="space-y-3">
                   <EventSnapshot

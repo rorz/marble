@@ -7,12 +7,16 @@ import {
   MarbleAlert,
   MarbleBadge,
   MarbleButton,
+  MarbleConfirmModal,
+  type MarbleConfirmModalState,
   MarbleEditableText,
+  MarbleField,
   MarbleFieldLabel,
   MarbleInput,
+  MarbleJsonPreview,
   MarbleModal,
+  MarbleModalClose,
   MarbleModalContent,
-  MarbleModalFooter,
   MarbleModalHeader,
   MarbleModalTitle,
   MarblePane,
@@ -40,7 +44,6 @@ import {
 import { AgGridReact, type CustomCellRendererProps } from "ag-grid-react";
 import { useRouter } from "next/navigation";
 import Prism from "prismjs";
-import type React from "react";
 import {
   startTransition,
   useCallback,
@@ -125,13 +128,6 @@ type ContextMenuState = {
   x: number;
   y: number;
   items: ContextMenuItem[];
-} | null;
-
-type ConfirmState = {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  onConfirm: () => void;
 } | null;
 
 const tableMutationTypes = {
@@ -733,7 +729,8 @@ function ContextMenu({
         }}
       />
       <div
-        className="fixed z-[61] min-w-[160px] rounded-lg border border-zinc-200 bg-white py-1 shadow-lg"
+        className="fixed z-[61] min-w-36 rounded-xs border border-zinc-200 bg-white p-1 shadow-lg shadow-zinc-950/10"
+        role="menu"
         style={{
           left: state.x,
           top: state.y,
@@ -741,14 +738,18 @@ function ContextMenu({
       >
         {state.items.map((item) => (
           <button
-            className={`w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-zinc-100 ${
-              item.danger ? "text-red-600 hover:bg-red-50" : "text-zinc-700"
-            }`}
+            className={cx(
+              "flex w-full items-center gap-3 rounded-[6px] px-3 py-2 text-left text-sm transition-colors",
+              item.danger
+                ? "text-red-600 hover:bg-red-50 hover:text-red-700"
+                : "text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950",
+            )}
             key={item.label}
             onClick={() => {
               item.onClick();
               onClose();
             }}
+            role="menuitem"
             type="button"
           >
             {item.label}
@@ -756,41 +757,6 @@ function ContextMenu({
         ))}
       </div>
     </>
-  );
-}
-
-// ── Confirm Modal ───────────────────────────────────────
-
-function ConfirmModal({
-  state,
-  onClose,
-}: {
-  state: NonNullable<ConfirmState>;
-  onClose: () => void;
-}) {
-  return (
-    <MarbleModal
-      ariaLabel={state.title}
-      onClose={onClose}
-      size="sm"
-    >
-      <MarbleModalContent className="space-y-2 pb-5 pt-5">
-        <MarbleModalTitle>{state.title}</MarbleModalTitle>
-        <p className="text-sm text-zinc-600">{state.message}</p>
-      </MarbleModalContent>
-      <MarbleModalFooter className="border-t-0 pt-0">
-        <MarbleButton onClick={onClose}>Cancel</MarbleButton>
-        <MarbleButton
-          onClick={() => {
-            state.onConfirm();
-            onClose();
-          }}
-          variant="red"
-        >
-          {state.confirmLabel}
-        </MarbleButton>
-      </MarbleModalFooter>
-    </MarbleModal>
   );
 }
 
@@ -802,35 +768,6 @@ type InspectedCell = {
   state: CellState;
   manualInput: string | null;
 };
-
-const JSON_TOKEN =
-  /("(?:\\u[\da-fA-F]{4}|\\[^u]|[^"\\])*"(?:\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
-
-function tokenizeJson(json: string): React.ReactNode[] {
-  const parts = json.split(JSON_TOKEN);
-  return parts.map((part, i) => {
-    if (i % 2 === 0) return part;
-    let cls = "text-sky-700";
-    if (part.startsWith('"')) {
-      cls = part.endsWith(":")
-        ? "text-zinc-900 font-medium"
-        : "text-emerald-700";
-    } else if (part === "true" || part === "false") {
-      cls = "text-violet-600";
-    } else if (part === "null") {
-      cls = "text-zinc-400";
-    }
-    return (
-      <span
-        className={cls}
-        // biome-ignore lint/suspicious/noArrayIndexKey: log
-        key={`${i}:${part.slice(0, 12)}`}
-      >
-        {part}
-      </span>
-    );
-  });
-}
 
 function EditableName({
   className,
@@ -873,8 +810,6 @@ function CellInspectorModal({
   onClose: () => void;
 }) {
   const { state } = cell;
-  const jsonStr = JSON.stringify(state, null, 2);
-  const tokens = tokenizeJson(jsonStr);
 
   return (
     <MarbleModal
@@ -905,13 +840,7 @@ function CellInspectorModal({
             <span className="font-medium text-xs text-zinc-400">Not run</span>
           )}
         </div>
-        <button
-          className="text-lg leading-none text-zinc-400 hover:text-zinc-700"
-          onClick={onClose}
-          type="button"
-        >
-          ×
-        </button>
+        <MarbleModalClose onClick={onClose} />
       </MarbleModalHeader>
       <MarbleModalContent className="flex-1 overflow-auto">
         <div className="space-y-4">
@@ -920,7 +849,7 @@ function CellInspectorModal({
               <div className="mb-1 text-[10px] uppercase tracking-wider text-zinc-500">
                 Manual Input
               </div>
-              <div className="rounded border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm">
+              <div className="rounded-xs border border-zinc-200 bg-zinc-50 px-3 py-2 font-mono text-sm">
                 {cell.manualInput || (
                   <span className="text-zinc-300">empty</span>
                 )}
@@ -936,9 +865,7 @@ function CellInspectorModal({
               No state — cell has not been run yet.
             </div>
           ) : (
-            <pre className="overflow-auto whitespace-pre-wrap break-words rounded border border-zinc-200 bg-zinc-50 px-4 py-3 font-mono text-xs leading-relaxed">
-              {tokens}
-            </pre>
+            <MarbleJsonPreview value={state} />
           )}
         </div>
       </MarbleModalContent>
@@ -1373,7 +1300,8 @@ export default function TablePageView({
     kind: "closed",
   });
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
-  const [confirmState, setConfirmState] = useState<ConfirmState>(null);
+  const [confirmState, setConfirmState] =
+    useState<MarbleConfirmModalState | null>(null);
 
   const gridRef = useRef<AgGridReact>(null);
   const sdk = useMarbleSdk({
@@ -2790,12 +2718,10 @@ export default function TablePageView({
             state={contextMenu}
           />
         )}
-        {confirmState && (
-          <ConfirmModal
-            onClose={() => setConfirmState(null)}
-            state={confirmState}
-          />
-        )}
+        <MarbleConfirmModal
+          onClose={() => setConfirmState(null)}
+          state={confirmState}
+        />
         {inspectedCell && (
           <CellInspectorModal
             cell={inspectedCell}
@@ -3112,8 +3038,10 @@ function ColumnSidebar({
 
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 space-y-4 overflow-auto px-4 py-4">
-          <div className="space-y-1.5">
-            <MarbleFieldLabel className="text-taupe-700">Name</MarbleFieldLabel>
+          <MarbleField
+            label="Name"
+            labelClassName="text-taupe-700"
+          >
             <MarbleInput
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Uppercased"
@@ -3121,12 +3049,12 @@ function ColumnSidebar({
               value={name}
               wrapperClassName="w-full"
             />
-          </div>
+          </MarbleField>
 
-          <div className="space-y-1.5">
-            <MarbleFieldLabel className="text-taupe-700">
-              Program
-            </MarbleFieldLabel>
+          <MarbleField
+            label="Program"
+            labelClassName="text-taupe-700"
+          >
             <MarbleSelect
               onChange={(e) => setProgramId(e.target.value)}
               value={programId}
@@ -3142,7 +3070,7 @@ function ColumnSidebar({
                 </option>
               ))}
             </MarbleSelect>
-          </div>
+          </MarbleField>
 
           {hasManualInput && (
             <MarbleAlert
@@ -3154,10 +3082,11 @@ function ColumnSidebar({
             </MarbleAlert>
           )}
 
-          <div className="space-y-1.5">
-            <MarbleFieldLabel className="text-taupe-700">
-              Execution
-            </MarbleFieldLabel>
+          <MarbleField
+            description="Auto-run only happens after upstream cells execute and the resolved input validates for this program."
+            label="Execution"
+            labelClassName="text-taupe-700"
+          >
             <MarbleSelect
               onChange={(event) =>
                 setRunConditionEnabled(event.target.value === "auto")
@@ -3168,11 +3097,7 @@ function ColumnSidebar({
               <option value="manual">Manual only</option>
               <option value="auto">Auto when ready</option>
             </MarbleSelect>
-            <div className="text-[11px] text-taupe-500">
-              Auto-run only happens after upstream cells execute and the
-              resolved input validates for this program.
-            </div>
-          </div>
+          </MarbleField>
 
           {!programId ? null : isCreate ||
             selectedProgramSecretDeclarations.length === 0 ? (

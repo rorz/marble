@@ -23,19 +23,34 @@ export function MarbleSheet({ children, ...props }: MarbleSheetProps) {
   return <DialogPrimitive.Root {...props}>{children}</DialogPrimitive.Root>;
 }
 
-type MarbleSheetCloseProps = ButtonHTMLAttributes<HTMLButtonElement>;
+type MarbleSheetCloseVariant = "button" | "icon";
+
+type MarbleSheetCloseProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: MarbleSheetCloseVariant;
+};
+
+const marbleSheetCloseVariantClassName: Record<
+  MarbleSheetCloseVariant,
+  string
+> = {
+  button:
+    "h-auto w-auto rounded-xs border border-taupe-200 px-3 py-1.5 text-sm text-taupe-700 hover:bg-taupe-100 hover:text-taupe-900",
+  icon: "flex size-8 items-center justify-center rounded-sm text-taupe-400 hover:bg-taupe-100 hover:text-taupe-900",
+};
 
 export function MarbleSheetClose({
   children,
   className,
   type = "button",
+  variant = "icon",
   ...props
 }: MarbleSheetCloseProps) {
   return (
     <DialogPrimitive.Close asChild>
       <button
         className={cx(
-          "flex size-8 items-center justify-center rounded-sm text-taupe-400 transition-colors hover:bg-taupe-100 hover:text-taupe-900",
+          "transition-colors",
+          marbleSheetCloseVariantClassName[variant],
           className,
         )}
         type={type}
@@ -56,7 +71,9 @@ export function MarbleSheetClose({
             />
           </svg>
         )}
-        <span className="sr-only">Close sheet</span>
+        {variant === "icon" && !children ? (
+          <span className="sr-only">Close sheet</span>
+        ) : null}
       </button>
     </DialogPrimitive.Close>
   );

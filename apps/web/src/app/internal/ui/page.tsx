@@ -36,16 +36,21 @@ import {
   MarbleCommandList,
   MarbleCommandMenu,
   MarbleCommandSeparator,
+  MarbleConfirmModal,
+  type MarbleConfirmModalState,
   MarbleContextPopover,
   type MarbleContextPopoverSection,
   MarbleCopyField,
   MarbleDropzone,
   MarbleEditableText,
   MarbleEmptyState,
+  MarbleField,
   MarbleFieldLabel,
   MarbleInput,
+  MarbleJsonPreview,
   MarbleListRow,
   MarbleModal,
+  MarbleModalClose,
   MarbleModalContent,
   MarbleModalDescription,
   MarbleModalFooter,
@@ -58,6 +63,7 @@ import {
   MarbleSearchSelect,
   type MarbleSearchSelectOption,
   MarbleSelect,
+  MarbleSelectableTile,
   MarbleSheet,
   MarbleSheetClose,
   MarbleSheetContent,
@@ -65,6 +71,7 @@ import {
   MarbleSheetFooter,
   MarbleSheetHeader,
   MarbleSheetTitle,
+  MarbleStat,
   MarbleTextarea,
   MarbleWorkbenchResizeHandle,
   MarbleWorkbenchSection,
@@ -93,6 +100,7 @@ const badgeTones = [
 
 const alertTones = [
   "neutral",
+  "info",
   "success",
   "warning",
   "error",
@@ -288,6 +296,8 @@ export default function UiPage() {
   const [modalSize, setModalSize] = useState<ModalSize>("md");
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [sheetSide, setSheetSide] = useState<SheetSide>("right");
+  const [confirmState, setConfirmState] =
+    useState<MarbleConfirmModalState | null>(null);
   const [multiDropzoneSummary, setMultiDropzoneSummary] = useState(
     "No files selected yet",
   );
@@ -873,11 +883,31 @@ export default function UiPage() {
                     </MarbleCardDescription>
                   </MarbleCardHeader>
                   <MarbleCardContent className="space-y-2">
-                    <MarbleFieldLabel>Table name</MarbleFieldLabel>
-                    <MarbleInput
-                      defaultValue="Prospects"
-                      wrapperClassName="w-full"
-                    />
+                    <MarbleField label="Table name">
+                      <MarbleInput
+                        defaultValue="Prospects"
+                        wrapperClassName="w-full"
+                      />
+                    </MarbleField>
+                  </MarbleCardContent>
+                </MarbleCard>
+
+                <MarbleCard>
+                  <MarbleCardHeader divided>
+                    <MarbleCardTitle>Divided header</MarbleCardTitle>
+                    <MarbleCardDescription>
+                      Dense data UIs ask the header to separate cleanly from the
+                      content below. `divided` is the supported way to do this
+                      instead of per-route `border-b` overrides.
+                    </MarbleCardDescription>
+                  </MarbleCardHeader>
+                  <MarbleCardContent>
+                    <MarbleAlert
+                      size="sm"
+                      tone="neutral"
+                    >
+                      The border sits inside the primitive now.
+                    </MarbleAlert>
                   </MarbleCardContent>
                 </MarbleCard>
 
@@ -950,19 +980,16 @@ export default function UiPage() {
             </DemoPanel>
 
             <DemoPanel
-              description="Minimal and action-led empty states."
+              description="Minimal and action-led empty states. iconTone normalizes the bordered icon tile."
               title="Empty states"
             >
               <div className="space-y-4">
                 <MarbleCard>
                   <MarbleCardContent>
                     <MarbleEmptyState
-                      description="Create a project, then rename it inline from the project view."
-                      icon={
-                        <div className="flex size-10 items-center justify-center rounded-xs border border-orange-200 bg-orange-50 text-orange-700">
-                          <FolderOpenIcon className="h-5 w-5" />
-                        </div>
-                      }
+                      description="iconTone='orange' wraps the icon in the standard tile."
+                      icon={<FolderOpenIcon className="h-5 w-5" />}
+                      iconTone="orange"
                       title="No projects yet"
                     />
                   </MarbleCardContent>
@@ -979,12 +1006,9 @@ export default function UiPage() {
                           Create profile
                         </MarbleButton>
                       }
-                      description="This variant keeps the action aligned with the message."
-                      icon={
-                        <div className="flex size-10 items-center justify-center rounded-xs border border-taupe-200 bg-white text-taupe-700">
-                          <UserGroupIcon className="h-5 w-5" />
-                        </div>
-                      }
+                      description="iconTone='neutral' for a quieter affordance."
+                      icon={<UserGroupIcon className="h-5 w-5" />}
+                      iconTone="neutral"
                       title="No profiles yet"
                     />
                   </MarbleCardContent>
@@ -1080,6 +1104,138 @@ export default function UiPage() {
                   </div>
                 ))}
               </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Pair a label with a single input. Drop the boilerplate `space-y-1.5` wrapper. Optional description renders below the control."
+              title="Field"
+            >
+              <div className="space-y-4">
+                <MarbleField label="Display name">
+                  <MarbleInput
+                    defaultValue="Audience Enrichment"
+                    wrapperClassName="w-full"
+                  />
+                </MarbleField>
+                <MarbleField
+                  description="Auto-run only happens after upstream cells execute."
+                  label="Execution"
+                >
+                  <MarbleSelect
+                    defaultValue="manual"
+                    wrapperClassName="w-full"
+                  >
+                    <option value="manual">Manual only</option>
+                    <option value="auto">Auto when ready</option>
+                  </MarbleSelect>
+                </MarbleField>
+              </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Selectable tile primitive for icon pickers, toggle chips, and library docks. Active state ships baked in."
+              title="Selectable tiles"
+            >
+              <div className="space-y-4">
+                <div className="grid grid-cols-6 gap-2">
+                  {[
+                    "🪄",
+                    "🤖",
+                    "🛠️",
+                    "🚀",
+                    "🦄",
+                    "💎",
+                  ].map((icon, index) => (
+                    <MarbleSelectableTile
+                      active={index === 0}
+                      aria-label={`Select ${icon}`}
+                      className="text-2xl"
+                      key={icon}
+                      shape="square"
+                    >
+                      {icon}
+                    </MarbleSelectableTile>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <MarbleSelectableTile
+                    active
+                    shape="card"
+                  >
+                    <div className="mb-2 flex size-10 items-center justify-center rounded-xs border border-orange-200 bg-white text-orange-700">
+                      <SparklesIcon className="h-5 w-5" />
+                    </div>
+                    <span className="font-medium text-sm text-taupe-950">
+                      Active
+                    </span>
+                    <span className="text-xs text-taupe-500">
+                      Card shape, pressed
+                    </span>
+                  </MarbleSelectableTile>
+                  <MarbleSelectableTile shape="card">
+                    <div className="mb-2 flex size-10 items-center justify-center rounded-xs border border-taupe-200 bg-taupe-50 text-taupe-700">
+                      <CodeBracketIcon className="h-5 w-5" />
+                    </div>
+                    <span className="font-medium text-sm text-taupe-950">
+                      Idle
+                    </span>
+                    <span className="text-xs text-taupe-500">
+                      Card shape, not pressed
+                    </span>
+                  </MarbleSelectableTile>
+                </div>
+              </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Labelled value tiles for read-only data surfaces. Framed for emphasis, plain for inline detail."
+              title="Stats"
+            >
+              <div className="grid gap-3 md:grid-cols-2">
+                <MarbleStat
+                  framed
+                  label="Selected action"
+                  value="Create project"
+                />
+                <MarbleStat
+                  framed
+                  label="Run mode"
+                  tone="subtle"
+                  value="Auto when ready"
+                />
+                <MarbleStat
+                  label="Profile"
+                  tone="subtle"
+                  value="schema-agent@marble"
+                />
+                <MarbleStat
+                  label="Request"
+                  tone="subtle"
+                  value="req_8f31b4e0"
+                />
+              </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Tokenized JSON preview. Renders with proper monospace + leading + max-height handling."
+              title="JSON preview"
+            >
+              <MarbleJsonPreview
+                value={{
+                  edges: [
+                    {
+                      from: "rows.cells.company",
+                      mode: "fanout",
+                      to: "rows.cells.summary",
+                    },
+                  ],
+                  ok: true,
+                  outputs: {
+                    summary: "Marble enriches messy CRM data with AI.",
+                  },
+                  ran: 14,
+                }}
+              />
             </DemoPanel>
           </div>
         </Section>
@@ -1204,18 +1360,15 @@ export default function UiPage() {
         >
           <div className="space-y-4">
             <DemoPanel
-              description="Compact, small, active, orange, and aside variants."
+              description="Compact, small, active, orange, and aside variants — plus the iconTone shortcut that wraps icons in the standard bordered tile."
               title="List rows"
             >
               <MarbleCard>
                 <MarbleCardContent className="p-0">
                   <MarbleListRow
-                    description="Compact layout for list-heavy surfaces."
-                    icon={
-                      <div className="mt-0.5 flex size-8 items-center justify-center rounded-xs border border-orange-200 bg-orange-50 text-orange-700">
-                        <CodeBracketIcon className="h-4 w-4" />
-                      </div>
-                    }
+                    description="Compact layout for list-heavy surfaces, with iconTone='orange'."
+                    icon={<CodeBracketIcon className="h-4 w-4" />}
+                    iconTone="orange"
                     meta={
                       <span className="font-mono text-[11px] text-zinc-500">
                         v8
@@ -1226,9 +1379,16 @@ export default function UiPage() {
                     tone="orange"
                   />
                   <MarbleListRow
+                    description="iconTone='neutral' normalizes the bordered tile so secrets, profiles, and sources share the same icon container."
+                    icon={<CommandLineIcon className="h-4 w-4" />}
+                    iconTone="neutral"
+                    size="compact"
+                    title="OPENAI_API_KEY"
+                  />
+                  <MarbleListRow
                     active
                     aside={<MarbleBadge tone="info">Selected</MarbleBadge>}
-                    description="Small active row with inline aside."
+                    description="Small active row with inline aside (raw icon, no tone)."
                     icon={<CodeBracketIcon className="h-4 w-4 text-sky-600" />}
                     size="sm"
                     title="runner.ts"
@@ -1844,18 +2004,45 @@ export default function UiPage() {
         >
           <div className="space-y-4">
             <DemoPanel
-              description="Inline command menu with grouped items and keyword search."
+              description="Inline command menu with grouped items and keyword search. The standalone surface keeps its border + radius."
               title="Command menu"
             >
-              <div className="h-[25rem] overflow-hidden rounded-xs border border-taupe-200 bg-white">
+              <div className="h-[25rem]">
                 <MarbleCommandMenu
-                  className="h-full rounded-none border-0 shadow-none"
+                  className="h-full"
                   label="UI catalog command menu demo"
                   loop
                 >
                   {renderCommandMenu()}
                 </MarbleCommandMenu>
               </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Embedded mode drops the left/right borders + radius for command surfaces that sit flush inside a host card."
+              title="Command menu (embedded)"
+            >
+              <MarbleCard className="overflow-hidden">
+                <MarbleCardHeader>
+                  <MarbleCardTitle>Workspace actions</MarbleCardTitle>
+                  <MarbleCardDescription>
+                    Embedded surfaces are bracketed by top + bottom borders so
+                    the host card owns the radius.
+                  </MarbleCardDescription>
+                </MarbleCardHeader>
+                <MarbleCardContent className="px-0 pb-0">
+                  <div className="h-[20rem]">
+                    <MarbleCommandMenu
+                      className="h-full"
+                      embedded
+                      label="Embedded command menu demo"
+                      loop
+                    >
+                      {renderCommandMenu()}
+                    </MarbleCommandMenu>
+                  </div>
+                </MarbleCardContent>
+              </MarbleCard>
             </DemoPanel>
 
             <DemoPanel
@@ -1970,7 +2157,7 @@ export default function UiPage() {
                       </div>
 
                       <MarbleSheetFooter>
-                        <MarbleSheetClose className="h-auto w-auto rounded-xs border border-taupe-200 px-3 py-1.5 text-sm text-taupe-700">
+                        <MarbleSheetClose variant="button">
                           Dismiss
                         </MarbleSheetClose>
                         <MarbleButton variant="orange">Apply</MarbleButton>
@@ -1982,7 +2169,7 @@ export default function UiPage() {
             </DemoPanel>
 
             <DemoPanel
-              description="Modal sizes use a shared trigger harness, and the dialog description is now surfaced in the catalog."
+              description="Modal sizes use a shared trigger harness, and the dialog description is now surfaced in the catalog. MarbleModalClose ships an icon-only close affordance for header chrome."
               title="Modal"
             >
               <div className="space-y-4">
@@ -2017,9 +2204,58 @@ export default function UiPage() {
                 </MarbleAlert>
               </div>
             </DemoPanel>
+
+            <DemoPanel
+              description="Confirm modal promotes the destructive-action pattern. Use it in place of window.confirm anywhere a deletion or revocation needs review."
+              title="Confirm modal"
+            >
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  <MarbleButton
+                    onClick={() =>
+                      setConfirmState({
+                        confirmLabel: "Delete",
+                        message:
+                          'Delete "Audience Enrichment"? All rows and cells will be permanently removed.',
+                        onConfirm: () =>
+                          handleMenuSelect("Confirm modal: Delete confirmed"),
+                        title: "Delete project",
+                      })
+                    }
+                    size="sm"
+                    variant="red"
+                  >
+                    Open destructive confirm
+                  </MarbleButton>
+                  <MarbleButton
+                    onClick={() =>
+                      setConfirmState({
+                        cancelLabel: "Keep editing",
+                        confirmLabel: "Publish v13",
+                        confirmVariant: "orange",
+                        message:
+                          "Publishing locks the draft. Existing columns stay pinned to v12.",
+                        onConfirm: () =>
+                          handleMenuSelect("Confirm modal: Publish confirmed"),
+                        title: "Publish program",
+                      })
+                    }
+                    size="sm"
+                    variant="orange"
+                  >
+                    Open promote confirm
+                  </MarbleButton>
+                </div>
+              </div>
+            </DemoPanel>
           </div>
         </Section>
       </div>
+
+      <MarbleConfirmModal
+        onClose={() => setConfirmState(null)}
+        state={confirmState}
+      />
 
       <MarbleCommandDialog
         label="UI catalog command dialog demo"
@@ -2037,11 +2273,14 @@ export default function UiPage() {
           size={modalSize}
         >
           <MarbleModalHeader>
-            <MarbleModalTitle>Shared modal shell</MarbleModalTitle>
-            <MarbleModalDescription>
-              Portal-backed overlay with a size-aware panel and shared dismissal
-              behavior.
-            </MarbleModalDescription>
+            <div className="min-w-0 flex-1 space-y-1">
+              <MarbleModalTitle>Shared modal shell</MarbleModalTitle>
+              <MarbleModalDescription>
+                Portal-backed overlay with a size-aware panel and shared
+                dismissal behavior.
+              </MarbleModalDescription>
+            </div>
+            <MarbleModalClose onClick={() => setIsModalOpen(false)} />
           </MarbleModalHeader>
           <MarbleModalContent className="space-y-3">
             <p className="text-sm text-taupe-600">

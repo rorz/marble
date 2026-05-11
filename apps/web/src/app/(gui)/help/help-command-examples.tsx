@@ -21,6 +21,7 @@ import {
   MarbleCommandList,
   MarbleCommandMenu,
   MarbleCommandSeparator,
+  MarbleStat,
 } from "@marble/ui";
 import { useState } from "react";
 
@@ -32,12 +33,12 @@ function SelectionPreview({
   value: string;
 }>) {
   return (
-    <div className="rounded-xs border border-taupe-200 bg-taupe-50 px-3 py-2">
-      <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.22em]">
-        {label}
-      </div>
-      <div className="mt-1 font-medium text-sm text-taupe-900">{value}</div>
-    </div>
+    <MarbleStat
+      framed
+      label={label}
+      tone="neutral"
+      value={value}
+    />
   );
 }
 
@@ -85,9 +86,10 @@ export function HelpCommandExamples() {
             </MarbleCardDescription>
           </MarbleCardHeader>
           <MarbleCardContent className="px-0 pb-0">
-            <div className="h-[24rem] border-y border-taupe-200">
+            <div className="h-[24rem]">
               <MarbleCommandMenu
-                className="h-full rounded-none border-0 shadow-none"
+                className="h-full"
+                embedded
                 label="Workspace action examples"
                 loop
               >
@@ -230,9 +232,10 @@ export function HelpCommandExamples() {
             </MarbleCardDescription>
           </MarbleCardHeader>
           <MarbleCardContent className="px-0 pb-0">
-            <div className="h-[24rem] border-y border-taupe-200">
+            <div className="h-[24rem]">
               <MarbleCommandMenu
-                className="h-full rounded-none border-0 shadow-none"
+                className="h-full"
+                embedded
                 label="Help topic examples"
                 loop
               >

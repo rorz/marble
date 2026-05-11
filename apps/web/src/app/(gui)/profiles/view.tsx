@@ -3,7 +3,6 @@
 import { toCamelKeys } from "@marble/lib/object";
 import type { MarbleClient } from "@marble/sdk";
 import {
-  cx,
   MarbleAlert,
   MarbleBadge,
   MarbleButton,
@@ -14,8 +13,11 @@ import {
   MarbleCardHeader,
   type MarbleCardHeaderProps,
   MarbleCardTitle,
+  MarbleConfirmModal,
+  type MarbleConfirmModalState,
+  MarbleCopyField,
   MarbleEmptyState,
-  MarbleFieldLabel,
+  MarbleField,
   MarbleInput,
   MarbleListRow,
   MarbleModal,
@@ -25,9 +27,9 @@ import {
   MarbleModalHeader,
   MarbleModalTitle,
   MarbleSearchSelect,
+  MarbleSelectableTile,
 } from "@marble/ui";
 import {
-  CopyIcon,
   PencilSimpleIcon,
   PlusIcon,
   TrashIcon,
@@ -215,18 +217,16 @@ function AgentProfileFields({
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <div>
-          <MarbleFieldLabel>Profile name</MarbleFieldLabel>
+        <MarbleField label="Profile name">
           <MarbleInput
             defaultValue={defaults?.name ?? ""}
             disabled={disabled}
             name="name"
             placeholder="Docs triage agent"
           />
-        </div>
+        </MarbleField>
 
-        <div>
-          <MarbleFieldLabel>Agent provider</MarbleFieldLabel>
+        <MarbleField label="Agent provider">
           <MarbleSearchSelect
             defaultValue={defaults?.externalName ?? ""}
             disabled={disabled}
@@ -235,11 +235,10 @@ function AgentProfileFields({
             placeholder="Search providers like Codex or Claude Code"
             wrapperClassName="w-full"
           />
-        </div>
+        </MarbleField>
       </div>
 
-      <div className="space-y-2">
-        <MarbleFieldLabel>Icon</MarbleFieldLabel>
+      <MarbleField label="Icon">
         <MarbleCard tone="subtle">
           <MarbleCardContent className="space-y-3 px-4 py-4">
             <input
@@ -264,33 +263,23 @@ function AgentProfileFields({
             </div>
 
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-              {AGENT_PROFILE_ICON_OPTIONS.map((icon) => {
-                const isSelected = icon === selectedIcon;
-
-                return (
-                  <button
-                    aria-label={`Select ${icon} as the profile icon`}
-                    aria-pressed={isSelected}
-                    className={cx(
-                      "flex aspect-square items-center justify-center rounded-xs border text-2xl transition-colors",
-                      isSelected
-                        ? "border-orange-300 bg-orange-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
-                        : "border-zinc-200 bg-white/90 hover:border-zinc-300 hover:bg-zinc-50",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50",
-                    )}
-                    disabled={disabled}
-                    key={icon}
-                    onClick={() => onSelectIcon(icon)}
-                    type="button"
-                  >
-                    <span aria-hidden="true">{icon}</span>
-                  </button>
-                );
-              })}
+              {AGENT_PROFILE_ICON_OPTIONS.map((icon) => (
+                <MarbleSelectableTile
+                  active={icon === selectedIcon}
+                  aria-label={`Select ${icon} as the profile icon`}
+                  className="text-2xl"
+                  disabled={disabled}
+                  key={icon}
+                  onClick={() => onSelectIcon(icon)}
+                  shape="square"
+                >
+                  <span aria-hidden="true">{icon}</span>
+                </MarbleSelectableTile>
+              ))}
             </div>
           </MarbleCardContent>
         </MarbleCard>
-      </div>
+      </MarbleField>
     </div>
   );
 }
@@ -593,15 +582,11 @@ function ProfileEditorModal({
 }
 
 function NewKeyModal({
-  copied,
   onClose,
-  onCopy,
   profileName,
   token,
 }: {
-  copied: boolean;
   onClose: () => void;
-  onCopy: () => void;
   profileName: string;
   token: string;
 }) {
@@ -626,17 +611,10 @@ function NewKeyModal({
           Copy the key before closing this modal.
         </MarbleAlert>
 
-        <MarbleCard tone="subtle">
-          <MarbleCardHeader className="border-zinc-100 border-b px-4 py-3">
-            <MarbleCardTitle className="text-sm">API key</MarbleCardTitle>
-            <MarbleCardDescription>{profileName}</MarbleCardDescription>
-          </MarbleCardHeader>
-          <MarbleCardContent className="px-4 py-4">
-            <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-xs border border-zinc-200 bg-white px-3 py-3 font-mono text-[12px] leading-5 text-zinc-950">
-              {token}
-            </pre>
-          </MarbleCardContent>
-        </MarbleCard>
+        <MarbleCopyField
+          label={`API key — ${profileName}`}
+          value={token}
+        />
       </MarbleModalContent>
       <MarbleModalFooter>
         <MarbleButton
@@ -645,15 +623,6 @@ function NewKeyModal({
           type="button"
         >
           Close
-        </MarbleButton>
-        <MarbleButton
-          iconLeft={CopyIcon}
-          onClick={onCopy}
-          size="sm"
-          type="button"
-          variant="orange"
-        >
-          {copied ? "Copied" : "Copy key"}
         </MarbleButton>
       </MarbleModalFooter>
     </MarbleModal>
@@ -697,7 +666,8 @@ export function ProfilesPageView({
     profileName: string;
     token: string;
   }>(null);
-  const [copiedLastCreatedKey, setCopiedLastCreatedKey] = useState(false);
+  const [confirmState, setConfirmState] =
+    useState<MarbleConfirmModalState | null>(null);
   const [error, setError] = useState<null | string>(null);
 
   usePrivateBroadcast({
@@ -826,15 +796,18 @@ export function ProfilesPageView({
     }
   };
 
-  const handleDelete = async (profile: ManagedProfileRecord) => {
-    if (
-      !window.confirm(
-        `Delete ${profile.name}? This only succeeds if nothing else still belongs to it.`,
-      )
-    ) {
-      return;
-    }
+  const handleDelete = (profile: ManagedProfileRecord) => {
+    setConfirmState({
+      confirmLabel: "Delete profile",
+      message: `Delete ${profile.name}? This only succeeds if nothing else still belongs to it.`,
+      onConfirm: () => {
+        void performDelete(profile);
+      },
+      title: "Delete profile",
+    });
+  };
 
+  const performDelete = async (profile: ManagedProfileRecord) => {
     setDeletingId(profile.id);
     setError(null);
 
@@ -865,7 +838,6 @@ export function ProfilesPageView({
             : entry,
         ),
       );
-      setCopiedLastCreatedKey(false);
       setLastCreatedKey({
         profileName: created.profileName,
         token: created.token,
@@ -877,34 +849,28 @@ export function ProfilesPageView({
     }
   };
 
-  const handleCopyLastCreatedKey = async () => {
-    if (!lastCreatedKey) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(lastCreatedKey.token);
-      setCopiedLastCreatedKey(true);
-    } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
-    }
-  };
-
   const handleDismissLastCreatedKey = () => {
     setLastCreatedKey(null);
-    setCopiedLastCreatedKey(false);
   };
 
-  const handleRevokeKey = async (
+  const handleRevokeKey = (
     profile: ManagedProfileRecord,
     key: ProfileKeyRecord,
   ) => {
-    if (
-      !window.confirm(`Revoke ${key.preview}? Existing CLI sessions will fail.`)
-    ) {
-      return;
-    }
+    setConfirmState({
+      confirmLabel: "Revoke key",
+      message: `Revoke ${key.preview}? Existing CLI sessions will fail.`,
+      onConfirm: () => {
+        void performRevokeKey(profile, key);
+      },
+      title: "Revoke API key",
+    });
+  };
 
+  const performRevokeKey = async (
+    profile: ManagedProfileRecord,
+    key: ProfileKeyRecord,
+  ) => {
     setRevokingKeyId(key.id);
     setError(null);
 
@@ -990,9 +956,7 @@ export function ProfilesPageView({
 
       {lastCreatedKey ? (
         <NewKeyModal
-          copied={copiedLastCreatedKey}
           onClose={handleDismissLastCreatedKey}
-          onCopy={() => void handleCopyLastCreatedKey()}
           profileName={lastCreatedKey.profileName}
           token={lastCreatedKey.token}
         />
@@ -1117,14 +1081,14 @@ export function ProfilesPageView({
                         />
                       ),
                       label: isDeleting ? "Deleting" : "Delete profile",
-                      onSelect: () => void handleDelete(profile),
+                      onSelect: () => handleDelete(profile),
                       tone: "danger",
                     },
                   ]}
                   disclosureAriaLabel={`Open actions for ${profile.name}`}
                   key={profile.id}
                   onCreateKey={() => void handleCreateKey(profile)}
-                  onRevokeKey={(key) => void handleRevokeKey(profile, key)}
+                  onRevokeKey={(key) => handleRevokeKey(profile, key)}
                   profile={profile}
                   revokingKeyId={revokingKeyId}
                   tone={isTemporary ? "subtle" : "default"}
@@ -1188,9 +1152,7 @@ export function ProfilesPageView({
             ]}
             disclosureAriaLabel="Open human profile actions"
             onCreateKey={() => void handleCreateKey(primaryHumanProfile)}
-            onRevokeKey={(key) =>
-              void handleRevokeKey(primaryHumanProfile, key)
-            }
+            onRevokeKey={(key) => handleRevokeKey(primaryHumanProfile, key)}
             profile={primaryHumanProfile}
             revokingKeyId={revokingKeyId}
             tone="subtle"
@@ -1266,7 +1228,7 @@ export function ProfilesPageView({
                   }
                   key={profile.id}
                   onCreateKey={() => void handleCreateKey(profile)}
-                  onRevokeKey={(key) => void handleRevokeKey(profile, key)}
+                  onRevokeKey={(key) => handleRevokeKey(profile, key)}
                   profile={profile}
                   revokingKeyId={revokingKeyId}
                   tone="subtle"
@@ -1276,6 +1238,11 @@ export function ProfilesPageView({
           </>
         ) : null}
       </section>
+
+      <MarbleConfirmModal
+        onClose={() => setConfirmState(null)}
+        state={confirmState}
+      />
     </div>
   );
 }
