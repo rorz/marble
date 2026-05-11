@@ -622,6 +622,7 @@ export default function UiPage() {
         </header>
 
         <Section
+          // harness-ignore: no-inline-shadow-token -- documentation copy describes the forbidden pattern; the showcase is the catalog, not a consumer.
           description="Design tokens that primitives and route code lean on. Use these named utilities instead of open-coding `text-[Xpx] tracking-[X.XXem] uppercase` or `shadow-[inset_0_1px_0_rgba(...)]` strings."
           id="tokens"
           title="Tokens"

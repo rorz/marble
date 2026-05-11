@@ -20,6 +20,7 @@ const marbleJsonPreviewVariants = cva(
   },
 );
 
+// harness-ignore: no-tokenize-json-helper -- MarbleJsonPreview is the canonical home for the JSON tokenizer; consumers must not re-implement it.
 function tokenizeJson(json: string): ReactNode[] {
   const parts = json.split(JSON_TOKEN);
 
@@ -81,7 +82,7 @@ export function MarbleJsonPreview({
   ...props
 }: MarbleJsonPreviewProps) {
   const json = stringifyValue(value);
-  const tokens = tokenizeJson(json);
+  const tokens = tokenizeJson(json); // harness-ignore: no-tokenize-json-helper -- internal use within the primitive that owns this helper.
 
   return (
     <pre

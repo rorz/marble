@@ -2,6 +2,7 @@ import { cx } from "@marble/ui";
 import type { PropsWithChildren, ReactNode } from "react";
 
 const TONES = {
+  cream: "bg-taupe-100 text-taupe-800",
   dark: "bg-taupe-700 text-taupe-100",
   darkest: "bg-taupe-800 text-taupe-100",
   light: "bg-taupe-200 text-taupe-700",
@@ -11,14 +12,33 @@ const TONES = {
 
 type Tone = keyof typeof TONES;
 
+const PADDING = {
+  flush: "px-6 py-0",
+  lg: "px-6 pt-36 pb-24",
+  md: "px-6 pt-24 pb-20",
+} as const;
+
+type Padding = keyof typeof PADDING;
+
 type SectionProps = PropsWithChildren<{
   tone?: Tone;
+  padding?: Padding;
   className?: string;
+  id?: string;
 }>;
 
-export function Section({ tone = "mid", className, children }: SectionProps) {
+export function Section({
+  tone = "mid",
+  padding = "lg",
+  className,
+  id,
+  children,
+}: SectionProps) {
   return (
-    <section className={cx("px-6", "pt-36 pb-24", TONES[tone], className)}>
+    <section
+      className={cx(PADDING[padding], TONES[tone], className)}
+      id={id}
+    >
       {children}
     </section>
   );
@@ -33,36 +53,86 @@ const HEADINGS = {
 
 type HeadingSize = keyof typeof HEADINGS;
 
+const EYEBROW_TONES = {
+  inherit: "opacity-70",
+  orange: "text-orange-300",
+  subtle: "opacity-50",
+} as const;
+
+type EyebrowTone = keyof typeof EYEBROW_TONES;
+
 type SectionHeaderProps = {
   eyebrow?: ReactNode;
+  eyebrowTone?: EyebrowTone;
   heading: ReactNode;
   lede?: ReactNode;
   size?: HeadingSize;
+  align?: "start" | "center";
   className?: string;
 };
 
 export function SectionHeader({
   eyebrow,
+  eyebrowTone = "inherit",
   heading,
   lede,
   size = "xl",
+  align = "start",
   className,
 }: SectionHeaderProps) {
   return (
-    <header className={`flex flex-col gap-6 max-w-4xl ${className ?? ""}`}>
+    <header
+      className={cx(
+        "flex max-w-4xl flex-col gap-6",
+        align === "center" && "mx-auto items-center text-center",
+        className,
+      )}
+    >
       {eyebrow ? (
-        <span className="font-mono text-xs uppercase tracking-[0.2em] opacity-70">
+        <span
+          className={cx(
+            "font-mono text-eyebrow-lg",
+            EYEBROW_TONES[eyebrowTone],
+          )}
+        >
           {eyebrow}
         </span>
       ) : null}
       <h2
-        className={`font-display font-medium leading-[0.95] tracking-tight ${HEADINGS[size]}`}
+        className={cx(
+          "font-display font-medium leading-[0.95] tracking-tight",
+          HEADINGS[size],
+        )}
       >
         {heading}
       </h2>
       {lede ? (
-        <p className="text-lg md:text-xl opacity-80 max-w-2xl">{lede}</p>
+        <p className="max-w-2xl text-lg opacity-80 md:text-xl">{lede}</p>
       ) : null}
     </header>
+  );
+}
+
+type SectionInnerProps = PropsWithChildren<{
+  className?: string;
+  /** Max width clamp for content inside a section. */
+  width?: "tight" | "normal" | "wide";
+}>;
+
+const WIDTHS = {
+  normal: "max-w-6xl",
+  tight: "max-w-4xl",
+  wide: "max-w-7xl",
+} as const;
+
+export function SectionInner({
+  width = "normal",
+  className,
+  children,
+}: SectionInnerProps) {
+  return (
+    <div className={cx("mx-auto w-full", WIDTHS[width], className)}>
+      {children}
+    </div>
   );
 }

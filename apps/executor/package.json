@@ -2,7 +2,7 @@
   "author": "",
   "dependencies": {
     "@marble/contracts": "workspace:*",
-    "@marble/lib": "workspace:",
+    "@marble/lib": "workspace:*",
     "@marble/sdk": "workspace:*",
     "@marble/store": "workspace:*",
     "hono": "catalog:base",
