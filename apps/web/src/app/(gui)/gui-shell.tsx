@@ -19,6 +19,7 @@ import {
   MarbleSheetFooter,
   MarbleSheetHeader,
   MarbleSheetTitle,
+  marbleToast,
 } from "@marble/ui";
 import {
   BookOpenTextIcon,
@@ -487,7 +488,7 @@ function SidebarNavRow({
         active
           ? "bg-taupe-300/80 text-taupe-900"
           : previewTone === "direct"
-            ? "bg-white text-taupe-900 shadow-[inset_0_0_0_1px_rgba(249,115,22,0.4),0_1px_0_rgba(255,255,255,0.78)]"
+            ? "bg-white text-taupe-900 inset-ring-1 inset-ring-orange-500/40"
             : previewTone === "ancestor"
               ? "bg-orange-50/80 text-taupe-900"
               : "hover:bg-taupe-200/80 hover:text-taupe-900",
@@ -805,7 +806,7 @@ export function GuiShell({
     router.push(path);
   };
   const handleCommandPaletteError = (error: unknown) => {
-    window.alert(getErrorMessage(error));
+    marbleToast.error(getErrorMessage(error));
   };
   const pushCommandPalettePage = (page: CommandPalettePage) => {
     setCommandPalettePages((current) => [
@@ -2390,7 +2391,7 @@ export function GuiShell({
           "relative min-h-0",
           agentSidebarMode === "collapsed"
             ? null
-            : "h-screen border-l border-taupe-200/90 bg-[linear-gradient(180deg,rgba(242,236,227,0.98)_0%,rgba(255,255,255,0.98)_100%)] shadow-[-10px_0_24px_rgba(84,57,26,0.06)]",
+            : "h-screen border-l border-taupe-200/90 bg-linear-to-b from-taupe-100/95 to-white/95",
         )}
       >
         {agentSidebarMode === "collapsed" ? null : (

@@ -101,7 +101,7 @@ export function MarketingSkyscraper({
       }
     >
       {/* Roof label */}
-      <div className="-mb-px relative z-10 flex flex-col items-stretch rounded-t-xs border-2 border-taupe-100/15 border-b-0 bg-taupe-800/90 px-2 pt-2 pb-1 shadow-marble-highlight-soft">
+      <div className="-mb-px relative z-10 flex flex-col items-stretch rounded-t-xs border-2 border-taupe-100/15 border-b-0 bg-taupe-800/90 px-2 pt-2 pb-1 inset-shadow-2xs inset-shadow-white/45">
         <span className="truncate font-mono text-eyebrow-xs text-taupe-100">
           {name}
         </span>

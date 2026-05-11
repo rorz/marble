@@ -63,7 +63,7 @@ export function MarketingTile({
             </span>
           ) : null}
           {glyph ? (
-            <span className="flex size-12 items-center justify-center rounded-xs border-2 border-current/30 text-current shadow-marble-highlight">
+            <span className="flex size-12 items-center justify-center rounded-xs border-2 border-current/30 text-current inset-shadow-2xs inset-shadow-white/70">
               {glyph}
             </span>
           ) : null}

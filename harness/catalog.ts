@@ -104,6 +104,7 @@ async function discoverWorkspacePackages(): Promise<string[]> {
   const patterns = [
     "apps/*/package.json",
     "packages/*/package.json",
+    "harness/package.json",
     "supabase/package.json",
   ];
   const found = new Set<string>();

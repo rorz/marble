@@ -5,6 +5,7 @@ Our development stack:
 - Uses cataloging (via the `catalog:base` definition in `/package.json`) to define all workspace dependencies.
 - Uses Biome for formatting and linting.
 - Uses TypeScript for type-checking.
+- Uses Vitest for behavioral / integration tests.
 
 > [!IMPORTANT]
 >
@@ -19,11 +20,32 @@ Our development stack:
 > 
 > You are STRICTLY FORBIDDEN from leaving behind or ignoring any linter warnings or typecheck errors. If `bun check` surfaces a warning or error, you MUST fix it immediately. Do not proceed or "fake out" on reporting your completion of a task until this is done. The only exception is when you are CERTAIN that your changes could not have possibly caused the `bun check` failure. If you use this exception, you must confirm with the user that you are ignoring the failed check because you have beyond reasonable doubt (threshold == super high) that someone else made those changes.
 
+> [!CAUTION]
+>
+> # MANDATORY FINALE: `bun test`
+>
+> **Before reporting any task complete**, you **must** also run from the workspace root:
+>
+> ```sh
+> bun test
+> ```
+>
+> This is the **finale check**. `bun check` validates that the code compiles, formats, lints, and passes the structural harness. `bun test` validates that the code actually *behaves correctly* — it exercises the API surface, store layer, and any other behavioral contract that has a test.
+>
+> Rules:
+>
+> 1. Every task ends with `bun test`. There are no exceptions for "I only changed a comment" or "I only touched docs" or "this is trivial." Run it anyway.
+> 2. If `bun test` fails, you MUST fix it. Treat a `bun test` failure with the **same** severity as a `bun check` failure. The same exception process (verify-with-the-user-with-extreme-rigor that you didn't cause it) applies and only applies.
+> 3. NEVER skip `bun test` because "it's slow" or "Supabase isn't running locally" or "I'd rather let the user catch it." Start Supabase if it isn't running. If the test infrastructure genuinely isn't set up for the area you touched, tell the user explicitly and ask before declaring the task complete.
+> 4. `bun test` runs AFTER `bun check`. Order matters — a `bun check` failure is cheaper to fix and shorter to read than a `bun test` failure, so always clear `bun check` first.
+> 5. Treat unexplained `bun test` flake the same as a hard failure. If a test fails intermittently, that is a bug in the test or in the code under test — never just "retry it."
+> 6. When you add or change a behavior that has a test, your change must include updates to the relevant test. Do not file a PR where production code shifted and the test that exercises it didn't move.
+
 ### NEVER
 1. Install a package at the root unless you are absolutely sure you know what you're doing.
 2. Install a package _without first_ adding it to the catalog (`catalog.base`) in the root package.json
 3. Install packages without asking for approval, or install packages that do simple shit you can just write a library file for yourself
-4. Report back to me without first running `bun check` and either getting a clean slate or explicitly applying the `bun check` exception above.
+4. Report back to me without first running `bun check` AND `bun test` and either getting a clean slate on both, or explicitly applying the exception process above. **A task is not complete until both have passed.**
 5. Create "single-use" scripts, packages, or apps.
 6. Create superfluous tooling functionality, such as tests for a module that's only just been created.
 7. "Deprecate" code paths, functions, or methods unless you are absolutely sure they are being heavily used or are structurally imperative for the entire system to function. Just delete "legacy" code... that's what Git is for.
@@ -34,7 +56,7 @@ Our development stack:
 12. Edit environment files yourself. Never modify `.env`, `.env.local`, `.env.*`, Vercel env files, or other local environment configuration files. If an environment value needs to change, tell the user the exact variable name and value to set, and let the user make the edit.
 
 ### ALWAYS
-1. Run `bun check` after every checkpoint, and at the very least when you "think" you are ready and done with a task.
+1. Run `bun check` after every checkpoint, and at the very least when you "think" you are ready and done with a task. Then run `bun test` as the mandatory finale — see the **MANDATORY FINALE** block above. Do not report completion until both are green.
 2. Use available package scripts. If you see an opportunity to create a new script or package, make sure you always inspect every other package first in order to ensure you are following best practices.
 3. Write your best, formatted TypeScript, following functional design patterns where possible.
 4. Start with larger files (ideally a single file) first, clearly demarcated and modularized within the file, instead of lots of modular files. This helps your human mentally grapple and contain the changes you are making before deciding how to modularize them.
@@ -107,7 +129,7 @@ IMPORTANT!! You **must** read [Internal Design Guide](./docs/internal/design-gui
 12. **No "almost-X" lookalikes.** Do not assemble `border + bg + rounded` shapes in route code that mimic an existing primitive's surface. If `MarbleCard`, `MarblePane`, `MarbleListRow`, `MarbleAlert`, or another primitive exists, use it. Extend primitives that cannot bend to your need; never duplicate their visual language inline.
 13. **Tokens, not literals.** Use the project's color tokens (`taupe-*`, `zinc-*`, `orange-*`, `red-*`, `emerald-*`, `amber-*`, `sky-*`, `cyan-*`, `violet-*`), the Tailwind 4px spacing ramp, the established radii (`rounded-xs`, `rounded-sm`), and the project's named utilities:
     - **Typography:** `text-eyebrow-xs` (10px / 0.18em), `text-eyebrow` (11px / 0.22em), `text-eyebrow-lg` (11px / 0.24em). No more `text-[Xpx] tracking-[X.XXem] uppercase` cocktails.
-    - **Inset highlights:** `shadow-marble-highlight`, `shadow-marble-highlight-strong`, `shadow-marble-highlight-soft`. No more `shadow-[inset_0_1px_0_rgba(255,255,255,0.X)]` literals.
+    - **Inset highlights:** compose Tailwind directly — `inset-shadow-2xs inset-shadow-white/{70|90|45}`. No bespoke `shadow-marble-highlight*` tokens. No `shadow-[inset_0_1px_0_rgba(255,255,255,0.X)]` literals.
     - **Accent stripes:** `shadow-marble-stripe-left`, `shadow-marble-stripe-top`. No more `shadow-[inset_Xpx_X_X_X_#f97316]` literals.
     - **Surfaces:** `bg-workbench-surface`. No more `bg-[linear-gradient(...,#hex,...)]` arbitrary gradients in route code.
     Hex literals, arbitrary `[123px]` values, and bespoke opacities for chrome do not belong in route code. If a token is missing, **extend the token system in `apps/web/src/app/globals.css`** rather than synthesize one inline. Raw hex literals are acceptable only in third-party theme escape hatches (e.g. `themeQuartz.withParams(...)`) with named constants that map to the equivalent Tailwind token — see `GRID_THEME_COLORS` in `apps/web/src/app/(gui)/tables/[id]/view.tsx` for the canonical pattern.

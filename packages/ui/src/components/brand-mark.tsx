@@ -8,7 +8,7 @@ export function MarbleBrandMark({ className }: MarbleBrandMarkProps) {
   return (
     <div
       className={cx(
-        "relative flex size-8 shrink-0 items-center justify-center rounded-xs border border-orange-200/80 bg-white shadow-marble-highlight-strong",
+        "relative flex size-8 shrink-0 items-center justify-center rounded-xs border border-orange-200/80 bg-white inset-shadow-2xs inset-shadow-white/90",
         className,
       )}
     >

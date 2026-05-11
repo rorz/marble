@@ -661,23 +661,23 @@ export default function UiPage() {
             </DemoPanel>
 
             <DemoPanel
-              description="Inset highlight shadows for subtle dimensional lift. Apply on top of border + bg, never as the sole surface treatment."
+              description="Inset highlight shadows for subtle dimensional lift — compose Tailwind's inset-shadow utilities directly. Apply on top of border + bg, never as the sole surface treatment."
               title="Inset highlights"
             >
               <div className="grid grid-cols-3 gap-3">
-                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 shadow-marble-highlight">
+                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 inset-shadow-2xs inset-shadow-white/70">
                   <span className="font-mono text-[11px] text-taupe-500">
-                    shadow-marble-highlight
+                    inset-shadow-2xs inset-shadow-white/70
                   </span>
                 </div>
-                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 shadow-marble-highlight-strong">
+                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 inset-shadow-2xs inset-shadow-white/90">
                   <span className="font-mono text-[11px] text-taupe-500">
-                    shadow-marble-highlight-strong
+                    inset-shadow-2xs inset-shadow-white/90
                   </span>
                 </div>
-                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 shadow-marble-highlight-soft">
+                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 inset-shadow-2xs inset-shadow-white/45">
                   <span className="font-mono text-[11px] text-taupe-500">
-                    shadow-marble-highlight-soft
+                    inset-shadow-2xs inset-shadow-white/45
                   </span>
                 </div>
               </div>
@@ -825,7 +825,7 @@ export default function UiPage() {
             </DemoPanel>
 
             <DemoPanel
-              description="Shared toast chrome for editor lifecycle nudges and background sync feedback."
+              description="Shared toast chrome for editor lifecycle nudges and background sync feedback. The `MarbleToaster` provider is mounted once at the app root layout; `marbleToast(...)` and its `.success() / .error() / .message()` variants are the call sites consumers use throughout the app."
               title="Toasts"
             >
               <div className="flex flex-wrap gap-3">

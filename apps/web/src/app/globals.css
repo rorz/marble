@@ -13,12 +13,13 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-jetbrains-mono);
 
-  /* Marble inset highlight shadows */
-  --shadow-marble-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  --shadow-marble-highlight-strong: inset 0 1px 0 rgba(255, 255, 255, 0.92);
-  --shadow-marble-highlight-soft: inset 0 1px 0 rgba(255, 255, 255, 0.45);
-
-  /* Marble accent stripes */
+  /*
+   * Marble accent stripes — kept as named tokens because there's no clean
+   * Tailwind primitive for "one-sided inset bar, no offset, no content
+   * displacement." `border-l-2` displaces content, `inset-ring-*` is all-
+   * sided. Everything else (inset highlights, surfaces, drop shadows) goes
+   * through Tailwind utilities directly.
+   */
   --shadow-marble-stripe-left: inset 2px 0 0 0 var(--color-orange-500);
   --shadow-marble-stripe-top: inset 0 2px 0 0 var(--color-orange-500);
 
@@ -214,9 +215,19 @@
   text-transform: uppercase;
 }
 
-/* Warm blueprint-paper gradient used as the workbench surface canvas. */
+/*
+ * Warm blueprint-paper gradient used as the workbench surface canvas.
+ * Kept as a named utility because it carries the product's "work area"
+ * identity — Tailwind's gradient utilities can approximate this with
+ * `bg-linear-to-b from-taupe-50 to-taupe-100` but the named token reads
+ * more clearly at consumer sites.
+ */
 @utility bg-workbench-surface {
-  background: linear-gradient(180deg, #f8f5ee 0%, #f4efe6 100%);
+  background: linear-gradient(
+    180deg,
+    var(--color-taupe-50) 0%,
+    var(--color-taupe-100) 100%
+  );
 }
 
 @media (prefers-color-scheme: dark) {

@@ -52,7 +52,7 @@ export function MarketingLogoMark({
       )}
     >
       {glyph ? (
-        <span className="flex size-9 items-center justify-center rounded-full border-2 border-current/40 text-current shadow-marble-highlight">
+        <span className="flex size-9 items-center justify-center rounded-full border-2 border-current/40 text-current inset-shadow-2xs inset-shadow-white/70">
           {glyph}
         </span>
       ) : null}

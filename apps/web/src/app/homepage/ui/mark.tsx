@@ -30,7 +30,7 @@ export function MarketingPin({
   return (
     <span
       className={cx(
-        "inline-flex size-20 items-center justify-center rounded-full border-2 text-center font-display font-medium text-base leading-tight tracking-tight shadow-marble-highlight",
+        "inline-flex size-20 items-center justify-center rounded-full border-2 text-center font-display font-medium text-base leading-tight tracking-tight inset-shadow-2xs inset-shadow-white/70",
         TONES[tone],
         className,
       )}

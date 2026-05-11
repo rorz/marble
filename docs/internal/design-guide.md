@@ -177,15 +177,32 @@ For small uppercase labels and metadata captions. Apply your own font-weight and
 
 **Forbidden:** `text-[10px] tracking-[0.18em] uppercase`, `text-[11px] tracking-[0.22em] uppercase`, `text-[11px] tracking-[0.24em] uppercase` and similar literal cocktails. The closest token is the answer.
 
+### Token Naming Discipline
+
+**Reach for Tailwind first.** The default Tailwind palette and scale already covers almost everything we render. Before reaching for the `@theme` or `@utility` blocks in `globals.css`, prove that Tailwind doesn't already express the thing you want.
+
+The rule:
+
+1. If a Tailwind utility exists for the property + scale (`shadow-md`, `inset-shadow-2xs`, `inset-ring-1`, `bg-linear-to-b from-taupe-100 to-white`, `text-eyebrow-xs`, etc.) — **use it**. Composing the existing utilities is always preferable to inventing a new token.
+2. If Tailwind's scale is missing a size and we genuinely need it, **extend the scale** — e.g. add `--shadow-3xl` (numeric continuation), not `--shadow-marble-preview-direct` (semantic name).
+3. **Semantic / descriptive token names are forbidden** for anything that already has a Tailwind scale — no `shadow-marble-preview-direct`, `bg-workbench-sheet`, `text-button-primary`, `border-card-active`. These read as bespoke design vocabulary and create a parallel naming system that fragments the codebase.
+4. The **only** exceptions are tokens whose identity is intrinsically semantic and cannot be expressed as a size variant — most notably **animations** (`--animate-marketing-marquee`, `--animate-blink`), which need explicit names to carry their behavior, and the workspace canvas backdrop where Tailwind doesn't have a matching gradient.
+5. **No raw hex / rgb / rgba / hsl literals** anywhere — not in route code, not in `@theme`, not in `@utility`. Use Tailwind's palette via class utilities (`bg-taupe-100/95`) or `var(--color-*)` in CSS expressions. The only escape hatches are third-party theme adapters (e.g. AG Grid's `themeQuartz`) where named constants must mirror their Tailwind equivalents.
+
+If you reach for a new shadow/gradient/color token and it doesn't fit the scale-extension pattern, **stop**. Compose the Tailwind primitives, even if the result is slightly less polished. We tighten visual polish later; we don't accept named-token sprawl now.
+
 ### Inset highlight shadows
 
-Subtle dimensional lift for tiles, marks, and active surfaces. **Always** pair with a real border + bg.
+Subtle dimensional lift for tiles, marks, and active surfaces. **Always** pair with a real border + bg. **Compose Tailwind directly** — there are no bespoke `--shadow-marble-highlight*` tokens.
 
-- **`shadow-marble-highlight`** — `inset 0 1px 0 rgba(255,255,255,0.7)`. Standard active / selected highlight (icon tiles, selectable tiles, profile marks).
-- **`shadow-marble-highlight-strong`** — `inset 0 1px 0 rgba(255,255,255,0.92)`. Stronger highlight for compact chrome (workspace marks, command surfaces, activity glyphs).
-- **`shadow-marble-highlight-soft`** — `inset 0 1px 0 rgba(255,255,255,0.45)`. Soft highlight for dense panels.
+`inset-shadow-2xs` (Tailwind built-in, = `inset 0 1px rgb(0 0 0 / 0.05)`) is the geometry foundation; tint it with `inset-shadow-{color}/{alpha}`:
 
-**Forbidden:** `shadow-[inset_0_1px_0_rgba(255,255,255,0.X)]` literals.
+- Standard active highlight → `inset-shadow-2xs inset-shadow-white/70`
+- Strong highlight (workspace marks, command surfaces, activity glyphs) → `inset-shadow-2xs inset-shadow-white/90`
+- Soft highlight (dense panels) → `inset-shadow-2xs inset-shadow-white/45`
+- Orange focus ring (active / selected list item, preview state) → `inset-ring-1 inset-ring-orange-500/40`
+
+**Forbidden:** `shadow-[inset_0_1px_0_rgba(255,255,255,0.X)]` literals, **and** adding bespoke `--shadow-marble-highlight*` tokens to `globals.css`.
 
 ### Accent stripes
 
@@ -194,21 +211,31 @@ Active / selected indicator stripes for list rows and tabs.
 - **`shadow-marble-stripe-left`** — `inset 2px 0 0 0 var(--color-orange-500)`. Left-edge stripe for list rows and sidebar items.
 - **`shadow-marble-stripe-top`** — `inset 0 2px 0 0 var(--color-orange-500)`. Top-edge stripe for tabs.
 
-**Forbidden:** `shadow-[inset_Xpx_X_X_X_#f97316]` literals.
+These are the **only retained `--shadow-marble-*` tokens.** They survive the no-named-tokens rule because Tailwind has no primitive for "one-sided inset bar, no offset, no content displacement" — `border-l-2 border-orange-500` displaces content by 2px, `inset-ring-*` is all-sided, and arbitrary `shadow-[inset_2px_0_0_0_var(--color-orange-500)]` is verbose to inline ~8× across the codebase. The named tokens earn their keep.
 
-### Surface utilities
+**Forbidden:** new `shadow-marble-stripe-*` variants beyond the two above. Hand-rolled `shadow-[inset_Xpx_X_X_X_#f97316]` literals.
 
-- **`bg-workbench-surface`** — warm blueprint-paper gradient for editor / dock canvases. Use for the dense work-area backdrop.
+### Surface utilities and gradients
 
-**Forbidden:** `bg-[linear-gradient(...,#hex,...)]` arbitrary gradients in route code. If you need a new gradient, add a named utility to `globals.css`.
+**Use Tailwind gradient utilities.** `bg-linear-to-b from-{color}/{alpha} to-{color}/{alpha}` covers nearly every paper / sheet / tab gradient we need. Examples from the codebase:
+
+- Floating sidebar / sheet surface → `bg-linear-to-b from-taupe-100/95 to-white/95`
+- Elevated card surface → `bg-linear-to-b from-taupe-50/95 to-white/95`
+- Workbench tab strip → `bg-linear-to-b from-taupe-200/90 to-taupe-100/95`
+
+The `bg-workbench-surface` utility is **the one named surface that survives** — it represents the dense work-area canvas where the warm paper-on-paper identity is part of the product's visual language. It's defined in `globals.css` using `var(--color-taupe-50)` → `var(--color-taupe-100)` (Tailwind palette, no raw hex).
+
+**Forbidden:**
+
+- `bg-[linear-gradient(...,#hex,...)]` arbitrary gradients with raw hex/rgba in route code.
+- Adding new `@utility bg-workbench-*` variants in `globals.css` for one- or two-site consumers — reach for `bg-linear-to-b from-X to-Y` instead.
 
 ### Color tokens
 
-- Use the project's color tokens (`taupe-*`, `zinc-*`, `orange-*`, `red-*`, `emerald-*`, `amber-*`, `sky-*`, `cyan-*`, `violet-*`, etc.) for every color decision.
-- The Tailwind v4 `@theme` block at `:root` exposes every color as a CSS custom property (e.g. `var(--color-orange-600)`). Use these in inline `<style>` blocks or third-party theme escape hatches.
-- **Forbidden:** raw hex literals in render code, with two narrow exceptions:
-  1. Third-party theme escape hatches like `themeQuartz.withParams(...)` where named constants reference the Tailwind token they mirror (see `GRID_THEME_COLORS` in `apps/web/src/app/(gui)/tables/[id]/view.tsx`).
-  2. The `globals.css` `@theme` and `@utility` blocks themselves.
+- Use the Tailwind palette (`taupe-*`, `zinc-*`, `orange-*`, `red-*`, `emerald-*`, `amber-*`, `sky-*`, `cyan-*`, `violet-*`, `stone-*`, `mauve-*`, `mist-*`, `olive-*`, etc. — Tailwind 4.2 includes the warm and cool earth-tone families natively) for every color decision.
+- The `@theme` block at `:root` exposes every color as a CSS custom property (e.g. `var(--color-orange-600)`). Use these in `@utility` declarations or third-party theme escape hatches; **never** raw hex / rgba inside them.
+- Apply alpha with the `/N` modifier — `bg-taupe-100/95`, `from-white/95`, `inset-shadow-white/70`.
+- **Forbidden:** raw hex / rgb / rgba / hsl literals **anywhere** including `globals.css` `@theme` and `@utility` blocks. Old hex literals in `bg-workbench-surface` are grandfathered; new tokens must use `var(--color-*)`. The only true escape hatch is third-party theme escape hatches like `themeQuartz.withParams(...)`, where named constants reference the Tailwind token they mirror (see `GRID_THEME_COLORS` in `apps/web/src/app/(gui)/tables/[id]/view.tsx`).
 
 ## Icon Library Policy
 
@@ -260,8 +287,10 @@ Each of these patterns was hand-rolled across the codebase in the past. Each has
 - ❌ `useState(isOpen)` + manual portal for a trigger-anchored dropdown → use `MarbleContextPopover`.
 - ❌ `<pre>{token}</pre>` + a separate Copy button → use `<MarbleCopyField label value />`.
 - ❌ `text-[Xpx] tracking-[X.XXem] uppercase` → use `text-eyebrow-*`.
-- ❌ `shadow-[inset_0_1px_0_rgba(255,255,255,0.X)]` → use `shadow-marble-highlight*`.
-- ❌ `shadow-[inset_Xpx_X_X_X_#f97316]` → use `shadow-marble-stripe-left` / `shadow-marble-stripe-top`.
+- ❌ `shadow-[inset_0_1px_0_rgba(255,255,255,0.X)]` → use `inset-shadow-2xs inset-shadow-white/{N}`. Do not add new `--shadow-marble-*` tokens.
+- ❌ `shadow-[inset_Xpx_X_X_X_#f97316]` → use `inset-ring-1 inset-ring-orange-500/{N}` or `border-l-2 border-orange-500` / `border-t-2 border-orange-500`. The legacy `shadow-marble-stripe-*` tokens are not the answer for new code.
+- ❌ Adding any new bespoke `--shadow-marble-*`, `--bg-workbench-*`, `--text-eyebrow-*-variant` token to `globals.css` for a one- or two-site consumer. **Compose Tailwind primitives instead.** If you genuinely need a new size step, extend the scale numerically (e.g. `--shadow-3xl`) — never invent a semantic name (`--shadow-marble-preview-direct`, `--bg-workbench-sheet` are forbidden).
+- ❌ Raw hex / rgb / rgba / hsl literals in `globals.css` `@theme` or `@utility` blocks. Use `var(--color-*)` Tailwind palette variables.
 - ❌ `bg-[linear-gradient(...,#hex,...)]` in route code → add a named `@utility` in `globals.css`.
 - ❌ Raw hex literals (`#fafafa`, `#ea580c`, `#f87171`, ...) in render code → use Tailwind class or `var(--color-*)` CSS custom property.
 - ❌ `@heroicons/react` imports → use Phosphor.

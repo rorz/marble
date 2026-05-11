@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@marble/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:base",
+    "typescript": "catalog:base"
+  },
+  "name": "@marble/harness",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0"
+}

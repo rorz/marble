@@ -174,7 +174,7 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
 });
 
 const shellPanelClassName =
-  "bg-taupe-300 border-taupe-400 shadow-marble-highlight-soft";
+  "bg-taupe-300 border-taupe-400 inset-shadow-2xs inset-shadow-white/45";
 const editorTabBaseClassName =
   "group flex h-10 shrink-0 items-center gap-2 border-r border-taupe-300 px-3 text-[12px] transition-colors";
 const editorTabActiveClassName =

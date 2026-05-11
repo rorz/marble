@@ -227,7 +227,7 @@ export function MarbleWorkbenchTabs({
   return (
     <div
       className={cx(
-        "flex min-w-0 items-stretch overflow-x-auto border-b border-taupe-300 bg-[linear-gradient(180deg,rgba(236,229,220,0.92)_0%,rgba(246,242,236,0.95)_100%)]",
+        "flex min-w-0 items-stretch overflow-x-auto border-b border-taupe-300 bg-linear-to-b from-taupe-200/90 to-taupe-100/95",
         className,
       )}
       role="tablist"

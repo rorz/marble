@@ -486,7 +486,7 @@ export function MarbleContextPopover({
                   key={getSectionKey(section)}
                 >
                   {section.label ? (
-                    <div className="px-3 pb-1 font-medium text-[10px] text-zinc-400 uppercase tracking-[0.2em]">
+                    <div className="px-3 pb-1 font-medium text-eyebrow-xs text-zinc-400">
                       {section.label}
                     </div>
                   ) : null}

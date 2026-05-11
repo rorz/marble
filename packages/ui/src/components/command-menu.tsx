@@ -6,7 +6,7 @@ import type { ComponentProps } from "react";
 import { cx } from "../utils/cx";
 
 const marbleCommandRootBaseClassName =
-  "flex h-full w-full flex-col overflow-hidden bg-white text-taupe-900 shadow-marble-highlight-strong";
+  "flex h-full w-full flex-col overflow-hidden bg-white text-taupe-900 inset-shadow-2xs inset-shadow-white/90";
 
 const marbleCommandRootClassName = cx(
   marbleCommandRootBaseClassName,

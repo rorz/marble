@@ -78,7 +78,7 @@ export function MarketingDial({
     <div className={cx("flex flex-col items-center gap-3", className)}>
       <div
         className={cx(
-          "relative isolate flex items-center justify-center rounded-full border-2 shadow-marble-highlight",
+          "relative isolate flex items-center justify-center rounded-full border-2 inset-shadow-2xs inset-shadow-white/70",
           KNOB_SIZES[size],
           surface,
         )}
@@ -224,7 +224,7 @@ export function MarketingFader({
         {/* Handle */}
         <span
           className={cx(
-            "absolute left-1/2 flex h-5 w-7 -translate-x-1/2 items-center justify-center rounded-xs border-2 shadow-marble-highlight transition-all duration-200",
+            "absolute left-1/2 flex h-5 w-7 -translate-x-1/2 items-center justify-center rounded-xs border-2 inset-shadow-2xs inset-shadow-white/70 transition-all duration-200",
             handleSurface,
           )}
           style={{

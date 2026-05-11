@@ -88,7 +88,7 @@ const isProjectMutation =
 
 function ResourceEmptyStateIcon({ children }: { children: ReactNode }) {
   return (
-    <div className="flex size-14 items-center justify-center rounded-full border border-orange-200/40 bg-orange-50/35 text-orange-500/45 shadow-marble-highlight">
+    <div className="flex size-14 items-center justify-center rounded-full border border-orange-200/40 bg-orange-50/35 text-orange-500/45 inset-shadow-2xs inset-shadow-white/70">
       {children}
     </div>
   );

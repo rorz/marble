@@ -302,7 +302,7 @@ function ProfileAvatar({
   }
 
   return (
-    <div className="flex size-11 shrink-0 items-center justify-center rounded-xs border border-taupe-200 bg-linear-to-br from-white via-taupe-50 to-orange-50 shadow-marble-highlight">
+    <div className="flex size-11 shrink-0 items-center justify-center rounded-xs border border-taupe-200 bg-linear-to-br from-white via-taupe-50 to-orange-50 inset-shadow-2xs inset-shadow-white/70">
       <span
         aria-hidden="true"
         className="text-2xl leading-none"

@@ -18,6 +18,7 @@ export type {
   ApiContext,
   ApiTimingEntry,
   MarbleApiConfig,
+  MarbleApiRuntime,
 } from "./context";
 export {
   createHostedApiContext,

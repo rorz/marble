@@ -35,7 +35,7 @@ function ProfileMark({
     <span
       aria-hidden="true"
       className={cx(
-        "inline-flex size-4 shrink-0 items-center justify-center rounded-[4px] border text-[10px] leading-none shadow-marble-highlight",
+        "inline-flex size-4 shrink-0 items-center justify-center rounded-[4px] border text-[10px] leading-none inset-shadow-2xs inset-shadow-white/70",
         profile.type === "Human"
           ? "border-taupe-700 bg-taupe-600 font-semibold text-white"
           : "border-taupe-200 bg-linear-to-br from-white via-taupe-50 to-orange-50",

@@ -150,7 +150,7 @@ function ActivityMeter({
   return (
     <div
       className={cx(
-        "flex h-2.5 w-full min-w-0 overflow-hidden rounded-full border border-taupe-200/80 bg-white/70 shadow-[inset_0_1px_1px_rgba(255,255,255,0.85)]",
+        "flex h-2.5 w-full min-w-0 overflow-hidden rounded-full border border-taupe-200/80 bg-white/70 inset-shadow-2xs inset-shadow-white/90",
         className,
       )}
     >
@@ -185,7 +185,7 @@ function ActivityGlyph({
           pulse ? "opacity-100" : "opacity-0",
         )}
       />
-      <div className="relative flex size-8 items-center justify-center rounded-xs border border-taupe-200/90 bg-white shadow-marble-highlight-strong">
+      <div className="relative flex size-8 items-center justify-center rounded-xs border border-taupe-200/90 bg-white inset-shadow-2xs inset-shadow-white/90">
         <div className="flex w-4 flex-col gap-[2px]">
           <ActivityMeter
             className="h-[3px] rounded-[999px] border-0 bg-transparent shadow-none"
@@ -441,7 +441,7 @@ export function MarbleActivityRadarPanel({
   return (
     <div
       className={cx(
-        "flex min-h-0 flex-col overflow-hidden rounded-sm border border-taupe-300/80 bg-[linear-gradient(180deg,rgba(248,245,238,0.96)_0%,rgba(255,255,255,0.96)_100%)] text-taupe-900 shadow-[0_12px_24px_rgba(84,57,26,0.08)]",
+        "flex min-h-0 flex-col overflow-hidden rounded-sm border border-taupe-300/80 bg-linear-to-b from-taupe-50/95 to-white/95 text-taupe-900 shadow-lg shadow-taupe-900/10",
         className,
       )}
       {...props}

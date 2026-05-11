@@ -42,10 +42,27 @@ interface Rule {
 }
 
 const isTsLike = (p: string): boolean => /\.(ts|tsx|mts|cts)$/.test(p);
+
+/**
+ * Any UI surface — product GUI, marketing routes, shared UI primitives.
+ * Used for rules that apply universally to UI code.
+ */
 const isUiSurface = (p: string): boolean =>
   isTsLike(p) && (p.startsWith("apps/web/") || p.startsWith("packages/ui/"));
+
+/**
+ * Product UI surfaces only — excludes marketing routes which carry their
+ * own visual language and intentionally bypass the product design system
+ * (see AGENTS.md UI rule 7).
+ */
+const isProductUi = (p: string): boolean =>
+  isUiSurface(p) && !p.startsWith("apps/web/src/app/homepage/");
+
 const isPackageJson = (p: string): boolean =>
   p === "package.json" || p.endsWith("/package.json");
+
+const isGlobalsCss = (p: string): boolean =>
+  p === "apps/web/src/app/globals.css";
 
 const RULES: readonly Rule[] = [
   {
@@ -89,15 +106,15 @@ const RULES: readonly Rule[] = [
       "Use <MarbleModalClose /> or <MarbleSheetClose />. The unicode \u00d7 glyph is never the answer.",
   },
   {
-    applies: isUiSurface,
+    applies: isProductUi,
     id: "no-inline-shadow-token",
     link: "AGENTS.md UI rule 13",
     pattern: /shadow-\[inset_/g,
     reason:
-      "Use shadow-marble-highlight, shadow-marble-highlight-strong, shadow-marble-highlight-soft, or shadow-marble-stripe-* tokens.",
+      "Compose Tailwind primitives: `inset-shadow-2xs inset-shadow-{color}/{alpha}` for inset highlights, `inset-ring-N inset-ring-{color}/{alpha}` for inset rings. Stripes (shadow-marble-stripe-left/top) are the only retained bespoke tokens.",
   },
   {
-    applies: isUiSurface,
+    applies: isProductUi,
     id: "no-inline-gradient",
     link: "AGENTS.md UI rule 13",
     pattern: /bg-\[linear-gradient/g,
@@ -105,7 +122,7 @@ const RULES: readonly Rule[] = [
       "Use bg-workbench-surface or extend tokens in apps/web/src/app/globals.css.",
   },
   {
-    applies: isUiSurface,
+    applies: isProductUi,
     id: "no-text-tracking-cocktail",
     link: "AGENTS.md UI rule 13",
     pattern: /text-\[\d+px\][^"'`]{0,80}tracking-\[/g,
@@ -119,6 +136,39 @@ const RULES: readonly Rule[] = [
     pattern: /"[\w:-]+"\s*:\s*"[^"]*\bnpx\b[^"]*"/g,
     reason:
       "Use bun, bunx, or invoke binaries directly (e.g. `supabase`). Never npx.",
+  },
+  {
+    applies: isGlobalsCss,
+    id: "no-bespoke-shadow-token",
+    link: "design-guide.md Token Naming Discipline",
+    // Match any `--shadow-marble-*` token definition EXCEPT the retained
+    // stripe-left / stripe-top, which are the sole survivors of the
+    // no-named-tokens rule (no Tailwind primitive for one-sided inset bars).
+    pattern: /^\s*--shadow-marble-(?!stripe-(?:left|top)\b)[a-z0-9-]+\s*:/gm,
+    reason:
+      "Compose Tailwind primitives at the consumer site (e.g. `inset-shadow-2xs inset-shadow-white/70`). The only retained `--shadow-marble-*` tokens are stripe-left and stripe-top — see design-guide.md.",
+  },
+  {
+    applies: isGlobalsCss,
+    id: "no-bespoke-bg-utility",
+    link: "design-guide.md Token Naming Discipline",
+    // Match any `@utility bg-*` declaration EXCEPT the retained
+    // bg-workbench-surface (product identity canvas).
+    pattern: /@utility\s+bg-(?!workbench-surface\b)[a-z0-9-]+/g,
+    reason:
+      "Compose Tailwind gradient utilities at the consumer site (`bg-linear-to-b from-X to-Y` with alpha modifiers). The only retained `@utility bg-*` is `bg-workbench-surface`.",
+  },
+  {
+    applies: isGlobalsCss,
+    id: "no-raw-hex-in-shadow-token",
+    link: "design-guide.md Token Naming Discipline",
+    // Catch raw hex / rgba inside shadow token definitions specifically.
+    // Broader hex/rgba in keyframes and marketing @utility blocks is
+    // grandfathered for now and tracked separately.
+    pattern:
+      /^\s*--shadow-[a-z0-9-]+\s*:[^;]*(?:#[0-9a-fA-F]{3,8}\b|\brgba?\()/gm,
+    reason:
+      "Shadow tokens must use Tailwind palette refs (`var(--color-*)`) or `--alpha(var(--color-*) / N%)`. Raw hex / rgba is forbidden.",
   },
 ];
 
@@ -194,9 +244,10 @@ function isSkipped(relPath: string): boolean {
 }
 
 const SCAN_GLOBS: readonly string[] = [
-  "apps/**/*.{ts,tsx,mts,cts,json}",
-  "packages/**/*.{ts,tsx,mts,cts,json}",
+  "apps/**/*.{ts,tsx,mts,cts,json,css}",
+  "packages/**/*.{ts,tsx,mts,cts,json,css}",
   "supabase/**/*.{ts,tsx,mts,cts,json}",
+  "harness/**/*.{ts,tsx,mts,cts,json}",
   "package.json",
 ];
 

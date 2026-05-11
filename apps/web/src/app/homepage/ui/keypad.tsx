@@ -10,19 +10,19 @@ import type { PropsWithChildren, ReactNode } from "react";
 const KEY_TONES = {
   cream: cx(
     "border-taupe-700 bg-taupe-100 text-taupe-900",
-    "shadow-marble-highlight",
+    "inset-shadow-2xs inset-shadow-white/70",
   ),
   dark: cx(
     "border-taupe-900 bg-taupe-800 text-taupe-50",
-    "shadow-marble-highlight-strong",
+    "inset-shadow-2xs inset-shadow-white/90",
   ),
   midnight: cx(
     "border-taupe-900/80 bg-taupe-900 text-taupe-50",
-    "shadow-marble-highlight-soft",
+    "inset-shadow-2xs inset-shadow-white/45",
   ),
   orange: cx(
     "border-orange-800 bg-orange-500 text-orange-50",
-    "shadow-marble-highlight-strong",
+    "inset-shadow-2xs inset-shadow-white/90",
   ),
 } as const;
 
@@ -75,7 +75,7 @@ export function MarketingKey({
         KEY_SIZES[size],
         active ? KEY_TONES.orange : KEY_TONES[tone],
         pressable &&
-          "hover:-translate-y-0.5 hover:shadow-marble-highlight-strong active:translate-y-0",
+          "hover:-translate-y-0.5 hover:inset-shadow-2xs hover:inset-shadow-white/90 active:translate-y-0",
         attention && "animate-marketing-pulse-ring",
         className,
       )}

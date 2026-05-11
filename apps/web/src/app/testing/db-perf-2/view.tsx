@@ -1226,7 +1226,7 @@ function TimingList({
           >
             <div>{formatMs(entry.durationMs)}</div>
             {entry.kind === "wall" ? (
-              <div className="font-medium text-[9px] text-taupe-500 uppercase tracking-[0.12em]">
+              <div className="font-medium text-eyebrow-xs text-taupe-500">
                 wall
               </div>
             ) : null}

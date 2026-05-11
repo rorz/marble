@@ -192,7 +192,7 @@ export function MarketingCardGlyph({
   return (
     <div
       className={cx(
-        "flex size-14 items-center justify-center rounded-xs border-2 border-current/30 text-current shadow-marble-highlight",
+        "flex size-14 items-center justify-center rounded-xs border-2 border-current/30 text-current inset-shadow-2xs inset-shadow-white/70",
         className,
       )}
     >

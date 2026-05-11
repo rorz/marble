@@ -1037,7 +1037,7 @@ function RowNumberCell(props: CustomCellRendererProps) {
 function CellRunningIndicator() {
   return (
     <div
-      className="pointer-events-none absolute top-0 bottom-0 z-0 overflow-hidden bg-zinc-100/80 shadow-[inset_0_0_8px_rgba(0,0,0,0.05)]"
+      className="pointer-events-none absolute top-0 bottom-0 z-0 overflow-hidden bg-zinc-100/80 inset-shadow-sm"
       style={{
         left: "calc(var(--marble-table-cell-padding-inline, 0px) * -1)",
         right: "calc(var(--marble-table-cell-padding-inline, 0px) * -1)",

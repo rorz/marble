@@ -22,7 +22,7 @@ export function MarbleAccountMark({
     return (
       <span
         className={cx(
-          "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-xs border border-taupe-200 bg-white shadow-marble-highlight",
+          "relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-xs border border-taupe-200 bg-white inset-shadow-2xs inset-shadow-white/70",
           className,
         )}
       >
@@ -42,7 +42,7 @@ export function MarbleAccountMark({
     <span
       aria-hidden={initials === "?" ? "true" : undefined}
       className={cx(
-        "relative flex size-8 shrink-0 select-none items-center justify-center rounded-xs border border-taupe-200 bg-taupe-100 font-medium text-taupe-700 text-xs uppercase tracking-wider shadow-marble-highlight",
+        "relative flex size-8 shrink-0 select-none items-center justify-center rounded-xs border border-taupe-200 bg-taupe-100 font-medium text-taupe-700 text-xs uppercase tracking-wider inset-shadow-2xs inset-shadow-white/70",
         className,
       )}
     >
