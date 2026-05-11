@@ -15,7 +15,7 @@ export type ApiKey = {
   preview: string;
 };
 
-export type ApiKeyAuth = {
+type ApiKeyAuth = {
   keyId: string;
   profileId: string;
   userId?: string;

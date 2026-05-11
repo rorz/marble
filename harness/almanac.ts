@@ -18,105 +18,12 @@
  *      the almanac has been written ahead of the code, and the surface
  *      will catch up.
  *
- * The almanac uses prose-with-structure:
- *
- *     ## projects
- *     ...
- *     Allowed operations:
- *     - `create` - Description.
- *     - `list` - Description.
- *
- * Non-resource sections (`Review Rule For Agents`, `Action And RPC Rules`,
- * `Internal worker runtime`) are deliberately skipped — they don't enumerate
- * public operations on a resource.
- *
  * Worker runtime operations (`@marble/store` internals invoked by executor /
  * ingestor) are a different surface and not yet validated here.
  */
 
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { marbleContract } from "@marble/contracts";
-
-const REPO_ROOT = resolve(import.meta.dir, "..");
-const ALMANAC_REL_PATH = "docs/internal/data-interface-definitions.md";
-
-/**
- * Sections in the almanac that look like `## name` but are NOT resources.
- * Keeping this allowlisted means the parser fails closed: if a new
- * non-resource section is added, the validator complains until it's added
- * here intentionally.
- */
-const NON_RESOURCE_SECTIONS = new Set<string>([
-  "Review Rule For Agents",
-  "Action And RPC Rules",
-  "Internal worker runtime",
-]);
-
-interface ResourceAlmanacEntry {
-  allowed: Set<string>;
-  name: string;
-}
-
-function parseAlmanac(source: string): {
-  resources: Map<string, ResourceAlmanacEntry>;
-  unknownSections: string[];
-} {
-  const resources = new Map<string, ResourceAlmanacEntry>();
-  const unknownSections: string[] = [];
-
-  // Find all `## ` header positions. JS regex has no `\Z` end-of-input
-  // anchor, so we use a two-pass approach: first index every header, then
-  // slice between consecutive headers (with the final header running to
-  // end-of-file).
-  const headers: Array<{
-    title: string;
-    bodyStart: number;
-  }> = [];
-  const headerRegex = /^##\s+(.+?)\s*$/gm;
-  let headerMatch: RegExpExecArray | null = headerRegex.exec(source);
-  while (headerMatch !== null) {
-    headers.push({
-      bodyStart: headerMatch.index + headerMatch[0].length,
-      title: headerMatch[1].trim(),
-    });
-    headerMatch = headerRegex.exec(source);
-  }
-
-  for (let i = 0; i < headers.length; i++) {
-    const { title, bodyStart } = headers[i];
-    const bodyEnd =
-      i + 1 < headers.length ? headers[i + 1].bodyStart : source.length;
-    const body = source.slice(bodyStart, bodyEnd);
-
-    if (NON_RESOURCE_SECTIONS.has(title)) continue;
-
-    const allowedMatch =
-      /Allowed operations:\s*\n+((?:- `[^`]+`[^\n]*\n?)+)/.exec(body);
-    if (!allowedMatch) {
-      unknownSections.push(title);
-      continue;
-    }
-
-    const allowed = new Set<string>();
-    const bulletRegex = /- `([^`]+)`/g;
-    let bulletMatch: RegExpExecArray | null = bulletRegex.exec(allowedMatch[1]);
-    while (bulletMatch !== null) {
-      allowed.add(bulletMatch[1]);
-      bulletMatch = bulletRegex.exec(allowedMatch[1]);
-    }
-
-    resources.set(title, {
-      allowed,
-      name: title,
-    });
-  }
-
-  return {
-    resources,
-    unknownSections,
-  };
-}
+import { parseAlmanac, readAlmanac } from "./lib";
 
 function extractContractOperations(): Map<string, Set<string>> {
   const result = new Map<string, Set<string>>();
@@ -132,15 +39,15 @@ function extractContractOperations(): Map<string, Set<string>> {
 interface DriftReport {
   /** Operations in the almanac with no contract implementation. Info. */
   almanacNotInContract: Array<{
-    resource: string;
     operation: string;
+    resource: string;
   }>;
   /** Resources in the almanac with no contract entry. Info. */
   almanacResourceNotInContract: string[];
   /** Operations on the contract that are NOT in the almanac. Hard error. */
   contractNotInAlmanac: Array<{
-    resource: string;
     operation: string;
+    resource: string;
   }>;
   /** Resources on the contract that are NOT in the almanac at all. Hard error. */
   contractResourceNotInAlmanac: string[];
@@ -150,7 +57,7 @@ interface DriftReport {
 
 function diff(
   contract: Map<string, Set<string>>,
-  almanac: Map<string, ResourceAlmanacEntry>,
+  almanac: ReturnType<typeof parseAlmanac>["resources"],
   unknownSections: string[],
 ): DriftReport {
   const contractNotInAlmanac: DriftReport["contractNotInAlmanac"] = [];
@@ -282,7 +189,7 @@ function report(d: DriftReport): {
         console.warn(`    - ${s}`);
       }
       console.warn(
-        "    Action: either give the section an Allowed operations: list, or add it to NON_RESOURCE_SECTIONS in harness/almanac.ts.",
+        "    Action: either give the section an Allowed operations: list, or add it to NON_RESOURCE_SECTIONS in harness/lib.ts.",
       );
       console.warn("");
     }
@@ -293,11 +200,7 @@ function report(d: DriftReport): {
   };
 }
 
-const almanacSource = readFileSync(
-  resolve(REPO_ROOT, ALMANAC_REL_PATH),
-  "utf8",
-);
-const { resources: almanac, unknownSections } = parseAlmanac(almanacSource);
+const { resources: almanac, unknownSections } = parseAlmanac(readAlmanac());
 const contract = extractContractOperations();
 const driftReport = diff(contract, almanac, unknownSections);
 const { failed } = report(driftReport);

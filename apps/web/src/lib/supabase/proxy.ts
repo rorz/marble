@@ -7,15 +7,10 @@ const PROTECTED_PATHS = [
   "/automations",
   "/events",
   "/help",
-  "/integrations",
-  "/pipes",
   "/profiles",
   "/programs",
   "/projects",
   "/secrets",
-  "/sources",
-  "/tables",
-  "/test-programs",
 ];
 
 function isProtectedPath(pathname: string): boolean {

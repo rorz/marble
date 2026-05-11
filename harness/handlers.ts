@@ -4,11 +4,17 @@
  * harness/handlers.ts
  *
  * Asserts that every operation listed in the data interface almanac has a
- * wired handler in `packages/api/src/router/<resource>.ts`, and that every
- * wired handler is mounted in the top-level `marbleRouter`.
+ * wired handler in either of the two supported layouts:
  *
- * Compared to harness/almanac.ts (contract ↔ almanac), this rail closes the
- * loop on the *implementation* side: contract → handler → mounted router.
+ *   1. flat   — packages/api/src/router/<resource>.ts
+ *   2. nested — packages/api/src/<resource>/actions.ts
+ *               + packages/api/src/<resource>/index.ts (boundary)
+ *
+ * The nested layout is the documented preference for resources whose
+ * implementation has outgrown a single flat router file (see AGENTS.md
+ * "Repository Convention Discipline"). Both layouts produce the same
+ * `<resource>Router` export and must be mounted in `marbleRouter` at
+ * `packages/api/src/router/index.ts`.
  *
  * Three checks:
  *
@@ -17,7 +23,9 @@
  *   3. ERROR — a `<resource>Router` exists on disk but is not mounted in
  *              `marbleRouter` at `packages/api/src/router/index.ts`.
  *
- * Strategy: parse the router files statically. Each follows the same shape:
+ * Strategy: parse the router source statically. Each router source —
+ * whether `router/<resource>.ts` or `<resource>/actions.ts` — follows
+ * the same shape:
  *
  *     export const projectRouter = {
  *       create: os.projects.create.handler(...),
@@ -27,110 +35,48 @@
  *
  * That lets us:
  *   - Extract the resource name from the `satisfies` annotation.
- *   - Extract operation names from the literal keys of the object.
+ *   - Extract operation names from `os.<resource>.<op>.handler` callsites.
  */
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { Glob } from "bun";
+import { collectFiles, parseAlmanac, REPO_ROOT, readAlmanac } from "./lib";
 
-const REPO_ROOT = resolve(import.meta.dir, "..");
-const ALMANAC_REL_PATH = "docs/internal/data-interface-definitions.md";
 const ROUTER_DIR = "packages/api/src/router";
 const ROUTER_INDEX = `${ROUTER_DIR}/index.ts`;
-
-const NON_RESOURCE_SECTIONS = new Set<string>([
-  "Review Rule For Agents",
-  "Action And RPC Rules",
-  "Internal worker runtime",
-]);
-
-interface AlmanacEntry {
-  allowed: Set<string>;
-  name: string;
-}
-
-function parseAlmanac(source: string): Map<string, AlmanacEntry> {
-  const resources = new Map<string, AlmanacEntry>();
-  const headers: Array<{
-    title: string;
-    bodyStart: number;
-  }> = [];
-  const headerRegex = /^##\s+(.+?)\s*$/gm;
-  let headerMatch: RegExpExecArray | null = headerRegex.exec(source);
-  while (headerMatch !== null) {
-    headers.push({
-      bodyStart: headerMatch.index + headerMatch[0].length,
-      title: headerMatch[1].trim(),
-    });
-    headerMatch = headerRegex.exec(source);
-  }
-
-  for (let i = 0; i < headers.length; i++) {
-    const { title, bodyStart } = headers[i];
-    const bodyEnd =
-      i + 1 < headers.length ? headers[i + 1].bodyStart : source.length;
-    const body = source.slice(bodyStart, bodyEnd);
-
-    if (NON_RESOURCE_SECTIONS.has(title)) continue;
-
-    const allowedMatch =
-      /Allowed operations:\s*\n+((?:- `[^`]+`[^\n]*\n?)+)/.exec(body);
-    if (!allowedMatch) continue;
-
-    const allowed = new Set<string>();
-    const bulletRegex = /- `([^`]+)`/g;
-    let m: RegExpExecArray | null = bulletRegex.exec(allowedMatch[1]);
-    while (m !== null) {
-      allowed.add(m[1]);
-      m = bulletRegex.exec(allowedMatch[1]);
-    }
-
-    resources.set(title, {
-      allowed,
-      name: title,
-    });
-  }
-
-  return resources;
-}
+const API_SRC = "packages/api/src";
 
 interface RouterFile {
   filePath: string;
+  layout: "flat" | "nested";
   operations: Set<string>;
   resource: string;
 }
 
 /**
- * Parse a router file for `export const <resource>Router = { ... } satisfies
- * RouterResourcePart<"<resource>">`.
+ * Parse a router source file for `export const <resource>Router = { ... }
+ * satisfies RouterResourcePart<"<resource>">`.
  *
  * Returns the resource name (from the satisfies annotation) and the set of
  * operation keys. Object keys are simple identifiers; the parser tolerates
  * keys preceded by whitespace + line comments + multi-line handler bodies.
  */
-function parseRouterFile(filePath: string, source: string): RouterFile | null {
-  // The satisfies annotation is the most reliable source of the resource
-  // name — the variable name (`projectRouter`) could in theory diverge.
+function parseRouterFile(
+  filePath: string,
+  source: string,
+  layout: "flat" | "nested",
+): RouterFile | null {
   const satisfiesMatch = /satisfies\s+RouterResourcePart<"([^"]+)">/.exec(
     source,
   );
   if (!satisfiesMatch) return null;
   const resource = satisfiesMatch[1];
 
-  // Find the router object body. Match `export const <name>Router = {` then
-  // capture up to the matching `}` followed by ` satisfies`.
   const bodyMatch =
     /export\s+const\s+\w+Router\s*=\s*\{([\s\S]*?)\}\s*satisfies/.exec(source);
   if (!bodyMatch) return null;
   const body = bodyMatch[1];
 
-  // Extract top-level keys. A handler key looks like:
-  //
-  //   create: os.<resource>.create.handler(
-  //
-  // We exploit the fact that every handler invocation references the
-  // operation by name in `os.<resource>.<op>.handler`.
   const keys = new Set<string>();
   const opRegex = new RegExp(`os\\.${resource}\\.(\\w+)\\.handler\\b`, "g");
   let m: RegExpExecArray | null = opRegex.exec(body);
@@ -141,6 +87,7 @@ function parseRouterFile(filePath: string, source: string): RouterFile | null {
 
   return {
     filePath,
+    layout,
     operations: keys,
     resource,
   };
@@ -148,23 +95,37 @@ function parseRouterFile(filePath: string, source: string): RouterFile | null {
 
 async function collectRouterFiles(): Promise<RouterFile[]> {
   const result: RouterFile[] = [];
-  const glob = new Glob("*.ts");
-  for await (const file of glob.scan({
-    absolute: false,
-    cwd: resolve(REPO_ROOT, ROUTER_DIR),
-  })) {
-    if (file === "index.ts") continue;
-    const rel = `${ROUTER_DIR}/${file}`;
+
+  // Flat layout: packages/api/src/router/<resource>.ts (excluding index.ts).
+  const flatFiles = await collectFiles([
+    `${ROUTER_DIR}/*.ts`,
+  ]);
+  for (const rel of flatFiles) {
+    if (rel === ROUTER_INDEX) continue;
     const source = readFileSync(resolve(REPO_ROOT, rel), "utf8");
-    const parsed = parseRouterFile(rel, source);
+    const parsed = parseRouterFile(rel, source, "flat");
     if (parsed) result.push(parsed);
   }
+
+  // Nested layout: packages/api/src/<resource>/actions.ts.
+  // Glob skips the `router/` directory (its files were handled above) and
+  // any directory whose actions.ts is missing (not all subdirs are nested
+  // resources — e.g. shared helpers — and the satisfies-annotation match
+  // is the disambiguator anyway).
+  const nestedFiles = await collectFiles([
+    `${API_SRC}/*/actions.ts`,
+  ]);
+  for (const rel of nestedFiles) {
+    const source = readFileSync(resolve(REPO_ROOT, rel), "utf8");
+    const parsed = parseRouterFile(rel, source, "nested");
+    if (parsed) result.push(parsed);
+  }
+
   return result;
 }
 
 function parseMountedResources(indexSource: string): Set<string> {
   const mounted = new Set<string>();
-  // marbleRouter object literal: each line is `<resource>: <ident>Router,`
   const objectMatch =
     /marbleRouter\s*=\s*os\.router\(\s*\{([\s\S]*?)\}\s*\)/.exec(indexSource);
   if (!objectMatch) return mounted;
@@ -178,18 +139,29 @@ function parseMountedResources(indexSource: string): Set<string> {
   return mounted;
 }
 
-const almanacSource = readFileSync(
-  resolve(REPO_ROOT, ALMANAC_REL_PATH),
-  "utf8",
-);
 const indexSource = readFileSync(resolve(REPO_ROOT, ROUTER_INDEX), "utf8");
 
-const almanac = parseAlmanac(almanacSource);
+const { resources: almanac } = parseAlmanac(readAlmanac());
 const routerFiles = await collectRouterFiles();
 const mountedResources = parseMountedResources(indexSource);
 
 const routerByResource = new Map<string, RouterFile>();
+const duplicateResources: Array<{
+  resource: string;
+  paths: string[];
+}> = [];
 for (const rf of routerFiles) {
+  const existing = routerByResource.get(rf.resource);
+  if (existing) {
+    duplicateResources.push({
+      paths: [
+        existing.filePath,
+        rf.filePath,
+      ],
+      resource: rf.resource,
+    });
+    continue;
+  }
   routerByResource.set(rf.resource, rf);
 }
 
@@ -197,14 +169,26 @@ interface Issue {
   filePath?: string;
   kind:
     | "almanac-op-missing-handler"
+    | "almanac-resource-no-router"
+    | "duplicate-router"
     | "handler-not-in-almanac"
-    | "router-not-mounted"
-    | "almanac-resource-no-router";
+    | "router-not-mounted";
   operation?: string;
+  paths?: string[];
   resource: string;
 }
 
 const issues: Issue[] = [];
+
+// A resource declaring both `router/<resource>.ts` AND `<resource>/actions.ts`
+// is structural drift — only one home is allowed.
+for (const dup of duplicateResources) {
+  issues.push({
+    kind: "duplicate-router",
+    paths: dup.paths,
+    resource: dup.resource,
+  });
+}
 
 // Check 1: every almanac op has a handler.
 for (const [resource, entry] of almanac) {
@@ -231,8 +215,6 @@ for (const [resource, entry] of almanac) {
 for (const rf of routerFiles) {
   const entry = almanac.get(rf.resource);
   if (!entry) {
-    // No almanac entry at all — this is also covered by harness/almanac.ts.
-    // Don't double-report; just flag any handlers as drift.
     for (const op of rf.operations) {
       issues.push({
         filePath: rf.filePath,
@@ -267,13 +249,14 @@ for (const rf of routerFiles) {
 }
 
 if (issues.length === 0) {
+  const totalOps = [
+    ...almanac.values(),
+  ].reduce((sum, e) => sum + e.allowed.size, 0);
+  const nestedCount = routerFiles.filter((r) => r.layout === "nested").length;
   console.log(
-    `harness/handlers: OK (${routerFiles.length} router files, ${[
-      ...almanac.values(),
-    ].reduce(
-      (sum, e) => sum + e.allowed.size,
-      0,
-    )} almanac operations all wired)`,
+    `harness/handlers: OK (${routerFiles.length} router files${
+      nestedCount > 0 ? ` — ${nestedCount} nested` : ""
+    }, ${totalOps} almanac operations all wired)`,
   );
   process.exit(0);
 }
@@ -288,6 +271,21 @@ const missingHandlers = issues.filter(
 const driftHandlers = issues.filter((i) => i.kind === "handler-not-in-almanac");
 const notMounted = issues.filter((i) => i.kind === "router-not-mounted");
 const noRouter = issues.filter((i) => i.kind === "almanac-resource-no-router");
+const duplicates = issues.filter((i) => i.kind === "duplicate-router");
+
+if (duplicates.length > 0) {
+  console.error("  Resources with both a flat and nested router (pick one):");
+  for (const i of duplicates) {
+    console.error(`    ${i.resource}`);
+    for (const p of i.paths ?? []) {
+      console.error(`      - ${p}`);
+    }
+  }
+  console.error(
+    "    Action: delete the flat router file (`packages/api/src/router/<resource>.ts`) once the nested layout is in place, or vice versa.",
+  );
+  console.error("");
+}
 
 if (missingHandlers.length > 0) {
   console.error("  Almanac operations with no router handler:");
@@ -295,7 +293,7 @@ if (missingHandlers.length > 0) {
     console.error(`    ${i.resource}.${i.operation}`);
   }
   console.error(
-    `    Action: add the handler to packages/api/src/router/${missingHandlers[0].resource}.ts.`,
+    `    Action: add the handler to packages/api/src/router/${missingHandlers[0].resource}.ts (flat) or packages/api/src/${missingHandlers[0].resource}/actions.ts (nested).`,
   );
   console.error("");
 }
@@ -328,7 +326,7 @@ if (noRouter.length > 0) {
     console.error(`    ${i.resource}`);
   }
   console.error(
-    `    Action: create packages/api/src/router/<resource>.ts (or hyphenated equivalent).`,
+    `    Action: create packages/api/src/router/<resource>.ts (flat) or packages/api/src/<resource>/{actions,index}.ts (nested).`,
   );
   console.error("");
 }

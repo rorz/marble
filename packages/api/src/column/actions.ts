@@ -1,3 +1,21 @@
+/**
+ * packages/api/src/column/actions.ts
+ *
+ * Columns are the first resource to adopt the nested-router layout
+ * documented in AGENTS.md ("Repository Convention Discipline"). The
+ * router file at `packages/api/src/router/column.ts` would have grown to
+ * carry contract-side validation for both `outputSchema` and
+ * `runCondition`, plus the input-template + dependency wiring that
+ * already lives on the store. Pulling that logic into a co-located
+ * `<resource>/actions.ts` module keeps the router shape declarative
+ * and gives the validation a stable home as the resource grows.
+ *
+ * The import boundary is `packages/api/src/column/index.ts`, which is
+ * what `packages/api/src/router/index.ts` mounts on `marbleRouter`.
+ * Nothing else in the API package should import from this file
+ * directly.
+ */
+
 import { ColumnOutputSchema, ColumnRunCondition } from "@marble/contracts";
 import { os } from "../server";
 import type { RouterResourcePart } from "../types";

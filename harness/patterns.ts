@@ -24,9 +24,14 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { Glob } from "bun";
-
-const REPO_ROOT = resolve(import.meta.dir, "..");
+import {
+  collectFiles,
+  hasIgnore,
+  lineAt,
+  locate,
+  prevLine,
+  REPO_ROOT,
+} from "./lib";
 
 interface Rule {
   /** File-scope predicate. The full repo-relative path is passed. */
@@ -138,6 +143,19 @@ const RULES: readonly Rule[] = [
       "Use bun, bunx, or invoke binaries directly (e.g. `supabase`). Never npx.",
   },
   {
+    applies: isUiSurface,
+    id: "no-handrolled-anchor-dropdown",
+    link: "AGENTS.md UI rule 25",
+    // A useState that controls open/close paired (within the same file,
+    // within ~2KB of source) with a mousedown listener used for click-
+    // outside detection. The combination is the canonical hand-rolled
+    // anchor-dropdown smell.
+    pattern:
+      /useState[^;]{0,400}\(\s*(?:false|true)\s*\)[\s\S]{0,2000}?addEventListener\(\s*["']mousedown["']/g,
+    reason:
+      "Use <MarbleContextPopover sections|items|content>. Hand-rolled trigger-anchored dropdowns are a UX, a11y, and design-system regression.",
+  },
+  {
     applies: isGlobalsCss,
     id: "no-bespoke-shadow-token",
     link: "design-guide.md Token Naming Discipline",
@@ -180,69 +198,6 @@ interface Finding {
   rule: Rule;
 }
 
-function locate(
-  source: string,
-  index: number,
-): {
-  line: number;
-  col: number;
-} {
-  let line = 1;
-  let lastNl = -1;
-  for (let i = 0; i < index; i++) {
-    if (source.charCodeAt(i) === 10) {
-      line++;
-      lastNl = i;
-    }
-  }
-  return {
-    col: index - lastNl,
-    line,
-  };
-}
-
-function lineAt(source: string, index: number): string {
-  let start = index;
-  while (start > 0 && source.charCodeAt(start - 1) !== 10) start--;
-  let end = index;
-  while (end < source.length && source.charCodeAt(end) !== 10) end++;
-  return source.slice(start, end);
-}
-
-function prevLine(source: string, index: number): string {
-  let start = index;
-  while (start > 0 && source.charCodeAt(start - 1) !== 10) start--;
-  if (start === 0) return "";
-  // start points at the newline preceding the current line; walk back one line.
-  const prevEnd = start - 1;
-  let prevStart = prevEnd;
-  while (prevStart > 0 && source.charCodeAt(prevStart - 1) !== 10) prevStart--;
-  return source.slice(prevStart, prevEnd);
-}
-
-function hasIgnore(line: string, ruleId: string): boolean {
-  // Capture a comma-separated list of kebab-case rule ids. Stops at the first
-  // non-id character, so trailing ` -- justification` text is ignored.
-  const m = /harness-ignore:\s*([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)/i.exec(line);
-  if (!m) return false;
-  return m[1]
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .includes(ruleId);
-}
-
-const SKIP_DIR_SEGMENTS = new Set([
-  ".next",
-  ".turbo",
-  "build",
-  "dist",
-  "node_modules",
-]);
-
-function isSkipped(relPath: string): boolean {
-  return relPath.split("/").some((seg) => SKIP_DIR_SEGMENTS.has(seg));
-}
-
 const SCAN_GLOBS: readonly string[] = [
   "apps/**/*.{ts,tsx,mts,cts,json,css}",
   "packages/**/*.{ts,tsx,mts,cts,json,css}",
@@ -251,24 +206,8 @@ const SCAN_GLOBS: readonly string[] = [
   "package.json",
 ];
 
-async function collectFiles(): Promise<string[]> {
-  const seen = new Set<string>();
-  for (const pattern of SCAN_GLOBS) {
-    const glob = new Glob(pattern);
-    for await (const file of glob.scan({
-      absolute: false,
-      cwd: REPO_ROOT,
-    })) {
-      if (!isSkipped(file)) seen.add(file);
-    }
-  }
-  return [
-    ...seen,
-  ].sort();
-}
-
 async function scan(): Promise<Finding[]> {
-  const files = await collectFiles();
+  const files = await collectFiles(SCAN_GLOBS);
   const findings: Finding[] = [];
 
   for (const relPath of files) {

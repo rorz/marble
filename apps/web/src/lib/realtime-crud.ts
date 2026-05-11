@@ -1,4 +1,4 @@
-export type RealtimePayload<Row> = {
+type RealtimePayload<Row> = {
   eventType: "DELETE" | "INSERT" | "UPDATE";
   new: Partial<Row>;
   old: Partial<Row>;

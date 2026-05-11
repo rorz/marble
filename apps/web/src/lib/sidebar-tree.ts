@@ -36,7 +36,7 @@ export type SidebarPipeRow = {
   updatedAt: string;
 };
 
-export type SidebarProfileRecord = {
+type SidebarProfileRecord = {
   externalName: null | string;
   icon: null | string;
   id: string;

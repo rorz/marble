@@ -46,6 +46,16 @@ export type MarbleContextPopoverProps = {
   asChild?: boolean;
   children?: ReactNode;
   className?: string;
+  /**
+   * Free-form content to render inside the popover body in place of
+   * `items` / `sections`. Use this for forms or other arbitrary
+   * controls that don't fit the menu-item shape. When `content` is
+   * provided, `items` / `sections` are ignored and keyboard
+   * arrow-navigation between items is disabled (the consuming content
+   * owns its own focus order).
+   */
+  content?: ReactNode;
+  contentClassName?: string;
   disabled?: boolean;
   header?: ReactNode;
   items?: MarbleContextPopoverItem[];
@@ -55,7 +65,7 @@ export type MarbleContextPopoverProps = {
   triggerClassName?: string;
 } & Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
-  "aria-label" | "children" | "disabled" | "type"
+  "aria-label" | "children" | "content" | "disabled" | "type"
 >;
 
 function getEnabledItemIndexes(items: MarbleContextPopoverItem[]) {
@@ -68,6 +78,8 @@ export function MarbleContextPopover({
   asChild = false,
   children,
   className,
+  content,
+  contentClassName,
   disabled = false,
   header,
   items = [],
@@ -83,6 +95,7 @@ export function MarbleContextPopover({
   const buttonRef = useRef<HTMLElement | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  // harness-ignore: no-handrolled-anchor-dropdown -- this IS the primitive
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<null | {
     left: number;
@@ -117,7 +130,11 @@ export function MarbleContextPopover({
     ],
   );
   const enabledItemIndexes = getEnabledItemIndexes(flattenedItems);
-  const isTriggerDisabled = disabled || flattenedItems.length === 0;
+  // When `content` is provided the trigger is always enabled (the free-form
+  // body decides what's inside). Otherwise the menu variant disables the
+  // trigger when there are no items.
+  const isTriggerDisabled =
+    disabled || (content === undefined && flattenedItems.length === 0);
 
   const getItemKey = (item: MarbleContextPopoverItem) =>
     item.id ??
@@ -448,8 +465,36 @@ export function MarbleContextPopover({
       }
     };
 
+  // Free-form content takes precedence over items/sections. The popover
+  // chrome (positioning, click-outside, escape) still applies, but the
+  // host owns the body markup and focus order.
+  const contentNode =
+    isOpen && portalTarget && content !== undefined
+      ? createPortal(
+          <div
+            className={cx(
+              "fixed z-[1000] min-w-36 rounded-xs border border-zinc-200 bg-white shadow-lg shadow-zinc-950/10",
+              menuClassName,
+            )}
+            id={menuId}
+            ref={menuRef}
+            role="dialog"
+            style={{
+              left: menuPosition?.left ?? 0,
+              top: menuPosition?.top ?? 0,
+              visibility: menuPosition ? "visible" : "hidden",
+            }}
+            tabIndex={-1}
+          >
+            {header ? <div className="px-3 pt-3">{header}</div> : null}
+            <div className={cx("p-3", contentClassName)}>{content}</div>
+          </div>,
+          portalTarget,
+        )
+      : null;
+
   const menuNode =
-    isOpen && portalTarget
+    isOpen && portalTarget && content === undefined
       ? createPortal(
           <div
             className={cx(
@@ -561,6 +606,7 @@ export function MarbleContextPopover({
     >
       {renderTrigger()}
       {menuNode}
+      {contentNode}
     </div>
   );
 }

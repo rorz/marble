@@ -1378,57 +1378,6 @@ export function GuiShell({
           onSelect: () => navigateFromCommandPalette("/programs"),
         },
         {
-          detail: "/tables",
-          icon: (
-            <TableIcon
-              className="h-4 w-4"
-              weight="duotone"
-            />
-          ),
-          id: "command-palette-tables",
-          keywords: [
-            "rows",
-            "columns",
-            "schema",
-          ],
-          label: "Open tables",
-          onSelect: () => navigateFromCommandPalette("/tables"),
-        },
-        {
-          detail: "/sources",
-          icon: (
-            <FunnelIcon
-              size={16}
-              weight="duotone"
-            />
-          ),
-          id: "command-palette-sources",
-          keywords: [
-            "source",
-            "webhook",
-            "ingest",
-          ],
-          label: "Open sources",
-          onSelect: () => navigateFromCommandPalette("/sources"),
-        },
-        {
-          detail: "/pipes",
-          icon: (
-            <PipeIcon
-              size={16}
-              weight="duotone"
-            />
-          ),
-          id: "command-palette-pipes",
-          keywords: [
-            "pipe",
-            "mapping",
-            "ingest",
-          ],
-          label: "Open pipes",
-          onSelect: () => navigateFromCommandPalette("/pipes"),
-        },
-        {
           detail: "/secrets",
           icon: (
             <KeyIcon

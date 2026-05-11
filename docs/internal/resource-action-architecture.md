@@ -1,9 +1,26 @@
 # Resource Action Architecture Spec
 
-Status: proposal seed  
+Status: live roadmap  
 Audience: API, database, CLI, and GUI architecture work
 
-This document sketches the target architecture for Marble's next data layer. The goal is not to build a prettier ORM. The goal is to make every resource operation composable, injectable, auditable, realtime-aware, and boring to route through every client surface.
+This document is the architectural spine for Marble's data layer. It describes the target shape, calls out what is already in place, and points at the dated plans that drive the remaining migration. Keep it honest — when a phase lands, mark it ✅ here in the same commit.
+
+## Current Status
+
+| Pillar | State |
+|---|---|
+| Broadcast as the application realtime primitive | ✅ All product code uses private Supabase Broadcast channels. `postgres_changes` survives only in the `/testing/db-perf*` benches that informed the decision. The `harness/realtime.ts` rail keeps listener ↔ publication coupling mechanical. |
+| `packages/api` as the only data gateway | ✅ Web, CLI, executor, and ingestor route through the API surface for application data. Workers retain direct `@marble/store` access for the documented internal-runtime methods only (`keys.authenticateToken`, `sources.authorizeWebhook`, `sourceEvents.ingestWebhook`, `programRuns.*`). |
+| CLI rails as contract pass-through | ✅ Every CLI command is derived from `marbleContract` in `packages/cli/src/root.ts`. `program-dir` is the sole non-pass-through helper. |
+| `<resource>/actions.ts` nested layout | 🟡 Adopted for `column` as proof. `harness/handlers.ts` understands both layouts. Other resources stay flat until they grow validation/business-logic bodies. |
+| Validation-layer API tests | ✅ 17 resources × ~5 tests each; throwing-Proxy store in `_setup.ts` ensures any leak past oRPC validation fails loudly. No Supabase required. |
+| Integration tests | ❌ `createIntegrationContext()` scaffolded in `_setup.ts` but unwired. Highest-leverage next test bet: `tables.insertRows` end-to-end. |
+| DB-owned event recording (transactional) | ❌ `packages/store/src/db.ts:writeEventRecord` is still application-side. Migration plan: `.opencode/plans/2026-05-12-events-in-db-rollout.md`. |
+| Resource registry helper (`defineResource`) | ❌ Contracts and store still co-evolve manually. Tracked in `.opencode/plans/2026-05-12-resource-registry.md`. |
+| Change-radar/spotlight as `@marble/ui` primitive | ❌ Still 3,062 LOC of route-local logic. Tracked in `.opencode/plans/2026-05-12-change-feed-primitive.md`. |
+| God-file splits (`programs/view.tsx`, `tables/[id]/view.tsx`) | 🟡 Tables view moved to canonical URL + `grid-theme.ts` seam extracted. Full split tracked in `.opencode/plans/2026-05-12-view-splits.md`. |
+
+This document sketches the target architecture for Marble's data layer. The goal is not to build a prettier ORM. The goal is to make every resource operation composable, injectable, auditable, realtime-aware, and boring to route through every client surface.
 
 ## Problem Statement
 

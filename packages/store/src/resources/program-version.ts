@@ -10,7 +10,7 @@ import { toCamelKeys } from "../types";
 
 export type ProgramVersion = Entity<"program_version">;
 
-export type ProgramVersionWriteInput = {
+type ProgramVersionWriteInput = {
   inputSchema?: unknown;
   outputConfig?: unknown;
   publish?: boolean;

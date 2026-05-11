@@ -14,7 +14,7 @@ import { secretOperations } from "./resources/entities/secret";
 import { secretBindingOperations } from "./resources/entities/secret-binding";
 import { sidebarOperations } from "./resources/entities/sidebar";
 import { sourceOperations } from "./resources/entities/source";
-import { sourceEventOperations } from "./resources/entities/source_event";
+import { sourceEventOperations } from "./resources/entities/source-event";
 import { tableOperations } from "./resources/entities/table";
 
 export type { JsonValue } from "./resources/base";

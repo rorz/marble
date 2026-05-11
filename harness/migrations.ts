@@ -15,21 +15,14 @@
  * is the contract. This rail catches missing renames immediately.
  */
 
-import { resolve } from "node:path";
-import { Glob } from "bun";
+import { collectFiles } from "./lib";
 
-const REPO_ROOT = resolve(import.meta.dir, "..");
 const MIGRATIONS_DIR = "supabase/migrations";
 
-const files: string[] = [];
-const glob = new Glob("*.sql");
-for await (const file of glob.scan({
-  absolute: false,
-  cwd: resolve(REPO_ROOT, MIGRATIONS_DIR),
-})) {
-  files.push(file);
-}
-files.sort();
+const all = await collectFiles([
+  `${MIGRATIONS_DIR}/*.sql`,
+]);
+const files = all.map((f) => f.slice(MIGRATIONS_DIR.length + 1));
 
 const squashedFiles = files.filter((f) => /^\d+_squashed_schema\.sql$/.test(f));
 const otherFiles = files.filter((f) => !squashedFiles.includes(f));

@@ -16,7 +16,7 @@ import type { MarketingSkyscraperProps } from "./ui/skyline";
  * store).
  */
 
-export type MarketingMetrics = {
+type MarketingMetrics = {
   cells: number;
   runs: number;
   programs: number;

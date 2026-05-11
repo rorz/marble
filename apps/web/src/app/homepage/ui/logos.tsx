@@ -461,29 +461,3 @@ export const BRAND_REGISTRY: Record<BrandId, BrandEntry> = {
     tone: "text-cyan-300",
   },
 };
-
-/**
- * Convenience — render a brand glyph by ID at a given size, with the
- * registered tone applied.
- */
-export function MarketingBrandGlyph({
-  brand,
-  size = 24,
-  className,
-  /** Override the registered tone. */
-  toneOverride,
-}: {
-  brand: BrandId;
-  size?: number;
-  className?: string;
-  toneOverride?: string;
-}) {
-  const entry = BRAND_REGISTRY[brand];
-  const Glyph = entry.Glyph;
-  return (
-    <Glyph
-      className={cx(toneOverride ?? entry.tone, className)}
-      size={size}
-    />
-  );
-}

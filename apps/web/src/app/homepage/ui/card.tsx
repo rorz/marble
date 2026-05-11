@@ -225,31 +225,6 @@ export function MarketingCardPill({
   );
 }
 
-/**
- * Renders the supplied children floated alongside the card, useful for
- * subtle annotation stickers or trailing decoration.
- */
-export function MarketingCardAside({
-  children,
-  className,
-  side = "right",
-}: PropsWithChildren<{
-  className?: string;
-  side?: "left" | "right";
-}>) {
-  return (
-    <div
-      className={cx(
-        "pointer-events-none absolute top-1/2 -translate-y-1/2",
-        side === "left" ? "-left-12" : "-right-12",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
 type MarketingPosterProps = PropsWithChildren<{
   /** Overlay heading laid on top of the children. */
   caption?: ReactNode;

@@ -4,7 +4,7 @@ import type { ApiActor, MarbleApiRuntime } from "./context";
 
 type ExecutorPayload = Record<string, unknown>;
 
-export type ExecutorProxy = (input: {
+type ExecutorProxy = (input: {
   body: unknown;
   path: string;
   search?: string;

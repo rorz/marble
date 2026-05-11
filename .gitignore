@@ -38,6 +38,8 @@ yarn-error.log*
 # cloudflare
 .wrangler/
 .dev.vars
+apps/executor/worker-configuration.d.ts
+apps/ingestor/worker-configuration.d.ts
 
 # typescript
 *.tsbuildinfo
@@ -48,3 +50,10 @@ next-env.d.ts
 
 # opencode
 .opencode
+
+# generated dep-graph render (source: dependency-graph.dot)
+dependency-graph.svg
+
+# supabase
+supabase/.branches
+supabase/.temp

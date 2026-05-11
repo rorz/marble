@@ -3,10 +3,10 @@ import type { CreateParams, Entity, UpdateParams } from "../types";
 
 export type Profile = Entity<"profile">;
 
-export type CreateProfileInput = Pick<CreateParams<"profile">, "name"> &
+type CreateProfileInput = Pick<CreateParams<"profile">, "name"> &
   Partial<Pick<CreateParams<"profile">, "externalName" | "icon" | "type">>;
 
-export type UpdateProfileInput = Partial<
+type UpdateProfileInput = Partial<
   Pick<UpdateParams<"profile">, "externalName" | "icon" | "name" | "type">
 >;
 

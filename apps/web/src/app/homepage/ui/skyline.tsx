@@ -15,7 +15,7 @@ import type { CSSProperties, ReactNode } from "react";
  * from the street" Godzilla feel. Anchor it to the bottom of a splash.
  */
 
-export type SkyscraperWindowState = "off" | "running" | "success" | "error";
+type SkyscraperWindowState = "off" | "running" | "success" | "error";
 
 export type MarketingSkyscraperProps = {
   /** Display name (rendered as a label tile on the roof). */
@@ -219,7 +219,7 @@ function defaultPattern(name: string, rows: number): SkyscraperWindowState[] {
  * with a perspective tilt (Godzilla look-up). Anchor inside a splash.
  */
 
-export type MarketingSkylineProps = {
+type MarketingSkylineProps = {
   buildings: MarketingSkyscraperProps[];
   /** Perspective tilt in degrees. Defaults to subtle 8°. */
   tilt?: number;

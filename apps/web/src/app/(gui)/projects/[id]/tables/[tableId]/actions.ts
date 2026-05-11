@@ -3,17 +3,14 @@
 import {
   createServerMarbleSdk,
   createServerMarbleSdkForTable,
-} from "../../../../lib/marble-sdk-server";
-import {
-  type FullProgram,
-  hydrateEditorPrograms,
-} from "../../../../lib/program-data";
+} from "@/lib/marble-sdk-server";
+import { type FullProgram, hydrateEditorPrograms } from "@/lib/program-data";
 import {
   listColumnSecretBindings,
   listLatestProgramSecretDeclarationsByProgramId,
   listProgramSecretBindingsForUser,
   listSecretsForUser,
-} from "../../../../lib/secret-data";
+} from "@/lib/secret-data";
 
 type ProgramVersionForColumn = FullProgram["programVersions"][number] & {
   program: FullProgram;

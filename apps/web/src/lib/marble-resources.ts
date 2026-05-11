@@ -1,10 +1,8 @@
 import { toCamelKeys } from "@marble/lib/object";
 import type { MarbleClient } from "@marble/sdk";
 
-export type MarbleProject = Awaited<
-  ReturnType<MarbleClient["projects"]["get"]>
->;
-export type MarbleTable = Awaited<ReturnType<MarbleClient["tables"]["get"]>>;
+type MarbleProject = Awaited<ReturnType<MarbleClient["projects"]["get"]>>;
+type MarbleTable = Awaited<ReturnType<MarbleClient["tables"]["get"]>>;
 export type MarbleColumn = Awaited<
   ReturnType<MarbleClient["columns"]["list"]>
 >[number];

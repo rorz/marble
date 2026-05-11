@@ -23,8 +23,8 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { REPO_ROOT } from "./lib";
 
-const REPO_ROOT = resolve(import.meta.dir, "..");
 const SEED_PATH = resolve(REPO_ROOT, "supabase/seed.sql");
 const GENERATOR_PATH = resolve(REPO_ROOT, "supabase/generate-seed.ts");
 

@@ -147,7 +147,7 @@ Every primitive in `@marble/ui`. Each entry is a one-line "use when" so you can 
 
 ### Menus & Popovers
 
-- **`MarbleContextPopover`** — every disclosure / dot-trigger / button-trigger menu. Anchored to a trigger element. Sections, items, danger tone, disabled items, optional header — all primitive concerns. **Never** hand-roll a `useState(open)` + portal dropdown for a trigger-anchored menu.
+- **`MarbleContextPopover`** — every disclosure / dot-trigger / button-trigger menu. Anchored to a trigger element. Sections, items, danger tone, disabled items, optional header — all primitive concerns. For free-form bodies (forms, custom controls), pass `content` instead of `items` / `sections`; positioning, click-outside, and escape choreography still come from the primitive. **Never** hand-roll a `useState(open)` + portal dropdown for a trigger-anchored menu.
 - **`MarbleAccountPopover` / `MarbleAccountMark`** — signed-in user identity chrome. `MarbleAccountMark` renders an `<img>` when an `avatarUrl` is provided, otherwise a two-letter initials chip derived from `displayName` (falls back to `?` when the name is empty). `MarbleAccountPopover` wraps the mark with a name + description header card and a `MarbleContextPopover` body for identity actions (account settings, sign out). Used by the GUI shell sidebar brand row.
 - **`MarbleBrandMark`** — decorative Marble glyph (orange-cornered taupe disc). Brand chrome only; carries no identity or workspace data. Use for first-party Marble surface tiles (e.g. the Programs library dock) where the brand should be visually marked.
 - **`MarbleActivityRadar` / `MarbleActivityRadarPanel` / `MarbleActivityRadarTrigger`** — agent changesets inbox.

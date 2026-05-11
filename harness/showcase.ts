@@ -24,8 +24,8 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { REPO_ROOT } from "./lib";
 
-const REPO_ROOT = resolve(import.meta.dir, "..");
 const UI_INDEX = "packages/ui/src/index.ts";
 const SHOWCASE = "apps/web/src/app/internal/ui/page.tsx";
 
@@ -80,13 +80,18 @@ const primitives = parseUiExports(uiSource);
 const seen = new Set<string>();
 const missing: PrimitiveExport[] = [];
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 for (const primitive of primitives) {
   if (seen.has(primitive.name)) continue;
   seen.add(primitive.name);
-  // Membership check: simple substring. The showcase imports the primitive
-  // (matches in the import block) AND/OR uses it as JSX (matches `<Foo`).
-  // Either is enough to count as represented.
-  if (!showcaseSource.includes(primitive.name)) {
+  // Membership check: a `\b<Name>\b` regex match. A bare substring would
+  // falsely satisfy a prefix-matching primitive (`MarbleCard` would
+  // satisfy `MarbleCardFooter`). The word-boundary forces an exact match.
+  const exactMatch = new RegExp(`\\b${escapeRegex(primitive.name)}\\b`);
+  if (!exactMatch.test(showcaseSource)) {
     missing.push(primitive);
   }
 }

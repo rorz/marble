@@ -1850,6 +1850,35 @@ export default function UiPage() {
                     <MarbleButton size="sm">Quick actions</MarbleButton>
                   </MarbleContextPopover>
                 </div>
+
+                <div className="rounded-xs border border-taupe-200 bg-white p-4">
+                  <div className="mb-3 font-medium text-eyebrow-lg text-taupe-500">
+                    Free-form content
+                  </div>
+                  <MarbleContextPopover
+                    align="end"
+                    ariaLabel="Open invite panel"
+                    asChild
+                    content={
+                      <div className="w-72 space-y-3">
+                        <div className="font-medium text-sm text-taupe-950">
+                          Invite a teammate
+                        </div>
+                        <p className="text-xs text-taupe-600">
+                          Use the `content` slot when the popover hosts a form
+                          or other arbitrary controls instead of a menu of
+                          items. Click-outside, escape, and positioning still
+                          come from the primitive.
+                        </p>
+                        <div className="flex justify-end">
+                          <MarbleButton size="sm">Send invite</MarbleButton>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <MarbleButton size="sm">Invite</MarbleButton>
+                  </MarbleContextPopover>
+                </div>
               </div>
             </DemoPanel>
 

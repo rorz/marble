@@ -1,92 +1,36 @@
-# Minimal Sandbox SDK Example
+# @marble/executor
 
-A minimal Cloudflare Worker that demonstrates the core capabilities of the Sandbox SDK.
+The Marble executor worker. Runs program code for cells in sandboxed Cloudflare containers, persists `cell.state` + `program_run.output` for every run, and cascades downstream cells whose `runCondition` is satisfied.
 
-## Features
+## Endpoints
 
-- **Command Execution**: Execute Python code in isolated containers
-- **File Operations**: Read and write files in the sandbox filesystem
-- **Simple API**: Two endpoints demonstrating basic sandbox operations
+- `POST /run?run_id=<uuid>` — execute one pending `program_run`.
+- `POST /runs` body `{ runIds: uuid[] }` — execute a batch of pending runs. Runs targeting the same column share one sandbox process.
+- `POST /test?programVersionId=<uuid>&testKey=<string?>` body `{ input: json }` — ad-hoc execution of a program version without persisting cell state. Used by `programVersions.test`.
 
-## How It Works
+## Authentication
 
-This example provides two simple endpoints:
+Two modes are accepted:
 
-1. **`/run`** - Executes Python code and returns the output
-2. **`/file`** - Creates a file, reads it back, and returns the contents
+1. Forwarded web-app context — `x-marble-auth-key-id`, `x-marble-auth-profile-id`, `x-marble-auth-user-id` headers set by the web app's API forwarder.
+2. API key — `Authorization: Bearer mbl_…` (resolved via `@marble/keys` and `store.keys.authenticateToken`).
 
-## API Endpoints
+## Architecture
 
-### Execute Python Code
+- Hono app entry in `src/index.ts`.
+- Pure execution logic in `src/runner.ts` — input resolution, secret resolution, sandbox boot, output validation, ready-dependent cell discovery.
+- Sandbox entry-file templates in `src/constants.ts` — `EXECUTOR_FILE_CONTENT` (single job) and `BATCH_EXECUTOR_FILE_CONTENT` (jobs array).
+- Storage via `@marble/store`'s `programRuns` resource. Cells move through `Queued → Running → Success/Failure` states transactionally with the `program_run` row.
 
-```bash
-GET http://localhost:3087/run
+## Development
+
+```sh
+bun run dev      # wrangler dev --port 3087 --inspector-port 9231
+bun run typegen  # regenerate worker-configuration.d.ts (gitignored)
 ```
 
-Runs `python -c "print(2 + 2)"` and returns:
+`worker-configuration.d.ts` is not tracked in git — `bun run typegen` (wired through Turborepo and root `bun check`) regenerates it.
 
-```json
-{
-  "output": "4\n",
-  "success": true
-}
-```
+## Workers context
 
-### File Operations
-
-```bash
-GET http://localhost:3087/file
-```
-
-Creates `/workspace/hello.txt`, reads it back, and returns:
-
-```json
-{
-  "content": "Hello, Sandbox!"
-}
-```
-
-## Setup
-
-1. From the project root, run:
-
-```bash
-npm install
-npm run build
-```
-
-2. Run locally:
-
-```bash
-cd examples/minimal # if you're not already here
-npm run dev
-```
-
-The first run will build the Docker container (2-3 minutes). Subsequent runs are much faster.
-
-## Testing
-
-```bash
-# Test command execution
-curl http://localhost:3087/run
-
-# Test file operations
-curl http://localhost:3087/file
-```
-
-## Deploy
-
-```bash
-npm run deploy
-```
-
-After first deployment, wait 2-3 minutes for container provisioning before making requests.
-
-## Next Steps
-
-This minimal example is the starting point for more complex applications. See the [Sandbox SDK documentation](https://developers.cloudflare.com/sandbox/) for:
-
-- Advanced command execution and streaming
-- Background processes
-- Preview URLs for exposed services
-- Custom Docker images
+See [apps/executor/AGENTS.md](./AGENTS.md) for Cloudflare-specific tooling, limits, and error pointers. Always retrieve current docs from `https://developers.cloudflare.com/workers/` before any Workers, Durable Objects, Containers, or Sandbox SDK task.

@@ -23,9 +23,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { Glob } from "bun";
-
-const REPO_ROOT = resolve(import.meta.dir, "..");
+import { collectFiles, locateLine, REPO_ROOT } from "./lib";
 
 interface ListenerSite {
   line: number;
@@ -34,21 +32,8 @@ interface ListenerSite {
   table: string;
 }
 
-function locateLine(source: string, index: number): number {
-  let line = 1;
-  for (let i = 0; i < index; i++) {
-    if (source.charCodeAt(i) === 10) line++;
-  }
-  return line;
-}
-
 async function findListenerCallsites(): Promise<ListenerSite[]> {
   const sites: ListenerSite[] = [];
-  const glob = new Glob("**/*.{ts,tsx}");
-  const roots = [
-    "apps",
-    "packages",
-  ];
 
   // Match `.on(...)` calls with `postgres_changes` as the first argument,
   // capturing the options object body up to the `},` boundary that
@@ -64,42 +49,35 @@ async function findListenerCallsites(): Promise<ListenerSite[]> {
   const callsiteRegex =
     /\.on\s*(?:<[^>]*>)?\s*\(\s*["']postgres_changes["']\s*,\s*\{([\s\S]{0,800}?)\}\s*,/g;
 
-  for (const root of roots) {
-    for await (const file of glob.scan({
-      absolute: false,
-      cwd: resolve(REPO_ROOT, root),
-    })) {
-      const rel = `${root}/${file}`;
-      if (
-        rel.split("/").some((seg) => seg === "node_modules" || seg === ".next")
-      )
-        continue;
-      const source = readFileSync(resolve(REPO_ROOT, rel), "utf8");
-      if (!source.includes("postgres_changes")) continue;
+  const files = await collectFiles([
+    "apps/**/*.{ts,tsx}",
+    "packages/**/*.{ts,tsx}",
+  ]);
 
-      callsiteRegex.lastIndex = 0;
-      let m: RegExpExecArray | null = callsiteRegex.exec(source);
-      while (m !== null) {
-        const body = m[1];
-        const schemaMatch = /\bschema\s*:\s*["']([a-zA-Z_][\w]*)["']/.exec(
-          body,
+  for (const rel of files) {
+    const source = readFileSync(resolve(REPO_ROOT, rel), "utf8");
+    if (!source.includes("postgres_changes")) continue;
+
+    callsiteRegex.lastIndex = 0;
+    let m: RegExpExecArray | null = callsiteRegex.exec(source);
+    while (m !== null) {
+      const body = m[1];
+      const schemaMatch = /\bschema\s*:\s*["']([a-zA-Z_][\w]*)["']/.exec(body);
+      const tableMatch = /\btable\s*:\s*["']([a-zA-Z_][\w]*)["']/.exec(body);
+      const line = locateLine(source, m.index);
+      if (!tableMatch) {
+        console.error(
+          `harness/realtime: WARNING ${rel}:${line} — postgres_changes listener with no \`table:\` property; cannot audit`,
         );
-        const tableMatch = /\btable\s*:\s*["']([a-zA-Z_][\w]*)["']/.exec(body);
-        const line = locateLine(source, m.index);
-        if (!tableMatch) {
-          console.error(
-            `harness/realtime: WARNING ${rel}:${line} — postgres_changes listener with no \`table:\` property; cannot audit`,
-          );
-        } else {
-          sites.push({
-            line,
-            relPath: rel,
-            schema: schemaMatch?.[1] ?? "public",
-            table: tableMatch[1],
-          });
-        }
-        m = callsiteRegex.exec(source);
+      } else {
+        sites.push({
+          line,
+          relPath: rel,
+          schema: schemaMatch?.[1] ?? "public",
+          table: tableMatch[1],
+        });
       }
+      m = callsiteRegex.exec(source);
     }
   }
 
@@ -108,12 +86,11 @@ async function findListenerCallsites(): Promise<ListenerSite[]> {
 
 async function findPublicationTables(): Promise<Set<string>> {
   const tables = new Set<string>();
-  const glob = new Glob("supabase/migrations/*.sql");
-  for await (const file of glob.scan({
-    absolute: false,
-    cwd: REPO_ROOT,
-  })) {
-    const source = readFileSync(resolve(REPO_ROOT, file), "utf8");
+  const files = await collectFiles([
+    "supabase/migrations/*.sql",
+  ]);
+  for (const rel of files) {
+    const source = readFileSync(resolve(REPO_ROOT, rel), "utf8");
     const pubRegex =
       /ALTER\s+PUBLICATION\s+"?supabase_realtime"?\s+ADD\s+TABLE\s+(?:ONLY\s+)?"?([a-zA-Z_][\w]*)"?\."?([a-zA-Z_][\w]*)"?/g;
     let m: RegExpExecArray | null = pubRegex.exec(source);

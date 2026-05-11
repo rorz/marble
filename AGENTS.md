@@ -174,6 +174,8 @@ This monorepo uses Turborepo for pretty much everything. This means that you mus
 
 IMPORTANT!! You **must** read [Data Interface Definitions](./docs/internal/data-interface-definitions.md) before adding, removing, renaming, or exposing any data operation in `packages/contracts`, `packages/api`, `packages/sdk`, `packages/cli`, or `packages/store`.
 
+The architectural spine for the data layer — current state, target shape, and migration roadmap — lives in [Resource Action Architecture](./docs/internal/resource-action-architecture.md). Read it before changing how resources are mounted, how events are recorded, or how realtime is wired.
+
 ### Interface Rules
 
 1. The data interface almanac is the semantic source of truth for allowed public data operations. Absence is intentional. Do not infer generic CRUD just because a table exists.

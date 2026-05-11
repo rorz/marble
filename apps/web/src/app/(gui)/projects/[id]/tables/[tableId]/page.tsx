@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { requireUser } from "../../../../../../lib/auth";
-import { loadTablePageDataForUser } from "../../../../tables/[id]/actions";
-import TablePageView from "../../../../tables/[id]/view";
+import { requireUser } from "@/lib/auth";
+import { loadTablePageDataForUser } from "./actions";
+import TablePageView from "./view";
 
 export default async function ProjectTablePage(props: {
   params: Promise<{

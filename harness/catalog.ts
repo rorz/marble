@@ -19,9 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { Glob } from "bun";
-
-const REPO_ROOT = resolve(import.meta.dir, "..");
+import { collectFiles, REPO_ROOT } from "./lib";
 
 interface PackageJson {
   dependencies?: Record<string, string>;
@@ -100,29 +98,12 @@ const FIELDS = [
   "peerDependencies",
 ] as const;
 
-async function discoverWorkspacePackages(): Promise<string[]> {
-  const patterns = [
-    "apps/*/package.json",
-    "packages/*/package.json",
-    "harness/package.json",
-    "supabase/package.json",
-  ];
-  const found = new Set<string>();
-  for (const pattern of patterns) {
-    const glob = new Glob(pattern);
-    for await (const file of glob.scan({
-      absolute: false,
-      cwd: REPO_ROOT,
-    })) {
-      found.add(file);
-    }
-  }
-  return [
-    ...found,
-  ].sort();
-}
-
-const packages = await discoverWorkspacePackages();
+const packages = await collectFiles([
+  "apps/*/package.json",
+  "packages/*/package.json",
+  "harness/package.json",
+  "supabase/package.json",
+]);
 
 for (const pkgPath of packages) {
   let pkg: PackageJson;
