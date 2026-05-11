@@ -6,7 +6,7 @@ import type { ComponentProps } from "react";
 import { cx } from "../utils/cx";
 
 const marbleCommandRootBaseClassName =
-  "flex h-full w-full flex-col overflow-hidden bg-white text-taupe-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]";
+  "flex h-full w-full flex-col overflow-hidden bg-white text-taupe-900 shadow-marble-highlight-strong";
 
 const marbleCommandRootClassName = cx(
   marbleCommandRootBaseClassName,
@@ -150,7 +150,7 @@ export function MarbleCommandGroup({
   return (
     <CommandPrimitive.Group
       className={cx(
-        "overflow-hidden p-1 text-taupe-800 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:text-taupe-500 [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.22em]",
+        "overflow-hidden p-1 text-taupe-800 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-eyebrow [&_[cmdk-group-heading]]:text-taupe-500",
         className,
       )}
       {...props}

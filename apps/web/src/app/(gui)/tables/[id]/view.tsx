@@ -286,16 +286,43 @@ const TABLE_CELL_LED_GUTTER_PX =
 
 // ── Theme ───────────────────────────────────────────────
 
+// AG Grid theme colors. Each entry mirrors a Tailwind v4 zinc token so the
+// grid stays in lockstep with the design system. Update both together.
+const GRID_THEME_COLORS = {
+  // zinc-50
+  background: "#fafafa",
+  // zinc-200
+  border: "#e4e4e7",
+  // zinc-900
+  foreground: "#18181b",
+  // zinc-100
+  headerBackground: "#f4f4f5",
+  // zinc-100 — matches hover row to header surface
+  rowHover: "#f4f4f5",
+} as const;
+
+const GRID_CELL_BACKGROUNDS = {
+  // zinc-100 — empty editable cell prompt
+  editableEmpty: "#f4f4f5",
+  // white — editable cell with a value
+  editableFilled: "#ffffff",
+  // zinc-50 — read-only computed cell
+  readonly: "#fafafa",
+} as const;
+
+// zinc-500 — row number gutter text color
+const GRID_ROW_NUMBER_COLOR = "#71717a";
+
 const gridTheme = themeQuartz.withParams({
-  backgroundColor: "#fafafa",
-  borderColor: "#e4e4e7",
+  backgroundColor: GRID_THEME_COLORS.background,
+  borderColor: GRID_THEME_COLORS.border,
   cellHorizontalPaddingScale: 0.8,
   fontSize: 13,
-  foregroundColor: "#18181b",
-  headerBackgroundColor: "#f4f4f5",
+  foregroundColor: GRID_THEME_COLORS.foreground,
+  headerBackgroundColor: GRID_THEME_COLORS.headerBackground,
   headerFontSize: 12,
   headerFontWeight: 500,
-  rowHoverColor: "#f4f4f5",
+  rowHoverColor: GRID_THEME_COLORS.rowHover,
   spacing: 6,
   wrapperBorderRadius: 8,
 });
@@ -1077,7 +1104,6 @@ function CellWithRunButton(props: CustomCellRendererProps) {
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-0 left-0 z-20 flex items-center bg-taupe-50"
         style={{
-          // background: "var(--marble-table-cell-background, #fafafa)",
           left: "calc(var(--marble-table-cell-padding-inline, 0px) * -1)",
           width: "var(--marble-table-cell-led-gutter-width, 0px)",
         }}
@@ -1246,12 +1272,21 @@ function InterpolationEditor({
         value={value}
       />
       <style>{`
-        /* Custom Prism styles for interpolation */
-        .token.interpolation { color: #ea580c; background: #fff7ed; border-radius: 2px; padding: 0 2px; }
+        /* Custom Prism styles for interpolation. Colors map to Tailwind tokens. */
+        .token.interpolation {
+          color: var(--color-orange-600);
+          background: var(--color-orange-50);
+          border-radius: 2px;
+          padding: 0 2px;
+        }
         .token.tag-open, .token.tag-close { opacity: 0.5; }
         .token.col-name { font-weight: 600; }
-        .token.col-name.invalid, .token.invalid-text { color: #a1a1aa; font-weight: normal; text-decoration: underline dotted #f87171; }
-        .token.col-path { color: #9a3412 !important; }
+        .token.col-name.invalid, .token.invalid-text {
+          color: var(--color-zinc-400);
+          font-weight: normal;
+          text-decoration: underline dotted var(--color-red-400);
+        }
+        .token.col-path { color: var(--color-orange-800) !important; }
       `}</style>
     </div>
   );
@@ -1760,7 +1795,7 @@ export default function TablePageView({
         cellRenderer: RowNumberCell,
         cellStyle: {
           "--marble-table-cell-padding-inline": `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
-          color: "#666",
+          color: GRID_ROW_NUMBER_COLOR,
           fontFamily: "var(--font-geist-mono)",
           paddingLeft: `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
           paddingRight: `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
@@ -1780,9 +1815,9 @@ export default function TablePageView({
             const hasValue = params.value && String(params.value).trim() !== "";
             const background = editable
               ? hasValue
-                ? "#ffffff"
-                : "#f4f4f5"
-              : "#fafafa";
+                ? GRID_CELL_BACKGROUNDS.editableFilled
+                : GRID_CELL_BACKGROUNDS.editableEmpty
+              : GRID_CELL_BACKGROUNDS.readonly;
             return {
               "--marble-table-cell-background": background,
               "--marble-table-cell-content-padding-left": `${TABLE_CELL_LED_CLEARANCE_PX}px`,

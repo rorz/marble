@@ -15,7 +15,7 @@ export function MarbleWorkspaceMark({ className }: MarbleWorkspaceMarkProps) {
   return (
     <div
       className={cx(
-        "relative flex size-8 shrink-0 items-center justify-center rounded-xs border border-orange-200/80 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]",
+        "relative flex size-8 shrink-0 items-center justify-center rounded-xs border border-orange-200/80 bg-white shadow-marble-highlight-strong",
         className,
       )}
     >

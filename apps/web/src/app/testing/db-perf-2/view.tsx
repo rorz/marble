@@ -1137,7 +1137,7 @@ function LanePanel({
         </div>
 
         <div className="space-y-2">
-          <div className="font-medium text-[10px] text-taupe-500 uppercase tracking-[0.18em]">
+          <div className="font-medium text-eyebrow-xs text-taupe-500">
             Payload
           </div>
           <pre className="min-h-32 overflow-auto rounded-sm border border-taupe-200 bg-white p-3 font-mono text-[11px] text-taupe-800 leading-5">
@@ -1162,9 +1162,7 @@ function Metric({
 }>) {
   return (
     <div className="min-w-0">
-      <div className="font-medium text-[10px] text-taupe-500 uppercase tracking-[0.18em]">
-        {label}
-      </div>
+      <div className="font-medium text-eyebrow-xs text-taupe-500">{label}</div>
       <div className="truncate font-mono text-sm text-taupe-950">{value}</div>
     </div>
   );

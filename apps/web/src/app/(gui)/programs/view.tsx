@@ -1,18 +1,6 @@
 "use client";
 
 import {
-  ClockIcon,
-  CodeBracketIcon,
-  DocumentPlusIcon,
-  DocumentTextIcon,
-  FolderOpenIcon,
-  KeyIcon,
-  MagnifyingGlassIcon,
-  PlayIcon,
-  SparklesIcon,
-  UserIcon,
-} from "@heroicons/react/24/outline";
-import {
   ENVIRONMENT_VARIABLE_NAME_PATTERN,
   type ProgramManifestSecretDeclaration,
   type ProgramSecretConfig,
@@ -53,7 +41,19 @@ import {
   MarbleWorkspaceMark,
   marbleToast,
 } from "@marble/ui";
-import { GitBranchIcon } from "@phosphor-icons/react";
+import {
+  ClockIcon,
+  CodeIcon,
+  FilePlusIcon,
+  FileTextIcon,
+  FolderOpenIcon,
+  GitBranchIcon,
+  KeyIcon,
+  MagnifyingGlassIcon,
+  PlayIcon,
+  SparkleIcon,
+  UserIcon,
+} from "@phosphor-icons/react/dist/ssr";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -173,17 +173,17 @@ const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
 });
 
 const shellPanelClassName =
-  "bg-taupe-300 border-taupe-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]";
+  "bg-taupe-300 border-taupe-400 shadow-marble-highlight-soft";
 const editorTabBaseClassName =
   "group flex h-10 shrink-0 items-center gap-2 border-r border-taupe-300 px-3 text-[12px] transition-colors";
 const editorTabActiveClassName =
-  "bg-white text-taupe-950 shadow-[inset_0_2px_0_0_#f97316]";
+  "bg-white text-taupe-950 shadow-marble-stripe-top";
 const editorTabIdleClassName =
   "bg-taupe-100/70 text-taupe-600 hover:bg-taupe-50 hover:text-taupe-900";
 const compactSidebarRowClassName =
   "flex h-7 w-full items-center gap-1.5 rounded-sm px-1.5 text-left font-mono text-[11px] transition-colors";
 const compactSidebarRowActiveClassName =
-  "bg-white/95 text-taupe-950 shadow-[inset_2px_0_0_0_#f97316,0_1px_0_rgba(255,255,255,0.45)]";
+  "bg-white/95 text-taupe-950 shadow-marble-stripe-left";
 const compactSidebarRowIdleClassName =
   "text-taupe-700 hover:bg-white/70 hover:text-taupe-950";
 const importAccept = ".ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.md,.markdown,.txt";
@@ -1067,8 +1067,9 @@ function WorkspaceFileTreeRow({
       type="button"
       {...(targetKey ? getChangeTargetProps(targetKey) : {})}
     >
-      <DocumentTextIcon
-        className={cx("h-3.5 w-3.5 shrink-0", getFileAccent(file.filename))}
+      <FileTextIcon
+        className={cx("shrink-0", getFileAccent(file.filename))}
+        size={14}
       />
       <span className="min-w-0 flex-1 truncate">{file.filename}</span>
       {dirty ? <span className="size-1.5 rounded-full bg-orange-500" /> : null}
@@ -2596,14 +2597,14 @@ export function ProgramsPageView({
                 <LibraryDockButton
                   active={librarySurface === "mine"}
                   count={customPrograms.length}
-                  icon={<UserIcon className="h-6 w-6" />}
+                  icon={<UserIcon size={24} />}
                   label="My"
                   onClick={() => setLibrarySurface("mine")}
                   subtitle="Custom"
                 />
                 <LibraryDockButton
                   active={librarySurface === "marketplace"}
-                  icon={<MagnifyingGlassIcon className="h-6 w-6" />}
+                  icon={<MagnifyingGlassIcon size={24} />}
                   label="Marketplace"
                   onClick={() => setLibrarySurface("marketplace")}
                   subtitle="Search stub"
@@ -2705,9 +2706,15 @@ export function ProgramsPageView({
                         descriptionClassName="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500"
                         icon={
                           program.firstParty ? (
-                            <SparklesIcon className="h-4 w-4 text-orange-600" />
+                            <SparkleIcon
+                              className="text-orange-600"
+                              size={16}
+                            />
                           ) : (
-                            <CodeBracketIcon className="h-4 w-4 text-taupe-500" />
+                            <CodeIcon
+                              className="text-taupe-500"
+                              size={16}
+                            />
                           )
                         }
                         key={program.id}
@@ -2775,7 +2782,7 @@ export function ProgramsPageView({
           <MarbleAlert tone="error">{renameError}</MarbleAlert>
         ) : null}
 
-        <div className="flex size-full min-h-0 overflow-hidden rounded-md border border-taupe-400 bg-[linear-gradient(180deg,#f8f5ee_0%,#f4efe6_100%)] text-zinc-800 rounded-t-none">
+        <div className="flex size-full min-h-0 overflow-hidden rounded-md border border-taupe-400 bg-workbench-surface text-zinc-800 rounded-t-none">
           <div
             className={cx(
               "flex w-60 shrink-0 flex-col border-r",
@@ -2786,14 +2793,12 @@ export function ProgramsPageView({
               actions={
                 <MarbleButton
                   disabled={!canEditWorkspace}
+                  iconLeft={FilePlusIcon}
                   onClick={openNewFileModal}
                   size="xs"
                   type="button"
                 >
-                  <span className="inline-flex items-center gap-1">
-                    <DocumentPlusIcon className="h-3.5 w-3.5" />
-                    New
-                  </span>
+                  New
                 </MarbleButton>
               }
               badge={
@@ -2804,7 +2809,7 @@ export function ProgramsPageView({
               bodyClassName="bg-transparent"
               className="flex min-h-0 flex-1 flex-col rounded-none border-0 border-b border-taupe-400 bg-transparent shadow-none"
               headerClassName="px-2 py-1.5"
-              icon={<FolderOpenIcon className="h-4 w-4" />}
+              icon={<FolderOpenIcon size={16} />}
               title="Workspace"
             >
               <fieldset
@@ -2847,7 +2852,7 @@ export function ProgramsPageView({
                       description="Import code or config files into this workspace."
                       disabled={importingFiles}
                       hint="Release to add files to the current program."
-                      icon={<DocumentPlusIcon className="h-5 w-5" />}
+                      icon={<FilePlusIcon size={20} />}
                       multiple
                       onFilesChange={(incomingFiles) => {
                         void handleImportFiles(incomingFiles);
@@ -2958,7 +2963,7 @@ export function ProgramsPageView({
                 collapsed={versionsCollapsed}
                 collapsible
                 headerClassName="px-2 py-1.5"
-                icon={<ClockIcon className="h-4 w-4" />}
+                icon={<ClockIcon size={16} />}
                 onToggleCollapsed={() =>
                   setVersionsCollapsed((current) => !current)
                 }
@@ -3152,8 +3157,9 @@ export function ProgramsPageView({
                     )}
                     dirty={dirtyFiles.has(file.filename)}
                     icon={
-                      <DocumentTextIcon
-                        className={cx("h-4 w-4", getFileAccent(file.filename))}
+                      <FileTextIcon
+                        className={getFileAccent(file.filename)}
+                        size={16}
                       />
                     }
                     key={file.filename}
@@ -3262,7 +3268,12 @@ export function ProgramsPageView({
                 collapsed={rightPanelCollapsed.inputSchema}
                 collapsible
                 headerClassName={stackedWorkbenchHeaderClassName}
-                icon={<DocumentTextIcon className="h-4 w-4 text-amber-600" />}
+                icon={
+                  <FileTextIcon
+                    className="text-amber-600"
+                    size={16}
+                  />
+                }
                 onToggleCollapsed={() =>
                   setRightPanelCollapsed((current) => ({
                     ...current,
@@ -3313,7 +3324,12 @@ export function ProgramsPageView({
                 collapsed={rightPanelCollapsed.outputConfig}
                 collapsible
                 headerClassName={stackedWorkbenchHeaderClassName}
-                icon={<CodeBracketIcon className="h-4 w-4 text-sky-600" />}
+                icon={
+                  <CodeIcon
+                    className="text-sky-600"
+                    size={16}
+                  />
+                }
                 onToggleCollapsed={() =>
                   setRightPanelCollapsed((current) => ({
                     ...current,
@@ -3412,7 +3428,12 @@ export function ProgramsPageView({
                 collapsed={rightPanelCollapsed.secrets}
                 collapsible
                 headerClassName={stackedWorkbenchHeaderClassName}
-                icon={<KeyIcon className="h-4 w-4 text-taupe-500" />}
+                icon={
+                  <KeyIcon
+                    className="text-taupe-500"
+                    size={16}
+                  />
+                }
                 onToggleCollapsed={() =>
                   setRightPanelCollapsed((current) => ({
                     ...current,
@@ -3759,7 +3780,7 @@ export function ProgramsPageView({
                 collapsed={rightPanelCollapsed.testInputs}
                 collapsible
                 headerClassName={stackedWorkbenchHeaderClassName}
-                icon={<PlayIcon className="h-4 w-4" />}
+                icon={<PlayIcon size={16} />}
                 onToggleCollapsed={() =>
                   setRightPanelCollapsed((current) => ({
                     ...current,
@@ -3857,19 +3878,17 @@ export function ProgramsPageView({
                       disabled={
                         running || (!draftVersion && !latestPublishedVersion)
                       }
+                      iconLeft={PlayIcon}
                       onClick={handleRun}
                       size="sm"
                       type="button"
                       variant="orange"
                     >
-                      <span className="inline-flex items-center gap-2">
-                        <PlayIcon className="h-4 w-4" />
-                        {running
-                          ? "Running..."
-                          : draftVersion
-                            ? "Run Draft"
-                            : "Run Published Version"}
-                      </span>
+                      {running
+                        ? "Running..."
+                        : draftVersion
+                          ? "Run Draft"
+                          : "Run Published Version"}
                     </MarbleButton>
 
                     {result ? (
@@ -3978,7 +3997,7 @@ export function ProgramsPageView({
                   description="Drop code or config files here to add them directly to this program."
                   disabled={importingFiles}
                   hint="Supports .ts, .json, .md, and plain-text helpers."
-                  icon={<DocumentPlusIcon className="h-5 w-5" />}
+                  icon={<FilePlusIcon size={20} />}
                   multiple
                   onFilesChange={(incomingFiles) => {
                     void handleImportFiles(incomingFiles, {

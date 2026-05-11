@@ -1,19 +1,6 @@
 "use client";
 
 import {
-  ArrowRightStartOnRectangleIcon,
-  CircleStackIcon,
-  CodeBracketIcon,
-  Cog6ToothIcon,
-  CommandLineIcon,
-  DocumentTextIcon,
-  FolderOpenIcon,
-  QuestionMarkCircleIcon,
-  SparklesIcon,
-  Squares2X2Icon,
-  UserGroupIcon,
-} from "@heroicons/react/24/outline";
-import {
   cx,
   MarbleActivityRadar,
   MarbleActivityRadarPanel,
@@ -83,9 +70,20 @@ import {
 } from "@marble/ui";
 import {
   ArrowRightIcon,
+  CodeIcon,
+  DatabaseIcon,
+  FileTextIcon,
+  FolderOpenIcon,
+  GearSixIcon,
   PlayIcon,
   PlusIcon,
+  QuestionIcon,
+  SignOutIcon,
+  SparkleIcon,
+  SquaresFourIcon,
+  TerminalIcon,
   TrashIcon,
+  UsersThreeIcon,
 } from "@phosphor-icons/react/ssr";
 import { type ReactNode, useState } from "react";
 
@@ -164,6 +162,10 @@ type SheetSide = (typeof sheetSides)[number];
 type ModalSize = (typeof modalSizes)[number];
 
 const sectionLinks = [
+  {
+    id: "tokens",
+    label: "Tokens",
+  },
   {
     id: "actions",
     label: "Actions",
@@ -363,7 +365,7 @@ export default function UiPage() {
       id: "utility-primary",
       items: [
         {
-          icon: <Cog6ToothIcon className="h-4 w-4" />,
+          icon: <GearSixIcon size={16} />,
           id: "utility-settings",
           label: "Settings",
           onSelect: () => handleMenuSelect("Settings"),
@@ -371,7 +373,7 @@ export default function UiPage() {
         {
           description: "Disabled items stay in the list for discoverability.",
           disabled: true,
-          icon: <CircleStackIcon className="h-4 w-4" />,
+          icon: <DatabaseIcon size={16} />,
           id: "utility-billing",
           label: "Billing",
           onSelect: () => handleMenuSelect("Billing"),
@@ -383,13 +385,13 @@ export default function UiPage() {
       items: [
         {
           detail: "Docs",
-          icon: <QuestionMarkCircleIcon className="h-4 w-4" />,
+          icon: <QuestionIcon size={16} />,
           id: "utility-help",
           label: "Help",
           onSelect: () => handleMenuSelect("Help"),
         },
         {
-          icon: <ArrowRightStartOnRectangleIcon className="h-4 w-4" />,
+          icon: <SignOutIcon size={16} />,
           id: "utility-sign-out",
           label: "Sign out",
           onSelect: () => handleMenuSelect("Sign out"),
@@ -404,13 +406,13 @@ export default function UiPage() {
       id: "workspace-primary",
       items: [
         {
-          icon: <UserGroupIcon className="h-4 w-4" />,
+          icon: <UsersThreeIcon size={16} />,
           id: "workspace-team",
           label: "Team directory",
           onSelect: () => handleMenuSelect("Team directory"),
         },
         {
-          icon: <Squares2X2Icon className="h-4 w-4" />,
+          icon: <SquaresFourIcon size={16} />,
           id: "workspace-apps",
           label: "Apps and integrations",
           onSelect: () => handleMenuSelect("Apps and integrations"),
@@ -422,19 +424,19 @@ export default function UiPage() {
       items: [
         {
           detail: "Default",
-          icon: <SparklesIcon className="h-4 w-4" />,
+          icon: <SparkleIcon size={16} />,
           id: "workspace-brand",
           label: "Workspace appearance",
           onSelect: () => handleMenuSelect("Workspace appearance"),
         },
         {
-          icon: <Cog6ToothIcon className="h-4 w-4" />,
+          icon: <GearSixIcon size={16} />,
           id: "workspace-settings",
           label: "Workspace settings",
           onSelect: () => handleMenuSelect("Workspace settings"),
         },
         {
-          icon: <ArrowRightStartOnRectangleIcon className="h-4 w-4" />,
+          icon: <SignOutIcon size={16} />,
           id: "workspace-sign-out",
           label: "Sign out",
           onSelect: () => handleMenuSelect("Workspace sign out"),
@@ -525,7 +527,10 @@ export default function UiPage() {
             }
             value="Open projects"
           >
-            <FolderOpenIcon className="h-4 w-4 text-orange-600" />
+            <FolderOpenIcon
+              className="text-orange-600"
+              size={16}
+            />
             <span className="flex-1">Open projects</span>
           </MarbleCommandItem>
           <MarbleCommandItem
@@ -540,7 +545,10 @@ export default function UiPage() {
             }
             value="Browse profiles"
           >
-            <UserGroupIcon className="h-4 w-4 text-emerald-600" />
+            <UsersThreeIcon
+              className="text-emerald-600"
+              size={16}
+            />
             <span className="flex-1">Browse profiles</span>
           </MarbleCommandItem>
           <MarbleCommandItem
@@ -551,7 +559,7 @@ export default function UiPage() {
             ]}
             value="Billing"
           >
-            <CircleStackIcon className="h-4 w-4" />
+            <DatabaseIcon size={16} />
             <span className="flex-1">Billing</span>
           </MarbleCommandItem>
         </MarbleCommandGroup>
@@ -571,7 +579,10 @@ export default function UiPage() {
             }
             value="Open help examples"
           >
-            <QuestionMarkCircleIcon className="h-4 w-4 text-violet-600" />
+            <QuestionIcon
+              className="text-violet-600"
+              size={16}
+            />
             <span className="flex-1">Open help examples</span>
           </MarbleCommandItem>
           <MarbleCommandItem
@@ -586,7 +597,10 @@ export default function UiPage() {
             }
             value="Sign out"
           >
-            <ArrowRightStartOnRectangleIcon className="h-4 w-4 text-rose-600" />
+            <SignOutIcon
+              className="text-rose-600"
+              size={16}
+            />
             <span className="flex-1">Sign out</span>
           </MarbleCommandItem>
         </MarbleCommandGroup>
@@ -598,7 +612,7 @@ export default function UiPage() {
     <main className="min-h-screen bg-white px-6 py-8 text-taupe-800">
       <div className="mx-auto flex max-w-4xl flex-col gap-6">
         <header className="space-y-3">
-          <p className="font-medium text-[11px] text-orange-600 uppercase tracking-[0.24em]">
+          <p className="font-medium text-eyebrow-lg text-orange-600">
             Marble UI
           </p>
           <h1 className="font-semibold text-3xl tracking-tight text-taupe-950">
@@ -622,6 +636,98 @@ export default function UiPage() {
         </header>
 
         <Section
+          description="Design tokens that primitives and route code lean on. Use these named utilities instead of open-coding `text-[Xpx] tracking-[X.XXem] uppercase` or `shadow-[inset_0_1px_0_rgba(...)]` strings."
+          id="tokens"
+          title="Tokens"
+        >
+          <div className="space-y-4">
+            <DemoPanel
+              description="Eyebrow typography for small uppercase labels. Apply your own font-weight + color on top."
+              title="Typography"
+            >
+              <div className="space-y-3">
+                <div className="flex items-baseline gap-3">
+                  <span className="font-medium text-eyebrow-xs text-taupe-500">
+                    text-eyebrow-xs
+                  </span>
+                  <span className="font-mono text-[11px] text-taupe-400">
+                    10px · 0.18em tracking
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-3">
+                  <span className="font-medium text-eyebrow text-taupe-500">
+                    text-eyebrow
+                  </span>
+                  <span className="font-mono text-[11px] text-taupe-400">
+                    11px · 0.22em tracking
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-3">
+                  <span className="font-medium text-eyebrow-lg text-taupe-500">
+                    text-eyebrow-lg
+                  </span>
+                  <span className="font-mono text-[11px] text-taupe-400">
+                    11px · 0.24em tracking
+                  </span>
+                </div>
+              </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Inset highlight shadows for subtle dimensional lift. Apply on top of border + bg, never as the sole surface treatment."
+              title="Inset highlights"
+            >
+              <div className="grid grid-cols-3 gap-3">
+                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 shadow-marble-highlight">
+                  <span className="font-mono text-[11px] text-taupe-500">
+                    shadow-marble-highlight
+                  </span>
+                </div>
+                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 shadow-marble-highlight-strong">
+                  <span className="font-mono text-[11px] text-taupe-500">
+                    shadow-marble-highlight-strong
+                  </span>
+                </div>
+                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 shadow-marble-highlight-soft">
+                  <span className="font-mono text-[11px] text-taupe-500">
+                    shadow-marble-highlight-soft
+                  </span>
+                </div>
+              </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Accent stripes for active or selected items in lists and tabs."
+              title="Accent stripes"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 shadow-marble-stripe-left">
+                  <span className="font-mono text-[11px] text-taupe-500">
+                    shadow-marble-stripe-left
+                  </span>
+                </div>
+                <div className="flex h-20 flex-col justify-end rounded-xs border border-taupe-200 bg-white p-2 shadow-marble-stripe-top">
+                  <span className="font-mono text-[11px] text-taupe-500">
+                    shadow-marble-stripe-top
+                  </span>
+                </div>
+              </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Workbench surface gradient for editor/dock canvases. Use as the dense work-area backdrop."
+              title="Surfaces"
+            >
+              <div className="flex h-24 items-end rounded-sm border border-taupe-300 bg-workbench-surface p-3">
+                <span className="font-mono text-[11px] text-taupe-500">
+                  bg-workbench-surface
+                </span>
+              </div>
+            </DemoPanel>
+          </div>
+        </Section>
+
+        <Section
           description="Buttons, badges, and alerts now show every tone, the shipped size transitions, and the standard icon slots instead of only the happy path."
           id="actions"
           title="Actions"
@@ -633,7 +739,7 @@ export default function UiPage() {
             >
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                  <div className="font-medium text-eyebrow-lg text-taupe-500">
                     Medium
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -655,7 +761,7 @@ export default function UiPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                  <div className="font-medium text-eyebrow-lg text-taupe-500">
                     Small
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -679,7 +785,7 @@ export default function UiPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                  <div className="font-medium text-eyebrow-lg text-taupe-500">
                     Extra Small
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -703,7 +809,7 @@ export default function UiPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                  <div className="font-medium text-eyebrow-lg text-taupe-500">
                     With icons
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -988,7 +1094,7 @@ export default function UiPage() {
                   <MarbleCardContent>
                     <MarbleEmptyState
                       description="iconTone='orange' wraps the icon in the standard tile."
-                      icon={<FolderOpenIcon className="h-5 w-5" />}
+                      icon={<FolderOpenIcon size={20} />}
                       iconTone="orange"
                       title="No projects yet"
                     />
@@ -1007,7 +1113,7 @@ export default function UiPage() {
                         </MarbleButton>
                       }
                       description="iconTone='neutral' for a quieter affordance."
-                      icon={<UserGroupIcon className="h-5 w-5" />}
+                      icon={<UsersThreeIcon size={20} />}
                       iconTone="neutral"
                       title="No profiles yet"
                     />
@@ -1163,7 +1269,7 @@ export default function UiPage() {
                     shape="card"
                   >
                     <div className="mb-2 flex size-10 items-center justify-center rounded-xs border border-orange-200 bg-white text-orange-700">
-                      <SparklesIcon className="h-5 w-5" />
+                      <SparkleIcon size={20} />
                     </div>
                     <span className="font-medium text-sm text-taupe-950">
                       Active
@@ -1174,7 +1280,7 @@ export default function UiPage() {
                   </MarbleSelectableTile>
                   <MarbleSelectableTile shape="card">
                     <div className="mb-2 flex size-10 items-center justify-center rounded-xs border border-taupe-200 bg-taupe-50 text-taupe-700">
-                      <CodeBracketIcon className="h-5 w-5" />
+                      <CodeIcon size={20} />
                     </div>
                     <span className="font-medium text-sm text-taupe-950">
                       Idle
@@ -1255,7 +1361,7 @@ export default function UiPage() {
                   accept=".ts,.json,.md"
                   description="Multiple file uploads keep the fuller orange treatment."
                   hint={multiDropzoneSummary}
-                  icon={<CodeBracketIcon className="h-5 w-5" />}
+                  icon={<CodeIcon size={20} />}
                   multiple
                   onFilesChange={(files) => {
                     setMultiDropzoneSummary(
@@ -1274,7 +1380,7 @@ export default function UiPage() {
                   accept=".csv,.json"
                   description="Compact dropzone for inline forms."
                   hint={singleDropzoneSummary}
-                  icon={<DocumentTextIcon className="h-5 w-5" />}
+                  icon={<FileTextIcon size={20} />}
                   onFilesChange={(files) => {
                     setSingleDropzoneSummary(
                       files[0]?.name ?? "Drop one file to preview its name",
@@ -1288,7 +1394,7 @@ export default function UiPage() {
                   description="Use the disabled state while uploads are unavailable."
                   disabled
                   hint="Connect a workspace or enable uploads to activate."
-                  icon={<FolderOpenIcon className="h-5 w-5" />}
+                  icon={<FolderOpenIcon size={20} />}
                   title="Uploads unavailable"
                 />
               </div>
@@ -1367,7 +1473,7 @@ export default function UiPage() {
                 <MarbleCardContent className="p-0">
                   <MarbleListRow
                     description="Compact layout for list-heavy surfaces, with iconTone='orange'."
-                    icon={<CodeBracketIcon className="h-4 w-4" />}
+                    icon={<CodeIcon size={16} />}
                     iconTone="orange"
                     meta={
                       <span className="font-mono text-[11px] text-zinc-500">
@@ -1380,7 +1486,7 @@ export default function UiPage() {
                   />
                   <MarbleListRow
                     description="iconTone='neutral' normalizes the bordered tile so secrets, profiles, and sources share the same icon container."
-                    icon={<CommandLineIcon className="h-4 w-4" />}
+                    icon={<TerminalIcon size={16} />}
                     iconTone="neutral"
                     size="compact"
                     title="OPENAI_API_KEY"
@@ -1389,7 +1495,12 @@ export default function UiPage() {
                     active
                     aside={<MarbleBadge tone="info">Selected</MarbleBadge>}
                     description="Small active row with inline aside (raw icon, no tone)."
-                    icon={<CodeBracketIcon className="h-4 w-4 text-sky-600" />}
+                    icon={
+                      <CodeIcon
+                        className="text-sky-600"
+                        size={16}
+                      />
+                    }
                     size="sm"
                     title="runner.ts"
                   />
@@ -1397,7 +1508,12 @@ export default function UiPage() {
                     align="start"
                     description="Default density with start alignment and disabled treatment."
                     disabled
-                    icon={<CommandLineIcon className="h-4 w-4 text-zinc-500" />}
+                    icon={
+                      <TerminalIcon
+                        className="text-zinc-500"
+                        size={16}
+                      />
+                    }
                     title="Archived command"
                   />
                 </MarbleCardContent>
@@ -1513,7 +1629,7 @@ export default function UiPage() {
               description="Dense editor surfaces can now reuse collapsible workbench sections, resize handles, and closeable tab strips instead of improvising bespoke chrome."
               title="Workbench"
             >
-              <div className="overflow-hidden rounded-sm border border-taupe-200 bg-[linear-gradient(180deg,#f8f5ee_0%,#f4efe6_100%)] p-2 shadow-sm">
+              <div className="overflow-hidden rounded-sm border border-taupe-200 bg-workbench-surface p-2 shadow-sm">
                 <div className="grid gap-2 lg:grid-cols-[12rem_minmax(0,1fr)_15rem]">
                   <div className="flex min-h-0 flex-col rounded-sm border border-taupe-300 bg-taupe-100/70">
                     <MarbleWorkbenchSection
@@ -1523,7 +1639,7 @@ export default function UiPage() {
                       bodyClassName="bg-transparent"
                       className="flex min-h-0 flex-1 flex-col rounded-none border-0 border-b border-taupe-300 bg-transparent shadow-none"
                       headerClassName="px-2 py-2"
-                      icon={<FolderOpenIcon className="h-4 w-4" />}
+                      icon={<FolderOpenIcon size={16} />}
                       title="Workspace"
                     >
                       <div className="space-y-px p-1.5 font-mono text-[11px]">
@@ -1536,7 +1652,7 @@ export default function UiPage() {
                             className={cx(
                               "flex h-7 w-full items-center gap-2 rounded-sm px-1.5 text-left transition-colors",
                               activeWorkbenchTab === filename
-                                ? "bg-white text-taupe-950 shadow-[inset_2px_0_0_0_#f97316]"
+                                ? "bg-white text-taupe-950 shadow-marble-stripe-left"
                                 : "text-taupe-700 hover:bg-white/70 hover:text-taupe-950",
                             )}
                             key={filename}
@@ -1552,7 +1668,10 @@ export default function UiPage() {
                             }}
                             type="button"
                           >
-                            <DocumentTextIcon className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                            <FileTextIcon
+                              className="shrink-0 text-amber-600"
+                              size={14}
+                            />
                             <span className="truncate">{filename}</span>
                           </button>
                         ))}
@@ -1574,7 +1693,7 @@ export default function UiPage() {
                       collapsed={isWorkbenchVersionsCollapsed}
                       collapsible
                       headerClassName="px-2 py-2"
-                      icon={<SparklesIcon className="h-4 w-4" />}
+                      icon={<SparkleIcon size={16} />}
                       onToggleCollapsed={() =>
                         setIsWorkbenchVersionsCollapsed((current) => !current)
                       }
@@ -1604,7 +1723,10 @@ export default function UiPage() {
                           active={activeWorkbenchTab === filename}
                           dirty={filename === "main.ts"}
                           icon={
-                            <DocumentTextIcon className="h-4 w-4 text-sky-600" />
+                            <FileTextIcon
+                              className="text-sky-600"
+                              size={16}
+                            />
                           }
                           key={filename}
                           label={filename}
@@ -1632,7 +1754,7 @@ export default function UiPage() {
                       collapsed={isWorkbenchDraftCollapsed}
                       collapsible
                       description="Saving mints the next version while live runs stay on v8."
-                      icon={<CodeBracketIcon className="h-4 w-4" />}
+                      icon={<CodeIcon size={16} />}
                       onToggleCollapsed={() =>
                         setIsWorkbenchDraftCollapsed((current) => !current)
                       }
@@ -1709,7 +1831,7 @@ export default function UiPage() {
             >
               <div className="space-y-4">
                 <div className="rounded-xs border border-taupe-200 bg-white p-4">
-                  <div className="mb-3 font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                  <div className="mb-3 font-medium text-eyebrow-lg text-taupe-500">
                     Default trigger
                   </div>
                   <MarbleContextPopover
@@ -1719,7 +1841,7 @@ export default function UiPage() {
                 </div>
 
                 <div className="rounded-xs border border-taupe-200 bg-white p-4">
-                  <div className="mb-3 font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                  <div className="mb-3 font-medium text-eyebrow-lg text-taupe-500">
                     Custom trigger
                   </div>
                   <MarbleContextPopover
@@ -1985,7 +2107,7 @@ export default function UiPage() {
                 </div>
 
                 <div className="rounded-xs border border-taupe-200 bg-white px-3 py-2">
-                  <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                  <div className="font-medium text-eyebrow-lg text-taupe-500">
                     Last menu action
                   </div>
                   <div className="mt-1 font-medium text-sm text-taupe-900">
@@ -2068,7 +2190,7 @@ export default function UiPage() {
                   Open dialog example
                 </MarbleButton>
                 <div className="rounded-xs border border-taupe-200 bg-white px-3 py-2">
-                  <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                  <div className="font-medium text-eyebrow-lg text-taupe-500">
                     Last command selection
                   </div>
                   <div className="mt-1 font-medium text-sm text-taupe-900">
@@ -2190,7 +2312,7 @@ export default function UiPage() {
                 </div>
 
                 <div className="rounded-xs border border-taupe-200 bg-white px-3 py-3">
-                  <div className="font-medium text-[11px] text-taupe-500 uppercase tracking-[0.24em]">
+                  <div className="font-medium text-eyebrow-lg text-taupe-500">
                     Current modal size
                   </div>
                   <div className="mt-1 font-medium text-sm text-taupe-900">

@@ -185,7 +185,7 @@ function ActivityGlyph({
           pulse ? "opacity-100" : "opacity-0",
         )}
       />
-      <div className="relative flex size-8 items-center justify-center rounded-xs border border-taupe-200/90 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.92)]">
+      <div className="relative flex size-8 items-center justify-center rounded-xs border border-taupe-200/90 bg-white shadow-marble-highlight-strong">
         <div className="flex w-4 flex-col gap-[2px]">
           <ActivityMeter
             className="h-[3px] rounded-[999px] border-0 bg-transparent shadow-none"
@@ -365,7 +365,7 @@ function ActivityRadarPanelSection({
 
   return (
     <section className="space-y-2">
-      <div className="px-1 font-medium text-[10px] text-taupe-500 uppercase tracking-[0.18em]">
+      <div className="px-1 font-medium text-eyebrow-xs text-taupe-500">
         {label}
       </div>
 

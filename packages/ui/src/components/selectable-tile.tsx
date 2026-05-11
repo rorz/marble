@@ -10,8 +10,7 @@ const marbleSelectableTileVariants = cva(
     compoundVariants: [
       {
         active: true,
-        className:
-          "border-orange-300 bg-orange-50/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]",
+        className: "border-orange-300 bg-orange-50/80 shadow-marble-highlight",
       },
       {
         active: false,

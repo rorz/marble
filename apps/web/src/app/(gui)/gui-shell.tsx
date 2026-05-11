@@ -2530,7 +2530,7 @@ export function GuiShell({
                   >
                     {item.icon}
                     <span className="flex-1 truncate">{item.label}</span>
-                    <span className="font-mono text-[10px] text-taupe-400 uppercase tracking-[0.18em]">
+                    <span className="font-mono text-eyebrow-xs text-taupe-400">
                       {item.detail}
                     </span>
                   </MarbleCommandItem>
@@ -2540,7 +2540,7 @@ export function GuiShell({
           ))}
         </MarbleCommandList>
 
-        <div className="flex items-center justify-between border-t border-taupe-200 bg-linear-to-t from-taupe-200 via-white to-white px-4 py-2 text-[11px] text-taupe-500 uppercase tracking-[0.18em]">
+        <div className="flex items-center justify-between border-t border-taupe-200 bg-linear-to-t from-taupe-200 via-white to-white px-4 py-2 text-eyebrow text-taupe-500">
           <span>{commandPaletteFooterPrimaryText}</span>
           <span>{commandPaletteFooterSecondaryText}</span>
         </div>

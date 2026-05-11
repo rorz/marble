@@ -91,9 +91,9 @@ IMPORTANT!! You **must** read [Internal Database Guide](./docs/internal/database
 
 ### UI Rules
 
-IMPORTANT!! You **must** read [Internal Design Guide](./docs/internal/design-guide.md) before making any UI changes.
+IMPORTANT!! You **must** read [Internal Design Guide](./docs/internal/design-guide.md) before making any UI changes. The "Marble UI System" section in that guide is the authoritative catalog of every primitive, design token, icon policy, and forbidden anti-pattern. Treat it as the contract.
 
-1. Before writing any new UI component, search `packages/ui/src` and inspect `apps/web/src/app/internal/ui/page.tsx`.
+1. Before writing any new UI component, search `packages/ui/src`, inspect `apps/web/src/app/internal/ui/page.tsx`, AND scan the "Marble UI System / Primitive Catalog" section of the design guide. If a primitive matches your pattern, you use it.
 2. If the thing you are building is not deeply route-specific, you MUST add or extend the primitive in `packages/ui` first and consume it from `@marble/ui`.
 3. Do not create reusable UI wrappers in `apps/web/src/components`. Shared layout chrome, cards, notices, badges, empty states, controls, and similar primitives belong in `packages/ui`.
 4. If you catch yourself thinking "I'll abstract it later", stop. Abstract it now. Two uses is already enough evidence here.
@@ -105,9 +105,42 @@ IMPORTANT!! You **must** read [Internal Design Guide](./docs/internal/design-gui
 10. **Evolve the primitive, not the per-route override.** When two or more consumers of a `@marble/ui` primitive share the same `className` cocktail (e.g. `MarbleCardFooter` repeatedly receiving `mt-auto justify-end border-t pt-4`), the primitive is wrong. Bake the default in or add a variant. Do not normalize the override pattern by leaving it scattered across route code.
 11. **Layout snap defaults belong in the primitive.** Footers snap to the bottom and right-align their actions. Cards compose children as flex columns. Pane narrow mode reserves headline breathing room. If you find yourself reaching for `mt-auto`, `justify-end`, `flex flex-col`, or other compositional flex-fixers on a primitive's slot, the primitive owes you that default — implement it there, not in the consumer.
 12. **No "almost-X" lookalikes.** Do not assemble `border + bg + rounded` shapes in route code that mimic an existing primitive's surface. If `MarbleCard`, `MarblePane`, `MarbleListRow`, `MarbleAlert`, or another primitive exists, use it. Extend primitives that cannot bend to your need; never duplicate their visual language inline.
-13. **Tokens, not literals.** Use the project's color tokens (`taupe-*`, `zinc-*`, `orange-*`), the Tailwind 4px spacing ramp, and the established radii (`rounded-xs`, `rounded-sm`). Hex literals, arbitrary `[123px]` values, and bespoke opacities for chrome do not belong in route code. If a token is missing, extend the token system rather than synthesize one inline.
+13. **Tokens, not literals.** Use the project's color tokens (`taupe-*`, `zinc-*`, `orange-*`, `red-*`, `emerald-*`, `amber-*`, `sky-*`, `cyan-*`, `violet-*`), the Tailwind 4px spacing ramp, the established radii (`rounded-xs`, `rounded-sm`), and the project's named utilities:
+    - **Typography:** `text-eyebrow-xs` (10px / 0.18em), `text-eyebrow` (11px / 0.22em), `text-eyebrow-lg` (11px / 0.24em). No more `text-[Xpx] tracking-[X.XXem] uppercase` cocktails.
+    - **Inset highlights:** `shadow-marble-highlight`, `shadow-marble-highlight-strong`, `shadow-marble-highlight-soft`. No more `shadow-[inset_0_1px_0_rgba(255,255,255,0.X)]` literals.
+    - **Accent stripes:** `shadow-marble-stripe-left`, `shadow-marble-stripe-top`. No more `shadow-[inset_Xpx_X_X_X_#f97316]` literals.
+    - **Surfaces:** `bg-workbench-surface`. No more `bg-[linear-gradient(...,#hex,...)]` arbitrary gradients in route code.
+    Hex literals, arbitrary `[123px]` values, and bespoke opacities for chrome do not belong in route code. If a token is missing, **extend the token system in `apps/web/src/app/globals.css`** rather than synthesize one inline. Raw hex literals are acceptable only in third-party theme escape hatches (e.g. `themeQuartz.withParams(...)`) with named constants that map to the equivalent Tailwind token — see `GRID_THEME_COLORS` in `apps/web/src/app/(gui)/tables/[id]/view.tsx` for the canonical pattern.
 14. **Match the rhythm of neighbors.** Padding, type scale, gap utilities, and border radii must match adjacent components unless the contrast is intentional. A `p-4` card next to a `p-5` card looks like a mistake. A `gap-3` row next to a `gap-2` row is conflict, not contrast.
 15. **Catalog behavior, not just chrome.** When a primitive's default *layout behavior* changes (snap-to-bottom, right-aligned actions, breathing-room rhythms, fill-vs-natural sizing), the showcase entry in `apps/web/src/app/internal/ui/page.tsx` must present a real situation that proves the behavior — e.g. a tall card so the snap-to-bottom footer is observable. A compact static example is not enough.
+
+### Forbidden Patterns
+
+These patterns were swept out of the codebase and must not be reintroduced. Every entry below has a primitive replacement that already ships. The full pattern-to-primitive map lives in [Internal Design Guide](./docs/internal/design-guide.md#pattern--primitive-map).
+
+16. **`window.confirm` / `window.alert` / `window.prompt` are forbidden.** Use `MarbleConfirmModal` with a state-driven `MarbleConfirmModalState`. Browser-native confirms are a UX and accessibility regression.
+17. **Hand-rolled label + control combos are forbidden.** `<div className="space-y-1.5"><MarbleFieldLabel>X</MarbleFieldLabel><MarbleInput/></div>` is `<MarbleField label="X"><MarbleInput/></MarbleField>`. `MarbleFieldLabel` is reserved for section headers and non-input groups.
+18. **Hand-rolled JSON pretty-printers are forbidden.** Any `tokenizeJson` helper or `<pre>{JSON.stringify(...)}</pre>` cocktail is `<MarbleJsonPreview value={...} />`. The primitive owns the tokenizer, border, scroll, font, and tone variants.
+19. **Hand-rolled selectable / toggleable tile grids are forbidden.** Icon pickers, library docks, segmented chip controls, and aria-pressed tile buttons are `<MarbleSelectableTile shape="square" | "wide" | "card" active={...}>`.
+20. **Hand-rolled labeled value tiles are forbidden.** `<div className="rounded-xs border bg-... px-3 py-2"><label/><value/></div>` is `<MarbleStat framed label value tone />`.
+21. **Hand-rolled modal / sheet close buttons are forbidden.** `<button>×</button>`, `<button><svg .../></button>`, and similar cocktails are `<MarbleModalClose />` or `<MarbleSheetClose variant="icon" | "button">`. The unicode `×` glyph is never the answer.
+22. **Per-route `border-b` overrides on `MarbleCardHeader` are forbidden.** Use `<MarbleCardHeader divided>`. If you find yourself needing custom divider padding, override via className — but the border-bottom belongs in the primitive.
+23. **Per-route bordered icon wrappers in list rows and empty states are forbidden.** `<MarbleListRow icon={<div className="flex size-9 border ...">{icon}</div>}>` is `<MarbleListRow icon={icon} iconTone="neutral" | "orange">`. Same for `<MarbleEmptyState icon iconTone>`.
+24. **`<MarbleButton><span className="inline-flex items-center gap-X"><Icon/>label</span></MarbleButton>` is forbidden.** Use `iconLeft={Icon}` / `iconRight={Icon}`. The primitive sizes the icon to match the button size and applies the standard gap.
+25. **Hand-rolled trigger-anchored dropdowns are forbidden.** Any `useState(isOpen)` + manual portal + click-outside dropdown that anchors to a trigger button is `<MarbleContextPopover sections={[...]} | items={[...]}>`. Cursor-positioned context menus (e.g. AG Grid cells) may keep their controlled-position logic but **must** reuse the same chrome: `min-w-36 rounded-xs border border-zinc-200 bg-white p-1 shadow-lg shadow-zinc-950/10` with `role="menu"` and the standard item hover treatment.
+26. **Hand-rolled `<pre>{token}</pre>` + Copy button cocktails are forbidden.** Use `<MarbleCopyField label value />`.
+27. **Hand-rolled embedded command surfaces are forbidden.** When a `MarbleCommandMenu` lives flush inside a host card, use `embedded`. Do not wrap with `<div className="h-X border-y ...">` + `className="rounded-none border-0"` on the menu.
+28. **`@heroicons/react` is forbidden.** Phosphor only — `@phosphor-icons/react`, `@phosphor-icons/react/ssr`, or `@phosphor-icons/react/dist/ssr`. Size icons with `size={N}` (px). Apply color with `className="text-color-class"`. `className="h-X w-X"` for icon sizing is forbidden.
+29. **Adding `@heroicons/react` (or any second icon library) to the workspace catalog is forbidden.** If you genuinely need an icon that Phosphor lacks, raise it before adding a dependency.
+
+### Keeping the System in Sync
+
+30. **A new primitive or design token requires three same-commit updates:**
+    a. The implementation (in `packages/ui/src/...` or `apps/web/src/app/globals.css`).
+    b. The showcase at `apps/web/src/app/internal/ui/page.tsx` — every new primitive gets its own demo panel; every new token gets a swatch / text-sample in the `Tokens` section.
+    c. The catalog entry in [Internal Design Guide](./docs/internal/design-guide.md) — `Primitive Catalog`, `Design Tokens`, `Pattern → Primitive Map`, or `Anti-Patterns` as appropriate.
+    If any of the three is missing, the change is incomplete. The catalog and the showcase are the contract — they may not lag the implementation.
+31. **When you migrate a hand-rolled pattern to a primitive, migrate every site in the same change.** Migrating one consumer and leaving five behind guarantees the pattern grows back. If you cannot migrate every site in scope, file an explicit follow-up rather than declaring the work done.
 
 ## Turborepo
 

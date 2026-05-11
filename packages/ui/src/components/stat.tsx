@@ -41,20 +41,17 @@ const marbleStatVariants = cva("", {
   },
 });
 
-const marbleStatLabelVariants = cva(
-  "font-medium text-[11px] uppercase tracking-[0.22em]",
-  {
-    defaultVariants: {
-      tone: "neutral",
-    },
-    variants: {
-      tone: {
-        neutral: "text-taupe-500",
-        subtle: "text-zinc-500",
-      },
+const marbleStatLabelVariants = cva("font-medium text-eyebrow", {
+  defaultVariants: {
+    tone: "neutral",
+  },
+  variants: {
+    tone: {
+      neutral: "text-taupe-500",
+      subtle: "text-zinc-500",
     },
   },
-);
+});
 
 const marbleStatValueVariants = cva("font-medium", {
   defaultVariants: {

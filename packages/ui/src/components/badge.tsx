@@ -5,12 +5,6 @@ import { cx } from "../utils/cx";
 const marbleBadgeVariants = cva(
   "place-self-start inline-flex items-center rounded-xs border px-1.5 py-0.5 font-semibold",
   {
-    compoundVariants: [
-      {
-        caps: true,
-        className: "uppercase tracking-[0.18em]",
-      },
-    ],
     defaultVariants: {
       caps: false,
       tone: "neutral",
@@ -18,7 +12,7 @@ const marbleBadgeVariants = cva(
     variants: {
       caps: {
         false: "tracking-wide text-[11px]",
-        true: "tracking-tighter text-[10px]",
+        true: "text-eyebrow-xs",
       },
       tone: {
         error: "border-red-100 bg-red-100/50 text-red-500",

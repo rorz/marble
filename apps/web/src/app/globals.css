@@ -13,6 +13,15 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-jetbrains-mono);
 
+  /* Marble inset highlight shadows */
+  --shadow-marble-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --shadow-marble-highlight-strong: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --shadow-marble-highlight-soft: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+
+  /* Marble accent stripes */
+  --shadow-marble-stripe-left: inset 2px 0 0 0 var(--color-orange-500);
+  --shadow-marble-stripe-top: inset 0 2px 0 0 var(--color-orange-500);
+
   --animate-blink: blink 0.05s infinite;
   @keyframes blink {
     0%,
@@ -23,6 +32,33 @@
       opacity: 10%;
     }
   }
+}
+
+/* Marble eyebrow typography — small uppercase labels and metadata captions. */
+@utility text-eyebrow-xs {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+@utility text-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+@utility text-eyebrow-lg {
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* Warm blueprint-paper gradient used as the workbench surface canvas. */
+@utility bg-workbench-surface {
+  background: linear-gradient(180deg, #f8f5ee 0%, #f4efe6 100%);
 }
 
 @media (prefers-color-scheme: dark) {

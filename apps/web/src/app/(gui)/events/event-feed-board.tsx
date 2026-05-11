@@ -291,7 +291,7 @@ function EventDetailField({ label, value }: { label: string; value: string }) {
 function EventSnapshot({ title, value }: { title: string; value: unknown }) {
   return (
     <div className="overflow-hidden rounded-xs border border-taupe-200 bg-zinc-50">
-      <div className="border-taupe-200 border-b px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-[0.18em]">
+      <div className="border-taupe-200 border-b px-3 py-2 text-eyebrow-xs text-zinc-500">
         {title}
       </div>
       <MarbleJsonPreview

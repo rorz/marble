@@ -215,7 +215,7 @@ export function MarbleDropzone({
             ) : null}
             <p
               className={cx(
-                "font-medium text-[11px] uppercase tracking-[0.18em]",
+                "font-medium text-eyebrow",
                 disabled ? "text-taupe-400" : "text-orange-600",
               )}
             >

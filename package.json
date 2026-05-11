@@ -25,7 +25,6 @@
     "catalogs": {
       "base": {
         "@cloudflare/sandbox": "^0.8.6",
-        "@heroicons/react": "^2.2.0",
         "@monaco-editor/react": "4.7.0",
         "@orpc/client": "^1.14.0",
         "@orpc/contract": "^1.14.0",

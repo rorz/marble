@@ -1,13 +1,6 @@
 "use client";
 
 import {
-  CodeBracketIcon,
-  FolderOpenIcon,
-  QuestionMarkCircleIcon,
-  Squares2X2Icon,
-  UserGroupIcon,
-} from "@heroicons/react/24/outline";
-import {
   MarbleBadge,
   MarbleCard,
   MarbleCardContent,
@@ -23,6 +16,13 @@ import {
   MarbleCommandSeparator,
   MarbleStat,
 } from "@marble/ui";
+import {
+  CodeIcon,
+  FolderOpenIcon,
+  QuestionIcon,
+  SquaresFourIcon,
+  UsersThreeIcon,
+} from "@phosphor-icons/react/dist/ssr";
 import { useState } from "react";
 
 function SelectionPreview({
@@ -109,14 +109,17 @@ export function HelpCommandExamples() {
                       onSelect={() => setSelectedAction("Create project")}
                       value="Create project"
                     >
-                      <FolderOpenIcon className="h-4 w-4 text-orange-600" />
+                      <FolderOpenIcon
+                        className="text-orange-600"
+                        size={16}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">Create project</div>
                         <div className="text-xs text-taupe-500">
                           Start a new workspace shell.
                         </div>
                       </div>
-                      <span className="font-mono text-[10px] text-taupe-400 uppercase tracking-[0.18em]">
+                      <span className="font-mono text-eyebrow-xs text-taupe-400">
                         New
                       </span>
                     </MarbleCommandItem>
@@ -129,14 +132,17 @@ export function HelpCommandExamples() {
                       onSelect={() => setSelectedAction("Open tables")}
                       value="Open tables"
                     >
-                      <Squares2X2Icon className="h-4 w-4 text-sky-600" />
+                      <SquaresFourIcon
+                        className="text-sky-600"
+                        size={16}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">Open tables</div>
                         <div className="text-xs text-taupe-500">
                           Inspect table rows, columns, and runs.
                         </div>
                       </div>
-                      <span className="font-mono text-[10px] text-taupe-400 uppercase tracking-[0.18em]">
+                      <span className="font-mono text-eyebrow-xs text-taupe-400">
                         Data
                       </span>
                     </MarbleCommandItem>
@@ -149,14 +155,17 @@ export function HelpCommandExamples() {
                       onSelect={() => setSelectedAction("Run active program")}
                       value="Run active program"
                     >
-                      <CodeBracketIcon className="h-4 w-4 text-zinc-700" />
+                      <CodeIcon
+                        className="text-zinc-700"
+                        size={16}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">Run active program</div>
                         <div className="text-xs text-taupe-500">
                           Execute the current program against its inputs.
                         </div>
                       </div>
-                      <span className="font-mono text-[10px] text-taupe-400 uppercase tracking-[0.18em]">
+                      <span className="font-mono text-eyebrow-xs text-taupe-400">
                         Run
                       </span>
                     </MarbleCommandItem>
@@ -174,14 +183,17 @@ export function HelpCommandExamples() {
                       onSelect={() => setSelectedAction("Browse profiles")}
                       value="Browse profiles"
                     >
-                      <UserGroupIcon className="h-4 w-4 text-emerald-600" />
+                      <UsersThreeIcon
+                        className="text-emerald-600"
+                        size={16}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">Browse profiles</div>
                         <div className="text-xs text-taupe-500">
                           Inspect saved agent profiles and prompts.
                         </div>
                       </div>
-                      <span className="font-mono text-[10px] text-taupe-400 uppercase tracking-[0.18em]">
+                      <span className="font-mono text-eyebrow-xs text-taupe-400">
                         Jump
                       </span>
                     </MarbleCommandItem>
@@ -194,14 +206,17 @@ export function HelpCommandExamples() {
                       onSelect={() => setSelectedAction("Open help topics")}
                       value="Open help topics"
                     >
-                      <QuestionMarkCircleIcon className="h-4 w-4 text-violet-600" />
+                      <QuestionIcon
+                        className="text-violet-600"
+                        size={16}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">Open help topics</div>
                         <div className="text-xs text-taupe-500">
                           Jump into the temporary support index.
                         </div>
                       </div>
-                      <span className="font-mono text-[10px] text-taupe-400 uppercase tracking-[0.18em]">
+                      <span className="font-mono text-eyebrow-xs text-taupe-400">
                         Help
                       </span>
                     </MarbleCommandItem>
@@ -255,7 +270,10 @@ export function HelpCommandExamples() {
                       onSelect={() => setSelectedTopic("Profiles overview")}
                       value="Profiles overview"
                     >
-                      <UserGroupIcon className="h-4 w-4 text-emerald-600" />
+                      <UsersThreeIcon
+                        className="text-emerald-600"
+                        size={16}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">Profiles overview</div>
                         <div className="text-xs text-taupe-500">
@@ -272,7 +290,10 @@ export function HelpCommandExamples() {
                       onSelect={() => setSelectedTopic("Automations primer")}
                       value="Automations primer"
                     >
-                      <QuestionMarkCircleIcon className="h-4 w-4 text-orange-600" />
+                      <QuestionIcon
+                        className="text-orange-600"
+                        size={16}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">Automations primer</div>
                         <div className="text-xs text-taupe-500">
@@ -294,7 +315,10 @@ export function HelpCommandExamples() {
                       onSelect={() => setSelectedTopic("Tables and schema")}
                       value="Tables and schema"
                     >
-                      <Squares2X2Icon className="h-4 w-4 text-sky-600" />
+                      <SquaresFourIcon
+                        className="text-sky-600"
+                        size={16}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">Tables and schema</div>
                         <div className="text-xs text-taupe-500">
@@ -311,7 +335,10 @@ export function HelpCommandExamples() {
                       onSelect={() => setSelectedTopic("Programs and inputs")}
                       value="Programs and inputs"
                     >
-                      <CodeBracketIcon className="h-4 w-4 text-zinc-700" />
+                      <CodeIcon
+                        className="text-zinc-700"
+                        size={16}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">Programs and inputs</div>
                         <div className="text-xs text-taupe-500">
@@ -328,7 +355,10 @@ export function HelpCommandExamples() {
                       onSelect={() => setSelectedTopic("Sources and syncs")}
                       value="Sources and syncs"
                     >
-                      <FolderOpenIcon className="h-4 w-4 text-indigo-600" />
+                      <FolderOpenIcon
+                        className="text-indigo-600"
+                        size={16}
+                      />
                       <div className="min-w-0 flex-1">
                         <div className="font-medium">Sources and syncs</div>
                         <div className="text-xs text-taupe-500">

@@ -98,7 +98,7 @@ export function MarbleWorkbenchSection({
         </span>
       ) : null}
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium text-[10px] uppercase tracking-[0.18em] text-taupe-700">
+        <span className="block truncate font-medium text-eyebrow-xs text-taupe-700">
           {title}
         </span>
         {description ? (
@@ -262,7 +262,7 @@ export function MarbleWorkbenchTab({
       className={cx(
         "group flex h-9 shrink-0 items-center border-r border-taupe-300 text-[12px] transition-colors",
         active
-          ? "bg-white text-taupe-950 shadow-[inset_0_2px_0_0_#f97316]"
+          ? "bg-white text-taupe-950 shadow-marble-stripe-top"
           : "bg-transparent text-taupe-600 hover:bg-white/70 hover:text-taupe-950",
         className,
       )}

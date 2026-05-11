@@ -1,6 +1,5 @@
 {
   "dependencies": {
-    "@heroicons/react": "catalog:base",
     "@marble/api": "workspace:*",
     "@marble/contracts": "workspace:*",
     "@marble/keys": "workspace:*",

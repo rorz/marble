@@ -23,13 +23,12 @@ const marbleListRowButtonVariants = cva(
     compoundVariants: [
       {
         active: true,
-        className:
-          "bg-orange-50/80 text-zinc-950 shadow-[inset_2px_0_0_0_#f97316]",
+        className: "bg-orange-50/80 text-zinc-950 shadow-marble-stripe-left",
         tone: "neutral",
       },
       {
         active: true,
-        className: "bg-white text-zinc-950 shadow-[inset_2px_0_0_0_#f97316]",
+        className: "bg-white text-zinc-950 shadow-marble-stripe-left",
         tone: "orange",
       },
     ],
