@@ -1,7 +1,9 @@
 "use client";
 
+// harness-ignore: max-file-lines -- realtime perf scratch surface; intentionally kept as one file
+
 import { MarbleClient } from "@marble/sdk";
-import type { Database, Json } from "../../../../../../src";
+import type { Database, Json } from "@marble/supabase";
 import {
   cx,
   MarbleBadge,

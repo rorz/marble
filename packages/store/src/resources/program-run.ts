@@ -1,4 +1,6 @@
-import type { Json, Tables } from "../../../../src";
+// harness-ignore: max-file-lines -- pending refactor, regrouping with user on conventions
+
+import type { Json, Tables } from "@marble/supabase";
 import { z } from "zod";
 import type { ResourceDeps } from "../db";
 

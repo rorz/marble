@@ -1,6 +1,8 @@
 "use client";
 
-import type { Database } from "../../../../../../src";
+// harness-ignore: max-file-lines -- realtime perf scratch surface; intentionally kept as one file
+
+import type { Database } from "@marble/supabase";
 import {
   cx,
   MarbleCard,
