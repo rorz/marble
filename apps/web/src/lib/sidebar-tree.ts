@@ -1,3 +1,5 @@
+import { removeById } from "@marble/lib/array";
+import { normalizeDisplayLabel } from "@marble/lib/string";
 import { buildPipeTitle } from "./pipe-display";
 
 export type SidebarProjectRow = {
@@ -101,52 +103,74 @@ function sortProjectChildren(nodes: SidebarTreeNode[]) {
   ].sort(compareProjectChildren);
 }
 
+function createSidebarNode(spec: {
+  children?: SidebarTreeNode[];
+  href: string;
+  id: string;
+  kind: SidebarTreeNode["kind"];
+  label: string;
+  ownerProfileId?: string;
+  updatedAt: string;
+}): SidebarTreeNode {
+  const node: SidebarTreeNode = {
+    children: spec.children ?? [],
+    href: spec.href,
+    id: spec.id,
+    kind: spec.kind,
+    label: spec.label,
+    updatedAt: spec.updatedAt,
+  };
+
+  if (spec.ownerProfileId !== undefined) {
+    node.ownerProfileId = spec.ownerProfileId;
+  }
+
+  return node;
+}
+
 export function buildProjectNode(
   project: SidebarProjectRow,
   children: SidebarTreeNode[] = [],
 ): SidebarTreeNode {
-  return {
+  return createSidebarNode({
     children: sortProjectChildren(children),
     href: `/projects/${project.id}`,
     id: project.id,
     kind: "project",
-    label: project.name || "Untitled Project",
+    label: normalizeDisplayLabel(project.name, "Untitled Project"),
     ownerProfileId: project.ownerProfileId,
     updatedAt: project.updatedAt,
-  };
+  });
 }
 
 export function buildProgramNode(program: SidebarProgramRow): SidebarTreeNode {
-  return {
-    children: [],
+  return createSidebarNode({
     href: `/programs/${program.id}`,
     id: program.id,
     kind: "program",
-    label: program.name || "Untitled Program",
+    label: normalizeDisplayLabel(program.name, "Untitled Program"),
     updatedAt: program.updatedAt,
-  };
+  });
 }
 
 export function buildTableNode(table: SidebarTableRow): SidebarTreeNode {
-  return {
-    children: [],
+  return createSidebarNode({
     href: `/projects/${table.projectId}/tables/${table.id}`,
     id: table.id,
     kind: "table",
-    label: table.name || "Untitled Table",
+    label: normalizeDisplayLabel(table.name, "Untitled Table"),
     updatedAt: table.updatedAt,
-  };
+  });
 }
 
 export function buildSourceNode(source: SidebarSourceRow): SidebarTreeNode {
-  return {
-    children: [],
+  return createSidebarNode({
     href: `/projects/${source.projectId}/sources/${source.id}`,
     id: source.id,
     kind: "source",
-    label: source.name || "Untitled Source",
+    label: normalizeDisplayLabel(source.name, "Untitled Source"),
     updatedAt: source.updatedAt,
-  };
+  });
 }
 
 export function buildPipeNode(
@@ -157,8 +181,7 @@ export function buildPipeNode(
     tableLabel?: null | string;
   },
 ): SidebarTreeNode {
-  return {
-    children: [],
+  return createSidebarNode({
     href: `/projects/${projectId}/pipes/${pipe.id}`,
     id: pipe.id,
     kind: "pipe",
@@ -167,7 +190,7 @@ export function buildPipeNode(
       tableLabel: labels?.tableLabel,
     }),
     updatedAt: pipe.updatedAt,
-  };
+  });
 }
 
 export function upsertSidebarNode(
@@ -181,7 +204,7 @@ export function upsertSidebarNode(
 }
 
 export function removeSidebarNode(nodes: SidebarTreeNode[], nodeId: string) {
-  return nodes.filter((node) => node.id !== nodeId);
+  return removeById(nodes, nodeId);
 }
 
 export function upsertSidebarChild(

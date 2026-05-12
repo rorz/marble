@@ -92,17 +92,30 @@ const throwSupabaseError = (
   }
 };
 
-async function timeDbCall<T>(
+type SingleRowResult<T extends TableWithIdName> = {
+  data: DbRow<T> | null;
+  error: { message: string } | null;
+};
+
+const noopRecordTiming = () => {};
+
+// Throw on error / throw on null / camelCase the row in one shot.
+function unwrapSingleRow<T extends TableWithIdName>(
+  result: SingleRowResult<T>,
+  missingMessage: string,
+): Entity<T> {
+  throwSupabaseError(result.error);
+  if (result.data === null) {
+    throw new Error(missingMessage);
+  }
+  return toCamelKeys(result.data);
+}
+
+const timeDbCall = <T>(
   context: ResourceContext,
   name: string,
   task: () => Promise<T>,
-) {
-  return withTiming(
-    (timingName, durationMs) => context.recordTiming?.(timingName, durationMs),
-    name,
-    task,
-  );
-}
+) => withTiming(context.recordTiming ?? noopRecordTiming, name, task);
 
 const toSupabaseMatch = <T extends TableWithIdName>(
   where: ListParams<T>,
@@ -127,23 +140,18 @@ export const createSupabaseDb = (
   serviceSupabase?: SupabaseClient,
 ): SupabaseDb => ({
   createSourceEvent: async (input) =>
-    timeDbCall(context, "db_rpc_source_event_create", async () => {
-      const { data, error } = await supabase.rpc("source_event_create", {
-        p_raw_payload: input.rawPayload,
-        p_source_id: input.sourceId,
-      });
-
-      throwSupabaseError(error);
-
-      if (data === null) {
-        throw new Error("No source event row was returned after insert.");
-      }
-
-      return toCamelKeys<"source_event">(data as DbRow<"source_event">);
-    }),
+    timeDbCall(context, "db_rpc_source_event_create", async () =>
+      unwrapSingleRow<"source_event">(
+        (await supabase.rpc("source_event_create", {
+          p_raw_payload: input.rawPayload,
+          p_source_id: input.sourceId,
+        })) as SingleRowResult<"source_event">,
+        "No source event row was returned after insert.",
+      ),
+    ),
   delete: async (tableName, id, where) =>
     timeDbCall(context, `db_delete_${tableName}`, async () => {
-      const { data, error } = await supabase
+      const result = await supabase
         .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
           tableName,
         )
@@ -152,20 +160,19 @@ export const createSupabaseDb = (
         .select<"*", DbRow<typeof tableName>>("*")
         .single();
 
-      throwSupabaseError(error);
-
-      if (data === null) {
-        throw new Error(`No ${tableName} row was found matching identity.`);
-      }
+      const camelRow = unwrapSingleRow<typeof tableName>(
+        result,
+        `No ${tableName} row was found matching identity.`,
+      );
 
       await writeEventRecord(serviceSupabase, context, {
         after: null,
-        before: data as Record<string, unknown>,
+        before: result.data as Record<string, unknown>,
         operation: "Delete",
         resource: tableName,
       });
 
-      return toCamelKeys(data);
+      return camelRow;
     }),
   first: async (tableName, options) =>
     timeDbCall(context, `db_first_${tableName}`, async () => {
@@ -190,26 +197,22 @@ export const createSupabaseDb = (
       return data === null ? null : toCamelKeys(data);
     }),
   get: async (tableName, id, where) =>
-    timeDbCall(context, `db_get_${tableName}`, async () => {
-      const { data, error } = await supabase
-        .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
-          tableName,
-        )
-        .select<"*", DbRow<typeof tableName>>("*")
-        .match(identityWhere(id, where))
-        .single();
-
-      throwSupabaseError(error);
-
-      if (data === null) {
-        throw new Error(`No ${tableName} row was found matching identity.`);
-      }
-
-      return toCamelKeys(data);
-    }),
+    timeDbCall(context, `db_get_${tableName}`, async () =>
+      unwrapSingleRow<typeof tableName>(
+        await supabase
+          .from<
+            typeof tableName,
+            Database["public"]["Tables"][typeof tableName]
+          >(tableName)
+          .select<"*", DbRow<typeof tableName>>("*")
+          .match(identityWhere(id, where))
+          .single(),
+        `No ${tableName} row was found matching identity.`,
+      ),
+    ),
   insert: async (tableName, values) =>
     timeDbCall(context, `db_insert_${tableName}`, async () => {
-      const { data, error } = await supabase
+      const result = await supabase
         .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
           tableName,
         )
@@ -217,20 +220,19 @@ export const createSupabaseDb = (
         .select<"*", DbRow<typeof tableName>>("*")
         .single();
 
-      throwSupabaseError(error);
-
-      if (data === null) {
-        throw new Error(`No ${tableName} row was returned after insert.`);
-      }
+      const camelRow = unwrapSingleRow<typeof tableName>(
+        result,
+        `No ${tableName} row was returned after insert.`,
+      );
 
       await writeEventRecord(serviceSupabase, context, {
-        after: data as Record<string, unknown>,
+        after: result.data as Record<string, unknown>,
         before: null,
         operation: "Create",
         resource: tableName,
       });
 
-      return toCamelKeys(data);
+      return camelRow;
     }),
   insertTableRows: async (input) =>
     timeDbCall(context, "db_rpc_table_insert_rows", async () => {
@@ -312,13 +314,12 @@ export const createSupabaseDb = (
         .match(identity)
         .single();
 
-      throwSupabaseError(beforeResult.error);
+      unwrapSingleRow<typeof tableName>(
+        beforeResult,
+        `No ${tableName} row was found matching identity.`,
+      );
 
-      if (beforeResult.data === null) {
-        throw new Error(`No ${tableName} row was found matching identity.`);
-      }
-
-      const { data, error } = await supabase
+      const updateResult = await supabase
         .from<typeof tableName, Database["public"]["Tables"][typeof tableName]>(
           tableName,
         )
@@ -327,19 +328,18 @@ export const createSupabaseDb = (
         .select<"*", DbRow<typeof tableName>>("*")
         .single();
 
-      throwSupabaseError(error);
-
-      if (data === null) {
-        throw new Error(`No ${tableName} row was found matching identity.`);
-      }
+      const camelRow = unwrapSingleRow<typeof tableName>(
+        updateResult,
+        `No ${tableName} row was found matching identity.`,
+      );
 
       await writeEventRecord(serviceSupabase, context, {
-        after: data as Record<string, unknown>,
+        after: updateResult.data as Record<string, unknown>,
         before: beforeResult.data as Record<string, unknown>,
         operation: "Update",
         resource: tableName,
       });
 
-      return toCamelKeys(data);
+      return camelRow;
     }),
 });

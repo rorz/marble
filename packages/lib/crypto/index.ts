@@ -66,7 +66,7 @@ type HeaderSource = {
  * Extract a bearer-style API token from request headers. Looks for
  *
  *   - `x-api-key` (preferred, exact value), or
- *   - `Authorization: ******
+ *   - `Authorization: Bearer <token>` (case-insensitive scheme).
  *
  * If `tokenPrefix` is supplied, the bearer value must start with it (used
  * by `@marble/keys` to require the `mbl_` namespace). Returns `null` when

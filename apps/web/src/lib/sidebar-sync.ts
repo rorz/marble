@@ -65,6 +65,31 @@ function resolveProjectIdForPipe(
   return null;
 }
 
+function upsertProjectChildMutation<
+  Row extends {
+    id: string;
+    projectId: string;
+  },
+>(
+  current: SidebarTreeData,
+  row: Row,
+  buildNode: (row: Row) => ReturnType<typeof buildTableNode>,
+): SidebarTreeData {
+  const projects = removeSidebarChildFromAll(current.projects, row.id);
+
+  if (!projects.some((project) => project.id === row.projectId)) {
+    return {
+      ...current,
+      projects,
+    };
+  }
+
+  return {
+    ...current,
+    projects: upsertSidebarChild(projects, row.projectId, buildNode(row)),
+  };
+}
+
 export function applySidebarMutation(
   current: SidebarTreeData,
   mutation: SidebarMutation,
@@ -128,64 +153,26 @@ export function applySidebarMutation(
     }
 
     case "table:delete":
-      return {
-        ...current,
-        projects: removeSidebarChildFromAll(current.projects, mutation.id),
-      };
-
-    case "table:upsert": {
-      const table = castCamelKeys<SidebarTableRow>(mutation.row);
-      const projects = removeSidebarChildFromAll(current.projects, table.id);
-
-      if (!projects.some((project) => project.id === table.projectId)) {
-        return {
-          ...current,
-          projects,
-        };
-      }
-
-      return {
-        ...current,
-        projects: upsertSidebarChild(
-          projects,
-          table.projectId,
-          buildTableNode(table),
-        ),
-      };
-    }
-
     case "source:delete":
-      return {
-        ...current,
-        projects: removeSidebarChildFromAll(current.projects, mutation.id),
-      };
-
-    case "source:upsert": {
-      const source = castCamelKeys<SidebarSourceRow>(mutation.row);
-      const projects = removeSidebarChildFromAll(current.projects, source.id);
-
-      if (!projects.some((project) => project.id === source.projectId)) {
-        return {
-          ...current,
-          projects,
-        };
-      }
-
-      return {
-        ...current,
-        projects: upsertSidebarChild(
-          projects,
-          source.projectId,
-          buildSourceNode(source),
-        ),
-      };
-    }
-
     case "pipe:delete":
       return {
         ...current,
         projects: removeSidebarChildFromAll(current.projects, mutation.id),
       };
+
+    case "table:upsert":
+      return upsertProjectChildMutation(
+        current,
+        castCamelKeys<SidebarTableRow>(mutation.row),
+        buildTableNode,
+      );
+
+    case "source:upsert":
+      return upsertProjectChildMutation(
+        current,
+        castCamelKeys<SidebarSourceRow>(mutation.row),
+        buildSourceNode,
+      );
 
     case "pipe:upsert": {
       const pipe = castCamelKeys<SidebarPipeRow>(mutation.row);
