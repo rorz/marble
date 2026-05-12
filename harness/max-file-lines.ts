@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * harness/file-size.ts
+ * harness/max-file-lines.ts
  *
  * Enforces AGENTS.md rule 13 (NEVER): "Create files larger than 350 lines
  * of code."
@@ -117,13 +117,13 @@ for (const relPath of files) {
 
 function report(found: readonly Finding[]): void {
   if (found.length === 0) {
-    console.log("harness/file-size: OK");
+    console.log("harness/max-file-lines: OK");
     return;
   }
 
   console.error("");
   console.error(
-    `harness/file-size: ${found.length} file(s) exceed ${MAX_LINES} lines`,
+    `harness/max-file-lines: ${found.length} file(s) exceed ${MAX_LINES} lines`,
   );
   console.error("");
   console.error("  [max-file-lines]");

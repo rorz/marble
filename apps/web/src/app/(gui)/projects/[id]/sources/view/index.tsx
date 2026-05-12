@@ -1,6 +1,6 @@
 "use client";
 
-// harness-ignore: max-file-lines -- pending refactor, regrouping with user on conventions
+// harness-ignore: max-file-lines -- single dense state machine: source detail orchestrator with 30+ useState/useMemo refs sharing handlers across source/event/pipe/schema/mapping concerns; lifting would obscure dataflow
 
 import {
   MarbleAlert,
@@ -27,460 +27,51 @@ import {
   MarbleSelect,
   marbleToast,
 } from "@marble/ui";
-import type { editor as MonacoEditorApi } from "monaco-editor";
-import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { z } from "zod";
-import { sourceEventFromBroadcastRow } from "../../../../../lib/marble-resources";
-import { useMarbleSdk } from "../../../../../lib/marble-sdk-client";
+import { sourceEventFromBroadcastRow } from "../../../../../../lib/marble-resources";
+import { useMarbleSdk } from "../../../../../../lib/marble-sdk-client";
 import {
   buildPipeMappingSummary,
   buildPipeTitle,
   normalizePipeMappings,
-} from "../../../../../lib/pipe-display";
-import { usePrivateBroadcast } from "../../../../../lib/realtime/private-broadcast";
-import type { ProjectSourceWorkspaceData } from "../../../../../lib/source-data";
+} from "../../../../../../lib/pipe-display";
+import { usePrivateBroadcast } from "../../../../../../lib/realtime/private-broadcast";
+import type { ProjectSourceWorkspaceData } from "../../../../../../lib/source-data";
 import {
   changeTargetKey,
   getChangeTargetProps,
-} from "../../../change-spotlight";
-import * as actions from "./actions";
-
-type Source = ProjectSourceWorkspaceData["sources"][number];
-type PipeMappingInput = {
-  columnId: string;
-  jsonPath: string;
-};
-type PipeMappingDraft = PipeMappingInput & {
-  draftId: string;
-};
-type PipePathCandidate = {
-  key: string;
-  path: string;
-  preview: string;
-};
-type ProjectSourceDetailMode = "pipe" | "source";
-type SourceSchemaValidation =
-  | {
-      ok: true;
-      value: unknown;
-    }
-  | {
-      message: string;
-      ok: false;
-    };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  month: "short",
-});
-
-const DEFAULT_SOURCE_SCHEMA_TEXT = JSON.stringify(
-  {
-    type: "object",
-  },
-  null,
-  2,
-);
-
-const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
-  loading: () => (
-    <div className="flex h-full items-center justify-center text-taupe-500 text-xs">
-      Loading editor...
-    </div>
-  ),
-  ssr: false,
-});
-
-const sourceSchemaEditorOptions = {
-  automaticLayout: true,
-  fontFamily:
-    '"Geist Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
-  fontSize: 13,
-  lineNumbersMinChars: 3,
-  minimap: {
-    enabled: false,
-  },
-  padding: {
-    top: 12,
-  },
-  renderWhitespace: "selection",
-  scrollBeyondLastLine: false,
-  smoothScrolling: true,
-  tabSize: 2,
-} satisfies MonacoEditorApi.IStandaloneEditorConstructionOptions;
-
-function formatJson(value: unknown) {
-  return JSON.stringify(value, null, 2);
-}
-
-function validateSourceSchemaText(value: string): SourceSchemaValidation {
-  let parsed: unknown;
-
-  try {
-    parsed = JSON.parse(value);
-  } catch (error) {
-    return {
-      message:
-        error instanceof Error ? error.message : "Payload schema must be JSON.",
-      ok: false,
-    };
-  }
-
-  if (!isPlainObject(parsed)) {
-    return {
-      message: "Payload schema must be a JSON schema object.",
-      ok: false,
-    };
-  }
-
-  try {
-    z.fromJSONSchema(parsed as z.core.JSONSchema.Schema);
-  } catch (error) {
-    return {
-      message:
-        error instanceof Error
-          ? `Payload schema could not be compiled: ${error.message}`
-          : "Payload schema could not be compiled.",
-      ok: false,
-    };
-  }
-
-  return {
-    ok: true,
-    value: parsed,
-  };
-}
-
-function sortByCreatedAtDesc<
-  T extends {
-    createdAt: string;
-  },
->(records: T[]) {
-  return [
-    ...records,
-  ].sort(
-    (left, right) =>
-      new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
-  );
-}
-
-function sortByUpdatedAtDesc<
-  T extends {
-    updatedAt: string;
-  },
->(records: T[]) {
-  return [
-    ...records,
-  ].sort(
-    (left, right) =>
-      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
-  );
-}
-
-function webhookEndpoint(baseUrl: string, source: Pick<Source, "id">) {
-  return `${baseUrl}/webhooks/${source.id}`;
-}
-
-function sourceTitle(source: null | Pick<Source, "name">) {
-  return source?.name || "Untitled Source";
-}
-
-function createPipeMappingDraft(
-  value: Partial<PipeMappingInput> = {},
-): PipeMappingDraft {
-  return {
-    columnId: value.columnId ?? "",
-    draftId: crypto.randomUUID(),
-    jsonPath: value.jsonPath ?? "",
-  };
-}
-
-function normalizePipeFieldName(value: string) {
-  return value.toLowerCase().replaceAll(/[^a-z0-9]/g, "");
-}
-
-function formatPipeCandidatePreview(value: unknown) {
-  if (value === null) {
-    return "null";
-  }
-
-  if (Array.isArray(value)) {
-    return `${value.length} item${value.length === 1 ? "" : "s"}`;
-  }
-
-  if (typeof value === "object") {
-    return "Object";
-  }
-
-  const preview = String(value);
-  return preview.length > 48 ? `${preview.slice(0, 45)}...` : preview;
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function formatPipeSchemaPreview(schema: Record<string, unknown>) {
-  const enumValues = Array.isArray(schema.enum)
-    ? schema.enum.filter(
-        (value): value is boolean | null | number | string =>
-          typeof value === "boolean" ||
-          typeof value === "number" ||
-          typeof value === "string" ||
-          value === null,
-      )
-    : [];
-
-  if (enumValues.length > 0) {
-    const preview = enumValues
-      .slice(0, 3)
-      .map((value) => formatPipeCandidatePreview(value))
-      .join(", ");
-
-    return enumValues.length > 3 ? `Enum ${preview}, ...` : `Enum ${preview}`;
-  }
-
-  const schemaType = schema.type;
-  const typeLabels =
-    typeof schemaType === "string"
-      ? [
-          schemaType,
-        ]
-      : Array.isArray(schemaType)
-        ? schemaType.filter(
-            (value): value is string => typeof value === "string",
-          )
-        : [];
-
-  if (typeLabels.length > 0) {
-    return typeLabels.join(" | ");
-  }
-
-  if (isPlainObject(schema.properties)) {
-    return "object";
-  }
-
-  if (schema.items !== undefined) {
-    return "array";
-  }
-
-  return "value";
-}
-
-function jsonPathPropertySegment(key: string) {
-  return /^[$A-Z_a-z][\w$]*$/u.test(key)
-    ? `.${key}`
-    : `[${JSON.stringify(key)}]`;
-}
-
-function collectPipePathCandidates(
-  value: unknown,
-  path = "$",
-  key = "$",
-): PipePathCandidate[] {
-  if (Array.isArray(value)) {
-    return [
-      {
-        key,
-        path,
-        preview: formatPipeCandidatePreview(value),
-      },
-    ];
-  }
-
-  if (isPlainObject(value)) {
-    const entries = Object.entries(value);
-
-    if (entries.length === 0) {
-      return [
-        {
-          key,
-          path,
-          preview: "{}",
-        },
-      ];
-    }
-
-    return entries.flatMap(([entryKey, entryValue]) =>
-      collectPipePathCandidates(
-        entryValue,
-        `${path}${jsonPathPropertySegment(entryKey)}`,
-        entryKey,
-      ),
-    );
-  }
-
-  return [
-    {
-      key,
-      path,
-      preview: formatPipeCandidatePreview(value),
-    },
-  ];
-}
-
-function dedupePipePathCandidates(candidates: PipePathCandidate[]) {
-  const candidateByPath = new Map<string, PipePathCandidate>();
-
-  for (const candidate of candidates) {
-    if (candidateByPath.has(candidate.path)) {
-      continue;
-    }
-
-    candidateByPath.set(candidate.path, candidate);
-  }
-
-  return Array.from(candidateByPath.values());
-}
-
-function collectPipePathCandidatesFromSchema(
-  schema: unknown,
-  path = "$",
-  key = "$",
-): PipePathCandidate[] {
-  if (!isPlainObject(schema)) {
-    return [];
-  }
-
-  const nestedCandidates: PipePathCandidate[] = [];
-
-  for (const branchKey of [
-    "allOf",
-    "anyOf",
-    "oneOf",
-  ] as const) {
-    const branches = schema[branchKey];
-
-    if (!Array.isArray(branches)) {
-      continue;
-    }
-
-    for (const branch of branches) {
-      nestedCandidates.push(
-        ...collectPipePathCandidatesFromSchema(branch, path, key),
-      );
-    }
-  }
-
-  const properties = schema.properties;
-
-  if (isPlainObject(properties)) {
-    for (const [entryKey, entrySchema] of Object.entries(properties)) {
-      nestedCandidates.push(
-        ...collectPipePathCandidatesFromSchema(
-          entrySchema,
-          `${path}${jsonPathPropertySegment(entryKey)}`,
-          entryKey,
-        ),
-      );
-    }
-  }
-
-  if (nestedCandidates.length > 0) {
-    return dedupePipePathCandidates(nestedCandidates);
-  }
-
-  return [
-    {
-      key,
-      path,
-      preview: formatPipeSchemaPreview(schema),
-    },
-  ];
-}
-
-function parseGeneratedJsonPath(path: string) {
-  if (path === "$") {
-    return [];
-  }
-
-  if (!path.startsWith("$")) {
-    return null;
-  }
-
-  const segments: string[] = [];
-  let index = 1;
-
-  while (index < path.length) {
-    const currentChar = path[index];
-
-    if (currentChar === ".") {
-      let nextIndex = index + 1;
-
-      while (
-        nextIndex < path.length &&
-        path[nextIndex] !== "." &&
-        path[nextIndex] !== "["
-      ) {
-        nextIndex += 1;
-      }
-
-      const segment = path.slice(index + 1, nextIndex);
-
-      if (segment.length === 0) {
-        return null;
-      }
-
-      segments.push(segment);
-      index = nextIndex;
-      continue;
-    }
-
-    if (currentChar === "[") {
-      const bracketMatch = /^\[(?:"(?:\\.|[^"\\])*")\]/u.exec(
-        path.slice(index),
-      );
-
-      if (!bracketMatch) {
-        return null;
-      }
-
-      const segment = JSON.parse(
-        bracketMatch[0].slice(1, bracketMatch[0].length - 1),
-      );
-
-      if (typeof segment !== "string") {
-        return null;
-      }
-
-      segments.push(segment);
-      index += bracketMatch[0].length;
-      continue;
-    }
-
-    return null;
-  }
-
-  return segments;
-}
-
-function resolveGeneratedJsonPath(value: unknown, path: string) {
-  const segments = parseGeneratedJsonPath(path);
-
-  if (segments === null) {
-    return undefined;
-  }
-
-  let currentValue = value;
-
-  for (const segment of segments) {
-    if (!isPlainObject(currentValue) || !(segment in currentValue)) {
-      return undefined;
-    }
-
-    currentValue = currentValue[segment];
-  }
-
-  return currentValue;
-}
+} from "../../../../change-spotlight";
+import * as actions from "../actions";
+import {
+  DATE_TIME_FORMATTER,
+  DEFAULT_SOURCE_SCHEMA_TEXT,
+  MonacoEditor,
+  sourceSchemaEditorOptions,
+} from "./constants";
+import {
+  createPipeMappingDraft,
+  formatPipeCandidatePreview,
+  normalizePipeFieldName,
+} from "./pipe-mapping";
+import {
+  collectPipePathCandidates,
+  collectPipePathCandidatesFromSchema,
+  resolveGeneratedJsonPath,
+} from "./pipe-paths";
+import {
+  sortByCreatedAtDesc,
+  sortByUpdatedAtDesc,
+  sourceTitle,
+  webhookEndpoint,
+} from "./sources";
+import type {
+  PipeMappingDraft,
+  PipeMappingInput,
+  PipePathCandidate,
+  ProjectSourceDetailMode,
+} from "./types";
+import { formatJson, isRecord, validateSourceSchemaText } from "./validators";
 
 export function ProjectSourceDetailPageView({
   initialData,

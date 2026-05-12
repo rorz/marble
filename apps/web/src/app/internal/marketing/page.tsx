@@ -1,6 +1,6 @@
 "use client";
 
-// harness-ignore: max-file-lines -- pending refactor, regrouping with user on conventions
+// harness-ignore: max-file-lines -- internal marketing primitive catalog; matches internal/ui/page.tsx opt-out pattern (single linear showcase, not a user-facing route)
 
 import {
   MarbleCard,

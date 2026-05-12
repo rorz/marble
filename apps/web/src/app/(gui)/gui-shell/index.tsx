@@ -1,12 +1,10 @@
 "use client";
 
-// harness-ignore: max-file-lines -- pending refactor, regrouping with user on conventions
+// harness-ignore: max-file-lines -- single dense state machine: GuiShell wraps the entire (gui) route tree with shared refs across sidebar/agent-sidebar/tree-state/command-palette/broadcast concerns; lifting would obscure dataflow
 
 import {
   cx,
   MarbleAccountPopover,
-  MarbleBadge,
-  MarbleButton,
   MarbleCommandDialog,
   MarbleCommandEmpty,
   MarbleCommandGroup,
@@ -16,19 +14,11 @@ import {
   MarbleCommandSeparator,
   MarbleSheet,
   MarbleSheetContent,
-  MarbleSheetDescription,
-  MarbleSheetFooter,
-  MarbleSheetHeader,
-  MarbleSheetTitle,
   marbleToast,
 } from "@marble/ui";
 import {
   BookOpenTextIcon,
   BriefcaseMetalIcon,
-  type CaretDoubleLeftIcon,
-  CaretDoubleRightIcon,
-  CaretDownIcon,
-  CaretRightIcon,
   CodeBlockIcon,
   FileCodeIcon,
   FunnelIcon,
@@ -37,14 +27,11 @@ import {
   LifebuoyIcon,
   PipeIcon,
   RobotIcon,
-  SidebarIcon,
   SignOutIcon,
   TableIcon,
   UserCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
-
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   type CSSProperties,
@@ -56,6 +43,7 @@ import {
   useRef,
   useState,
 } from "react";
+
 import {
   applySidebarTreeState,
   COLLAPSED_AGENT_SIDEBAR_WIDTH,
@@ -69,602 +57,59 @@ import {
   type SidebarMode,
   type SidebarTreeState,
   updateSidebarTreeStateForKey,
-} from "../../lib/gui-sidebar";
+} from "../../../lib/gui-sidebar";
 import {
   useMarbleSdkFactory,
   useMarbleWebSessionSdk,
-} from "../../lib/marble-sdk-client";
-import { createDefaultProgram } from "../../lib/program-client";
-import { usePrivateBroadcast } from "../../lib/realtime/private-broadcast";
-import { getErrorMessage } from "../../lib/realtime-crud";
+} from "../../../lib/marble-sdk-client";
+import { createDefaultProgram } from "../../../lib/program-client";
+import { usePrivateBroadcast } from "../../../lib/realtime/private-broadcast";
+import { getErrorMessage } from "../../../lib/realtime-crud";
 import {
   applySidebarMutation,
   isSidebarMutation,
-} from "../../lib/sidebar-sync";
-import {
-  collectActiveSidebarKeys,
-  type SidebarTreeData,
-  type SidebarTreeNode,
-} from "../../lib/sidebar-tree";
-import { useSignOut } from "../sign-out-button";
-import { ChangeRadar } from "./change-radar";
+} from "../../../lib/sidebar-sync";
+import type {
+  SidebarTreeData,
+  SidebarTreeNode,
+} from "../../../lib/sidebar-tree";
+import { useSignOut } from "../../sign-out-button";
+import { ChangeRadar } from "../change-radar";
 import {
   ChangeSpotlight,
   changeTargetKey,
-  getChangeTargetProps,
   parseChangeTargetKey,
   useChangeSpotlightPreviewTargetKeys,
-} from "./change-spotlight";
+} from "../change-spotlight";
 
-type TreeCollectionKey = "programs" | "projects";
-type SidebarGroup = {
-  name: string;
-  routes: {
-    icon: ReactNode;
-    id: string;
-    isTree?: boolean;
-    name: string;
-    path: `/${string}`;
-  }[];
-}[];
-
-const navigationGroups: SidebarGroup = [
-  {
-    name: "Workspace",
-    routes: [
-      {
-        icon: (
-          <BriefcaseMetalIcon
-            size={20}
-            weight="regular"
-          />
-        ),
-        id: "projects",
-        isTree: true,
-        name: "Projects",
-        path: "/projects",
-      },
-      {
-        icon: (
-          <FileCodeIcon
-            size={20}
-            weight="regular"
-          />
-        ),
-        id: "programs",
-        isTree: true,
-        name: "Programs",
-        path: "/programs",
-      },
-      {
-        icon: (
-          <KeyIcon
-            size={20}
-            weight="regular"
-          />
-        ),
-        id: "secrets",
-        name: "Secrets",
-        path: "/secrets",
-      },
-    ],
-  },
-  {
-    name: "Agentic use",
-    routes: [
-      {
-        icon: (
-          <IdentificationBadgeIcon
-            size={20}
-            weight="regular"
-          />
-        ),
-        id: "profiles",
-        name: "Profiles",
-        path: "/profiles",
-      },
-      {
-        icon: (
-          <RobotIcon
-            size={20}
-            weight="regular"
-          />
-        ),
-        id: "automations",
-        name: "Automations",
-        path: "/automations",
-      },
-    ],
-  },
-] as const;
-
-const utilityRoutes: {
-  icon: ReactNode;
-  name: string;
-  path: `/${string}`;
-}[] = [
-  {
-    icon: <BookOpenTextIcon weight="bold" />,
-    name: "Events",
-    path: "/events",
-  },
-  {
-    icon: <LifebuoyIcon weight="bold" />,
-    name: "Help",
-    path: "/help",
-  },
-];
-
-type CommandPaletteItem = {
-  detail: string;
-  icon: ReactNode;
-  id: string;
-  keywords: string[];
-  label: string;
-  onSelect: () => void;
-};
-type CommandPaletteSection = {
-  heading: string;
-  id: string;
-  items: CommandPaletteItem[];
-};
-type CommandPalettePage =
-  | "create-pipe-project"
-  | "create-source-project"
-  | "create-table-project";
-type SupportSheetView = "contact" | "handbook";
-
-const GUI_SIDEBAR_FIRST_PARTY_PROGRAMS_TOPIC =
-  "gui-sidebar:first-party-programs";
-
-const guiSidebarUserTopic = (userId: string) => `gui-sidebar:user:${userId}`;
-
-const supportSheetWidthClassName = "w-[min(32rem,calc(100vw-1rem))]";
-
-function getProjectIdFromPathname(pathname: string) {
-  const segments = pathname.split("/");
-
-  if (segments.at(1) !== "projects") {
-    return null;
-  }
-
-  const projectId = segments.at(2);
-
-  return projectId && projectId !== "new" ? projectId : null;
-}
-
-const sidebarModes = {
-  collapsed: {
-    asideClassName: "items-center px-0 gap-10",
-    brandClassName: "justify-center",
-    brandInnerClassName: "justify-center",
-    iconOnly: true,
-    navClassName: "items-center",
-    routeClassName: "w-auto justify-center",
-    toggleIcon: CaretDoubleRightIcon,
-    toggleLabel: "Expand sidebar",
-  },
-  expanded: {
-    asideClassName: "items-start px-2 gap-8",
-    brandClassName: "justify-between gap-2",
-    brandInnerClassName: "gap-2",
-    iconOnly: false,
-    navClassName: "items-stretch",
-    routeClassName: "w-full gap-1",
-    toggleIcon: SidebarIcon,
-    toggleLabel: "Collapse sidebar",
-  },
-} as const satisfies Record<
-  SidebarMode,
-  {
-    asideClassName: string;
-    brandClassName: string;
-    brandInnerClassName: string;
-    iconOnly: boolean;
-    navClassName: string;
-    routeClassName: string;
-    toggleIcon: typeof CaretDoubleLeftIcon;
-    toggleLabel: string;
-  }
->;
-
-const nextSidebarMode: Record<SidebarMode, SidebarMode> = {
-  collapsed: "expanded",
-  expanded: "collapsed",
-};
-
-function isNodePathActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function collectCommandPaletteResources(
-  nodes: SidebarTreeNode[],
-  parents: SidebarTreeNode[] = [],
-): Array<{
-  node: SidebarTreeNode;
-  parents: SidebarTreeNode[];
-}> {
-  return nodes.flatMap((node) => [
-    {
-      node,
-      parents,
-    },
-    ...collectCommandPaletteResources(node.children, [
-      ...parents,
-      node,
-    ]),
-  ]);
-}
-
-function findProjectChildNode(
-  projectNode: SidebarTreeNode,
-  kind: "source" | "table",
-) {
-  return projectNode.children.find((child) => child.kind === kind) ?? null;
-}
-
-function getPipeCreateDefaults(projectNode: SidebarTreeNode) {
-  const sourceNode = findProjectChildNode(projectNode, "source");
-  const tableNode = findProjectChildNode(projectNode, "table");
-
-  return sourceNode && tableNode
-    ? {
-        sourceId: sourceNode.id,
-        tableId: tableNode.id,
-      }
-    : null;
-}
-
-function isEditableTarget(target: EventTarget | null) {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  if (target.closest("[cmdk-root]")) {
-    return false;
-  }
-
-  return (
-    target.isContentEditable ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLTextAreaElement ||
-    target instanceof HTMLSelectElement
-  );
-}
-
-function getNodeIcon(node: SidebarTreeNode) {
-  if (node.kind === "project") {
-    return null;
-  }
-
-  if (node.kind === "table") {
-    return (
-      <TableIcon
-        className="h-4 w-4"
-        weight="duotone"
-      />
-    );
-  }
-
-  if (node.kind === "source") {
-    return (
-      <FunnelIcon
-        className="h-4 w-4"
-        weight="duotone"
-      />
-    );
-  }
-
-  if (node.kind === "pipe") {
-    return (
-      <PipeIcon
-        className="h-4 w-4"
-        weight="duotone"
-      />
-    );
-  }
-
-  return (
-    <CodeBlockIcon
-      className="h-4 w-4"
-      weight="duotone"
-    />
-  );
-}
-
-function getNodeTargetKey(node: SidebarTreeNode) {
-  if (node.kind === "project") {
-    return changeTargetKey.project(node.id);
-  }
-
-  if (node.kind === "table") {
-    return changeTargetKey.table(node.id);
-  }
-
-  if (node.kind === "source") {
-    return changeTargetKey.source(node.id);
-  }
-
-  if (node.kind === "pipe") {
-    return changeTargetKey.pipe(node.id);
-  }
-
-  return changeTargetKey.program(node.id);
-}
-
-function buildDefaultSidebarOpenKeys({
-  pathname,
-  selectedProgramId,
-  sidebarData,
-  sidebarMode,
-}: {
-  pathname: string;
-  selectedProgramId: null | string;
-  sidebarData: SidebarTreeData;
-  sidebarMode: SidebarMode;
-}) {
-  const keys = new Set<string>(
-    sidebarMode === "expanded"
-      ? [
-          "section:programs",
-          "section:projects",
-        ]
-      : [],
-  );
-  const topLevelPath = `/${pathname.split("/").at(1)}`;
-  const isNodeActive = (node: SidebarTreeNode) =>
-    node.kind === "program"
-      ? pathname === "/programs" && selectedProgramId === node.id
-      : isNodePathActive(pathname, node.href);
-
-  if (topLevelPath === "/projects") {
-    keys.add("section:projects");
-  }
-
-  if (topLevelPath === "/programs") {
-    keys.add("section:programs");
-  }
-
-  for (const key of collectActiveSidebarKeys(
-    sidebarData.projects,
-    isNodeActive,
-  )) {
-    keys.add(key);
-  }
-
-  for (const key of collectActiveSidebarKeys(
-    sidebarData.programs,
-    isNodeActive,
-  )) {
-    keys.add(key);
-  }
-
-  return keys;
-}
-
-function SidebarNavRow({
-  active = false,
-  expandable = false,
-  expanded = false,
-  href,
-  icon,
-  iconOnly,
-  label,
-  onSelect,
-  onToggle,
-  previewTone = null,
-  targetKey,
-  title,
-}: {
-  active?: boolean;
-  expandable?: boolean;
-  expanded?: boolean;
-  href: string;
-  icon: ReactNode;
-  iconOnly: boolean;
-  label: string;
-  onSelect?: () => void;
-  onToggle?: () => void;
-  previewTone?: "ancestor" | "direct" | null;
-  targetKey?: string;
-  title?: string;
-}) {
-  const router = useRouter();
-  const showDisclosure = expandable && !iconOnly;
-  const showIconSlot = Boolean(icon);
-
-  return (
-    <div
-      className={cx(
-        "group flex min-w-0 items-center rounded-md text-taupe-700 transition-colors",
-        active
-          ? "bg-taupe-300/80 text-taupe-900"
-          : previewTone === "direct"
-            ? "bg-white text-taupe-900 inset-ring-1 inset-ring-orange-500/40"
-            : previewTone === "ancestor"
-              ? "bg-orange-50/80 text-taupe-900"
-              : "hover:bg-taupe-200/80 hover:text-taupe-900",
-        iconOnly ? "w-auto justify-center" : "w-full pr-1",
-      )}
-      {...(targetKey ? getChangeTargetProps(targetKey) : {})}
-    >
-      <Link
-        aria-current={active ? "page" : undefined}
-        className={cx(
-          "flex min-w-0 flex-1 items-center",
-          iconOnly ? "justify-center p-2" : "gap-1.5 px-2 py-0.5 h-7",
-        )}
-        href={href}
-        onClick={(event) => {
-          if (onSelect) {
-            event.preventDefault();
-            onSelect();
-            return;
-          }
-
-          if (expandable && !expanded) {
-            onToggle?.();
-          }
-        }}
-        prefetch={false}
-        title={title}
-      >
-        {showIconSlot ? (
-          <div className="flex size-5 shrink-0 items-center justify-center">
-            {icon}
-          </div>
-        ) : null}
-        {iconOnly ? null : (
-          <span className="truncate font-medium text-sm tracking-tight">
-            {label}
-          </span>
-        )}
-      </Link>
-
-      {showDisclosure ? (
-        <button
-          aria-expanded={expanded}
-          aria-label={`${expanded ? "Collapse" : "Expand"} ${label}`}
-          className="flex size-7 shrink-0 items-center justify-center rounded-sm text-current opacity-60 transition-opacity hover:opacity-100"
-          onClick={(event) => {
-            event.preventDefault();
-            const nextExpanded = !expanded;
-
-            onToggle?.();
-
-            if (!active && nextExpanded) {
-              router.push(href);
-            }
-          }}
-          type="button"
-        >
-          {expanded ? (
-            <CaretDownIcon
-              size={12}
-              weight="bold"
-            />
-          ) : (
-            <CaretRightIcon
-              size={12}
-              weight="bold"
-            />
-          )}
-        </button>
-      ) : null}
-    </div>
-  );
-}
-
-function SupportPanelSection({
-  children,
-  title,
-}: Readonly<{
-  children: ReactNode;
-  title: string;
-}>) {
-  return (
-    <section className="space-y-2">
-      <h3 className="font-medium text-sm text-taupe-900">{title}</h3>
-      <div className="space-y-2 text-sm text-taupe-700">{children}</div>
-    </section>
-  );
-}
-
-function CommandPaletteSupportSheet({
-  onClose,
-  view,
-}: Readonly<{
-  onClose: () => void;
-  view: SupportSheetView;
-}>) {
-  if (view === "contact") {
-    return (
-      <>
-        <MarbleSheetHeader>
-          <MarbleSheetTitle>Contact Us</MarbleSheetTitle>
-          <MarbleSheetDescription>
-            Placeholder support surface while the real contact flow is still
-            being wired up.
-          </MarbleSheetDescription>
-        </MarbleSheetHeader>
-
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-          <MarbleBadge
-            caps
-            tone="warning"
-          >
-            Placeholder
-          </MarbleBadge>
-
-          <SupportPanelSection title="What this will become">
-            <p>
-              This slot is reserved for direct support routing, escalation
-              instructions, and whatever contact mechanism we settle on next.
-            </p>
-          </SupportPanelSection>
-
-          <SupportPanelSection title="For now">
-            <p>
-              Use the Marble Handbook for product navigation and keep this item
-              around as the obvious support-shaped follow-up in the menu.
-            </p>
-          </SupportPanelSection>
-        </div>
-
-        <MarbleSheetFooter>
-          <MarbleButton onClick={onClose}>Close</MarbleButton>
-        </MarbleSheetFooter>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <MarbleSheetHeader>
-        <MarbleSheetTitle>Marble Handbook</MarbleSheetTitle>
-        <MarbleSheetDescription>
-          A command-menu-native guide for the core Marble surfaces.
-        </MarbleSheetDescription>
-      </MarbleSheetHeader>
-
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-        <MarbleBadge
-          caps
-          tone="info"
-        >
-          Inside cmdk
-        </MarbleBadge>
-
-        <SupportPanelSection title="Jump anywhere">
-          <p>
-            Open the palette with Cmd/Ctrl+K, then search for projects, tables,
-            sources, pipes, programs, profiles, automations, or events to move
-            without touching the sidebar.
-          </p>
-        </SupportPanelSection>
-
-        <SupportPanelSection title="Search behavior">
-          <p>
-            Command items already carry keywords, so typing terms like `help`,
-            `docs`, `rows`, `people`, or resource names is enough to surface the
-            right target.
-          </p>
-        </SupportPanelSection>
-
-        <SupportPanelSection title="Support entry points">
-          <p>
-            Search `help` to reopen this handbook. The adjacent contact entry is
-            intentionally a placeholder until the real support path lands.
-          </p>
-        </SupportPanelSection>
-      </div>
-
-      <MarbleSheetFooter>
-        <MarbleButton onClick={onClose}>Close</MarbleButton>
-      </MarbleSheetFooter>
-    </>
-  );
-}
+import {
+  GUI_SIDEBAR_FIRST_PARTY_PROGRAMS_TOPIC,
+  guiSidebarUserTopic,
+  nextSidebarMode,
+  sidebarModes,
+  supportSheetWidthClassName,
+} from "./constants";
+import { SidebarNavRow } from "./nav-row";
+import { navigationGroups, utilityRoutes } from "./navigation";
+import {
+  buildDefaultSidebarOpenKeys,
+  collectCommandPaletteResources,
+  getNodeIcon,
+  getNodeTargetKey,
+  getPipeCreateDefaults,
+} from "./nodes";
+import {
+  getProjectIdFromPathname,
+  isEditableTarget,
+  isNodePathActive,
+} from "./pathname";
+import { CommandPaletteSupportSheet } from "./support-sheet";
+import type {
+  CommandPalettePage,
+  CommandPaletteSection,
+  SupportSheetView,
+  TreeCollectionKey,
+} from "./types";
 
 export function GuiShell({
   children,

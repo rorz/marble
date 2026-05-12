@@ -1,0 +1,269 @@
+import { COL_REF_PATTERN } from "./constants";
+import type {
+  ProgramSecretDeclarationsByProgramId,
+  ReferenceableColumn,
+  SchemaField,
+  SecretBindingInput,
+  SecretRecord,
+} from "./types";
+
+export function buildFieldsFromSchema(
+  schema: Record<string, unknown>,
+): SchemaField[] {
+  const props = (schema.properties ?? {}) as Record<
+    string,
+    Record<string, unknown>
+  >;
+  const req = new Set((schema.required as string[] | undefined) ?? []);
+  return Object.entries(props).map(([key, def]) => ({
+    defaultValue: def.default as string | undefined,
+    enumValues: def.enum as string[] | undefined,
+    key,
+    required: req.has(key),
+    title: (def.title as string) ?? key,
+    type: (def.type as string) ?? "string",
+  }));
+}
+
+export function secretBindingEntriesToMap(bindings: SecretBindingInput[]) {
+  return Object.fromEntries(
+    bindings.map((binding) => [
+      binding.envName,
+      binding.secretId,
+    ]),
+  ) as Record<string, string>;
+}
+
+export function secretBindingMapToEntries(bindings: Record<string, string>) {
+  return Object.entries(bindings)
+    .sort(([leftEnvName], [rightEnvName]) =>
+      leftEnvName.localeCompare(rightEnvName),
+    )
+    .map(([envName, secretId]) => ({
+      envName,
+      secretId,
+    })) satisfies SecretBindingInput[];
+}
+
+export function describeColumnSecretResolution(
+  declaration: ProgramSecretDeclarationsByProgramId[string][number],
+  options: {
+    overrideSecretId?: string;
+    programDefaultSecretId?: string;
+    secrets: SecretRecord[];
+  },
+) {
+  const overrideSecret =
+    options.overrideSecretId === undefined
+      ? null
+      : (options.secrets.find(
+          (secret) => secret.id === options.overrideSecretId,
+        ) ?? null);
+  const programDefaultSecret =
+    options.programDefaultSecretId === undefined
+      ? null
+      : (options.secrets.find(
+          (secret) => secret.id === options.programDefaultSecretId,
+        ) ?? null);
+  const implicitSecret =
+    options.secrets.find((secret) => secret.name === declaration.env) ?? null;
+
+  if (options.overrideSecretId !== undefined && overrideSecret === null) {
+    return {
+      badgeLabel: "Missing",
+      badgeTone: "warning" as const,
+      helperText: "This override points at a secret that no longer exists.",
+      inheritedLabel: "No inherited secret available",
+    };
+  }
+
+  if (overrideSecret) {
+    return {
+      badgeLabel: "Override",
+      badgeTone: "info" as const,
+      helperText: `Overrides the default with ${overrideSecret.name}.`,
+      inheritedLabel: "Use inherited default",
+    };
+  }
+
+  if (
+    options.programDefaultSecretId !== undefined &&
+    programDefaultSecret === null
+  ) {
+    return {
+      badgeLabel: "Missing",
+      badgeTone: "warning" as const,
+      helperText: "The inherited program default no longer exists.",
+      inheritedLabel: "Program default is missing",
+    };
+  }
+
+  if (programDefaultSecret) {
+    return {
+      badgeLabel: "Program",
+      badgeTone: "neutral" as const,
+      helperText: `Inherits the program default ${programDefaultSecret.name}.`,
+      inheritedLabel: `Use program default (${programDefaultSecret.name})`,
+    };
+  }
+
+  if (implicitSecret) {
+    return {
+      badgeLabel: "Auto",
+      badgeTone: "success" as const,
+      helperText: `Falls back to matching secret ${implicitSecret.name}.`,
+      inheritedLabel: `Use matching secret (${implicitSecret.name})`,
+    };
+  }
+
+  return {
+    badgeLabel: declaration.required ? "Missing" : "Optional",
+    badgeTone: declaration.required
+      ? ("warning" as const)
+      : ("neutral" as const),
+    helperText: declaration.required
+      ? "Required before this column can run."
+      : "Optional secret.",
+    inheritedLabel: "No inherited secret available",
+  };
+}
+
+export function coerceFieldValue(
+  field: SchemaField,
+  raw: string,
+): unknown | undefined {
+  const trimmed = raw.trim();
+  if (trimmed === "" && !field.required) return undefined;
+
+  switch (field.type) {
+    case "object":
+      if (trimmed === "") return {};
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        return {};
+      }
+    case "number":
+    case "integer":
+      return Number(trimmed) || 0;
+    case "boolean":
+      return trimmed === "true";
+    case "array":
+      if (trimmed === "") return [];
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        return [];
+      }
+    default:
+      return raw;
+  }
+}
+
+export function resolveReferenceColumnToken(
+  token: string,
+  referenceColumns: ReferenceableColumn[],
+  currentTableId?: string,
+) {
+  const sortedColumns = [
+    ...referenceColumns,
+  ].sort(
+    (left, right) =>
+      right.label.length - left.label.length ||
+      right.name.length - left.name.length,
+  );
+
+  for (const column of sortedColumns) {
+    const aliases = [
+      column.label,
+      ...(column.tableId === currentTableId
+        ? [
+            column.name,
+          ]
+        : []),
+    ];
+
+    for (const alias of aliases) {
+      if (
+        token === alias ||
+        token.startsWith(`${alias}.`) ||
+        token.startsWith(`${alias}[`)
+      ) {
+        return {
+          column,
+          restPath: token.slice(alias.length),
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+export function parseTemplateToFieldValues(
+  templateJson: string,
+  fields: SchemaField[],
+  referenceColumns: ReferenceableColumn[],
+): Record<
+  string,
+  {
+    mode: "static" | "column";
+    value: string;
+  }
+> {
+  let template: Record<string, unknown> = {};
+  try {
+    template = JSON.parse(templateJson);
+  } catch {
+    template = {};
+  }
+
+  const result: Record<
+    string,
+    {
+      mode: "static" | "column";
+      value: string;
+    }
+  > = {};
+
+  for (const field of fields) {
+    const dynamicKey = `${field.key}.$`;
+    if (dynamicKey in template) {
+      const ref = template[dynamicKey] as string;
+      const match = ref.match(COL_REF_PATTERN);
+      if (match) {
+        result[field.key] = {
+          mode: "column",
+          value: match[1],
+        };
+        continue;
+      }
+    }
+    if (field.key in template) {
+      const val = template[field.key];
+      let strVal = typeof val === "string" ? val : JSON.stringify(val);
+
+      // Reverse interpolation tags: {{$.columns.<id>.value.foo}} -> {{Column Name.foo}}
+      strVal = strVal.replace(
+        /\{\{\$\.columns\.([a-f0-9-]+)\.value([^}]*)\}\}/g,
+        (match, id, restPath) => {
+          const col = referenceColumns.find((candidate) => candidate.id === id);
+          if (col) return `{{${col.label}${restPath}}}`;
+          return match;
+        },
+      );
+
+      result[field.key] = {
+        mode: "static",
+        value: strVal,
+      };
+    } else {
+      result[field.key] = {
+        mode: "static",
+        value: field.defaultValue ?? field.enumValues?.[0] ?? "",
+      };
+    }
+  }
+
+  return result;
+}
