@@ -1,4 +1,4 @@
-import type { Database, Json, SupabaseClient } from "@marble/supabase";
+import type { Database, SupabaseClient } from "@marble/supabase";
 import type {
   CreateParams,
   DbInsert,
@@ -6,27 +6,26 @@ import type {
   DbUpdate,
   Entity,
   ListParams,
-  MarbleStoreOptions,
-  ResourceActions,
   ResourceContext,
   TableWithIdName,
   UpdateParams,
-} from "./types";
+} from "../types";
 import {
   toCamelKeys,
   toDbInsert,
   toDbUpdate,
   toSnakeKey,
   toSnakeKeys,
-} from "./types";
+} from "../types";
+import { writeEventRecord } from "./event-record";
+import {
+  type CreateSourceEventInput,
+  type InsertTableRowsInput,
+  type InsertTableRowsResult,
+  parseTableInsertRowsResult,
+} from "./rpc";
 
-export type ResourceDeps = {
-  actions: ResourceActions;
-  context: ResourceContext;
-  db: SupabaseDb;
-  serviceSupabase?: SupabaseClient;
-  supabase: SupabaseClient;
-};
+const SUPABASE_SELECT_PAGE_SIZE = 1000;
 
 export type ListOrder<T extends TableWithIdName> = {
   ascending?: boolean;
@@ -38,47 +37,7 @@ export type ListOptions<T extends TableWithIdName> = {
   orderBy?: ListOrder<T>[];
 };
 
-type InsertTableRowsInput = {
-  idx: number;
-  ownerProfileId: string;
-  quantity: number;
-  tableId: string;
-};
-
-type InsertTableRowsResult = {
-  cellCount: number;
-  cells: {
-    columnId: string;
-    id: string;
-    rowId: string;
-  }[];
-  rowCount: number;
-  rows: {
-    id: string;
-    idx: number;
-  }[];
-};
-
-type CreateSourceEventInput = {
-  rawPayload: CreateParams<"source_event">["rawPayload"];
-  sourceId: string;
-};
-
-type TableInsertRowsRpcResult = {
-  cellCount: number;
-  cells?: {
-    columnId: string;
-    id: string;
-    rowId: string;
-  }[];
-  rowCount: number;
-  rows?: {
-    id: string;
-    idx: number;
-  }[];
-};
-
-type SupabaseDb = {
+export type SupabaseDb = {
   delete: <T extends TableWithIdName>(
     tableName: T,
     id: string,
@@ -122,15 +81,6 @@ type SupabaseDb = {
   ) => Promise<Entity<T>>;
 };
 
-const SUPABASE_SELECT_PAGE_SIZE = 1000;
-
-type EventOperation = "Create" | "Delete" | "Update";
-type EventDiffEntry = {
-  after: Json | null;
-  before: Json | null;
-  path: string[];
-};
-
 const throwSupabaseError = (
   error: {
     message: string;
@@ -155,157 +105,6 @@ async function timeDbCall<T>(
   }
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function asJsonValue(value: unknown): Json | null {
-  if (value === undefined) {
-    return null;
-  }
-
-  return value as Json;
-}
-
-function valuesMatch(left: unknown, right: unknown) {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function buildDiffEntries(
-  before: unknown,
-  after: unknown,
-  path: string[] = [],
-): EventDiffEntry[] {
-  if (valuesMatch(before, after)) {
-    return [];
-  }
-
-  if (isPlainObject(before) && isPlainObject(after)) {
-    return Array.from(
-      new Set([
-        ...Object.keys(before),
-        ...Object.keys(after),
-      ]),
-    )
-      .sort()
-      .flatMap((key) =>
-        buildDiffEntries(before[key], after[key], [
-          ...path,
-          key,
-        ]),
-      );
-  }
-
-  return [
-    {
-      after: asJsonValue(after),
-      before: asJsonValue(before),
-      path,
-    },
-  ];
-}
-
-function normalizeEventRow(
-  resource: string,
-  row: Record<string, unknown> | null,
-): Json | null {
-  if (!row) {
-    return null;
-  }
-
-  const normalized = Object.fromEntries(
-    Object.entries(row).filter(
-      ([key]) =>
-        ![
-          "created_at",
-          "updated_at",
-        ].includes(key),
-    ),
-  );
-
-  if (resource === "key") {
-    delete normalized.hash;
-  }
-
-  if (resource === "secret") {
-    delete normalized.value;
-    delete normalized.vault_secret_id;
-  }
-
-  if (resource === "source") {
-    delete normalized.webhook_token;
-  }
-
-  return normalized as Json;
-}
-
-async function writeEventRecord(
-  serviceSupabase: SupabaseClient | undefined,
-  context: ResourceContext,
-  input: {
-    after: Record<string, unknown> | null;
-    before: Record<string, unknown> | null;
-    operation: EventOperation;
-    resource: string;
-  },
-) {
-  if (!serviceSupabase || input.resource === "event") {
-    return;
-  }
-
-  const actorProfileId = context.profileId;
-
-  if (!actorProfileId) {
-    return;
-  }
-
-  const beforeState = normalizeEventRow(input.resource, input.before);
-  const afterState = normalizeEventRow(input.resource, input.after);
-  const diff = buildDiffEntries(beforeState, afterState);
-
-  if (input.operation === "Update" && diff.length === 0) {
-    return;
-  }
-
-  const entityId = String((input.after ?? input.before)?.id ?? "").trim();
-
-  if (!entityId) {
-    return;
-  }
-
-  const { error } = await serviceSupabase.from("event").insert({
-    actor_key_id: context.actorKeyId,
-    actor_profile_id: actorProfileId,
-    after_state: afterState,
-    before_state: beforeState,
-    diff: diff as Json,
-    entity_id: entityId,
-    operation: input.operation,
-    request_id: context.requestId,
-    resource: input.resource,
-    source: context.eventSource ?? "RAW_API",
-  });
-
-  throwSupabaseError(error);
-}
-
-const parseTableInsertRowsResult = (
-  value: unknown,
-): TableInsertRowsRpcResult => {
-  if (
-    !isRecord(value) ||
-    typeof value.rowCount !== "number" ||
-    typeof value.cellCount !== "number"
-  ) {
-    throw new Error("table_insert_rows returned an unexpected payload.");
-  }
-
-  return value as TableInsertRowsRpcResult;
-};
-
 const toSupabaseMatch = <T extends TableWithIdName>(
   where: ListParams<T>,
 ): Partial<DbRow<T>> => toSnakeKeys(where) as unknown as Partial<DbRow<T>>;
@@ -323,7 +122,7 @@ const identityWhere = <T extends TableWithIdName>(
     id: string;
   };
 
-const createSupabaseDb = (
+export const createSupabaseDb = (
   supabase: SupabaseClient,
   context: ResourceContext,
   serviceSupabase?: SupabaseClient,
@@ -544,17 +343,4 @@ const createSupabaseDb = (
 
       return toCamelKeys(data);
     }),
-});
-
-export const createResourceDeps = ({
-  actions = {},
-  context,
-  serviceSupabase,
-  supabase,
-}: MarbleStoreOptions): ResourceDeps => ({
-  actions,
-  context,
-  db: createSupabaseDb(supabase, context, serviceSupabase),
-  serviceSupabase,
-  supabase,
 });

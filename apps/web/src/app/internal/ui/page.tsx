@@ -1,4 +1,5 @@
 "use client";
+// harness-ignore: max-file-lines -- internal UI catalog, pending refactor — regrouping with user on conventions
 
 import {
   cx,

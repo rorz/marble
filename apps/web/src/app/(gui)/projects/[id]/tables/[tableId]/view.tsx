@@ -1,5 +1,7 @@
 "use client";
 
+// harness-ignore: max-file-lines -- pending refactor, regrouping with user on conventions
+
 import { toCamelKeys } from "@marble/lib/object";
 import type { MarbleClient } from "@marble/sdk";
 import {

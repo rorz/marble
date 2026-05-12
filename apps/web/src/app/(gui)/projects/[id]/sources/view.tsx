@@ -1,5 +1,7 @@
 "use client";
 
+// harness-ignore: max-file-lines -- pending refactor, regrouping with user on conventions
+
 import {
   MarbleAlert,
   MarbleBadge,

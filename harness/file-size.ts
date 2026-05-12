@@ -1,0 +1,163 @@
+#!/usr/bin/env bun
+
+/**
+ * harness/file-size.ts
+ *
+ * Enforces AGENTS.md rule 13 (NEVER): "Create files larger than 350 lines
+ * of code."
+ *
+ * Hard ceiling of 350 newlines (matches `wc -l`) for authored source
+ * across `apps/**`, `packages/**`, `supabase/**` (TS only), and
+ * `harness/**`. Generated artifacts and intentional single-file dumps are
+ * excluded by extension or path:
+ *
+ *   - `*.generated.{ts,tsx}`
+ *   - `*.d.{ts,tsx}` (declaration files — typically generated)
+ *   - `*_squashed_schema.sql` (single committed schema file by policy)
+ *   - `supabase/seed.sql` (regenerated from supabase/generate-seed.ts)
+ *
+ * Inline opt-out (must appear in the first 10 lines of the file so the
+ * ignore is visible to anyone opening the file):
+ *
+ *   // harness-ignore: max-file-lines -- <written justification>
+ *
+ * CSS uses block-comment syntax:
+ *
+ *   / * harness-ignore: max-file-lines -- <written justification> * /
+ *
+ * Splitting is almost always the correct response. Lift cohesive
+ * subsystems into sibling modules. Hoist generic primitives into
+ * `packages/lib`, `packages/ui`, `packages/contracts`, or whichever
+ * library home already owns that kind of code. Duplication is worse than
+ * a long file — search for an existing module first.
+ */
+
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { collectFiles, hasIgnore, REPO_ROOT } from "./lib";
+
+const MAX_LINES = 350;
+const OPT_OUT_SCAN_LINES = 10;
+
+const SCAN_GLOBS: readonly string[] = [
+  "apps/**/*.{ts,tsx,css}",
+  "packages/**/*.{ts,tsx,css}",
+  "supabase/**/*.{ts,tsx}",
+  "harness/**/*.{ts,tsx}",
+];
+
+function isExcludedFile(relPath: string): boolean {
+  // Generated TypeScript marker.
+  if (/\.generated\.(ts|tsx)$/.test(relPath)) return true;
+  // All declaration files (typically generated or auto-derived).
+  if (/\.d\.(ts|tsx)$/.test(relPath)) return true;
+  return false;
+}
+
+/**
+ * Match `wc -l` semantics: the count of newline characters in the source.
+ * A file with content `"foo"` (no trailing newline) reports 0 lines; a
+ * file ending in `"\n"` reports the visual line count.
+ */
+function countLines(source: string): number {
+  let count = 0;
+  for (let i = 0; i < source.length; i++) {
+    if (source.charCodeAt(i) === 10) count++;
+  }
+  return count;
+}
+
+/**
+ * Whole-file opt-out: scan the first `OPT_OUT_SCAN_LINES` lines for a
+ * `harness-ignore: max-file-lines` directive. The comment must live at
+ * the top of the file so its presence is obvious to anyone reading it.
+ */
+function hasFileLevelIgnore(source: string): boolean {
+  let scanned = 0;
+  let lineStart = 0;
+  while (scanned < OPT_OUT_SCAN_LINES && lineStart <= source.length) {
+    const nl = source.indexOf("\n", lineStart);
+    const lineEnd = nl === -1 ? source.length : nl;
+    const line = source.slice(lineStart, lineEnd);
+    if (hasIgnore(line, "max-file-lines")) return true;
+    if (nl === -1) break;
+    lineStart = nl + 1;
+    scanned++;
+  }
+  return false;
+}
+
+interface Finding {
+  lines: number;
+  relPath: string;
+}
+
+const files = await collectFiles(SCAN_GLOBS);
+const findings: Finding[] = [];
+
+for (const relPath of files) {
+  if (isExcludedFile(relPath)) continue;
+
+  let source: string;
+  try {
+    source = readFileSync(resolve(REPO_ROOT, relPath), "utf8");
+  } catch {
+    continue;
+  }
+
+  const lines = countLines(source);
+  if (lines <= MAX_LINES) continue;
+  if (hasFileLevelIgnore(source)) continue;
+
+  findings.push({
+    lines,
+    relPath,
+  });
+}
+
+function report(found: readonly Finding[]): void {
+  if (found.length === 0) {
+    console.log("harness/file-size: OK");
+    return;
+  }
+
+  console.error("");
+  console.error(
+    `harness/file-size: ${found.length} file(s) exceed ${MAX_LINES} lines`,
+  );
+  console.error("");
+  console.error("  [max-file-lines]");
+  console.error(
+    "    Split into sibling modules. Lift generic primitives into packages/lib,",
+  );
+  console.error(
+    "    packages/ui, packages/contracts, or another existing library home.",
+  );
+  console.error(
+    "    Before splitting, search for an existing module that already owns the",
+  );
+  console.error("    responsibility — duplication is worse than a long file.");
+  console.error("    \u2192 AGENTS.md rule 13 (NEVER)");
+  console.error("");
+
+  // Worst offenders first so the most painful targets are obvious.
+  const sorted = [
+    ...found,
+  ].sort((a, b) => b.lines - a.lines);
+  for (const f of sorted) {
+    console.error(`    ${f.relPath}  ${f.lines} lines`);
+  }
+
+  console.error("");
+  console.error(
+    "If a file legitimately must exceed the ceiling, add a top-of-file comment:",
+  );
+  console.error(
+    "  // harness-ignore: max-file-lines -- <written justification>",
+  );
+  console.error("");
+  console.error(`${found.length} file(s) over the ${MAX_LINES}-line ceiling.`);
+}
+
+report(findings);
+process.exit(findings.length === 0 ? 0 : 1);

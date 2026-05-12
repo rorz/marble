@@ -1,4 +1,4 @@
-import type { Json, Tables } from "@marble/supabase";
+import type { Json, Tables } from "../../../../src";
 import { z } from "zod";
 import type { ResourceDeps } from "../db";
 

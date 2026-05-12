@@ -1,5 +1,5 @@
 import { MarblePane } from "@marble/ui";
-import { HelpCommandExamples } from "./help-command-examples";
+import { HelpCommandExamples } from "./view";
 
 const HelpPage = () => {
   return (

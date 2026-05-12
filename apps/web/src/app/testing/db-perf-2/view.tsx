@@ -1,7 +1,7 @@
 "use client";
 
 import { MarbleClient } from "@marble/sdk";
-import type { Database, Json } from "@marble/supabase";
+import type { Database, Json } from "../../../../../../src";
 import {
   cx,
   MarbleBadge,

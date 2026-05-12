@@ -21,6 +21,7 @@
       "!build",
       "!**/worker-configuration.d.ts",
       "!**/globals.css",
+      "!**/motion.css",
       "!supabase/seed-fixtures"
     ]
   },

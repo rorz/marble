@@ -24,10 +24,10 @@
 
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { REPO_ROOT } from "./lib";
+import { collectFiles, REPO_ROOT } from "./lib";
 
 const UI_INDEX = "packages/ui/src/index.ts";
-const SHOWCASE = "apps/web/src/app/internal/ui/page.tsx";
+const SHOWCASE_GLOB = "apps/web/src/app/internal/ui/**/*.tsx";
 
 interface PrimitiveExport {
   name: string;
@@ -74,7 +74,12 @@ function parseUiExports(source: string): PrimitiveExport[] {
 }
 
 const uiSource = readFileSync(resolve(REPO_ROOT, UI_INDEX), "utf8");
-const showcaseSource = readFileSync(resolve(REPO_ROOT, SHOWCASE), "utf8");
+const showcaseFiles = await collectFiles([
+  SHOWCASE_GLOB,
+]);
+const showcaseSource = showcaseFiles
+  .map((relPath) => readFileSync(resolve(REPO_ROOT, relPath), "utf8"))
+  .join("\n");
 
 const primitives = parseUiExports(uiSource);
 const seen = new Set<string>();
@@ -123,7 +128,7 @@ for (const [module, items] of byModule) {
 }
 console.error("");
 console.error(
-  `Add a DemoPanel for each missing primitive to ${SHOWCASE} (design-guide rule: every primitive must appear in the showcase).`,
+  `Add a DemoPanel for each missing primitive somewhere under apps/web/src/app/internal/ui/ (design-guide rule: every primitive must appear in the showcase).`,
 );
 console.error(
   `${missing.length} primitive(s) missing across ${byModule.size} module(s).`,

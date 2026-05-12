@@ -80,6 +80,148 @@ Before creating a new file, folder, module boundary, or architectural name, insp
 5. **No dangling contract files.** In `packages/contracts`, do not add root-level sibling modules for a domain concept just because it is shared. Put resource-owned schemas, parsers, manifest helpers, runtime contracts, and resolver helpers in the owning `packages/contracts/src/resources/entities/<resource>.ts` file. Only root `index.ts`, existing package plumbing, and consciously cross-resource primitives may live directly under `packages/contracts/src`; anything else needs an explicit written justification before it is created.
 6. If a change creates any new file or folder, explicitly report why that location matches existing convention.
 
+## File & Folder Naming
+
+Names carry meaning. The folder is the namespace; the filename is the noun. No echo, no buckets, no slop, no dash-chained sub-parts polluting a peer namespace.
+
+### Core philosophy
+
+1. **If it can be `button.ts`, amazing.** One bare concept-noun, one file. The folder gives context.
+2. **If it grows past one file, fold to a folder of the same name with `index.{ts,tsx}` inside.** Sub-parts live INSIDE that folder, NEVER as siblings at the same level as the orchestrator.
+3. **Sub-parts ARE NEVER co-located with the orchestrator's peers.** `button-styles.ts` sitting beside `card.tsx` and `input.tsx` in `components/` is wrong — `button-styles.ts` is a sub-part of `button`, not a peer of `card`. Fold to `button/styles.ts`.
+4. **Peer concepts CAN be flat siblings.** Two files in the same folder are peers when each is consumed independently by code that does not pass through the other. Peers stay flat.
+
+### Peer vs sub-part test
+
+Before adding a new file in any folder, trace its consumers:
+
+- **All external imports of file B pass through file A** → B is a sub-part of A. Fold A to `A/` and put B inside as `A/<bare-name>.{ts,tsx}`.
+- **External imports of file B go to B directly** (or through code that does not touch A) → B is a peer. Flat sibling is fine.
+
+When in doubt, fold. Folder pollution from sub-parts is worse than a folder with one extra subfolder.
+
+### Casing & extensions
+
+1. **kebab-case for every authored filename.** No camelCase. No snake_case. No PascalCase. `program-card.tsx`, never `ProgramCard.tsx` or `program_card.tsx`.
+2. **`.tsx` for JSX, `.ts` for code without JSX, `.css` for styles, `.sql` for SQL.** Do not put JSX inside a `.ts` file.
+3. **Framework-mandated names are sacred:** `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`, `route.ts`, `middleware.ts`, `[param]/`, `(group)/`, `_private/`. Never rename them.
+4. **Generated artifacts use the `.generated.ts` suffix** (see NEVER rule 13). Anything written by codegen must declare itself in its name.
+
+### Canonical filenames (RESERVED roles — use the EXACT name)
+
+| Name | Role |
+|---|---|
+| `actions.ts` | Next.js server actions (`"use server"`) or package-private API resource actions per Repository Convention Discipline rule 3. |
+| `constants.ts` | Module-local constants. Never `<thing>-constants.ts`. |
+| `types.ts` | Module-local TypeScript types. Never `<thing>-types.ts`. Shared types belong in `packages/contracts/src/resources/entities/<resource>.ts`. |
+| `view.tsx` | Primary view component for a Next.js route. |
+| `index.ts` / `index.tsx` | Entry point of a folder-as-module. Used when a concept outgrows a single file (`button/index.tsx`), as an overflow target (`actions/index.ts`), or as a package root (`packages/<x>/src/index.ts`). Never as a generic dumping ground. |
+| `<thing>.generated.ts` | Code-gen output. |
+| `<thing>.test.ts` / `<thing>.test.tsx` | Vitest test, colocated next to the unit under test. |
+
+### Forbidden names
+
+1. **No generic buckets.** `helpers.ts`, `utils.ts`, `lib.ts`, `misc.ts`, `common.ts`, `shared.ts`, `things.ts` are all forbidden. The canonical names above are the only exceptions. A helper either belongs in a named `<verb>-<noun>.ts` module, in `packages/lib`, or it does not exist.
+2. **No parent-folder echo.** Inside `programs/`, filenames MUST NOT start with `programs-`. Inside `tables/`, MUST NOT start with `tables-`. The folder IS the namespace; restating it is noise. `programs/programs-helpers-files.ts` is a triple violation — generic bucket, parent echo, and welded concepts.
+3. **No orchestrator-prefix siblings.** A sub-part of `button.tsx` MUST NOT live next to it as `button-styles.ts`. Fold `button.tsx` to `button/index.tsx` and place the sub-part as `button/styles.ts`. The folder is the prefix; the filename is the bare sub-concept.
+4. **No multi-hyphen slop.** Four or more hyphens (excluding Next.js route segments) means you have welded concepts that should split. `program-runs-modal-form-validation.ts` ❌ → `validate-program-run-form.ts` ✅.
+
+### Naming patterns
+
+| Kind | Pattern | Example |
+|---|---|---|
+| React component | `<noun>.tsx` | `program-card.tsx`, `run-modal.tsx` |
+| React hook | `use-<concept>.ts` | `use-program-runs.ts` |
+| Server-action group | `actions.ts` → overflow to `actions/<verb>-<noun>.ts` | `actions/create-program.ts` |
+| Pure transform | `<verb>-<noun>.ts` | `format-program-status.ts` |
+| Showcase section (internal/ui ONLY) | `showcase-<family>.tsx` | `showcase-buttons.tsx` |
+| Store resource | `<resource>.ts` (singular) | `program.ts`, `program-run.ts` |
+| Public contract | `<resource>.ts` (singular) | `packages/contracts/src/resources/entities/program.ts` |
+
+### Overflow: ALWAYS fold to a folder
+
+When a file outgrows a single source file — whether it hits the 350 LoC ceiling or simply has cohesive sub-parts asking to be lifted — fold it into a **folder of the same name** with an `index.{ts,tsx}` inside. Sub-parts go in that folder as bare-named files. NEVER add prefixed siblings at the same level as the orchestrator.
+
+```
+# before
+components/button.tsx   (473 lines)
+
+# after
+components/button/
+  index.tsx     # orchestrator + public export (resolves on "./button")
+  styles.ts     # NOT "button-styles.ts"
+```
+
+```
+# before
+resources/column.ts   (364 lines)
+
+# after
+resources/column/
+  index.ts        # public surface
+  dependency.ts   # NOT "column-dependency.ts"
+```
+
+```
+# before
+events/event-feed-board.tsx (709 lines)
+
+# after
+events/event-feed-board/
+  index.tsx     # orchestrator + public export
+  list.tsx
+  detail.tsx
+  transforms.ts
+```
+
+```
+# canonical-name overflow
+<route>/actions.ts (412 lines) →
+<route>/actions/
+  index.ts            # public re-exports ONLY — no logic, no constants
+  create-program.ts   # one verb per sibling
+  update-program.ts
+  list-programs.ts
+```
+
+Rules:
+
+1. **Folder name = original filename minus the extension.** `button.tsx` → `button/`, `actions.ts` → `actions/`, `column.ts` → `column/`.
+2. **`index.{ts,tsx}` is the entry.** Consumers continue to import `"./button"` — TypeScript/Node resolves that to `./button/index.tsx`. No consumer imports need to change.
+3. **Siblings inside the folder DO NOT prefix with the folder name.** `button/button-styles.ts` is parent-folder echo. Use `button/styles.ts`.
+4. **For canonical-name overflows (`actions.ts`, `constants.ts`), `index.ts` is re-exports only.** No logic, no constants, no type unions. Each verb gets its own sibling file.
+
+### Peer concepts: flat siblings stay flat
+
+If two files in the same folder are GENUINELY peers — each consumed independently — they stay flat:
+
+| Example | Why flat is right |
+|---|---|
+| `card.tsx`, `button.tsx`, `input.tsx` (in `packages/ui/src/components/`) | Each is its own primitive, independently consumed. |
+| `column.ts`, `program-run.ts`, `event.ts` (in `packages/store/src/resources/`) | Each is its own resource module, independently consumed by routers and the store. |
+| `globals.css`, `motion.css` (in `apps/web/src/app/`) | Both are first-class style entry points. `globals.css` `@import`s `motion.css`, but `motion.css` is its own coherent concept. |
+| `skyline.tsx`, `skyscraper.tsx` (in `apps/web/src/app/homepage/ui/`) | Both are first-class marketing primitives. Skyscraper is consumed by `internal/marketing/page.tsx` directly without going through Skyline. |
+
+If consumers all pass through one file, the others are sub-parts — fold.
+
+### Worked examples (wrong → right)
+
+| ❌ Wrong | ✅ Right | Why |
+|---|---|---|
+| `components/button-styles.ts` beside `card.tsx` | `components/button/styles.ts` | Sub-part of `button` polluting the `components/` namespace. |
+| `components/activity-radar-glyph.tsx` beside `card.tsx` | `components/activity-radar/glyph.tsx` | Same — sub-part pollution. |
+| `components/context-popover-menu.tsx` beside other primitives | `components/context-popover/menu.tsx` | Same. |
+| `resources/column-dependency.ts` beside `program-run.ts` | `resources/column/dependency.ts` | Sub-part of `column` polluting the `resources/` namespace. |
+| `resources/program-file-access.ts` beside `event.ts` | `resources/program-file/access.ts` | Same. |
+| `events/event-feed-board-transforms.ts` beside `page.tsx` | `events/event-feed-board/transforms.ts` | Sub-part of `event-feed-board` polluting the `events/` route namespace. |
+| `(gui)/secrets/secret-list.tsx` beside `page.tsx` | `(gui)/secrets/view/list.tsx` | Sub-part of `view.tsx` polluting the route namespace. |
+| `programs/programs-helpers-files.ts` | `programs/file-list.tsx` or `programs/list-program-files.ts` | Parent echo, generic bucket, welded concepts. |
+| `tables/table-grid-toolbar.tsx` | `tables/grid-toolbar.tsx` | Parent echo. |
+| `programs/utils.ts` | `programs/format-status.ts` | Generic bucket; name the actual responsibility. |
+| `tables/tables-actions-helpers.ts` | `tables/actions/<verb>-<noun>.ts` | Parent echo + generic bucket; fold `actions.ts` to `actions/`. |
+
+When you create or rename a file, **state the rule it satisfies** in your commit/handoff: "fold to orchestrator folder, bare sub-name" is enough.
+
 ## Package Manifests
 
 1. Keep dependency maps alphabetized. Biome's package JSON sorting is useful for `dependencies`, `devDependencies`, catalog entries, and similar unordered maps.

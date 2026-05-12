@@ -1,4 +1,4 @@
-import type { Json } from "@marble/supabase";
+import type { Json } from "../../../../src";
 import type { ResourceDeps } from "../db";
 import type { CreateParams, Entity, UpdateParams } from "../types";
 

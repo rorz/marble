@@ -33,6 +33,7 @@ const CHECKS = [
   "migrations",
   "realtime",
   "seed",
+  "file-size",
   "knip",
 ] as const;
 

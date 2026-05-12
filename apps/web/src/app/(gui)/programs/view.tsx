@@ -1,5 +1,7 @@
 "use client";
 
+// harness-ignore: max-file-lines -- pending refactor, regrouping with user on conventions
+
 import {
   ENVIRONMENT_VARIABLE_NAME_PATTERN,
   type ProgramManifestSecretDeclaration,

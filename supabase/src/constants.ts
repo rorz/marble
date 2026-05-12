@@ -1,4 +1,4 @@
-import type { Database } from "./types";
+import type { Database } from "./types.generated";
 
 type EnumRecord<
   SchemaName extends keyof Pick<Database, "graphql_public" | "public">,

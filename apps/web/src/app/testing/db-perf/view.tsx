@@ -1,6 +1,6 @@
 "use client";
 
-import type { Database } from "@marble/supabase";
+import type { Database } from "../../../../../../src";
 import {
   cx,
   MarbleCard,
