@@ -141,7 +141,7 @@ Every primitive in `@marble/ui`. Each entry is a one-line "use when" so you can 
 
 ### Navigation
 
-- **`MarblePane`** — every page-level pane. Crumbs, actions, disclosure menu, narrow width, and frame are all primitive concerns.
+- **`MarblePane`** — every page-level pane. Crumbs, actions, disclosure menu, and frame are all primitive concerns. Width is a `width` prop with a four-step scale — `Narrow` (`max-w-2xl`, focused reading column with extra top breathing room), `Wide` (`max-w-5xl`, two-column dashboards), `ExtraWide` (`max-w-6xl`, list-heavy admin views), `Full` (no cap, edge-to-edge). **Never** override the max-width via `className="max-w-*"` — extend the prop scale instead.
 - **`MarbleWorkbenchSection` / `MarbleWorkbenchTabs` / `MarbleWorkbenchTab` / `MarbleWorkbenchResizeHandle`** — editor / dock chrome.
 - **`MarbleReviewNavigator`** — compact review tray for stepping through grouped changes.
 
@@ -267,6 +267,7 @@ When you find yourself reaching for the pattern on the left, use the primitive o
 | Click-to-copy URL / token / ID | `MarbleCopyField` |
 | Inline rename / hover-to-edit text | `MarbleEditableText` (or `MarblePaneEditableCrumb` in crumbs) |
 | Page-level pane with crumbs + actions | `MarblePane` |
+| Constraining a pane's max content width | `MarblePane width="Narrow" \| "Wide" \| "ExtraWide" \| "Full"` (never `className="max-w-*"`) |
 | Editor section / dock panel | `MarbleWorkbenchSection` |
 | Editor tab strip | `MarbleWorkbenchTabs` + `MarbleWorkbenchTab` |
 | Browser-native alert / confirm / prompt | (none — use `MarbleConfirmModal` or a `marbleToast` for non-destructive feedback) |
@@ -282,6 +283,7 @@ Each of these patterns was hand-rolled across the codebase in the past. Each has
 - ❌ `<div className="rounded-xs border ... px-3 py-2"><label/><value/></div>` → use `<MarbleStat framed label value />`.
 - ❌ `<button>×</button>` close buttons → use `<MarbleModalClose />` or `<MarbleSheetClose variant="button">Dismiss</MarbleSheetClose>`.
 - ❌ Per-route `MarbleCardHeader className="border-b ..."` overrides → use `<MarbleCardHeader divided>`.
+- ❌ Per-route `<MarblePane className="max-w-Nxl">` overrides → use `width="Narrow" | "Wide" | "ExtraWide" | "Full"`. If you genuinely need a width the scale doesn't cover, extend the scale on the primitive.
 - ❌ Per-route `<div className="flex size-9 ... rounded-xs border ...">{icon}</div>` wrappers inside `MarbleListRow icon` → use `iconTone="neutral" | "orange"`.
 - ❌ `<MarbleButton><span className="inline-flex items-center gap-X"><Icon/>label</span></MarbleButton>` → use `iconLeft={Icon}` / `iconRight={Icon}`.
 - ❌ `useState(isOpen)` + manual portal for a trigger-anchored dropdown → use `MarbleContextPopover`.

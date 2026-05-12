@@ -1609,6 +1609,52 @@ export default function UiPage() {
                     </MarbleCard>
                   </MarblePane>
                 </div>
+
+                <div className="h-80 overflow-hidden rounded-sm border border-taupe-200 bg-white shadow-sm">
+                  <MarblePane
+                    description="Dashboard widths for pages that arrange two columns of cards or wider lists."
+                    title="Wide pane"
+                    width="Wide"
+                  >
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <MarbleCard>
+                        <MarbleCardHeader>
+                          <MarbleCardTitle>Left column</MarbleCardTitle>
+                          <MarbleCardDescription>
+                            Two cards sit side-by-side without bumping into the
+                            edge.
+                          </MarbleCardDescription>
+                        </MarbleCardHeader>
+                      </MarbleCard>
+                      <MarbleCard tone="subtle">
+                        <MarbleCardHeader>
+                          <MarbleCardTitle>Right column</MarbleCardTitle>
+                          <MarbleCardDescription>
+                            Same width budget either side.
+                          </MarbleCardDescription>
+                        </MarbleCardHeader>
+                      </MarbleCard>
+                    </div>
+                  </MarblePane>
+                </div>
+
+                <div className="h-80 overflow-hidden rounded-sm border border-taupe-200 bg-white shadow-sm">
+                  <MarblePane
+                    description="Roomy width for list-heavy admin views (Secrets, audit logs) that still want a comfortable max width."
+                    title="Extra-wide pane"
+                    width="ExtraWide"
+                  >
+                    <MarbleCard>
+                      <MarbleCardHeader>
+                        <MarbleCardTitle>Long-list surface</MarbleCardTitle>
+                        <MarbleCardDescription>
+                          Uses max-w-6xl so rows of bindings or audit entries
+                          have horizontal room without going edge-to-edge.
+                        </MarbleCardDescription>
+                      </MarbleCardHeader>
+                    </MarbleCard>
+                  </MarblePane>
+                </div>
               </div>
             </DemoPanel>
 

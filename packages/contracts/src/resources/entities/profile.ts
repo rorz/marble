@@ -18,53 +18,17 @@ export const ProfileSchema = z.object({
   ]),
 });
 
-const profileCreateSchema = ProfileSchema.pick({
-  externalName: true,
-  icon: true,
-  name: true,
-  type: true,
-})
-  .partial({
-    externalName: true,
-    icon: true,
-    type: true,
-  })
-  .extend({
-    name: ProfileSchema.shape.name.min(1),
-  });
-
 const profileUpdateSchema = ProfileSchema.pick({
   externalName: true,
   icon: true,
   name: true,
-  type: true,
 }).partial();
 
+// Profiles are fully system-owned. Every user is auto-issued exactly one
+// Human and one Agent profile on signup via the on_auth_user_created
+// trigger, and a UNIQUE (owner_user_id, type) constraint makes that pair
+// permanent. There is no public create/delete: the lifecycle is the pair.
 export const profileOperations = defineResourceOperations({
-  create: {
-    input: profileCreateSchema,
-    output: ProfileSchema,
-    route: {
-      method: "POST",
-      operationId: "profiles.create",
-      path: "/profiles",
-      summary: "Create a profile",
-      tags,
-    },
-  },
-  delete: {
-    input: ProfileSchema.pick({
-      id: true,
-    }),
-    output: ProfileSchema,
-    route: {
-      method: "DELETE",
-      operationId: "profiles.delete",
-      path: "/profiles/{id}",
-      summary: "Delete a profile",
-      tags,
-    },
-  },
   get: {
     input: ProfileSchema.pick({
       id: true,

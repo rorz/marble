@@ -50,6 +50,11 @@ next-env.d.ts
 
 # opencode
 .opencode
+opencode.jsonc
+
+# agent / assistant local state
+.claude/
+.sisyphus/
 
 # generated dep-graph render (source: dependency-graph.dot)
 dependency-graph.svg

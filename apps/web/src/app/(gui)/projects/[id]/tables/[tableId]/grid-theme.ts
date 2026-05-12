@@ -8,7 +8,7 @@ import { themeQuartz } from "ag-grid-community";
 // `themeQuartz.withParams(...)`) — which is exactly what this file is.
 // Named constants here make the design-system mapping explicit.
 
-export const GRID_THEME_COLORS = {
+const GRID_THEME_COLORS = {
   // zinc-50
   background: "#fafafa",
   // zinc-200

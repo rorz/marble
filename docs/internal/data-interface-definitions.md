@@ -242,13 +242,11 @@ Profiles are current-user actor identities used by API keys and profile-scoped r
 
 Allowed operations:
 
-- `create` - Create an agent profile for the current user.
 - `list` - List current-user profiles, optionally filtered by type.
 - `get` - Read one current-user profile.
-- `update` - Rename or edit a current-user agent profile.
-- `delete` - Delete a current-user agent profile.
+- `update` - Rename or edit a current-user profile (Human or Agent).
 
-Human profile lifecycle is system-owned; user-facing profile deletion must stay restricted to agent profiles unless this document changes.
+Profile lifecycle is fully system-owned. Each user is auto-issued exactly one Human and one Agent profile on signup via the `on_auth_user_created` trigger, and a `UNIQUE (owner_user_id, type)` constraint on `public.profile` makes that pair permanent. There is no public `create` or `delete`: the pair is the lifecycle. `update` is the only mutation users can perform, and it covers both profiles (name, icon, external name).
 
 ## keys
 

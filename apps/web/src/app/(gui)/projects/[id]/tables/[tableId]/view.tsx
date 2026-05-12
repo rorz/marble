@@ -69,7 +69,6 @@ import { type TablePageData, updateProgramOutputSchema } from "./actions";
 import {
   GRID_CELL_BACKGROUNDS,
   GRID_ROW_NUMBER_COLOR,
-  GRID_THEME_COLORS,
   gridTheme,
   TABLE_CELL_HORIZONTAL_PADDING_PX,
   TABLE_CELL_LED_CLEARANCE_PX,

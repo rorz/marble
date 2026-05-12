@@ -2,12 +2,6 @@ import { os } from "../server";
 import type { RouterResourcePart } from "../types";
 
 export const profileRouter = {
-  create: os.profiles.create.handler(({ context, input }) =>
-    context.store.profiles.create(input),
-  ),
-  delete: os.profiles.delete.handler(({ context, input }) =>
-    context.store.profiles.delete(input.id),
-  ),
   get: os.profiles.get.handler(({ context, input }) =>
     context.store.profiles.get(input.id),
   ),

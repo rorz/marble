@@ -1,9 +1,3 @@
-type RealtimePayload<Row> = {
-  eventType: "DELETE" | "INSERT" | "UPDATE";
-  new: Partial<Row>;
-  old: Partial<Row>;
-};
-
 export function compareByCreatedAtCamelDesc<
   T extends {
     createdAt: string;
@@ -53,12 +47,4 @@ export function removeRow<
 
 export function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed.";
-}
-
-export function isOptimisticId(id: string) {
-  return id.startsWith("temp:");
-}
-
-export function makeOptimisticId() {
-  return `temp:${crypto.randomUUID()}`;
 }

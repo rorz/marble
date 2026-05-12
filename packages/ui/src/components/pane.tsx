@@ -13,6 +13,15 @@ export type MarblePaneCrumb = {
   onClick?: () => void;
 };
 
+type MarblePaneWidth = "ExtraWide" | "Full" | "Narrow" | "Wide";
+
+const PANE_WIDTH_CLASS: Record<MarblePaneWidth, string> = {
+  ExtraWide: "max-w-6xl",
+  Full: "",
+  Narrow: "max-w-2xl",
+  Wide: "max-w-5xl",
+};
+
 export type MarblePaneProps = {
   actions?: (MarbleButtonProps & {
     id: string;
@@ -24,7 +33,7 @@ export type MarblePaneProps = {
   disclosureAriaLabel?: string;
   frame?: "normal" | "none";
   title?: string;
-  width?: "Full" | "Narrow";
+  width?: MarblePaneWidth;
   className?: string;
 };
 
@@ -126,7 +135,7 @@ export function MarblePane({
         <div
           className={cx(
             "flex h-full min-h-0 w-full flex-col",
-            width === "Narrow" ? "max-w-2xl" : "",
+            PANE_WIDTH_CLASS[width],
             isFramed
               ? crumbs === undefined
                 ? width === "Narrow"

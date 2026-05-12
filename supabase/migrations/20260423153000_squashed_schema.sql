@@ -118,8 +118,10 @@ CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     AS $$
 BEGIN
-  INSERT INTO public.profile (owner_user_id, name, type)
-  VALUES (new.id, 'Me', 'Human');
+  INSERT INTO public.profile (owner_user_id, name, type, icon)
+  VALUES
+    (new.id, 'Me', 'Human', NULL),
+    (new.id, 'My agent', 'Agent', '🤖');
   RETURN new;
 END;
 $$;
@@ -1403,6 +1405,11 @@ ALTER TABLE ONLY "public"."key"
 
 ALTER TABLE ONLY "public"."profile"
     ADD CONSTRAINT "profile_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."profile"
+    ADD CONSTRAINT "profile_owner_user_id_type_key" UNIQUE ("owner_user_id", "type");
 
 
 

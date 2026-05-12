@@ -1,10 +1,10 @@
-import { MarblePane } from "@marble/ui";
+import { MarbleAlert, MarblePane } from "@marble/ui";
 import { requireUser } from "../../../lib/auth";
 import { createServerMarbleSdk } from "../../../lib/marble-sdk-server";
-import type { ManagedProfileRecord } from "./shared";
+import type { ManagedProfileRecord, ProfileKeyRecord } from "./shared";
 import { ProfilesPageView } from "./view";
 
-export default async function Profile4Page() {
+export default async function ProfilesPage() {
   const user = await requireUser();
   const sdk = await createServerMarbleSdk();
   const [profiles, keys] = await Promise.all([
@@ -13,7 +13,7 @@ export default async function Profile4Page() {
       includeDeleted: true,
     }),
   ]);
-  const keysByProfileId = new Map<string, ManagedProfileRecord["keys"]>();
+  const keysByProfileId = new Map<string, ProfileKeyRecord[]>();
 
   for (const key of keys) {
     const profileKeys = keysByProfileId.get(key.ownerProfileId) ?? [];
@@ -22,20 +22,32 @@ export default async function Profile4Page() {
     keysByProfileId.set(key.ownerProfileId, profileKeys);
   }
 
+  const managed: ManagedProfileRecord[] = profiles.map((profile) => ({
+    ...profile,
+    keys: keysByProfileId.get(profile.id) ?? [],
+  }));
+  const human = managed.find((profile) => profile.type === "Human") ?? null;
+  const agent = managed.find((profile) => profile.type === "Agent") ?? null;
+
   return (
     <MarblePane
-      className="max-w-3xl"
-      description="Your human profile is created automatically. Add separate agent profiles for the tools you delegate to, then mint keys inside each profile so activity stays attributable."
+      description="One human, one agent. Mint API keys on either side to authenticate as that identity from outside the GUI."
       title="Profiles"
-      width="Full"
+      width="Wide"
     >
-      <ProfilesPageView
-        initialProfiles={profiles.map((profile) => ({
-          ...profile,
-          keys: keysByProfileId.get(profile.id) ?? [],
-        }))}
-        userId={user.id}
-      />
+      {human && agent ? (
+        <ProfilesPageView
+          agent={agent}
+          human={human}
+          userId={user.id}
+        />
+      ) : (
+        <MarbleAlert tone="error">
+          Marble expected an automatic human profile and agent profile for this
+          account, but the pair could not be loaded. This indicates the
+          on_auth_user_created trigger did not run for your user.
+        </MarbleAlert>
+      )}
     </MarblePane>
   );
 }

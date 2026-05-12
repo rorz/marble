@@ -8,10 +8,14 @@ ON CONFLICT (id) DO NOTHING;
 
 WITH
 
--- Create a system profile to own the seeded data
+-- Adopt the auto-created Agent profile (minted by the on_auth_user_created
+-- trigger) as the system profile that owns the seeded data. Each user has
+-- exactly one Agent profile, so we update the trigger's row in place.
 system_profile AS (
-  INSERT INTO public."profile" (type, name, external_name, icon, owner_user_id)
-  VALUES ('Agent', 'System Agent', 'system', '🤖', '00000000-0000-0000-0000-000000000000')
+  UPDATE public."profile"
+  SET name = 'System Agent', external_name = 'system', icon = '🤖'
+  WHERE owner_user_id = '00000000-0000-0000-0000-000000000000'
+    AND type = 'Agent'
   RETURNING id
 ),
 

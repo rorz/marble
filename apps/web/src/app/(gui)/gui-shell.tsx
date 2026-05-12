@@ -1,6 +1,5 @@
 "use client";
 
-import type { MarbleClient } from "@marble/sdk";
 import {
   cx,
   MarbleAccountPopover,
@@ -106,15 +105,6 @@ type SidebarGroup = {
     path: `/${string}`;
   }[];
 }[];
-
-function createDefaultProfile(sdk: MarbleClient) {
-  return sdk.profiles.create({
-    externalName: null,
-    icon: "🤖",
-    name: "Untitled Agent",
-    type: "Agent",
-  });
-}
 
 const navigationGroups: SidebarGroup = [
   {
@@ -1020,16 +1010,6 @@ export function GuiShell({
       handleCommandPaletteError(error);
     }
   };
-  const handleCreateProfileFromCommandPalette = async () => {
-    closeCommandPalette();
-
-    try {
-      const profile = await createDefaultProfile(apiSdk);
-      router.push(`/profiles?edit=${profile.id}`);
-    } catch (error) {
-      handleCommandPaletteError(error);
-    }
-  };
   const projectCommandItems = projectResources
     .filter(({ node }) => node.kind === "project")
     .map(({ node }) => ({
@@ -1315,27 +1295,6 @@ export function GuiShell({
           label: "New program",
           onSelect: () => {
             void handleCreateProgramFromCommandPalette();
-          },
-        },
-        {
-          detail: "Create",
-          icon: (
-            <IdentificationBadgeIcon
-              size={16}
-              weight="regular"
-            />
-          ),
-          id: "command-palette-new-profile",
-          keywords: [
-            "create",
-            "new",
-            "profile",
-            "agent",
-            "persona",
-          ],
-          label: "New profile",
-          onSelect: () => {
-            void handleCreateProfileFromCommandPalette();
           },
         },
       ],
