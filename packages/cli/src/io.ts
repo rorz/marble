@@ -1,3 +1,5 @@
+import { parseJsonOrUndefined, stringifyPretty } from "@marble/lib/json";
+import { formatRpcError } from "@marble/lib/result";
 import { readFile } from "node:fs/promises";
 
 export type JsonValue =
@@ -41,7 +43,7 @@ export async function readInput(
         ? await readStdin()
         : await readFile(options.file, "utf8");
 
-    return parseJson(content);
+    return parseJsonOrUndefined(content) as JsonValue | undefined;
   }
 
   if (options.arg === undefined) {
@@ -49,10 +51,10 @@ export async function readInput(
   }
 
   if (options.arg === "-") {
-    return parseJson(await readStdin());
+    return parseJsonOrUndefined(await readStdin()) as JsonValue | undefined;
   }
 
-  return parseJson(options.arg);
+  return parseJsonOrUndefined(options.arg) as JsonValue | undefined;
 }
 
 async function readStdin() {
@@ -65,94 +67,15 @@ async function readStdin() {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-function parseJson(input: string) {
-  const trimmed = input.trim();
-
-  if (trimmed === "") {
-    return undefined;
-  }
-
-  try {
-    return JSON.parse(trimmed) as JsonValue;
-  } catch (cause) {
-    throw new Error("Input must be valid JSON.", {
-      cause,
-    });
-  }
-}
-
 export function printJson(value: unknown) {
-  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+  process.stdout.write(`${stringifyPretty(value)}\n`);
 }
 
 /**
- * Print a structured error envelope to stderr.
- *
- * oRPC errors expose `toJSON()` and a stable shape (`code`, `status`,
- * `message`, `data`). We surface that verbatim so agents can pattern-match
- * on the same fields they would see if they called the API directly. For
- * plain `Error` instances we keep the message simple and include `cause`
- * detail when present.
+ * Print a structured error envelope to stderr. Delegates to
+ * `@marble/lib/result.formatRpcError` so the CLI surfaces the same shape
+ * an API consumer would see directly.
  */
 export function printError(error: unknown) {
-  process.stderr.write(`${formatError(error)}\n`);
-}
-
-function formatError(error: unknown) {
-  if (error && typeof error === "object") {
-    const candidate = error as {
-      cause?: unknown;
-      code?: string;
-      data?: unknown;
-      message?: string;
-      status?: number;
-      toJSON?: () => unknown;
-    };
-
-    if (typeof candidate.toJSON === "function") {
-      try {
-        return JSON.stringify(candidate.toJSON(), null, 2);
-      } catch {
-        // fall through to other formatters
-      }
-    }
-
-    if (
-      typeof candidate.code === "string" &&
-      typeof candidate.message === "string"
-    ) {
-      return JSON.stringify(
-        {
-          code: candidate.code,
-          data: candidate.data,
-          message: candidate.message,
-          status: candidate.status,
-        },
-        null,
-        2,
-      );
-    }
-
-    if (error instanceof Error) {
-      const cause = error.cause;
-      const causeMessage =
-        cause instanceof Error
-          ? cause.message
-          : cause === undefined
-            ? undefined
-            : safeStringify(cause);
-
-      return causeMessage ? `${error.message}: ${causeMessage}` : error.message;
-    }
-  }
-
-  return String(error);
-}
-
-function safeStringify(value: unknown) {
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return String(value);
-  }
+  process.stderr.write(`${formatRpcError(error)}\n`);
 }

@@ -1,8 +1,6 @@
 import type { Cell, Column } from "./types";
 
-export function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : String(error);
-}
+export { getErrorMessage } from "@marble/lib/result";
 
 type CellState =
   | {

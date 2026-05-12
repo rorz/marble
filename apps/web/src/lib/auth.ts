@@ -1,4 +1,5 @@
 import "server-only";
+import { readNonEmptyString } from "@marble/lib/object";
 import { redirect } from "next/navigation";
 import { createClient } from "./supabase/server";
 
@@ -96,25 +97,6 @@ export async function requireUserIdentity() {
   }
 
   return user;
-}
-
-function readNonEmptyString(
-  metadata: Record<string, unknown> | null,
-  key: string,
-): string | null {
-  if (!metadata) {
-    return null;
-  }
-
-  const value = metadata[key];
-
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-
-  return trimmed.length === 0 ? null : trimmed;
 }
 
 function deriveDisplayName(params: {

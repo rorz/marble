@@ -1,4 +1,5 @@
 import "server-only";
+import { dedupeById } from "@marble/lib/array";
 import {
   type MarbleColumn,
   type MarblePipe,
@@ -20,17 +21,6 @@ export type ProjectSourceWorkspaceData = {
   sources: MarbleSource[];
   webhookBaseUrl: string;
 };
-
-function dedupePipes(pipes: MarblePipe[]) {
-  return Array.from(
-    new Map(
-      pipes.map((pipe) => [
-        pipe.id,
-        pipe,
-      ]),
-    ).values(),
-  );
-}
 
 function outputConfigAllowsManualInput(outputConfig: unknown) {
   if (!outputConfig || typeof outputConfig !== "object") {
@@ -128,7 +118,7 @@ export async function getProjectSourceWorkspaceData(projectId: string) {
           ]
         : [];
     }),
-    pipes: dedupePipes(sourcePipes.flat()),
+    pipes: dedupeById(sourcePipes.flat()),
     project: {
       ...project,
       tableCount: tables.length,

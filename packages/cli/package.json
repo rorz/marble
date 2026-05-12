@@ -4,6 +4,7 @@
   },
   "dependencies": {
     "@marble/contracts": "workspace:*",
+    "@marble/lib": "workspace:*",
     "@marble/sdk": "workspace:*",
     "@orpc/contract": "catalog:base",
     "@t3-oss/env-core": "catalog:base",

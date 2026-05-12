@@ -1,50 +1,22 @@
-export function compareByCreatedAtCamelDesc<
-  T extends {
-    createdAt: string;
-  },
->(left: T, right: T) {
-  return (
-    new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
-  );
-}
+/**
+ * Domain-named re-exports of `@marble/lib` primitives used by realtime
+ * CRUD helpers in the web app. Each name maps 1:1 onto a lib primitive;
+ * keeping the old import shape avoids churning every caller site.
+ */
 
-export function compareByUpdatedAtCamelDesc<
-  T extends {
-    updatedAt: string;
-  },
->(left: T, right: T) {
-  return (
-    new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime()
-  );
-}
+export {
+  removeById as removeRow,
+  sortBy as sortRows,
+  upsertById as upsertRow,
+} from "@marble/lib/array";
+import { byDateDesc } from "@marble/lib/compare";
 
-export function sortRows<T>(rows: T[], compare: (left: T, right: T) => number) {
-  return [
-    ...rows,
-  ].sort(compare);
-}
+export { getErrorMessage } from "@marble/lib/result";
 
-export function upsertRow<
-  T extends {
-    id: string;
-  },
->(rows: T[], row: T, compare?: (left: T, right: T) => number) {
-  const next = [
-    row,
-    ...rows.filter((candidate) => candidate.id !== row.id),
-  ];
+export const compareByCreatedAtCamelDesc = byDateDesc<{
+  createdAt: string;
+}>((row) => row.createdAt);
 
-  return compare ? next.sort(compare) : next;
-}
-
-export function removeRow<
-  T extends {
-    id: string;
-  },
->(rows: T[], id: string) {
-  return rows.filter((row) => row.id !== id);
-}
-
-export function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Request failed.";
-}
+export const compareByUpdatedAtCamelDesc = byDateDesc<{
+  updatedAt: string;
+}>((row) => row.updatedAt);

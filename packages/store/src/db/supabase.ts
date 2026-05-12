@@ -1,4 +1,5 @@
 import type { Database, SupabaseClient } from "@marble/supabase";
+import { withTiming } from "@marble/lib/timing";
 import type {
   CreateParams,
   DbInsert,
@@ -96,13 +97,11 @@ async function timeDbCall<T>(
   name: string,
   task: () => Promise<T>,
 ) {
-  const startedAt = performance.now();
-
-  try {
-    return await task();
-  } finally {
-    context.recordTiming?.(name, performance.now() - startedAt);
-  }
+  return withTiming(
+    (timingName, durationMs) => context.recordTiming?.(timingName, durationMs),
+    name,
+    task,
+  );
 }
 
 const toSupabaseMatch = <T extends TableWithIdName>(

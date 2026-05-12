@@ -49,3 +49,46 @@ export function toSnakeKeys<T extends Record<string, unknown>>(
 ): Snakeize<T> {
   return mapObjectKeys(value, toSnakeKey) as Snakeize<T>;
 }
+
+/**
+ * Type-narrow an unknown value to a plain object record. Excludes arrays and
+ * `null`. Useful for guard clauses that need to read keys off untyped JSON.
+ */
+export function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Cast a snake_cased broadcast row to its camelCased domain type.
+ *
+ * Single-purpose helper that replaces a per-resource `xFromBroadcastRow`
+ * pile with one well-typed primitive. Always pass the target type
+ * explicitly: `castCamelKeys<MyType>(row)`.
+ */
+export function castCamelKeys<T>(value: Record<string, unknown>): T {
+  return toCamelKeys(value) as unknown as T;
+}
+
+/**
+ * Read a non-empty trimmed string off `record[key]`. Returns `null` when
+ * the value is missing, not a string, or empty after trimming. Centralises
+ * the "user metadata extraction" pattern.
+ */
+export function readNonEmptyString(
+  record: Record<string, unknown> | null | undefined,
+  key: string,
+): string | null {
+  if (!record) {
+    return null;
+  }
+
+  const value = record[key];
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  return trimmed.length === 0 ? null : trimmed;
+}

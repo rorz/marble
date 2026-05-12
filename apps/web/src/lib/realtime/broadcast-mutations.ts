@@ -1,3 +1,5 @@
+import { isPlainRecord } from "@marble/lib/object";
+
 type BroadcastEvent = "DELETE" | "INSERT" | "UPDATE";
 
 export type DeleteMutation<Type extends string, Row> = {
@@ -17,16 +19,12 @@ type BroadcastMutation =
   | DeleteMutation<string, unknown>
   | UpsertMutation<string, unknown>;
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function isBroadcastMutation<Type extends string>(
   value: unknown,
   mutationTypes: Record<Type, true>,
 ) {
   if (
-    !isRecord(value) ||
+    !isPlainRecord(value) ||
     typeof value.type !== "string" ||
     !(value.type in mutationTypes)
   ) {
@@ -35,7 +33,7 @@ function isBroadcastMutation<Type extends string>(
 
   return value.type.endsWith(":delete")
     ? typeof value.id === "string"
-    : isRecord(value.row);
+    : isPlainRecord(value.row);
 }
 
 export function createBroadcastMutationGuard<

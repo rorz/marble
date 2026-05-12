@@ -1,16 +1,22 @@
+import {
+  ALPHANUMERIC,
+  parseBearerToken,
+  randomToken,
+  sha256Base64Url,
+} from "@marble/lib/crypto";
 import type { SupabaseClient, Tables } from "@marble/supabase";
-import { customAlphabet } from "nanoid";
 
-const API_KEY_ALPHABET =
-  "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const API_KEY_ALPHABET = ALPHANUMERIC;
 
 export const API_KEY_HASH_LENGTH = 22;
 export const API_KEY_PREFIX_LENGTH = 6;
 export const API_KEY_SECRET_LENGTH = 24;
 export const API_KEY_TOKEN_PREFIX = "mbl_";
 
-const createSecret = customAlphabet(API_KEY_ALPHABET, API_KEY_SECRET_LENGTH);
-const textEncoder = new TextEncoder();
+const createSecret = randomToken({
+  alphabet: API_KEY_ALPHABET,
+  length: API_KEY_SECRET_LENGTH,
+});
 
 type HeaderSource = {
   get(name: string): string | null;
@@ -34,25 +40,9 @@ export function apiKeyPreview(prefix: string) {
 }
 
 export function getApiKeyTokenFromHeaders(headers: HeaderSource) {
-  const directKey = headers.get("x-api-key")?.trim();
-  if (directKey) {
-    return directKey;
-  }
-
-  const authorization =
-    headers.get("authorization") ?? headers.get("Authorization");
-  if (!authorization) {
-    return null;
-  }
-
-  const [scheme, credentials, ...rest] = authorization.trim().split(/\s+/);
-  if (rest.length > 0 || scheme.toLowerCase() !== "bearer" || !credentials) {
-    return null;
-  }
-
-  const token = credentials.trim();
-
-  return token.startsWith(API_KEY_TOKEN_PREFIX) ? token : null;
+  return parseBearerToken(headers, {
+    tokenPrefix: API_KEY_TOKEN_PREFIX,
+  });
 }
 
 export function parseApiKeyToken(token: string) {
@@ -79,14 +69,6 @@ export function parseApiKeyToken(token: string) {
   };
 }
 
-function toBase64Url(value: ArrayBuffer) {
-  return Buffer.from(value)
-    .toString("base64")
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/u, "");
-}
-
 async function selectKeyCandidates(
   supabase: SupabaseClient,
   prefix: string,
@@ -105,11 +87,7 @@ async function selectKeyCandidates(
 }
 
 export async function hashApiKeySecret(secret: string) {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    textEncoder.encode(secret),
-  );
-  return toBase64Url(digest).slice(0, API_KEY_HASH_LENGTH);
+  return sha256Base64Url(secret, API_KEY_HASH_LENGTH);
 }
 
 export async function createApiKeyMaterial(): Promise<ApiKeyMaterial> {

@@ -1,4 +1,4 @@
-import { toCamelKeys } from "@marble/lib/object";
+import { castCamelKeys } from "@marble/lib/object";
 import {
   createBroadcastMutationGuard,
   type DeleteMutation,
@@ -77,7 +77,7 @@ export function applySidebarMutation(
       };
 
     case "program:upsert": {
-      const program = toCamelKeys(mutation.row) as SidebarProgramRow;
+      const program = castCamelKeys<SidebarProgramRow>(mutation.row);
 
       if (
         !program.firstParty &&
@@ -105,7 +105,7 @@ export function applySidebarMutation(
       };
 
     case "project:upsert": {
-      const project = toCamelKeys(mutation.row) as SidebarProjectRow;
+      const project = castCamelKeys<SidebarProjectRow>(mutation.row);
 
       if (!current.ownerProfileIds.includes(project.ownerProfileId)) {
         return {
@@ -134,7 +134,7 @@ export function applySidebarMutation(
       };
 
     case "table:upsert": {
-      const table = toCamelKeys(mutation.row) as SidebarTableRow;
+      const table = castCamelKeys<SidebarTableRow>(mutation.row);
       const projects = removeSidebarChildFromAll(current.projects, table.id);
 
       if (!projects.some((project) => project.id === table.projectId)) {
@@ -161,7 +161,7 @@ export function applySidebarMutation(
       };
 
     case "source:upsert": {
-      const source = toCamelKeys(mutation.row) as SidebarSourceRow;
+      const source = castCamelKeys<SidebarSourceRow>(mutation.row);
       const projects = removeSidebarChildFromAll(current.projects, source.id);
 
       if (!projects.some((project) => project.id === source.projectId)) {
@@ -188,7 +188,7 @@ export function applySidebarMutation(
       };
 
     case "pipe:upsert": {
-      const pipe = toCamelKeys(mutation.row) as SidebarPipeRow;
+      const pipe = castCamelKeys<SidebarPipeRow>(mutation.row);
       const projects = removeSidebarChildFromAll(current.projects, pipe.id);
       const nextCurrent = {
         ...current,

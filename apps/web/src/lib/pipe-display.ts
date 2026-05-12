@@ -1,3 +1,5 @@
+import { formatJsonPathDisplay, normalizeDisplayLabel } from "@marble/lib/string";
+
 type PipeMappingRecord = {
   columnId: string;
   jsonPath: string;
@@ -7,30 +9,6 @@ type PipeMappingDisplayRecord = PipeMappingRecord & {
   columnLabel: string;
   jsonPathLabel: string;
 };
-
-function normalizeDisplayLabel(
-  value: null | string | undefined,
-  fallback: string,
-) {
-  const trimmed = value?.trim();
-  return trimmed && trimmed.length > 0 ? trimmed : fallback;
-}
-
-function formatPipeJsonPathLabel(value: string) {
-  const trimmed = value.trim();
-
-  if (trimmed.length === 0) {
-    return "$";
-  }
-
-  const normalized = trimmed
-    .replace(/^\$\./, "")
-    .replace(/^\$/, "")
-    .replace(/\[['"]([^'"\]]+)['"]\]/g, ".$1")
-    .replace(/^\.+/, "");
-
-  return normalized.length > 0 ? normalized : trimmed;
-}
 
 export function normalizePipeMappings(value: unknown): PipeMappingRecord[] {
   if (!Array.isArray(value)) {
@@ -102,7 +80,7 @@ export function buildPipeMappingDisplayRecords(
           columnLabelById.get(columnId),
           "Unknown field",
         ),
-        jsonPathLabel: formatPipeJsonPathLabel(jsonPath),
+        jsonPathLabel: formatJsonPathDisplay(jsonPath),
       } satisfies PipeMappingDisplayRecord,
     ];
   });

@@ -1,5 +1,6 @@
 import "server-only";
 import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
+import { formatServerTimingEntry } from "@marble/lib/timing";
 import { NextResponse } from "next/server";
 import { getCurrentSupabaseAccessToken, getCurrentUser } from "./auth";
 import {
@@ -59,6 +60,9 @@ export async function forwardMarbleApiRequest(
     req.headers.get("x-marble-request-id")?.trim() || crypto.randomUUID();
   const debugTiming = shouldDebugTiming(req);
   const timings: string[] = [];
+  const recordTiming = (name: string, started: number) => {
+    timings.push(formatServerTimingEntry(name, performance.now() - started));
+  };
   const apiKeyToken = getApiKeyTokenFromHeaders(req.headers);
   const requestedProfileId = req.headers.get("x-marble-profile-id")?.trim();
   let authContext: {
@@ -77,7 +81,7 @@ export async function forwardMarbleApiRequest(
   const authStartedAt = performance.now();
 
   if (publicPath) {
-    timings.push("auth;dur=0");
+    timings.push(formatServerTimingEntry("auth", 0));
   } else if (apiKeyToken) {
     if (options.forwardUserSupabaseAuth) {
       authContext = null;
@@ -117,9 +121,7 @@ export async function forwardMarbleApiRequest(
             undefined,
             null,
           ];
-      timings.push(
-        `session;dur=${Math.round(performance.now() - sessionStartedAt)}`,
-      );
+      recordTiming("session", sessionStartedAt);
 
       if (options.forwardUserSupabaseAuth && (!accessToken || !user)) {
         return NextResponse.json(
@@ -140,7 +142,7 @@ export async function forwardMarbleApiRequest(
     } else {
       const userStartedAt = performance.now();
       const user = await getCurrentUser();
-      timings.push(`user;dur=${Math.round(performance.now() - userStartedAt)}`);
+      recordTiming("user", userStartedAt);
 
       if (!user) {
         return NextResponse.json(
@@ -158,16 +160,12 @@ export async function forwardMarbleApiRequest(
         user.id,
         requestedProfileId,
       );
-      timings.push(
-        `profile;dur=${Math.round(performance.now() - profileStartedAt)}`,
-      );
+      recordTiming("profile", profileStartedAt);
       const sessionStartedAt = performance.now();
       const accessToken = options.forwardUserSupabaseAuth
         ? await getCurrentSupabaseAccessToken()
         : undefined;
-      timings.push(
-        `session;dur=${Math.round(performance.now() - sessionStartedAt)}`,
-      );
+      recordTiming("session", sessionStartedAt);
 
       if (options.forwardUserSupabaseAuth && !accessToken) {
         return NextResponse.json(
@@ -188,7 +186,7 @@ export async function forwardMarbleApiRequest(
     }
   }
   if (!publicPath) {
-    timings.push(`auth;dur=${Math.round(performance.now() - authStartedAt)}`);
+    recordTiming("auth", authStartedAt);
   }
 
   const forwardedReq = new Request(url, req);
@@ -229,8 +227,8 @@ export async function forwardMarbleApiRequest(
 
   const apiStartedAt = performance.now();
   const apiResponse = await options.api.fetch(forwardedReq);
-  timings.push(`api;dur=${Math.round(performance.now() - apiStartedAt)}`);
-  timings.push(`total;dur=${Math.round(performance.now() - startedAt)}`);
+  recordTiming("api", apiStartedAt);
+  recordTiming("total", startedAt);
 
   const response = new Response(apiResponse.body, apiResponse);
 

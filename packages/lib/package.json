@@ -1,8 +1,21 @@
 {
+  "dependencies": {
+    "nanoid": "catalog:base"
+  },
+  "devDependencies": {
+    "bun-types": "catalog:base",
+    "typescript": "catalog:base"
+  },
   "exports": {
+    "./array": "./array/index.ts",
     "./assert": "./assert/index.ts",
+    "./compare": "./compare/index.ts",
+    "./crypto": "./crypto/index.ts",
+    "./json": "./json/index.ts",
     "./object": "./object/index.ts",
-    "./string": "./string/index.ts"
+    "./result": "./result/index.ts",
+    "./string": "./string/index.ts",
+    "./timing": "./timing/index.ts"
   },
   "name": "@marble/lib",
   "type": "module",

@@ -1,11 +1,10 @@
+import { castCamelKeys } from "@marble/lib/object";
 import type { useRouter } from "next/navigation";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import {
-  pipeFromBroadcastRow,
-  projectFromBroadcastRow,
+  type MarblePipe,
+  type MarbleSource,
   projectTableFromSdkTable,
-  sourceFromBroadcastRow,
-  tableFromBroadcastRow,
 } from "../../../../../lib/marble-resources";
 import { usePrivateBroadcast } from "../../../../../lib/realtime/private-broadcast";
 import {
@@ -20,8 +19,8 @@ import {
   type ProjectState,
 } from "./types";
 
-type Sources = ReturnType<typeof sourceFromBroadcastRow>[];
-type Pipes = ReturnType<typeof pipeFromBroadcastRow>[];
+type Sources = MarbleSource[];
+type Pipes = MarblePipe[];
 
 type UseProjectBroadcastOptions = {
   project: ProjectState;
@@ -62,7 +61,7 @@ export function useProjectBroadcast(options: UseProjectBroadcastOptions): void {
           break;
 
         case "project:upsert": {
-          const next = projectFromBroadcastRow(mutation.row);
+          const next = castCamelKeys<ProjectState>(mutation.row);
 
           if (next.id !== project.id) {
             return;
@@ -94,7 +93,9 @@ export function useProjectBroadcast(options: UseProjectBroadcastOptions): void {
 
         case "table:upsert":
           setProject((current) => {
-            const next = tableFromBroadcastRow(mutation.row);
+            const next = castCamelKeys<ProjectState["tables"][number]>(
+              mutation.row,
+            );
 
             if (next.projectId !== current.id) {
               return current;
@@ -119,7 +120,7 @@ export function useProjectBroadcast(options: UseProjectBroadcastOptions): void {
           break;
 
         case "source:upsert": {
-          const next = sourceFromBroadcastRow(mutation.row);
+          const next = castCamelKeys<MarbleSource>(mutation.row);
 
           if (next.projectId !== project.id) {
             return;
@@ -136,7 +137,7 @@ export function useProjectBroadcast(options: UseProjectBroadcastOptions): void {
           break;
 
         case "pipe:upsert": {
-          const next = pipeFromBroadcastRow(mutation.row);
+          const next = castCamelKeys<MarblePipe>(mutation.row);
           const belongsToProject =
             projectRef.current.tables.some(
               (table) => table.id === next.tableId,
