@@ -1,6 +1,8 @@
-import type { ResourceDeps } from "../db";
-import type { DbRow, Entity } from "../types";
-import { toCamelKeys } from "../types";
+import type { ResourceDeps } from "../../db";
+import type { DbRow, Entity } from "../../types";
+import { toCamelKeys } from "../../types";
+import { listOwnedProfileIds } from "../list-owned-profile-ids";
+import { requireServiceSupabase } from "../require-deps";
 
 export type Event = Entity<"event">;
 
@@ -10,51 +12,19 @@ type EventTargetResolution = {
   versionProgramIds: Record<string, null | string>;
 };
 
-function requireUserId(deps: ResourceDeps) {
-  if (!deps.context.userId) {
-    throw new Error("Event operations require a user session.");
-  }
-
-  return deps.context.userId;
-}
-
-function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error("Event operations require a service Supabase client.");
-  }
-
-  return deps.serviceSupabase;
-}
-
-async function listOwnedProfileIds(deps: ResourceDeps) {
-  const { data, error } = await requireServiceSupabase(deps)
-    .from("profile")
-    .select("id")
-    .eq("owner_user_id", requireUserId(deps))
-    .order("created_at", {
-      ascending: true,
-    });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []).map((profile) => profile.id);
-}
-
 export class EventCollection {
   public constructor(private readonly deps: ResourceDeps) {}
 
   public readonly listForCurrentUser = async (
     input: { excludeSources?: Event["source"][]; limit?: number } = {},
   ) => {
-    const profileIds = await listOwnedProfileIds(this.deps);
+    const profileIds = await listOwnedProfileIds(this.deps, "Event");
 
     if (profileIds.length === 0) {
       return [] as Event[];
     }
 
-    let request = requireServiceSupabase(this.deps)
+    let request = requireServiceSupabase(this.deps, "Event")
       .from("event")
       .select("*")
       .in("actor_profile_id", profileIds)
@@ -83,7 +53,7 @@ export class EventCollection {
     programVersionIds?: string[];
     rowIds?: string[];
   }): Promise<EventTargetResolution> => {
-    const supabase = requireServiceSupabase(this.deps);
+    const supabase = requireServiceSupabase(this.deps, "Event");
     const rowIds = Array.from(new Set(input.rowIds ?? []));
     const columnIds = Array.from(new Set(input.columnIds ?? []));
     const programVersionIds = Array.from(

@@ -1,7 +1,8 @@
 import type { Json } from "@marble/supabase";
-import type { ResourceDeps } from "../db";
-import type { CellRunInput, CellRunResult, Entity } from "../types";
-import { requireProfileId } from "../types";
+import type { ResourceDeps } from "../../db";
+import type { CellRunInput, CellRunResult, Entity } from "../../types";
+import { requireProfileId } from "../../types";
+import { requireServiceSupabase } from "../require-deps";
 
 export type Cell = Entity<"cell">;
 
@@ -23,14 +24,6 @@ export type CellCollectionApi = {
   readonly run: (input: RunCellInput) => Promise<CellRunResult>;
   readonly setManualValue: (input: SetManualValueInput) => Promise<Cell>;
 };
-
-function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error("Cell run requires a service Supabase client.");
-  }
-
-  return deps.serviceSupabase;
-}
 
 function payloadString(payload: Record<string, unknown>, key: string) {
   const value = payload[key];
@@ -65,7 +58,7 @@ export class CellCollection implements CellCollectionApi {
       throw new Error("Cell run requires an executeProgramRun action.");
     }
 
-    const supabase = requireServiceSupabase(this.deps);
+    const supabase = requireServiceSupabase(this.deps, "Cell");
     const { data: cell, error: cellError } = await supabase
       .from("cell")
       .select("column_id, id, row_id")

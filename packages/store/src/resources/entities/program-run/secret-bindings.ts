@@ -1,10 +1,6 @@
-import type { Tables } from "@marble/supabase";
+import type { SupabaseClient, Tables } from "@marble/supabase";
 import { z } from "zod";
-import {
-  executionSecretSchema,
-  type requireServiceSupabase,
-  secretBindingSchema,
-} from "./load";
+import { executionSecretSchema, secretBindingSchema } from "./load";
 
 type ExecutionSecret = {
   category: Tables<"secret">["category"];
@@ -39,7 +35,7 @@ export type MissingSecretConfiguration = {
 };
 
 async function listSecretMetadataForOwnerUserId(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   ownerUserId: string,
 ) {
   const { data, error } = await supabase
@@ -58,7 +54,7 @@ async function listSecretMetadataForOwnerUserId(
 }
 
 async function listSelectedSecretsForOwnerUserId(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   ownerUserId: string,
   secretIds: string[],
 ) {
@@ -81,7 +77,7 @@ async function listSelectedSecretsForOwnerUserId(
 }
 
 export async function resolveOwnerUserIdForProfile(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   profileId: string,
 ) {
   const { data, error } = await supabase
@@ -102,7 +98,7 @@ export async function resolveOwnerUserIdForProfile(
 }
 
 async function listProgramSecretBindingsForOwnerUserId(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   ownerUserId: string,
   programId: string,
 ) {
@@ -129,7 +125,7 @@ async function listProgramSecretBindingsForOwnerUserId(
 }
 
 async function listColumnSecretBindings(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   columnId: string,
 ) {
   const { data, error } = await supabase
@@ -154,7 +150,7 @@ async function listColumnSecretBindings(
 }
 
 async function listResolvedSecretBindings(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   options: {
     columnId?: string;
     ownerUserId: string;
@@ -194,7 +190,7 @@ async function listResolvedSecretBindings(
 }
 
 export async function resolveDeclaredEnvironmentVariables(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   options: {
     columnId?: string;
     declarations: ProgramSecretDeclaration[];

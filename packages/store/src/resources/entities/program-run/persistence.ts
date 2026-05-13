@@ -1,12 +1,8 @@
-import type { Json } from "@marble/supabase";
-import type {
-  JsonValue,
-  requireServiceSupabase,
-  StoredProgramRun,
-} from "./load";
+import type { Json, SupabaseClient } from "@marble/supabase";
+import type { JsonValue, StoredProgramRun } from "./load";
 
 export async function createPendingForCellIds(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   cellIds: string[],
 ) {
   const uniqueCellIds = Array.from(new Set(cellIds));
@@ -126,7 +122,7 @@ export async function createPendingForCellIds(
 }
 
 export async function persistFailure(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   run: StoredProgramRun,
   failState: JsonValue,
 ) {
@@ -153,7 +149,7 @@ export async function persistFailure(
 }
 
 export async function persistSuccess(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   input: {
     output: JsonValue;
     parsedInput: JsonValue;
@@ -184,7 +180,7 @@ export async function persistSuccess(
 }
 
 export async function setCellState(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   input: {
     cellId: string;
     state: JsonValue;

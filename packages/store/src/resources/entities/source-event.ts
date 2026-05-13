@@ -1,8 +1,9 @@
 import type { Json } from "@marble/supabase";
 import { JSONPath } from "jsonpath-plus";
 import { z } from "zod";
-import type { ListOptions, ResourceDeps } from "../db";
-import type { CreateParams, ListParams } from "../types";
+import type { ListOptions, ResourceDeps } from "../../db";
+import type { CreateParams, ListParams } from "../../types";
+import { requireServiceSupabase } from "../require-deps";
 import { ProgramRunCollection } from "./program-run";
 
 type JsonValue = Json;
@@ -34,16 +35,6 @@ type SourceWebhookIngestResult = {
   sourceEventId: string;
 };
 
-function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error(
-      "Source event ingestion requires a service Supabase client.",
-    );
-  }
-
-  return deps.serviceSupabase;
-}
-
 function valueToManualInput(value: unknown) {
   if (typeof value === "string") {
     return value;
@@ -66,7 +57,10 @@ export class SourceEventCollection {
   }
 
   private readonly loadSource = async (sourceId: string) => {
-    const { data, error } = await requireServiceSupabase(this.deps)
+    const { data, error } = await requireServiceSupabase(
+      this.deps,
+      "Source event",
+    )
       .from("source")
       .select("*, project!source_project_id_fkey(owner_profile_id)")
       .eq("id", sourceId)
@@ -100,7 +94,7 @@ export class SourceEventCollection {
     ownerProfileId: string;
     tableId: string;
   }) => {
-    const supabase = requireServiceSupabase(this.deps);
+    const supabase = requireServiceSupabase(this.deps, "Source event");
     const { data: lastRow, error: lastRowError } = await supabase
       .from("row")
       .select("idx")
@@ -181,7 +175,10 @@ export class SourceEventCollection {
         continue;
       }
 
-      const { error: updateError } = await requireServiceSupabase(this.deps)
+      const { error: updateError } = await requireServiceSupabase(
+        this.deps,
+        "Source event",
+      )
         .from("cell")
         .update({
           manual_input: valueToManualInput(value),
@@ -234,7 +231,7 @@ export class SourceEventCollection {
     }
 
     const { data: sourceEvent, error: sourceEventError } =
-      await requireServiceSupabase(this.deps)
+      await requireServiceSupabase(this.deps, "Source event")
         .from("source_event")
         .insert({
           parse_error: parseError,
@@ -262,6 +259,7 @@ export class SourceEventCollection {
 
     const { data: pipes, error: pipeError } = await requireServiceSupabase(
       this.deps,
+      "Source event",
     )
       .from("pipe")
       .select("id, mappings, table_id")

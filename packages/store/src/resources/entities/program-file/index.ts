@@ -1,11 +1,8 @@
-import type { ResourceDeps } from "../../db";
-import type { CreateParams, DbRow, Entity, UpdateParams } from "../../types";
-import { toCamelKeys } from "../../types";
-import {
-  requireReadableVersion,
-  requireServiceSupabase,
-  requireWritableVersion,
-} from "./access";
+import type { ResourceDeps } from "../../../db";
+import type { CreateParams, DbRow, Entity, UpdateParams } from "../../../types";
+import { toCamelKeys } from "../../../types";
+import { requireServiceSupabase } from "../../require-deps";
+import { requireReadableVersion, requireWritableVersion } from "./access";
 
 type ProgramFile = Entity<"program_file">;
 
@@ -37,7 +34,7 @@ export type SyncProgramFilesForVersionInput = {
 };
 
 async function getFile(deps: ResourceDeps, id: string) {
-  const { data, error } = await requireServiceSupabase(deps)
+  const { data, error } = await requireServiceSupabase(deps, "Program file")
     .from("program_file")
     .select("*")
     .eq("id", id)
@@ -58,7 +55,7 @@ async function assertFilenameAvailable(
     versionId: string;
   },
 ) {
-  const { data, error } = await requireServiceSupabase(deps)
+  const { data, error } = await requireServiceSupabase(deps, "Program file")
     .from("program_file")
     .select("id")
     .eq("version_id", input.versionId)
@@ -110,7 +107,10 @@ export class ProgramFileCollection {
       versionId: input.versionId,
     });
 
-    const { data, error } = await requireServiceSupabase(this.deps)
+    const { data, error } = await requireServiceSupabase(
+      this.deps,
+      "Program file",
+    )
       .from("program_file")
       .insert({
         content: input.content,
@@ -134,7 +134,7 @@ export class ProgramFileCollection {
 
     await requireWritableVersion(this.deps, file.versionId);
 
-    const { error } = await requireServiceSupabase(this.deps)
+    const { error } = await requireServiceSupabase(this.deps, "Program file")
       .from("program_file")
       .delete()
       .eq("id", id);
@@ -176,7 +176,10 @@ export class ProgramFileCollection {
       return [];
     }
 
-    const { data, error } = await requireServiceSupabase(this.deps)
+    const { data, error } = await requireServiceSupabase(
+      this.deps,
+      "Program file",
+    )
       .from("program_file")
       .select("*")
       .in("version_id", [
@@ -263,7 +266,10 @@ export class ProgramFileCollection {
       });
     }
 
-    const { data, error } = await requireServiceSupabase(this.deps)
+    const { data, error } = await requireServiceSupabase(
+      this.deps,
+      "Program file",
+    )
       .from("program_file")
       .update({
         content: values.content,

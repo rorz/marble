@@ -1,10 +1,5 @@
-import type { Tables } from "@marble/supabase";
-import {
-  firstRelation,
-  type JsonValue,
-  type requireServiceSupabase,
-  type StoredProgramRun,
-} from "./load";
+import type { SupabaseClient, Tables } from "@marble/supabase";
+import { firstRelation, type JsonValue, type StoredProgramRun } from "./load";
 
 type ProgramRunBaseInputContext = {
   cell: Pick<Tables<"cell">, "id" | "manual_input" | "state">;
@@ -65,7 +60,7 @@ export function createExecutionInputContextFromStoredRun(
 }
 
 export async function loadExecutionInputContextForCell(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   cellId: string,
 ): Promise<ProgramRunBaseInputContext> {
   const { data: cellRecord, error: cellError } = await supabase
@@ -135,7 +130,7 @@ export async function loadExecutionInputContextForCell(
 }
 
 export async function loadInputContext(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   context: ProgramRunBaseInputContext,
 ): Promise<ProgramRunInputContext> {
   const { data: dependencies, error: dependenciesError } = await supabase

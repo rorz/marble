@@ -1,11 +1,8 @@
-import {
-  firstRelation,
-  type requireServiceSupabase,
-  type StoredProgramRun,
-} from "./load";
+import type { SupabaseClient } from "@marble/supabase";
+import { firstRelation, type StoredProgramRun } from "./load";
 
 export async function listDependentCandidateCellIds(
-  supabase: ReturnType<typeof requireServiceSupabase>,
+  supabase: SupabaseClient,
   input: {
     requestId?: string;
     successfulRuns: StoredProgramRun[];

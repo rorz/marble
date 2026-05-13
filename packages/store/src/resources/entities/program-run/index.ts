@@ -1,12 +1,13 @@
 import type { Json, Tables } from "@marble/supabase";
-import type { ResourceDeps } from "../../db";
+import type { ResourceDeps } from "../../../db";
+import { requireServiceSupabase } from "../../require-deps";
 import { listDependentCandidateCellIds } from "./dependents";
 import {
   createExecutionInputContextFromStoredRun,
   loadExecutionInputContextForCell,
   loadInputContext,
 } from "./input-context";
-import { requireServiceSupabase, type StoredProgramRun } from "./load";
+import type { StoredProgramRun } from "./load";
 import {
   createPendingForCellIds,
   persistFailure,
@@ -37,7 +38,8 @@ export type ProgramVersionTestData = {
 export class ProgramRunCollection {
   public constructor(private readonly deps: ResourceDeps) {}
 
-  private readonly supabase = () => requireServiceSupabase(this.deps);
+  private readonly supabase = () =>
+    requireServiceSupabase(this.deps, "Program run");
 
   public readonly createPendingForCellIds = async (cellIds: string[]) => {
     return createPendingForCellIds(this.supabase(), cellIds);

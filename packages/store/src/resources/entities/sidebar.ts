@@ -1,4 +1,5 @@
-import type { ResourceDeps } from "../db";
+import type { ResourceDeps } from "../../db";
+import { requireServiceSupabase, requireUserId } from "../require-deps";
 
 export type SidebarData = {
   ownerProfileIds: string[];
@@ -45,28 +46,12 @@ export type SidebarData = {
   userId: string;
 };
 
-function requireUserId(deps: ResourceDeps) {
-  if (!deps.context.userId) {
-    throw new Error("Sidebar operations require a user session.");
-  }
-
-  return deps.context.userId;
-}
-
-function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error("Sidebar operations require a service Supabase client.");
-  }
-
-  return deps.serviceSupabase;
-}
-
 export class SidebarCollection {
   public constructor(private readonly deps: ResourceDeps) {}
 
   public readonly getData = async (): Promise<SidebarData> => {
-    const userId = requireUserId(this.deps);
-    const supabase = requireServiceSupabase(this.deps);
+    const userId = requireUserId(this.deps, "Sidebar");
+    const supabase = requireServiceSupabase(this.deps, "Sidebar");
     const [
       profilesResult,
       projectsResult,

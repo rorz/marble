@@ -1,6 +1,5 @@
-import type { Json } from "@marble/supabase";
+import type { Json, SupabaseClient } from "@marble/supabase";
 import { z } from "zod";
-import type { ResourceDeps } from "../../db";
 
 export type JsonValue = Json;
 
@@ -31,20 +30,7 @@ export function firstRelation<T>(
   return value ?? undefined;
 }
 
-export function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error(
-      "Program run operations require a service Supabase client.",
-    );
-  }
-
-  return deps.serviceSupabase;
-}
-
-async function loadStoredRun(
-  supabase: ReturnType<typeof requireServiceSupabase>,
-  runId: string,
-) {
+async function loadStoredRun(supabase: SupabaseClient, runId: string) {
   const { data, error } = await supabase
     .from("program_run")
     .select(STORED_RUN_SELECT)

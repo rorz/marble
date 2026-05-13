@@ -1,5 +1,7 @@
-import type { ResourceDeps } from "../db";
-import type { Entity, UpdateParams } from "../types";
+import type { ResourceDeps } from "../../db";
+import type { Entity, UpdateParams } from "../../types";
+import { listOwnedProfileIds } from "../list-owned-profile-ids";
+import { requireServiceSupabase, requireUserId } from "../require-deps";
 
 export type Profile = Entity<"profile">;
 
@@ -13,35 +15,19 @@ export type UpdateProfileParams = Pick<Profile, "id"> & {
   values: UpdateProfileInput;
 };
 
-function requireUserId(deps: ResourceDeps) {
-  if (!deps.context.userId) {
-    throw new Error("Profile operations require a user session.");
-  }
-
-  return deps.context.userId;
-}
-
-function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error("Profile mutations require a service Supabase client.");
-  }
-
-  return deps.serviceSupabase;
-}
-
 export class ProfileCollection {
   public constructor(private readonly deps: ResourceDeps) {}
 
   public readonly get = ({ id }: GetProfileInput) =>
     this.deps.db.get("profile", id, {
-      ownerUserId: requireUserId(this.deps),
+      ownerUserId: requireUserId(this.deps, "Profile"),
     });
 
   public readonly list = (input: Partial<Pick<Profile, "type">> = {}) =>
     this.deps.db.list(
       "profile",
       {
-        ownerUserId: requireUserId(this.deps),
+        ownerUserId: requireUserId(this.deps, "Profile"),
         type: input.type,
       },
       {
@@ -54,25 +40,10 @@ export class ProfileCollection {
       },
     );
 
-  public readonly listIdsAsc = async () => {
-    const supabase = requireServiceSupabase(this.deps);
-    const { data, error } = await supabase
-      .from("profile")
-      .select("id")
-      .eq("owner_user_id", requireUserId(this.deps))
-      .order("created_at", {
-        ascending: true,
-      });
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    return (data ?? []).map((profile) => profile.id);
-  };
+  public readonly listIdsAsc = () => listOwnedProfileIds(this.deps, "Profile");
 
   public readonly update = async ({ id, values }: UpdateProfileParams) => {
-    const { error } = await requireServiceSupabase(this.deps)
+    const { error } = await requireServiceSupabase(this.deps, "Profile")
       .from("profile")
       .update({
         external_name: values.externalName,
@@ -80,7 +51,7 @@ export class ProfileCollection {
         name: values.name,
       })
       .eq("id", id)
-      .eq("owner_user_id", requireUserId(this.deps));
+      .eq("owner_user_id", requireUserId(this.deps, "Profile"));
 
     if (error) {
       throw new Error(error.message);

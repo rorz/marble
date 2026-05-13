@@ -1,4 +1,5 @@
-import type { ResourceDeps } from "../db";
+import type { ResourceDeps } from "../../db";
+import { requireServiceSupabase, requireUserId } from "../require-deps";
 
 export type SecretBindingEntry = {
   envName: string;
@@ -6,24 +7,6 @@ export type SecretBindingEntry = {
 };
 
 export type SecretBindingMap = Record<string, Record<string, string>>;
-
-function requireUserId(deps: ResourceDeps) {
-  if (!deps.context.userId) {
-    throw new Error("Secret binding operations require a user session.");
-  }
-
-  return deps.context.userId;
-}
-
-function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error(
-      "Secret binding operations require a service Supabase client.",
-    );
-  }
-
-  return deps.serviceSupabase;
-}
 
 function mapBindingsByTarget<
   Row extends {
@@ -70,7 +53,10 @@ export class SecretBindingCollection {
       return;
     }
 
-    const { data, error } = await requireServiceSupabase(this.deps)
+    const { data, error } = await requireServiceSupabase(
+      this.deps,
+      "Secret binding",
+    )
       .from("secret")
       .select("id, owner_user_id")
       .in("id", secretIds);
@@ -79,7 +65,7 @@ export class SecretBindingCollection {
       throw new Error(error.message);
     }
 
-    const userId = requireUserId(this.deps);
+    const userId = requireUserId(this.deps, "Secret binding");
     const secrets = data ?? [];
 
     if (
@@ -95,7 +81,10 @@ export class SecretBindingCollection {
       return {} satisfies SecretBindingMap;
     }
 
-    const { data, error } = await requireServiceSupabase(this.deps)
+    const { data, error } = await requireServiceSupabase(
+      this.deps,
+      "Secret binding",
+    )
       .from("column_secret_binding")
       .select("column_id, env_name, secret_id")
       .in("column_id", input.columnIds)
@@ -118,10 +107,13 @@ export class SecretBindingCollection {
       return {} satisfies SecretBindingMap;
     }
 
-    const { data, error } = await requireServiceSupabase(this.deps)
+    const { data, error } = await requireServiceSupabase(
+      this.deps,
+      "Secret binding",
+    )
       .from("program_secret_binding")
       .select("env_name, program_id, secret_id")
-      .eq("owner_user_id", requireUserId(this.deps))
+      .eq("owner_user_id", requireUserId(this.deps, "Secret binding"))
       .in("program_id", input.programIds)
       .order("program_id", {
         ascending: true,
@@ -141,7 +133,7 @@ export class SecretBindingCollection {
     bindings: SecretBindingEntry[];
     columnId: string;
   }) => {
-    const supabase = requireServiceSupabase(this.deps);
+    const supabase = requireServiceSupabase(this.deps, "Secret binding");
     await this.validateSecrets(input.bindings);
 
     const { error: deleteError } = await supabase
@@ -179,8 +171,8 @@ export class SecretBindingCollection {
     bindings: SecretBindingEntry[];
     programId: string;
   }) => {
-    const supabase = requireServiceSupabase(this.deps);
-    const userId = requireUserId(this.deps);
+    const supabase = requireServiceSupabase(this.deps, "Secret binding");
+    const userId = requireUserId(this.deps, "Secret binding");
     await this.validateSecrets(input.bindings);
 
     const { error: deleteError } = await supabase

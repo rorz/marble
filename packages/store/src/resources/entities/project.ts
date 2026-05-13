@@ -1,6 +1,6 @@
-import type { ListOptions, ResourceDeps } from "../db";
-import type { CreateParams, Entity, UpdateParams } from "../types";
-import { requireProfileId } from "../types";
+import type { ListOptions, ResourceDeps } from "../../db";
+import type { CreateParams, Entity, UpdateParams } from "../../types";
+import { requireProfileId } from "../../types";
 
 type Project = Entity<"project">;
 

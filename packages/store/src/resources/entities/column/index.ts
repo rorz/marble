@@ -1,6 +1,6 @@
 import type { Json } from "@marble/supabase";
-import type { ResourceDeps } from "../../db";
-import type { CreateParams, Entity, UpdateParams } from "../../types";
+import type { ResourceDeps } from "../../../db";
+import type { CreateParams, Entity, UpdateParams } from "../../../types";
 import {
   deleteColumnDependencies,
   replaceColumnDependencies,

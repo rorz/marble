@@ -1,6 +1,11 @@
 import type { Json } from "@marble/supabase";
-import type { ResourceDeps } from "../db";
-import type { CreateParams, Entity, ListParams, UpdateParams } from "../types";
+import type { ResourceDeps } from "../../db";
+import type {
+  CreateParams,
+  Entity,
+  ListParams,
+  UpdateParams,
+} from "../../types";
 
 type PipeMapping = {
   columnId: string;

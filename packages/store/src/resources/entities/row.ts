@@ -1,5 +1,5 @@
-import type { ResourceDeps } from "../db";
-import type { CreateParams, Entity, UpdateParams } from "../types";
+import type { ResourceDeps } from "../../db";
+import type { CreateParams, Entity, UpdateParams } from "../../types";
 
 export type Row = Entity<"row">;
 

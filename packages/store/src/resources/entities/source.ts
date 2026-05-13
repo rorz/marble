@@ -1,6 +1,7 @@
 import type { Json } from "@marble/supabase";
-import type { ResourceDeps } from "../db";
-import type { CreateParams, Entity, UpdateParams } from "../types";
+import type { ResourceDeps } from "../../db";
+import type { CreateParams, Entity, UpdateParams } from "../../types";
+import { requireServiceSupabase } from "../require-deps";
 
 type Source = Entity<"source">;
 
@@ -24,21 +25,11 @@ const DEFAULT_SOURCE_PAYLOAD_SCHEMA = {
 export class SourceCollection {
   public constructor(private readonly deps: ResourceDeps) {}
 
-  private readonly requireServiceSupabase = () => {
-    if (!this.deps.serviceSupabase) {
-      throw new Error(
-        "Source webhook auth requires a service Supabase client.",
-      );
-    }
-
-    return this.deps.serviceSupabase;
-  };
-
   public readonly authorizeWebhook = async (input: {
     sourceId: string;
     token: string;
   }) => {
-    const { data, error } = await this.requireServiceSupabase()
+    const { data, error } = await requireServiceSupabase(this.deps, "Source")
       .from("source")
       .select("id")
       .eq("id", input.sourceId)

@@ -1,5 +1,7 @@
-import type { ResourceDeps } from "../../db";
-import { type DbRow, type Entity, toCamelKeys } from "../../types";
+import type { ResourceDeps } from "../../../db";
+import { type DbRow, type Entity, toCamelKeys } from "../../../types";
+import { listOwnedProfileIds } from "../../list-owned-profile-ids";
+import { requireServiceSupabase } from "../../require-deps";
 
 type ProgramAccess = {
   firstParty: boolean;
@@ -10,42 +12,11 @@ type ProgramVersionAccess = Entity<"program_version"> & {
   program: ProgramAccess;
 };
 
-export function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error(
-      "Program file operations require a service Supabase client.",
-    );
-  }
-
-  return deps.serviceSupabase;
-}
-
-function requireUserId(deps: ResourceDeps) {
-  if (!deps.context.userId) {
-    throw new Error("Program file operations require a user session.");
-  }
-
-  return deps.context.userId;
-}
-
-async function listOwnedProfileIds(deps: ResourceDeps) {
-  const { data, error } = await requireServiceSupabase(deps)
-    .from("profile")
-    .select("id")
-    .eq("owner_user_id", requireUserId(deps));
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Set((data ?? []).map((profile) => profile.id));
-}
-
 async function getVersionAccess(
   deps: ResourceDeps,
   versionId: string,
 ): Promise<ProgramVersionAccess> {
-  const supabase = requireServiceSupabase(deps);
+  const supabase = requireServiceSupabase(deps, "Program file");
   const { data: version, error: versionError } = await supabase
     .from("program_version")
     .select("*")
@@ -81,7 +52,7 @@ export async function requireReadableVersion(
 ) {
   const [version, ownedProfileIds] = await Promise.all([
     getVersionAccess(deps, versionId),
-    listOwnedProfileIds(deps),
+    listOwnedProfileIds(deps, "Program file").then((ids) => new Set(ids)),
   ]);
 
   if (

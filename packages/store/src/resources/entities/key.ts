@@ -4,7 +4,8 @@ import {
   listApiKeysForProfiles,
   resolveApiKeyAuth,
 } from "@marble/keys";
-import type { ResourceDeps } from "../db";
+import type { ResourceDeps } from "../../db";
+import { requireServiceSupabase, requireUserId } from "../require-deps";
 
 export type ApiKey = {
   createdAt: string;
@@ -25,22 +26,6 @@ type ListKeysInput = {
   includeDeleted?: boolean;
   ownerProfileId?: string;
 };
-
-function requireUserId(deps: ResourceDeps) {
-  if (!deps.context.userId) {
-    throw new Error("Key operations require a user session.");
-  }
-
-  return deps.context.userId;
-}
-
-function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error("Key operations require a service Supabase client.");
-  }
-
-  return deps.serviceSupabase;
-}
 
 function toApiKey(key: {
   created_at: string;
@@ -66,7 +51,7 @@ export class KeyCollection {
     token: string,
   ): Promise<ApiKeyAuth | null> => {
     const keyAuth = await resolveApiKeyAuth(
-      requireServiceSupabase(this.deps),
+      requireServiceSupabase(this.deps, "Key"),
       token,
     );
 
@@ -83,7 +68,7 @@ export class KeyCollection {
 
   private readonly requireOwnedProfile = async (profileId: string) => {
     const profile = await this.deps.db.get("profile", profileId, {
-      ownerUserId: requireUserId(this.deps),
+      ownerUserId: requireUserId(this.deps, "Key"),
     });
 
     return profile;
@@ -99,13 +84,13 @@ export class KeyCollection {
 
     return (
       await this.deps.db.list("profile", {
-        ownerUserId: requireUserId(this.deps),
+        ownerUserId: requireUserId(this.deps, "Key"),
       })
     ).map((profile) => profile.id);
   };
 
   public readonly create = async (input: { ownerProfileId: string }) => {
-    const supabase = requireServiceSupabase(this.deps);
+    const supabase = requireServiceSupabase(this.deps, "Key");
     const profile = await this.requireOwnedProfile(input.ownerProfileId);
     const material = await createApiKeyMaterial();
     const { data, error } = await supabase
@@ -131,7 +116,7 @@ export class KeyCollection {
   };
 
   public readonly list = async (input: ListKeysInput = {}) => {
-    const supabase = requireServiceSupabase(this.deps);
+    const supabase = requireServiceSupabase(this.deps, "Key");
     const ownerProfileIds = await this.listOwnerProfileIds(
       input.ownerProfileId,
     );
@@ -143,7 +128,7 @@ export class KeyCollection {
   };
 
   public readonly revoke = async ({ id }: { id: string }) => {
-    const supabase = requireServiceSupabase(this.deps);
+    const supabase = requireServiceSupabase(this.deps, "Key");
     const { data: key, error: getError } = await supabase
       .from("key")
       .select("created_at, deleted_at, id, owner_profile_id, prefix")

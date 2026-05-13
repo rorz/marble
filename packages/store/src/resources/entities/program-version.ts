@@ -1,12 +1,14 @@
 import type { Json } from "@marble/supabase";
-import type { ResourceDeps } from "../db";
+import type { ResourceDeps } from "../../db";
 import type {
   DbRow,
   Entity,
   ProgramVersionTestInput,
   ProgramVersionTestResult,
-} from "../types";
-import { toCamelKeys } from "../types";
+} from "../../types";
+import { toCamelKeys } from "../../types";
+import { listOwnedProfileIds } from "../list-owned-profile-ids";
+import { requireServiceSupabase, requireUserId } from "../require-deps";
 
 export type ProgramVersion = Entity<"program_version">;
 
@@ -27,16 +29,6 @@ export type UpdateProgramVersionParams = {
   values: ProgramVersionWriteInput;
 };
 
-function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error(
-      "Program version operations require a service Supabase client.",
-    );
-  }
-
-  return deps.serviceSupabase;
-}
-
 function asJson(value: unknown): Json {
   return value as Json;
 }
@@ -46,7 +38,7 @@ const parseOutputConfig = asJson;
 const parseSecretConfig = asJson;
 
 async function nextProgramVersionNumber(deps: ResourceDeps, programId: string) {
-  const { data, error } = await requireServiceSupabase(deps)
+  const { data, error } = await requireServiceSupabase(deps, "Program version")
     .from("program_version")
     .select("version")
     .eq("program_id", programId)
@@ -65,7 +57,7 @@ async function nextProgramVersionNumber(deps: ResourceDeps, programId: string) {
 }
 
 async function getProgramVersion(deps: ResourceDeps, id: string) {
-  const { data, error } = await requireServiceSupabase(deps)
+  const { data, error } = await requireServiceSupabase(deps, "Program version")
     .from("program_version")
     .select("*")
     .eq("id", id)
@@ -78,29 +70,11 @@ async function getProgramVersion(deps: ResourceDeps, id: string) {
   return toCamelKeys<"program_version">(data as DbRow<"program_version">);
 }
 
-function requireUserId(deps: ResourceDeps) {
-  if (!deps.context.userId) {
-    throw new Error("Program version operations require a user context.");
-  }
-
-  return deps.context.userId;
-}
-
-async function listOwnedProfileIds(deps: ResourceDeps) {
-  const { data, error } = await requireServiceSupabase(deps)
-    .from("profile")
-    .select("id")
-    .eq("owner_user_id", requireUserId(deps));
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return new Set((data ?? []).map((profile) => profile.id));
-}
-
 async function requireWritableProgram(deps: ResourceDeps, programId: string) {
-  const { data: program, error } = await requireServiceSupabase(deps)
+  const { data: program, error } = await requireServiceSupabase(
+    deps,
+    "Program version",
+  )
     .from("program")
     .select("first_party, owner_profile_id")
     .eq("id", programId)
@@ -110,7 +84,9 @@ async function requireWritableProgram(deps: ResourceDeps, programId: string) {
     throw new Error(error?.message ?? "Program not found.");
   }
 
-  const ownedProfileIds = await listOwnedProfileIds(deps);
+  const ownedProfileIds = new Set(
+    await listOwnedProfileIds(deps, "Program version"),
+  );
 
   if (program.first_party || !ownedProfileIds.has(program.owner_profile_id)) {
     throw new Error("Program not found.");
@@ -201,7 +177,10 @@ export class ProgramVersionCollection {
       ? (input.version ??
         (await nextProgramVersionNumber(this.deps, input.programId)))
       : null;
-    const { data: versionRow, error } = await requireServiceSupabase(this.deps)
+    const { data: versionRow, error } = await requireServiceSupabase(
+      this.deps,
+      "Program version",
+    )
       .from("program_version")
       .insert({
         input_schema: parseInputSchema(input.inputSchema),
@@ -238,7 +217,10 @@ export class ProgramVersionCollection {
       );
     }
 
-    const serviceSupabase = requireServiceSupabase(this.deps);
+    const serviceSupabase = requireServiceSupabase(
+      this.deps,
+      "Program version",
+    );
     const { data: version, error: versionError } = await serviceSupabase
       .from("program_version")
       .select("program_id")
@@ -270,7 +252,9 @@ export class ProgramVersionCollection {
         throw new Error(profileError?.message ?? "Profile not found.");
       }
 
-      if (profile.owner_user_id !== requireUserId(this.deps)) {
+      if (
+        profile.owner_user_id !== requireUserId(this.deps, "Program version")
+      ) {
         throw new Error("Program version not found.");
       }
     }
@@ -326,7 +310,10 @@ export class ProgramVersionCollection {
     };
 
     if (Object.keys(dbValues).length > 0) {
-      const { error } = await requireServiceSupabase(this.deps)
+      const { error } = await requireServiceSupabase(
+        this.deps,
+        "Program version",
+      )
         .from("program_version")
         .update({
           input_schema:

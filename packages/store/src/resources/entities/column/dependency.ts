@@ -1,4 +1,4 @@
-import type { ResourceDeps } from "../../db";
+import type { ResourceDeps } from "../../../db";
 
 function extractDependenciesFromTemplate(template: string) {
   const sourceColumnIds = new Set<string>();

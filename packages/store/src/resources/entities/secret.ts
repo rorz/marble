@@ -1,6 +1,7 @@
-import type { ResourceDeps } from "../db";
-import type { DbRow, Entity } from "../types";
-import { toCamelKeys } from "../types";
+import type { ResourceDeps } from "../../db";
+import type { DbRow, Entity } from "../../types";
+import { toCamelKeys } from "../../types";
+import { requireServiceSupabase, requireUserId } from "../require-deps";
 
 type SecretRow = Entity<"secret">;
 
@@ -44,35 +45,19 @@ function toSecretEntity(secret: SecretRpcRow): SecretRow {
   return toCamelKeys<"secret">(secret);
 }
 
-function requireUserId(deps: ResourceDeps) {
-  if (!deps.context.userId) {
-    throw new Error("Secret operations require a user context.");
-  }
-
-  return deps.context.userId;
-}
-
-function requireServiceSupabase(deps: ResourceDeps) {
-  if (!deps.serviceSupabase) {
-    throw new Error("Secret operations require a service Supabase client.");
-  }
-
-  return deps.serviceSupabase;
-}
-
 export class SecretCollection implements SecretCollectionApi {
   public constructor(private readonly deps: ResourceDeps) {}
 
   public readonly create = async (input: CreateSecretInput) => {
-    const { data, error } = await requireServiceSupabase(this.deps).rpc(
-      "secret_store_create",
-      {
-        p_category: input.category ?? "UserDefined",
-        p_name: input.name,
-        p_owner_user_id: requireUserId(this.deps),
-        p_plaintext_value: input.value,
-      },
-    );
+    const { data, error } = await requireServiceSupabase(
+      this.deps,
+      "Secret",
+    ).rpc("secret_store_create", {
+      p_category: input.category ?? "UserDefined",
+      p_name: input.name,
+      p_owner_user_id: requireUserId(this.deps, "Secret"),
+      p_plaintext_value: input.value,
+    });
 
     if (error || !data) {
       throw new Error(error?.message ?? "Could not create secret.");
@@ -86,7 +71,7 @@ export class SecretCollection implements SecretCollectionApi {
       id,
     });
 
-    const { error } = await requireServiceSupabase(this.deps).rpc(
+    const { error } = await requireServiceSupabase(this.deps, "Secret").rpc(
       "secret_store_delete",
       {
         p_secret_id: id,
@@ -103,7 +88,7 @@ export class SecretCollection implements SecretCollectionApi {
   public readonly get = async ({ id }: GetSecretInput) =>
     toPublicSecret(
       await this.deps.db.get("secret", id, {
-        ownerUserId: requireUserId(this.deps),
+        ownerUserId: requireUserId(this.deps, "Secret"),
       }),
     );
 
@@ -113,7 +98,7 @@ export class SecretCollection implements SecretCollectionApi {
         "secret",
         {
           ...input,
-          ownerUserId: requireUserId(this.deps),
+          ownerUserId: requireUserId(this.deps, "Secret"),
         },
         {
           orderBy: [
@@ -133,14 +118,14 @@ export class SecretCollection implements SecretCollectionApi {
       id,
     });
 
-    const { data, error } = await requireServiceSupabase(this.deps).rpc(
-      "secret_store_update",
-      {
-        p_name: values.name,
-        p_plaintext_value: values.value,
-        p_secret_id: id,
-      },
-    );
+    const { data, error } = await requireServiceSupabase(
+      this.deps,
+      "Secret",
+    ).rpc("secret_store_update", {
+      p_name: values.name,
+      p_plaintext_value: values.value,
+      p_secret_id: id,
+    });
 
     if (error || !data) {
       throw new Error(error?.message ?? "Could not update secret.");
