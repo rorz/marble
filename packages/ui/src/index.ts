@@ -104,6 +104,7 @@ export {
   MarbleJsonPreview,
   type MarbleJsonPreviewProps,
 } from "./components/json-preview";
+export { MarbleLink, type MarbleLinkProps } from "./components/link";
 export {
   MarbleListRow,
   type MarbleListRowProps,
@@ -147,6 +148,8 @@ export {
   MarbleRouteProgress,
   MarbleRouteProgressBeacon,
   type MarbleRouteProgressProps,
+  type MarbleRouter,
+  useMarbleRouter,
   useReportRouteProgress,
 } from "./components/route-progress";
 export {
@@ -177,6 +180,10 @@ export {
   MarbleSheetTitle,
   type MarbleSheetTitleProps,
 } from "./components/sheet";
+export {
+  MarbleSpinner,
+  type MarbleSpinnerProps,
+} from "./components/spinner";
 export {
   MarbleStat,
   type MarbleStatProps,

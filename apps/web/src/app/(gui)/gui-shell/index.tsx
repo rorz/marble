@@ -15,6 +15,7 @@ import {
   MarbleSheet,
   MarbleSheetContent,
   marbleToast,
+  useMarbleRouter,
 } from "@marble/ui";
 import {
   BookOpenTextIcon,
@@ -32,7 +33,7 @@ import {
   UserCircleIcon,
   XIcon,
 } from "@phosphor-icons/react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -160,7 +161,7 @@ export function GuiShell({
   const [isResizing, setIsResizing] = useState(false);
   const sidebar = sidebarModes[sidebarMode];
   const ToggleIcon = sidebar.toggleIcon;
-  const router = useRouter();
+  const router = useMarbleRouter();
   const getSdk = useMarbleSdkFactory();
   const sdk = useMemo(
     () => getSdk(),

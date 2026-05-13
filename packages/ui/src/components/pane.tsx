@@ -5,6 +5,7 @@ import {
   MarbleContextPopover,
   type MarbleContextPopoverItem,
 } from "./context-popover";
+import { MarbleLink } from "./link";
 
 export type MarblePaneCrumb = {
   href?: string;
@@ -66,13 +67,13 @@ export function MarblePane({
             {crumbs.flatMap((crumb, index) => [
               typeof crumb.label === "string" ? (
                 crumb.href ? (
-                  <a
+                  <MarbleLink
                     className={marblePaneInteractiveCrumbClassName}
                     href={crumb.href}
                     key={crumb.id}
                   >
                     {crumb.label}
-                  </a>
+                  </MarbleLink>
                 ) : crumb.onClick ? (
                   <button
                     className={marblePaneInteractiveCrumbClassName}

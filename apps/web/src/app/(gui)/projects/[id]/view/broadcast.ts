@@ -1,5 +1,5 @@
 import { castCamelKeys } from "@marble/lib/object";
-import type { useRouter } from "next/navigation";
+import type { MarbleRouter } from "@marble/ui";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import {
   type MarblePipe,
@@ -25,7 +25,7 @@ type Pipes = MarblePipe[];
 type UseProjectBroadcastOptions = {
   project: ProjectState;
   projectRef: MutableRefObject<ProjectState>;
-  router: ReturnType<typeof useRouter>;
+  router: MarbleRouter;
   setNameDraft: Dispatch<SetStateAction<string>>;
   setPipes: Dispatch<SetStateAction<Pipes>>;
   setProject: Dispatch<SetStateAction<ProjectState>>;

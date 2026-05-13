@@ -11,8 +11,8 @@ import {
   MarbleCardTitle,
   MarbleEmptyState,
   MarbleListRow,
+  useMarbleRouter,
 } from "@marble/ui";
-import { useRouter } from "next/navigation";
 import {
   describeDiff,
   describeEntity,
@@ -51,7 +51,7 @@ export function EventFeedList({
   realtimeStatus: RealtimeStatus;
   selectedEventId: null | string;
 }) {
-  const router = useRouter();
+  const router = useMarbleRouter();
 
   return (
     <MarbleCard className="flex min-h-[28rem] min-w-0 flex-1 flex-col">

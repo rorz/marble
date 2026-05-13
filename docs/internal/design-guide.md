@@ -119,10 +119,11 @@ Every primitive in `@marble/ui`. Each entry is a one-line "use when" so you can 
 - **`MarbleBadge`** — small status pills. Tones `neutral` / `info` / `warning` / `error` / `success` / `solid`. `caps` for uppercase tracking.
 - **`MarbleAlert`** — block-level status messages. Tones `neutral` / `info` / `warning` / `error` / `success`. Sizes `md` / `sm`.
 - **`MarbleToaster` + `marbleToast`** — transient confirmation / error toasts. Mounted once at the layout root.
+- **`MarbleSpinner`** — the canonical loading affordance. Sizes `xs` / `sm` / `md` / `lg`, tones `neutral` / `orange` / `subtle` / `white`. Use for inline pending states (button-adjacent, row-adjacent, pane-adjacent). For top-of-page route progress use `MarbleRouteProgress`, not a spinner. **Never** hand-roll `animate-spin` divs or import `Loader2`-style icons from another library.
 
 ### Surfaces
 
-- **`MarbleCard` + `MarbleCardHeader` / `MarbleCardContent` / `MarbleCardSection` / `MarbleCardFooter` / `MarbleCardTitle` / `MarbleCardDescription`** — the canonical bordered surface. Card tones `default` / `subtle` / `orange`. Header supports `actions[]`, `disclosureActions[]`, and `divided` for the bordered-header variant. Footer snap-to-bottom and right-align are baked in.
+- **`MarbleCard` + `MarbleCardHeader` / `MarbleCardContent` / `MarbleCardSection` / `MarbleCardFooter` / `MarbleCardTitle` / `MarbleCardDescription`** — the canonical bordered surface. Card tones `default` / `subtle` / `orange`. Header supports `actions[]`, `disclosureActions[]`, and `divided` for the bordered-header variant. Footer snap-to-bottom and right-align are baked in. Pass `href` to render the entire card as a `next/link` `Link` with auto-registered `MarbleRouteProgressBeacon` + hover / cursor / focus-visible affordances; pass `interactive` for the same affordances on a click-only card (e.g. `onClick`). **Never** hand-roll a `<Link><div className="border ... hover:bg-...">` lookalike.
 - **`MarbleEmptyState`** — empty list / no-data prompt with `title` / `description` / `icon` / `actions`. Use `iconTone="neutral" | "orange"` to wrap the icon in the standard bordered tile.
 - **`MarbleListRow`** — every clickable row in a list-of-records view. Sizes `compact` / `sm` / `md`, tones `neutral` / `orange`, `active`, `aside`, `meta`, `align`. Use `iconTone="neutral" | "orange"` to wrap an icon in the standard bordered tile.
 - **`MarbleStat`** — labeled read-only value tile. Use `framed` for the bordered chip variant; default is inline label-above-value. Tones `neutral` / `subtle`.
@@ -144,7 +145,8 @@ Every primitive in `@marble/ui`. Each entry is a one-line "use when" so you can 
 - **`MarblePane`** — every page-level pane. Crumbs, actions, disclosure menu, and frame are all primitive concerns. Width is a `width` prop with a four-step scale — `Narrow` (`max-w-2xl`, focused reading column with extra top breathing room), `Wide` (`max-w-5xl`, two-column dashboards), `ExtraWide` (`max-w-6xl`, list-heavy admin views), `Full` (no cap, edge-to-edge). **Never** override the max-width via `className="max-w-*"` — extend the prop scale instead.
 - **`MarbleWorkbenchSection` / `MarbleWorkbenchTabs` / `MarbleWorkbenchTab` / `MarbleWorkbenchResizeHandle`** — editor / dock chrome.
 - **`MarbleReviewNavigator`** — compact review tray for stepping through grouped changes.
-- **`MarbleRouteProgress`** / **`MarbleRouteProgressBeacon`** / **`useReportRouteProgress`** — top-anchored 2px orange progress bar that surfaces pending route transitions, GitHub-style. Mount `<MarbleRouteProgress />` once near the layout root. Inside each `next/link` `Link`, render `<MarbleRouteProgressBeacon />` so clicks register pending state via `useLinkStatus()`. For programmatic nav, wrap `router.push(...)` in `useTransition()` and pass the pending flag to `useReportRouteProgress(isPending)`. An 80ms show-debounce suppresses flicker on instant prefetched nav; settle phase snaps to 100% then fades. **Never** add a third-party progress bar (nprogress etc.) — this primitive owns route progress.
+- **`MarbleLink`** — the canonical client-side link primitive. A drop-in for `next/link`'s `Link` (it accepts the same props) that auto-registers `<MarbleRouteProgressBeacon />` so every click surfaces in the top progress bar. **Never** use raw `<a href="/internal/path">` for in-app navigation (causes a full document reload and skips the bar). **Never** import `Link` from `next/link` directly inside `(gui)/**` product code — use `MarbleLink`. Marketing surfaces and fragment-only links (`href="#section"`) are exempt.
+- **`MarbleRouteProgress`** / **`MarbleRouteProgressBeacon`** / **`useReportRouteProgress`** / **`useMarbleRouter`** — top-anchored 2px orange progress bar that surfaces pending route transitions, GitHub-style. Mount `<MarbleRouteProgress />` once near the layout root. For anchor navigation, use `MarbleLink` — it registers the beacon for you. `MarbleRouteProgressBeacon` remains exported for advanced cases where you must compose your own `Link` wrapper. **For all programmatic nav in the `(gui)` tree, use `useMarbleRouter()` instead of `useRouter()`** — it wraps `push` / `replace` / `refresh` / `back` / `forward` in `useTransition` and reports progress automatically, and exposes `isPending` so callers can dim / disable affordances during the transition. The `MarbleRouter` type is the public router contract; type ancillary helpers (e.g. `router: MarbleRouter`) with it. An 80ms show-debounce suppresses flicker on instant prefetched nav; settle phase snaps to 100% then fades. **Never** add a third-party progress bar (nprogress etc.) — this primitive owns route progress.
 
 ### Menus & Popovers
 
@@ -272,6 +274,11 @@ When you find yourself reaching for the pattern on the left, use the primitive o
 | Editor section / dock panel | `MarbleWorkbenchSection` |
 | Editor tab strip | `MarbleWorkbenchTabs` + `MarbleWorkbenchTab` |
 | Browser-native alert / confirm / prompt | (none — use `MarbleConfirmModal` or a `marbleToast` for non-destructive feedback) |
+| Client-side anchor / link inside `(gui)` | `<MarbleLink href="..." />` (never raw `<a href="...">` or raw `next/link` `Link`) |
+| Programmatic client navigation inside `(gui)` | `useMarbleRouter()` (never raw `useRouter()` from `next/navigation`) |
+| Clickable card / list-row tile that navigates | `<MarbleCard href="..." />` (renders as `MarbleLink` + auto progress beacon) |
+| Clickable card with `onClick` (no href) | `<MarbleCard interactive onClick={...} />` |
+| Inline loading indicator | `<MarbleSpinner size="..." tone="..." />` |
 
 ## Anti-Patterns to NEVER Reintroduce
 
@@ -283,6 +290,11 @@ Each of these patterns was hand-rolled across the codebase in the past. Each has
 - ❌ Hand-rolled `<button aria-pressed={isSelected} className="aspect-square border ...">` grids → use `<MarbleSelectableTile shape="square" active={isSelected}>`.
 - ❌ `<div className="rounded-xs border ... px-3 py-2"><label/><value/></div>` → use `<MarbleStat framed label value />`.
 - ❌ `<button>×</button>` close buttons → use `<MarbleModalClose />` or `<MarbleSheetClose variant="button">Dismiss</MarbleSheetClose>`.
+- ❌ Raw `<a href="/internal/path">…</a>` for in-app navigation → use `<MarbleLink href="...">`. Raw `<a>` causes a full document reload, breaking SPA semantics and skipping the route-progress bar. Fragment-only anchors (`href="#section"`) and marketing surfaces are exempt.
+- ❌ `import Link from "next/link"` inside `(gui)/**` product code → use `<MarbleLink>` from `@marble/ui`. The drop-in registers the route-progress beacon for you. `MarbleRouteProgressBeacon` remains available for advanced consumers who genuinely need to compose their own `Link`.
+- ❌ `import { useRouter } from "next/navigation"` inside `(gui)/**` → use `useMarbleRouter()` from `@marble/ui`. Naked `router.push(...)` skips the top progress bar — `useMarbleRouter` wires it up automatically.
+- ❌ Hand-rolled `animate-spin` divs / loose `<Loader2/>` icons → use `<MarbleSpinner />`.
+- ❌ Click-to-navigate `<Link className="border bg-white hover:bg-zinc-50 ...">` cards → use `<MarbleCard href="..." />`. Click-handler cards that need hover affordance use `<MarbleCard interactive onClick={...} />`.
 - ❌ Per-route `MarbleCardHeader className="border-b ..."` overrides → use `<MarbleCardHeader divided>`.
 - ❌ Per-route `<MarblePane className="max-w-Nxl">` overrides → use `width="Narrow" | "Wide" | "ExtraWide" | "Full"`. If you genuinely need a width the scale doesn't cover, extend the scale on the primitive.
 - ❌ Per-route `<div className="flex size-9 ... rounded-xs border ...">{icon}</div>` wrappers inside `MarbleListRow icon` → use `iconTone="neutral" | "orange"`.

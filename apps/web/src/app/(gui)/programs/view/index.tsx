@@ -35,6 +35,7 @@ import {
   MarbleWorkbenchTab,
   MarbleWorkbenchTabs,
   marbleToast,
+  useMarbleRouter,
 } from "@marble/ui";
 import {
   ClockIcon,
@@ -49,7 +50,6 @@ import {
   SparkleIcon,
   UserIcon,
 } from "@phosphor-icons/react/dist/ssr";
-import { useRouter } from "next/navigation";
 import {
   type DragEvent as ReactDragEvent,
   type PointerEvent as ReactPointerEvent,
@@ -154,7 +154,7 @@ export function ProgramsPageView({
   initialPrograms,
   initialSecrets,
 }: ProgramsPageViewProps) {
-  const router = useRouter();
+  const router = useMarbleRouter();
   const sdk = useMarbleWebSessionSdk();
   const [programs, setPrograms] = useState(() => sortPrograms(initialPrograms));
   const [programSecretBindings, setProgramSecretBindings] = useState(

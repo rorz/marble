@@ -39,6 +39,7 @@ import {
   MarbleFieldLabel,
   MarbleInput,
   MarbleJsonPreview,
+  MarbleLink,
   MarbleListRow,
   MarbleModal,
   MarbleModalClose,
@@ -52,7 +53,6 @@ import {
   MarbleProfileAttribution,
   MarbleReviewNavigator,
   MarbleRouteProgress,
-  MarbleRouteProgressBeacon,
   MarbleSearchSelect,
   type MarbleSearchSelectOption,
   MarbleSelect,
@@ -64,6 +64,7 @@ import {
   MarbleSheetFooter,
   MarbleSheetHeader,
   MarbleSheetTitle,
+  MarbleSpinner,
   MarbleStat,
   MarbleTextarea,
   MarbleWorkbenchResizeHandle,
@@ -71,6 +72,7 @@ import {
   MarbleWorkbenchTab,
   MarbleWorkbenchTabs,
   marbleToast,
+  useMarbleRouter,
   useReportRouteProgress,
 } from "@marble/ui";
 import {
@@ -90,7 +92,7 @@ import {
   UserCircleIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react/ssr";
-import Link from "next/link";
+
 import { type ReactNode, useState } from "react";
 
 const DEMO_AVATAR_URL = `data:image/svg+xml;utf8,${encodeURIComponent(
@@ -312,14 +314,37 @@ function RouteProgressDemo() {
         >
           Trigger pending state
         </MarbleButton>
-        <Link
+        <MarbleLink
           className="inline-flex items-center gap-1.5 text-eyebrow text-taupe-500 underline-offset-2 hover:text-taupe-700 hover:underline"
           href="/internal/ui?route-progress-probe=1"
         >
-          <MarbleRouteProgressBeacon />
           <span>Or click here for a real route navigation</span>
-        </Link>
+        </MarbleLink>
       </div>
+    </div>
+  );
+}
+
+function MarbleRouterDemo() {
+  const router = useMarbleRouter();
+  return (
+    <div className="flex flex-wrap items-center gap-3 border-taupe-200 border-t pt-3">
+      <span className="text-eyebrow text-taupe-500">useMarbleRouter()</span>
+      <MarbleButton
+        disabled={router.isPending}
+        iconLeft={ArrowRightIcon}
+        onClick={() => router.push("/internal/ui?marble-router-probe=1")}
+        size="sm"
+        variant="light"
+      >
+        {router.isPending ? "Navigating…" : "router.push()"}
+      </MarbleButton>
+      {router.isPending ? (
+        <MarbleSpinner
+          size="xs"
+          tone="neutral"
+        />
+      ) : null}
     </div>
   );
 }
@@ -1885,10 +1910,74 @@ export default function UiPage() {
             </DemoPanel>
 
             <DemoPanel
-              description="Top-anchored 2px progress bar that surfaces pending route transitions. Wrap programmatic nav in useTransition() and call useReportRouteProgress(isPending), or place MarbleRouteProgressBeacon inside a next/link Link to register clicks."
+              description="Top-anchored 2px progress bar that surfaces pending route transitions. For client-side anchor navigation, use MarbleLink — a drop-in for next/link that auto-publishes via MarbleRouteProgressBeacon. For programmatic nav, use useMarbleRouter() — it wraps router.push/replace/refresh/back/forward in startTransition and reports automatically. Manual escape hatch: useReportRouteProgress(isPending) around your own transition."
               title="Route progress"
             >
               <RouteProgressDemo />
+              <MarbleRouterDemo />
+            </DemoPanel>
+
+            <DemoPanel
+              description="Indeterminate progress affordance for inline pending states (button-loading, row-fetching, panel skeleton). Four sizes — xs (10px), sm (12px), md (16px), lg (24px) — and four tones inheriting from currentColor."
+              title="Spinner"
+            >
+              <div className="flex flex-wrap items-center gap-6 rounded-xs border border-taupe-200 bg-white/60 p-4">
+                <div className="flex items-center gap-3">
+                  <MarbleSpinner size="xs" />
+                  <MarbleSpinner size="sm" />
+                  <MarbleSpinner size="md" />
+                  <MarbleSpinner size="lg" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <MarbleSpinner tone="neutral" />
+                  <MarbleSpinner tone="orange" />
+                  <MarbleSpinner tone="subtle" />
+                </div>
+              </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Pass href to render a MarbleCard as a MarbleLink — auto-publishes to the route-progress bar and picks up hover/cursor/focus-visible affordances. Use interactive on click-only cards to get the same affordances without the link wrapper."
+              title="Interactive card"
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                <MarbleCard href="/internal/ui#cards">
+                  <MarbleCardHeader>
+                    <MarbleCardTitle>Hoverable link card</MarbleCardTitle>
+                    <MarbleCardDescription>
+                      Renders as <code>&lt;Link&gt;</code>. Hover for
+                      affordance, click to publish a pending route to the top
+                      bar.
+                    </MarbleCardDescription>
+                  </MarbleCardHeader>
+                  <MarbleCardContent>
+                    <p className="text-sm text-taupe-600">
+                      The entire surface is clickable. Cursor, hover border, and
+                      focus ring all come from the primitive.
+                    </p>
+                  </MarbleCardContent>
+                </MarbleCard>
+
+                <MarbleCard
+                  interactive
+                  role="button"
+                  tabIndex={0}
+                  tone="orange"
+                >
+                  <MarbleCardHeader>
+                    <MarbleCardTitle>Interactive click card</MarbleCardTitle>
+                    <MarbleCardDescription>
+                      Hover/focus affordances without the Link wrapper, for
+                      onClick handlers and command-style cards.
+                    </MarbleCardDescription>
+                  </MarbleCardHeader>
+                  <MarbleCardContent>
+                    <p className="text-sm text-taupe-600">
+                      Pair with useMarbleRouter().push() to publish progress.
+                    </p>
+                  </MarbleCardContent>
+                </MarbleCard>
+              </div>
             </DemoPanel>
           </div>
         </Section>

@@ -11,8 +11,8 @@ import {
   MarbleContextPopover,
   MarbleEmptyState,
   MarbleListRow,
+  useMarbleRouter,
 } from "@marble/ui";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useMarbleSdkFactory } from "../../../lib/marble-sdk-client";
 import type { ProjectSummary } from "../../../lib/project-data";
@@ -69,7 +69,7 @@ export function ProjectsPageView({
   ownerProfileIds: string[];
   userId: string;
 }) {
-  const router = useRouter();
+  const router = useMarbleRouter();
   const getSdk = useMarbleSdkFactory();
   const [projects, setProjects] = useState(() => sortProjects(initialProjects));
   const [createPending, setCreatePending] = useState(false);

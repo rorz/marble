@@ -1,5 +1,8 @@
-import { type MarbleConfirmModalState, marbleToast } from "@marble/ui";
-import type { useRouter } from "next/navigation";
+import {
+  type MarbleConfirmModalState,
+  type MarbleRouter,
+  marbleToast,
+} from "@marble/ui";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import type { useMarbleSdk } from "../../../../../lib/marble-sdk-client";
 import {
@@ -18,7 +21,7 @@ type UseProjectActionsOptions = {
   projectRef: MutableRefObject<ProjectState>;
   renameInFlightRef: MutableRefObject<boolean>;
   renameRequestRef: MutableRefObject<number>;
-  router: ReturnType<typeof useRouter>;
+  router: MarbleRouter;
   sdk: Sdk;
   setConfirmState: Dispatch<SetStateAction<MarbleConfirmModalState | null>>;
   setCreatingPipe: Dispatch<SetStateAction<boolean>>;

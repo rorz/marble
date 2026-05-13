@@ -9,6 +9,7 @@ import {
   MarbleInput,
   MarblePane,
   MarblePaneEditableCrumb,
+  useMarbleRouter,
 } from "@marble/ui";
 import { PlayIcon } from "@phosphor-icons/react/ssr";
 import {
@@ -19,7 +20,6 @@ import {
   ModuleRegistry,
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
-import { useRouter } from "next/navigation";
 import {
   startTransition,
   useCallback,
@@ -105,7 +105,7 @@ export default function TablePageView({
 }: {
   initialTablePageData: InitialTablePageData;
 }) {
-  const router = useRouter();
+  const router = useMarbleRouter();
   const selectedTableId = initialTablePageData.table.id;
   const [table, setTable] = useState(initialTablePageData.table);
   const [columns, setColumns] = useState<Column[]>(

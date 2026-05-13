@@ -18,7 +18,7 @@ const marbleListRowWrapperVariants = cva(
 );
 
 const marbleListRowButtonVariants = cva(
-  "flex min-w-0 flex-1 text-left transition-colors",
+  "flex min-w-0 flex-1 cursor-pointer text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange-400/60",
   {
     compoundVariants: [
       {

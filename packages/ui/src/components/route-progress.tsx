@@ -1,7 +1,13 @@
 "use client";
 
 import { useLinkStatus } from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+} from "react";
 import { cx } from "../utils/cx";
 
 type Listener = (count: number) => void;
@@ -73,6 +79,62 @@ export function useReportRouteProgress(isPending: boolean) {
   }, [
     isPending,
   ]);
+}
+
+/**
+ * Ergonomic shape of `useMarbleRouter()`. Mirrors the subset of
+ * `next/navigation`'s `AppRouterInstance` we use in product code.
+ */
+export type MarbleRouter = {
+  back: () => void;
+  forward: () => void;
+  /** True while any `push`/`replace`/`refresh` transition is in flight. */
+  isPending: boolean;
+  prefetch: (href: string) => void;
+  push: (href: string) => void;
+  refresh: () => void;
+  replace: (href: string) => void;
+};
+
+/**
+ * Marble's standard programmatic-navigation hook. Drop-in replacement for
+ * `useRouter()` from `next/navigation` that wraps `push`/`replace`/`refresh`
+ * in `useTransition` and publishes the resulting `isPending` to the global
+ * `<MarbleRouteProgress />` bar.
+ *
+ * Always prefer this over `useRouter()` for in-app navigation. Naked
+ * `router.push()` calls will not surface in the top progress bar — that is
+ * intentional, and the consistent visual feedback is the whole point.
+ */
+export function useMarbleRouter(): MarbleRouter {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  useReportRouteProgress(isPending);
+
+  return {
+    back: () =>
+      startTransition(() => {
+        router.back();
+      }),
+    forward: () =>
+      startTransition(() => {
+        router.forward();
+      }),
+    isPending,
+    prefetch: (href) => router.prefetch(href),
+    push: (href) =>
+      startTransition(() => {
+        router.push(href);
+      }),
+    refresh: () =>
+      startTransition(() => {
+        router.refresh();
+      }),
+    replace: (href) =>
+      startTransition(() => {
+        router.replace(href);
+      }),
+  };
 }
 
 const SHOW_DEBOUNCE_MS = 80;

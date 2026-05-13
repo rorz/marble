@@ -8,8 +8,8 @@ import {
   MarbleEditableText,
   MarblePane,
   MarblePaneEditableCrumb,
+  useMarbleRouter,
 } from "@marble/ui";
-import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useMarbleSdk } from "../../../../../lib/marble-sdk-client";
 import {
@@ -33,7 +33,7 @@ export function ProjectPageView({
 }: {
   initialProject: ProjectInfo;
 }) {
-  const router = useRouter();
+  const router = useMarbleRouter();
   const sdk = useMarbleSdk({
     profileId: initialProject.project.ownerProfileId,
   });

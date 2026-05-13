@@ -6,9 +6,9 @@ import {
   cx,
   type MarbleActivityRadarBatch,
   MarbleActivityRadarPanel,
+  useMarbleRouter,
 } from "@marble/ui";
 import { RobotIcon } from "@phosphor-icons/react";
-import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { useMarbleWebSessionSdk } from "../../../lib/marble-sdk-client";
 import { isEventMutation } from "../../../lib/realtime/event-mutations";
@@ -50,7 +50,7 @@ export function ChangeRadar({
   onToggleSidebar,
   sidebarData,
 }: ChangeRadarProps) {
-  const router = useRouter();
+  const router = useMarbleRouter();
   const [supabase] = useState(() => createClient());
   const sdk = useMarbleWebSessionSdk();
   const [events, setEvents] = useState<EventRow[]>([]);

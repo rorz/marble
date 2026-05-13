@@ -27,8 +27,8 @@ import {
   MarbleSearchSelect,
   MarbleSelect,
   marbleToast,
+  useMarbleRouter,
 } from "@marble/ui";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { MarbleSourceEvent } from "../../../../../../lib/marble-resources";
 import { useMarbleSdk } from "../../../../../../lib/marble-sdk-client";
@@ -85,7 +85,7 @@ export function ProjectSourceDetailPageView({
   initialSourceId?: string | null;
   mode: ProjectSourceDetailMode;
 }) {
-  const router = useRouter();
+  const router = useMarbleRouter();
   const sdk = useMarbleSdk({
     profileId: initialData.project.ownerProfileId,
   });

@@ -2,8 +2,8 @@
 
 // harness-ignore: max-file-lines -- single dense state machine: 15 useCallbacks + 6 useEffects sharing 8 refs; lifting would obscure dataflow
 
-import { MarbleReviewNavigator } from "@marble/ui";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { MarbleReviewNavigator, useMarbleRouter } from "@marble/ui";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CHANGE_SPOTLIGHT_EVENT,
@@ -52,7 +52,7 @@ type PreviewChangeSpotlight = {
 };
 
 export function ChangeSpotlight() {
-  const router = useRouter();
+  const router = useMarbleRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [inspectedTargetKeys, setInspectedTargetKeys] = useState<
