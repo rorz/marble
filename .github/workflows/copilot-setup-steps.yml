@@ -1,0 +1,42 @@
+name: "Copilot Setup Steps"
+
+# Self-validate on changes to this file, and allow manual runs from the Actions tab.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # MUST be named `copilot-setup-steps` for the cloud agent to pick it up.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      # Pinned to the same version as the root package.json `packageManager` field
+      # so the cloud agent runs the exact toolchain humans use locally.
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+
+      - name: Install workspace dependencies
+        run: bun install --frozen-lockfile
+
+      # Supabase CLI is required by the database workflow in AGENTS.md and for
+      # `bun test` to bring up a local stack. AGENTS.md rule 9 forbids npx, so
+      # install the binary directly via the official action.
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
