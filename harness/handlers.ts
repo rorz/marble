@@ -1,41 +1,24 @@
 #!/usr/bin/env bun
 
 /**
- * harness/handlers.ts
+ * harness/handlers.ts — asserts every almanac op has a wired handler in
+ * one of the supported router layouts:
  *
- * Asserts that every operation listed in the data interface almanac has a
- * wired handler in either of the two supported layouts:
+ *   entities — packages/api/src/router/entities/<resource>.ts
+ *              (default; usually `composeResourceRouter("<resource>")`)
+ *   flat     — packages/api/src/router/<resource>.ts          (legacy)
+ *   nested   — packages/api/src/<resource>/actions.ts         (large)
  *
- *   1. flat   — packages/api/src/router/<resource>.ts
- *   2. nested — packages/api/src/<resource>/actions.ts
- *               + packages/api/src/<resource>/index.ts (boundary)
+ * Each layout exports `<resource>Router` and is mounted in `marbleRouter`
+ * at `packages/api/src/router/index.ts`. Two router shapes are recognized
+ * by the static parser:
  *
- * The nested layout is the documented preference for resources whose
- * implementation has outgrown a single flat router file (see AGENTS.md
- * "Repository Convention Discipline"). Both layouts produce the same
- * `<resource>Router` export and must be mounted in `marbleRouter` at
- * `packages/api/src/router/index.ts`.
- *
- * Three checks:
- *
- *   1. ERROR — almanac operation has no handler in any router file.
- *   2. ERROR — router file declares a handler that is not in the almanac.
- *   3. ERROR — a `<resource>Router` exists on disk but is not mounted in
- *              `marbleRouter` at `packages/api/src/router/index.ts`.
- *
- * Strategy: parse the router source statically. Each router source —
- * whether `router/<resource>.ts` or `<resource>/actions.ts` — follows
- * the same shape:
- *
- *     export const projectRouter = {
- *       create: os.projects.create.handler(...),
- *       delete: os.projects.delete.handler(...),
- *       ...
- *     } satisfies RouterResourcePart<"projects">;
- *
- * That lets us:
- *   - Extract the resource name from the `satisfies` annotation.
- *   - Extract operation names from `os.<resource>.<op>.handler` callsites.
+ *   (a) `export const xRouter = composeResourceRouter("<resource>");`
+ *       — covers every almanac op for that resource.
+ *   (b) `export const xRouter = { op: os.<resource>.op.handler(...), ... }
+ *        satisfies RouterResourcePart<"<resource>">;`
+ *       — covers only the explicitly-listed ops. Spread + override of
+ *         compose still counts as (a).
  */
 
 import { readFileSync } from "node:fs";
@@ -47,33 +30,40 @@ const ROUTER_INDEX = `${ROUTER_DIR}/index.ts`;
 const API_SRC = "packages/api/src";
 
 interface RouterFile {
+  composesAll: boolean;
   filePath: string;
-  layout: "flat" | "nested";
+  layout: "entities" | "flat" | "nested";
   operations: Set<string>;
   resource: string;
 }
 
-/**
- * Parse a router source file for `export const <resource>Router = { ... }
- * satisfies RouterResourcePart<"<resource>">`.
- *
- * Returns the resource name (from the satisfies annotation) and the set of
- * operation keys. Object keys are simple identifiers; the parser tolerates
- * keys preceded by whitespace + line comments + multi-line handler bodies.
- */
 function parseRouterFile(
   filePath: string,
   source: string,
-  layout: "flat" | "nested",
+  layout: "entities" | "flat" | "nested",
 ): RouterFile | null {
-  const satisfiesMatch = /satisfies\s+RouterResourcePart<"([^"]+)">/.exec(
-    source,
-  );
+  // Strip /* ... */ blocks so JSDoc examples (e.g. compose.ts's docstring
+  // showing a `satisfies RouterResourcePart<"programFiles">` snippet) do not
+  // falsely register as router files.
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  const composeMatch = /composeResourceRouter\("([^"]+)"\)/.exec(code);
+  if (composeMatch) {
+    return {
+      composesAll: true,
+      filePath,
+      layout,
+      operations: new Set(),
+      resource: composeMatch[1],
+    };
+  }
+
+  const satisfiesMatch = /satisfies\s+RouterResourcePart<"([^"]+)">/.exec(code);
   if (!satisfiesMatch) return null;
   const resource = satisfiesMatch[1];
 
   const bodyMatch =
-    /export\s+const\s+\w+Router\s*=\s*\{([\s\S]*?)\}\s*satisfies/.exec(source);
+    /export\s+const\s+\w+Router\s*=\s*\{([\s\S]*?)\}\s*satisfies/.exec(code);
   if (!bodyMatch) return null;
   const body = bodyMatch[1];
 
@@ -86,6 +76,7 @@ function parseRouterFile(
   }
 
   return {
+    composesAll: false,
     filePath,
     layout,
     operations: keys,
@@ -96,7 +87,18 @@ function parseRouterFile(
 async function collectRouterFiles(): Promise<RouterFile[]> {
   const result: RouterFile[] = [];
 
-  // Flat layout: packages/api/src/router/<resource>.ts (excluding index.ts).
+  // Entities layout: packages/api/src/router/entities/<resource>.ts.
+  const entitiesFiles = await collectFiles([
+    `${ROUTER_DIR}/entities/*.ts`,
+  ]);
+  for (const rel of entitiesFiles) {
+    const source = readFileSync(resolve(REPO_ROOT, rel), "utf8");
+    const parsed = parseRouterFile(rel, source, "entities");
+    if (parsed) result.push(parsed);
+  }
+
+  // Flat layout: packages/api/src/router/<resource>.ts (excluding index.ts +
+  // the compose helper). Top-level only — `entities/` was handled above.
   const flatFiles = await collectFiles([
     `${ROUTER_DIR}/*.ts`,
   ]);
@@ -180,8 +182,8 @@ interface Issue {
 
 const issues: Issue[] = [];
 
-// A resource declaring both `router/<resource>.ts` AND `<resource>/actions.ts`
-// is structural drift — only one home is allowed.
+// A resource declaring its router in more than one of the supported layouts
+// (entities / flat / nested) is structural drift — only one home is allowed.
 for (const dup of duplicateResources) {
   issues.push({
     kind: "duplicate-router",
@@ -200,6 +202,7 @@ for (const [resource, entry] of almanac) {
     });
     continue;
   }
+  if (router.composesAll) continue;
   for (const op of entry.allowed) {
     if (!router.operations.has(op)) {
       issues.push({

@@ -5,7 +5,7 @@ export {
   CellCollection,
   type CellCollectionApi,
   type ListCellsInput,
-} from "./resources/cell";
+} from "./resources/entities/cell";
 export {
   type Column,
   ColumnCollection,
@@ -13,11 +13,11 @@ export {
   type CreateColumnInput,
   type ListColumnsInput,
   type UpdateColumnInput,
-} from "./resources/column";
-export { type Event, EventCollection } from "./resources/event";
-export { type ApiKey, KeyCollection } from "./resources/key";
-export { PipeCollection } from "./resources/pipe";
-export { type Profile, ProfileCollection } from "./resources/profile";
+} from "./resources/entities/column";
+export { type Event, EventCollection } from "./resources/entities/event";
+export { type ApiKey, KeyCollection } from "./resources/entities/key";
+export { PipeCollection } from "./resources/entities/pipe";
+export { type Profile, ProfileCollection } from "./resources/entities/profile";
 export {
   type CreatedProgram,
   type CreateProgramInput,
@@ -26,24 +26,24 @@ export {
   type ProgramCollectionApi,
   type ProgramEditorData,
   type ProgramFile,
-} from "./resources/program";
+} from "./resources/entities/program";
 export {
   type CreateProgramFileInput,
   type ListProgramFilesInput,
   ProgramFileCollection,
   type UpdateProgramFileInput,
-} from "./resources/program-file";
+} from "./resources/entities/program-file";
 export {
   ProgramRunCollection,
   type ProgramRunInputContext,
   type ProgramVersionTestData,
   type StoredProgramRun,
-} from "./resources/program-run";
+} from "./resources/entities/program-run";
 export {
   type ProgramVersion,
   ProgramVersionCollection,
-} from "./resources/program-version";
-export { ProjectCollection } from "./resources/project";
+} from "./resources/entities/program-version";
+export { ProjectCollection } from "./resources/entities/project";
 export {
   type CreateRowInput,
   type ListRowsInput,
@@ -51,7 +51,7 @@ export {
   RowCollection,
   type RowCollectionApi,
   type UpdateRowInput,
-} from "./resources/row";
+} from "./resources/entities/row";
 export {
   type CreateSecretInput,
   type ListSecretsInput,
@@ -59,16 +59,19 @@ export {
   SecretCollection,
   type SecretCollectionApi,
   type UpdateSecretInput,
-} from "./resources/secret";
+} from "./resources/entities/secret";
 export {
   SecretBindingCollection,
   type SecretBindingEntry,
   type SecretBindingMap,
-} from "./resources/secret-binding";
-export { SidebarCollection, type SidebarData } from "./resources/sidebar";
-export { SourceCollection } from "./resources/source";
-export { SourceEventCollection } from "./resources/source-event";
-export { TableCollection } from "./resources/table";
+} from "./resources/entities/secret-binding";
+export {
+  SidebarCollection,
+  type SidebarData,
+} from "./resources/entities/sidebar";
+export { SourceCollection } from "./resources/entities/source";
+export { SourceEventCollection } from "./resources/entities/source-event";
+export { TableCollection } from "./resources/entities/table";
 export type {
   CellRunInput,
   CellRunResult,
