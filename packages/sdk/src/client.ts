@@ -1,7 +1,7 @@
 import { createSupabaseClientRouterClient } from "@marble/api/supabase-client";
 import type { MarbleContract } from "@marble/contracts";
 import { trimTrailingSlash } from "@marble/lib/string";
-import type { SupabaseClient } from "../../../src";
+import type { SupabaseClient } from "@marble/supabase";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
