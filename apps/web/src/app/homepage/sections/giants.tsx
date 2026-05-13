@@ -75,7 +75,7 @@ export function GiantsSection() {
                   className="text-orange-500"
                   size={18}
                 />
-                Realtime fan-out via `postgres_changes`
+                Realtime fan-out via private broadcasts
               </li>
               <li className="flex items-baseline gap-3">
                 <CloudIcon
@@ -153,7 +153,7 @@ export function GiantsSection() {
           />
           <MarketingDiagramArrow
             direction="right"
-            label="postgres_changes"
+            label="broadcast"
           />
           <MarketingDiagramNode
             body="The runtime that materializes cells."

@@ -385,4 +385,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Database quirks
 
-- Supabase `postgres_changes` realtime listeners must ensure the tables they are set to listen to are established and set up for realtime PUBLICATION in the database schema otherwise they, or any linked `.on()` calls will silently fail!
+- Supabase Broadcast is the application realtime primitive. The wiring has three silent-failure footguns; if a channel goes quiet, suspect one of these before anything else:
+  1. **RLS on `realtime.messages` is mandatory for private channels.** Every topic family this codebase subscribes to has a matching `SELECT` policy on `realtime.messages` named `current_user_can_receive_<resource>_broadcast` in the squashed schema. If you introduce a new topic family without an authorizing policy, the client opens the channel cleanly and never receives a message.
+  2. **`await supabase.realtime.setAuth()` must run before `.subscribe()` on private channels.** `usePrivateBroadcast` in [`apps/web/src/lib/realtime/private-broadcast.ts`](apps/web/src/lib/realtime/private-broadcast.ts) handles this; any bespoke subscriber must do the same or it will fail authorization silently.
+  3. **DB-driven broadcasts depend on `AFTER` triggers calling `realtime.broadcast_changes()` with a topic string that matches what the client subscribes to.** If the trigger is missing, the topic format drifts, or the function isn't installed in the squashed schema, subscribers go silent. Audit the trigger and the client-side `topic` string together.
+- `postgres_changes` listeners are not used in product code and must not be reintroduced. The [`harness/realtime.ts`](harness/realtime.ts) rail audits any surviving listener against the `supabase_realtime` PUBLICATION; the `/testing/db-perf*` benches are the only sanctioned remaining sites.
