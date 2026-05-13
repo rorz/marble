@@ -8,12 +8,15 @@ export type SecretBindingEntry = {
 
 export type SecretBindingMap = Record<string, Record<string, string>>;
 
-function mapBindingsByTarget<
+const mapBindingsByTarget = <
   Row extends {
     env_name: string;
     secret_id: string;
   },
->(rows: Row[], getTargetId: (row: Row) => string) {
+>(
+  rows: Row[],
+  getTargetId: (row: Row) => string,
+) => {
   const bindings: SecretBindingMap = {};
 
   for (const row of rows) {
@@ -25,21 +28,23 @@ function mapBindingsByTarget<
   }
 
   return bindings;
-}
+};
 
-function serializeBindings<
+const serializeBindings = <
   Row extends {
     env_name: string;
     secret_id: string;
   },
->(bindings: Row[]): SecretBindingEntry[] {
+>(
+  bindings: Row[],
+): SecretBindingEntry[] => {
   return bindings
     .map((binding) => ({
       envName: binding.env_name,
       secretId: binding.secret_id,
     }))
     .sort((left, right) => left.envName.localeCompare(right.envName));
-}
+};
 
 export class SecretBindingCollection {
   public constructor(private readonly deps: ResourceDeps) {}

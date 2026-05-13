@@ -36,14 +36,14 @@ export type SecretCollectionApi = {
 
 type SecretRpcRow = DbRow<"secret">;
 
-function toPublicSecret(secret: SecretRow): Secret {
+const toPublicSecret = (secret: SecretRow): Secret => {
   const { vaultSecretId: _vaultSecretId, ...publicSecret } = secret;
   return publicSecret;
-}
+};
 
-function toSecretEntity(secret: SecretRpcRow): SecretRow {
+const toSecretEntity = (secret: SecretRpcRow): SecretRow => {
   return toCamelKeys<"secret">(secret);
-}
+};
 
 export class SecretCollection implements SecretCollectionApi {
   public constructor(private readonly deps: ResourceDeps) {}

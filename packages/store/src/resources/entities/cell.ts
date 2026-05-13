@@ -25,16 +25,16 @@ export type CellCollectionApi = {
   readonly setManualValue: (input: SetManualValueInput) => Promise<Cell>;
 };
 
-function payloadString(payload: Record<string, unknown>, key: string) {
+const payloadString = (payload: Record<string, unknown>, key: string) => {
   const value = payload[key];
   return typeof value === "string" ? value : undefined;
-}
+};
 
-function toCellRunResult(
+const toCellRunResult = (
   cellId: string,
   runId: string,
   payload: Record<string, unknown>,
-): CellRunResult {
+): CellRunResult => {
   return {
     cellId,
     error: typeof payload.error === "boolean" ? payload.error : undefined,
@@ -43,7 +43,7 @@ function toCellRunResult(
     runId,
     success: payload.success === true,
   };
-}
+};
 
 export class CellCollection implements CellCollectionApi {
   public constructor(private readonly deps: ResourceDeps) {}

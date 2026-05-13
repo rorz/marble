@@ -37,7 +37,7 @@ type UpdatePipeInput = IdObject & {
   >;
 };
 
-function parsePipeMappings(value: Json): PipeMapping[] {
+const parsePipeMappings = (value: Json): PipeMapping[] => {
   if (!Array.isArray(value)) {
     throw new Error("Pipe mappings must be an array.");
   }
@@ -58,7 +58,7 @@ function parsePipeMappings(value: Json): PipeMapping[] {
       jsonPath: entry.jsonPath,
     };
   });
-}
+};
 
 const toPipe = (pipe: Entity<"pipe">): Pipe => ({
   ...pipe,

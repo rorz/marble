@@ -35,7 +35,7 @@ type SourceWebhookIngestResult = {
   sourceEventId: string;
 };
 
-function valueToManualInput(value: unknown) {
+const valueToManualInput = (value: unknown) => {
   if (typeof value === "string") {
     return value;
   }
@@ -45,7 +45,7 @@ function valueToManualInput(value: unknown) {
   }
 
   return JSON.stringify(value);
-}
+};
 
 export class SourceEventCollection {
   private readonly deps: ResourceDeps;

@@ -29,15 +29,18 @@ type UpdateProgramVersionParams = {
   values: ProgramVersionWriteInput;
 };
 
-function asJson(value: unknown): Json {
+const asJson = (value: unknown): Json => {
   return value as Json;
-}
+};
 
 const parseInputSchema = asJson;
 const parseOutputConfig = asJson;
 const parseSecretConfig = asJson;
 
-async function nextProgramVersionNumber(deps: ResourceDeps, programId: string) {
+const nextProgramVersionNumber = async (
+  deps: ResourceDeps,
+  programId: string,
+) => {
   const { data, error } = await requireServiceSupabase(deps, "Program version")
     .from("program_version")
     .select("version")
@@ -54,9 +57,9 @@ async function nextProgramVersionNumber(deps: ResourceDeps, programId: string) {
   }
 
   return (data?.version ?? 0) + 1;
-}
+};
 
-async function getProgramVersion(deps: ResourceDeps, id: string) {
+const getProgramVersion = async (deps: ResourceDeps, id: string) => {
   const { data, error } = await requireServiceSupabase(deps, "Program version")
     .from("program_version")
     .select("*")
@@ -68,9 +71,12 @@ async function getProgramVersion(deps: ResourceDeps, id: string) {
   }
 
   return toCamelKeys<"program_version">(data as DbRow<"program_version">);
-}
+};
 
-async function requireWritableProgram(deps: ResourceDeps, programId: string) {
+const requireWritableProgram = async (
+  deps: ResourceDeps,
+  programId: string,
+) => {
   const { data: program, error } = await requireServiceSupabase(
     deps,
     "Program version",
@@ -93,13 +99,13 @@ async function requireWritableProgram(deps: ResourceDeps, programId: string) {
   }
 
   return program;
-}
+};
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null;
-}
+};
 
-function outputErrorField(output: Record<string, unknown>, key: string) {
+const outputErrorField = (output: Record<string, unknown>, key: string) => {
   const error = output.error;
 
   if (!isRecord(error)) {
@@ -107,11 +113,11 @@ function outputErrorField(output: Record<string, unknown>, key: string) {
   }
 
   return error[key];
-}
+};
 
-function toProgramVersionTestResult(
+const toProgramVersionTestResult = (
   payload: Record<string, unknown>,
-): ProgramVersionTestResult {
+): ProgramVersionTestResult => {
   const output = payload.output;
 
   if (isRecord(output) && output.ok === true) {
@@ -144,9 +150,9 @@ function toProgramVersionTestResult(
     ok: false,
     output: null,
   };
-}
+};
 
-function toProgramVersionTestBody(input: ProgramVersionTestInput) {
+const toProgramVersionTestBody = (input: ProgramVersionTestInput) => {
   return {
     input:
       input.manualInput === undefined
@@ -159,7 +165,7 @@ function toProgramVersionTestBody(input: ProgramVersionTestInput) {
             system: {},
           },
   };
-}
+};
 
 export class ProgramVersionCollection {
   public constructor(private readonly deps: ResourceDeps) {}

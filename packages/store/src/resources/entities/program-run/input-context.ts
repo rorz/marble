@@ -25,9 +25,9 @@ export type ProgramRunInputContext = ProgramRunBaseInputContext & {
   >;
 };
 
-export function createExecutionInputContextFromStoredRun(
+export const createExecutionInputContextFromStoredRun = (
   run: StoredProgramRun,
-): ProgramRunBaseInputContext {
+): ProgramRunBaseInputContext => {
   const row = firstRelation(run.cell.row);
 
   if (!row) {
@@ -57,12 +57,12 @@ export function createExecutionInputContextFromStoredRun(
       table_id: row.table_id,
     },
   };
-}
+};
 
-export async function loadExecutionInputContextForCell(
+export const loadExecutionInputContextForCell = async (
   supabase: SupabaseClient,
   cellId: string,
-): Promise<ProgramRunBaseInputContext> {
+): Promise<ProgramRunBaseInputContext> => {
   const { data: cellRecord, error: cellError } = await supabase
     .from("cell")
     .select(
@@ -127,12 +127,12 @@ export async function loadExecutionInputContextForCell(
       table_id: row.table_id,
     },
   };
-}
+};
 
-export async function loadInputContext(
+export const loadInputContext = async (
   supabase: SupabaseClient,
   context: ProgramRunBaseInputContext,
-): Promise<ProgramRunInputContext> {
+): Promise<ProgramRunInputContext> => {
   const { data: dependencies, error: dependenciesError } = await supabase
     .from("column_dependency")
     .select("source_column_id")
@@ -263,4 +263,4 @@ export async function loadInputContext(
     ...context,
     columns,
   };
-}
+};

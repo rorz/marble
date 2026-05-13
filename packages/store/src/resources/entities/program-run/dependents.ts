@@ -1,14 +1,14 @@
 import type { SupabaseClient } from "@marble/supabase";
 import { firstRelation, type StoredProgramRun } from "./load";
 
-export async function listDependentCandidateCellIds(
+export const listDependentCandidateCellIds = async (
   supabase: SupabaseClient,
   input: {
     requestId?: string;
     successfulRuns: StoredProgramRun[];
     visitedCellIds: Set<string>;
   },
-) {
+) => {
   const sourceColumnIds = Array.from(
     new Set(input.successfulRuns.map((run) => run.cell.column.id)),
   );
@@ -195,4 +195,4 @@ export async function listDependentCandidateCellIds(
   ).filter((cellId) => !input.visitedCellIds.has(cellId));
 
   return candidateCellIds;
-}
+};

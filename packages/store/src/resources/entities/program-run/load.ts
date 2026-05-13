@@ -20,17 +20,17 @@ export const secretBindingSchema = z.object({
   secret_id: z.string().uuid(),
 });
 
-export function firstRelation<T>(
+export const firstRelation = <T>(
   value: T | T[] | null | undefined,
-): T | undefined {
+): T | undefined => {
   if (Array.isArray(value)) {
     return value[0];
   }
 
   return value ?? undefined;
-}
+};
 
-async function loadStoredRun(supabase: SupabaseClient, runId: string) {
+const loadStoredRun = async (supabase: SupabaseClient, runId: string) => {
   const { data, error } = await supabase
     .from("program_run")
     .select(STORED_RUN_SELECT)
@@ -42,6 +42,6 @@ async function loadStoredRun(supabase: SupabaseClient, runId: string) {
   }
 
   return run;
-}
+};
 
 export type StoredProgramRun = Awaited<ReturnType<typeof loadStoredRun>>;

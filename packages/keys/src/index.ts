@@ -35,17 +35,17 @@ export type ApiKeyMaterial = {
   token: string;
 };
 
-export function apiKeyPreview(prefix: string) {
+export const apiKeyPreview = (prefix: string) => {
   return `${API_KEY_TOKEN_PREFIX}${prefix}...`;
-}
+};
 
-export function getApiKeyTokenFromHeaders(headers: HeaderSource) {
+export const getApiKeyTokenFromHeaders = (headers: HeaderSource) => {
   return parseBearerToken(headers, {
     tokenPrefix: API_KEY_TOKEN_PREFIX,
   });
-}
+};
 
-export function parseApiKeyToken(token: string) {
+export const parseApiKeyToken = (token: string) => {
   const normalized = token.trim();
   if (!normalized.startsWith(API_KEY_TOKEN_PREFIX)) {
     return null;
@@ -67,12 +67,12 @@ export function parseApiKeyToken(token: string) {
     secret,
     token: normalized,
   };
-}
+};
 
-async function selectKeyCandidates(
+const selectKeyCandidates = async (
   supabase: SupabaseClient,
   prefix: string,
-): Promise<ResolvedApiKeyRecord[]> {
+): Promise<ResolvedApiKeyRecord[]> => {
   const { data, error } = await supabase
     .from("key")
     .select("*, profile:owner_profile_id(*)")
@@ -84,13 +84,13 @@ async function selectKeyCandidates(
   }
 
   return (data ?? []) as ResolvedApiKeyRecord[];
-}
+};
 
-export async function hashApiKeySecret(secret: string) {
+export const hashApiKeySecret = async (secret: string) => {
   return sha256Base64Url(secret, API_KEY_HASH_LENGTH);
-}
+};
 
-export async function createApiKeyMaterial(): Promise<ApiKeyMaterial> {
+export const createApiKeyMaterial = async (): Promise<ApiKeyMaterial> => {
   const secret = createSecret();
   return {
     hash: await hashApiKeySecret(secret),
@@ -98,12 +98,12 @@ export async function createApiKeyMaterial(): Promise<ApiKeyMaterial> {
     secret,
     token: `${API_KEY_TOKEN_PREFIX}${secret}`,
   };
-}
+};
 
-export async function createApiKeyRecord(
+export const createApiKeyRecord = async (
   supabase: SupabaseClient,
   ownerProfileId: string,
-) {
+) => {
   const material = await createApiKeyMaterial();
   const { data, error } = await supabase
     .from("key")
@@ -123,12 +123,12 @@ export async function createApiKeyRecord(
     key: data,
     token: material.token,
   };
-}
+};
 
-export async function getApiKeyRecord(
+export const getApiKeyRecord = async (
   supabase: SupabaseClient,
   keyId: string,
-): Promise<ApiKeyRecord | null> {
+): Promise<ApiKeyRecord | null> => {
   const { data, error } = await supabase
     .from("key")
     .select("*")
@@ -140,15 +140,15 @@ export async function getApiKeyRecord(
   }
 
   return data;
-}
+};
 
-export async function listApiKeysForProfiles(
+export const listApiKeysForProfiles = async (
   supabase: SupabaseClient,
   ownerProfileIds: string[],
   options?: {
     includeDeleted?: boolean;
   },
-): Promise<ApiKeyRecord[]> {
+): Promise<ApiKeyRecord[]> => {
   if (ownerProfileIds.length === 0) {
     return [];
   }
@@ -172,12 +172,12 @@ export async function listApiKeysForProfiles(
   }
 
   return data ?? [];
-}
+};
 
-export async function resolveApiKeyAuth(
+export const resolveApiKeyAuth = async (
   supabase: SupabaseClient,
   token: string,
-): Promise<ResolvedApiKeyRecord | null> {
+): Promise<ResolvedApiKeyRecord | null> => {
   const parsed = parseApiKeyToken(token);
   if (!parsed) {
     return null;
@@ -189,12 +189,12 @@ export async function resolveApiKeyAuth(
   ]);
 
   return candidates.find((candidate) => candidate.hash === hash) ?? null;
-}
+};
 
-export async function revokeApiKeyRecord(
+export const revokeApiKeyRecord = async (
   supabase: SupabaseClient,
   keyId: string,
-) {
+) => {
   const { data, error } = await supabase
     .from("key")
     .update({
@@ -210,4 +210,4 @@ export async function revokeApiKeyRecord(
   }
 
   return data;
-}
+};

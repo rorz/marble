@@ -1,10 +1,10 @@
 import type { Json, SupabaseClient } from "@marble/supabase";
 import type { JsonValue, StoredProgramRun } from "./load";
 
-export async function createPendingForCellIds(
+export const createPendingForCellIds = async (
   supabase: SupabaseClient,
   cellIds: string[],
-) {
+) => {
   const uniqueCellIds = Array.from(new Set(cellIds));
 
   if (uniqueCellIds.length === 0) {
@@ -119,13 +119,13 @@ export async function createPendingForCellIds(
 
     return runId;
   });
-}
+};
 
-export async function persistFailure(
+export const persistFailure = async (
   supabase: SupabaseClient,
   run: StoredProgramRun,
   failState: JsonValue,
-) {
+) => {
   const results = await Promise.all([
     supabase
       .from("cell")
@@ -146,16 +146,16 @@ export async function persistFailure(
       throw new Error(result.error.message);
     }
   }
-}
+};
 
-export async function persistSuccess(
+export const persistSuccess = async (
   supabase: SupabaseClient,
   input: {
     output: JsonValue;
     parsedInput: JsonValue;
     run: StoredProgramRun;
   },
-) {
+) => {
   const results = await Promise.all([
     supabase
       .from("cell")
@@ -177,15 +177,15 @@ export async function persistSuccess(
       throw new Error(result.error.message);
     }
   }
-}
+};
 
-export async function setCellState(
+export const setCellState = async (
   supabase: SupabaseClient,
   input: {
     cellId: string;
     state: JsonValue;
   },
-) {
+) => {
   const { error } = await supabase
     .from("cell")
     .update({
@@ -196,4 +196,4 @@ export async function setCellState(
   if (error) {
     throw new Error(error.message);
   }
-}
+};

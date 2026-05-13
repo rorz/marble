@@ -9,27 +9,27 @@ type EventDiffEntry = {
   path: string[];
 };
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
+const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+};
 
-function asJsonValue(value: unknown): Json | null {
+const asJsonValue = (value: unknown): Json | null => {
   if (value === undefined) {
     return null;
   }
 
   return value as Json;
-}
+};
 
-function valuesMatch(left: unknown, right: unknown) {
+const valuesMatch = (left: unknown, right: unknown) => {
   return JSON.stringify(left) === JSON.stringify(right);
-}
+};
 
-function buildDiffEntries(
+const buildDiffEntries = (
   before: unknown,
   after: unknown,
   path: string[] = [],
-): EventDiffEntry[] {
+): EventDiffEntry[] => {
   if (valuesMatch(before, after)) {
     return [];
   }
@@ -57,12 +57,12 @@ function buildDiffEntries(
       path,
     },
   ];
-}
+};
 
-function normalizeEventRow(
+const normalizeEventRow = (
   resource: string,
   row: Record<string, unknown> | null,
-): Json | null {
+): Json | null => {
   if (!row) {
     return null;
   }
@@ -91,9 +91,9 @@ function normalizeEventRow(
   }
 
   return normalized as Json;
-}
+};
 
-export async function writeEventRecord(
+export const writeEventRecord = async (
   serviceSupabase: SupabaseClient | undefined,
   context: ResourceContext,
   input: {
@@ -102,7 +102,7 @@ export async function writeEventRecord(
     operation: EventOperation;
     resource: string;
   },
-) {
+) => {
   if (!serviceSupabase || input.resource === "event") {
     return;
   }
@@ -143,4 +143,4 @@ export async function writeEventRecord(
   if (error) {
     throw new Error(error.message);
   }
-}
+};

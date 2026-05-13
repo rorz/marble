@@ -27,13 +27,13 @@ type ListKeysInput = {
   ownerProfileId?: string;
 };
 
-function toApiKey(key: {
+const toApiKey = (key: {
   created_at: string;
   deleted_at: null | string;
   id: string;
   owner_profile_id: string;
   prefix: string;
-}): ApiKey {
+}): ApiKey => {
   return {
     createdAt: key.created_at,
     deletedAt: key.deleted_at,
@@ -42,7 +42,7 @@ function toApiKey(key: {
     prefix: key.prefix,
     preview: apiKeyPreview(key.prefix),
   };
-}
+};
 
 export class KeyCollection {
   public constructor(private readonly deps: ResourceDeps) {}

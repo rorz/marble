@@ -12,10 +12,10 @@ type ProgramVersionAccess = Entity<"program_version"> & {
   program: ProgramAccess;
 };
 
-async function getVersionAccess(
+const getVersionAccess = async (
   deps: ResourceDeps,
   versionId: string,
-): Promise<ProgramVersionAccess> {
+): Promise<ProgramVersionAccess> => {
   const supabase = requireServiceSupabase(deps, "Program file");
   const { data: version, error: versionError } = await supabase
     .from("program_version")
@@ -44,12 +44,12 @@ async function getVersionAccess(
       ownerProfileId: program.owner_profile_id,
     },
   };
-}
+};
 
-export async function requireReadableVersion(
+export const requireReadableVersion = async (
   deps: ResourceDeps,
   versionId: string,
-) {
+) => {
   const [version, ownedProfileIds] = await Promise.all([
     getVersionAccess(deps, versionId),
     listOwnedProfileIds(deps, "Program file").then((ids) => new Set(ids)),
@@ -63,12 +63,12 @@ export async function requireReadableVersion(
   }
 
   return version;
-}
+};
 
-export async function requireWritableVersion(
+export const requireWritableVersion = async (
   deps: ResourceDeps,
   versionId: string,
-) {
+) => {
   const version = await requireReadableVersion(deps, versionId);
 
   if (version.program.firstParty) {
@@ -82,4 +82,4 @@ export async function requireWritableVersion(
   }
 
   return version;
-}
+};

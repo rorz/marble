@@ -93,13 +93,13 @@ export type ResourceContext = {
   userId?: string;
 };
 
-export function requireProfileId(context: ResourceContext) {
+export const requireProfileId = (context: ResourceContext) => {
   if (!context.profileId) {
     throw new Error("This operation requires a profile context.");
   }
 
   return context.profileId;
-}
+};
 
 export type CellRunInput = {
   manualInput?: string | null;

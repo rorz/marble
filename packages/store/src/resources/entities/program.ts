@@ -42,17 +42,17 @@ export type ProgramCollectionApi = {
   readonly update: (input: UpdateProgramParams) => Promise<Program>;
 };
 
-function toProgramFile(file: ProgramFileRow): ProgramFile {
+const toProgramFile = (file: ProgramFileRow): ProgramFile => {
   return toCamelKeys(file) as ProgramFile;
-}
+};
 
-function toProgramVersion(version: ProgramVersionRow): ProgramVersion {
+const toProgramVersion = (version: ProgramVersionRow): ProgramVersion => {
   return toCamelKeys(version) as ProgramVersion;
-}
+};
 
-function toProgram(program: ProgramRow): Program {
+const toProgram = (program: ProgramRow): Program => {
   return toCamelKeys(program) as Program;
-}
+};
 
 export class ProgramCollection implements ProgramCollectionApi {
   public constructor(private readonly deps: ResourceDeps) {}

@@ -1,6 +1,6 @@
 import type { ResourceDeps } from "../../../db";
 
-function extractDependenciesFromTemplate(template: string) {
+const extractDependenciesFromTemplate = (template: string) => {
   const sourceColumnIds = new Set<string>();
   let parsedTemplate: unknown;
 
@@ -53,13 +53,13 @@ function extractDependenciesFromTemplate(template: string) {
 
   visit(parsedTemplate);
   return Array.from(sourceColumnIds);
-}
+};
 
-export async function replaceColumnDependencies(
+export const replaceColumnDependencies = async (
   deps: ResourceDeps,
   columnId: string,
   inputTemplate: string,
-) {
+) => {
   const supabase = deps.serviceSupabase ?? deps.supabase;
   const sourceColumnIds = extractDependenciesFromTemplate(inputTemplate);
   const deleteResult = await supabase
@@ -85,12 +85,12 @@ export async function replaceColumnDependencies(
   if (insertResult.error) {
     throw new Error(insertResult.error.message);
   }
-}
+};
 
-export async function deleteColumnDependencies(
+export const deleteColumnDependencies = async (
   deps: ResourceDeps,
   columnId: string,
-) {
+) => {
   const supabase = deps.serviceSupabase ?? deps.supabase;
 
   const [sourceResult, targetResult] = await Promise.all([
@@ -111,4 +111,4 @@ export async function deleteColumnDependencies(
         "Could not delete column dependencies.",
     );
   }
-}
+};

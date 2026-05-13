@@ -102,16 +102,16 @@ type SingleRowResult<T extends TableWithIdName> = {
 const noopRecordTiming = () => {};
 
 // Throw on error / throw on null / camelCase the row in one shot.
-function unwrapSingleRow<T extends TableWithIdName>(
+const unwrapSingleRow = <T extends TableWithIdName>(
   result: SingleRowResult<T>,
   missingMessage: string,
-): Entity<T> {
+): Entity<T> => {
   throwSupabaseError(result.error);
   if (result.data === null) {
     throw new Error(missingMessage);
   }
   return toCamelKeys(result.data);
-}
+};
 
 const timeDbCall = <T>(
   context: ResourceContext,

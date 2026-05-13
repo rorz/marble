@@ -34,10 +34,10 @@ export type MissingSecretConfiguration = {
   required: boolean;
 };
 
-async function listSecretMetadataForOwnerUserId(
+const listSecretMetadataForOwnerUserId = async (
   supabase: SupabaseClient,
   ownerUserId: string,
-) {
+) => {
   const { data, error } = await supabase
     .from("secret")
     .select("category, id, name")
@@ -51,13 +51,13 @@ async function listSecretMetadataForOwnerUserId(
   }
 
   return (data ?? []) as ExecutionSecretMetadata[];
-}
+};
 
-async function listSelectedSecretsForOwnerUserId(
+const listSelectedSecretsForOwnerUserId = async (
   supabase: SupabaseClient,
   ownerUserId: string,
   secretIds: string[],
-) {
+) => {
   const uniqueSecretIds = Array.from(new Set(secretIds));
 
   if (uniqueSecretIds.length === 0) {
@@ -74,12 +74,12 @@ async function listSelectedSecretsForOwnerUserId(
   }
 
   return z.array(executionSecretSchema).parse(data ?? []) as ExecutionSecret[];
-}
+};
 
-export async function resolveOwnerUserIdForProfile(
+export const resolveOwnerUserIdForProfile = async (
   supabase: SupabaseClient,
   profileId: string,
-) {
+) => {
   const { data, error } = await supabase
     .from("profile")
     .select("owner_user_id")
@@ -95,13 +95,13 @@ export async function resolveOwnerUserIdForProfile(
   }
 
   return data.owner_user_id;
-}
+};
 
-async function listProgramSecretBindingsForOwnerUserId(
+const listProgramSecretBindingsForOwnerUserId = async (
   supabase: SupabaseClient,
   ownerUserId: string,
   programId: string,
-) {
+) => {
   const { data, error } = await supabase
     .from("program_secret_binding")
     .select("env_name, secret_id")
@@ -122,12 +122,12 @@ async function listProgramSecretBindingsForOwnerUserId(
       envName: binding.env_name,
       secretId: binding.secret_id,
     })) as SecretBinding[];
-}
+};
 
-async function listColumnSecretBindings(
+const listColumnSecretBindings = async (
   supabase: SupabaseClient,
   columnId: string,
-) {
+) => {
   const { data, error } = await supabase
     .from("column_secret_binding")
     .select("env_name, secret_id")
@@ -147,16 +147,16 @@ async function listColumnSecretBindings(
       envName: binding.env_name,
       secretId: binding.secret_id,
     })) as SecretBinding[];
-}
+};
 
-async function listResolvedSecretBindings(
+const listResolvedSecretBindings = async (
   supabase: SupabaseClient,
   options: {
     columnId?: string;
     ownerUserId: string;
     programId: string;
   },
-) {
+) => {
   const [programBindings, columnBindings] = await Promise.all([
     listProgramSecretBindingsForOwnerUserId(
       supabase,
@@ -187,9 +187,9 @@ async function listResolvedSecretBindings(
     bindingSourceByEnvName,
     selectedSecretIdByEnvName,
   };
-}
+};
 
-export async function resolveDeclaredEnvironmentVariables(
+export const resolveDeclaredEnvironmentVariables = async (
   supabase: SupabaseClient,
   options: {
     columnId?: string;
@@ -197,7 +197,7 @@ export async function resolveDeclaredEnvironmentVariables(
     ownerUserId: string;
     programId: string;
   },
-) {
+) => {
   const declarationByEnvName = new Map(
     options.declarations.map((declaration) => [
       declaration.env,
@@ -309,4 +309,4 @@ export async function resolveDeclaredEnvironmentVariables(
     environmentVariables,
     missingSecrets,
   };
-}
+};

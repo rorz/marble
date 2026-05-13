@@ -57,15 +57,15 @@ export type ColumnCollectionApi = {
   readonly update: (input: UpdateColumnParams) => Promise<Column>;
 };
 
-function getOutputSchema(outputConfig: unknown) {
+const getOutputSchema = (outputConfig: unknown) => {
   if (!outputConfig || typeof outputConfig !== "object") {
     return {};
   }
 
   return "schema" in outputConfig ? outputConfig.schema : {};
-}
+};
 
-function outputConfigAllowsManualInput(outputConfig: unknown) {
+const outputConfigAllowsManualInput = (outputConfig: unknown) => {
   if (!outputConfig || typeof outputConfig !== "object") {
     return false;
   }
@@ -79,7 +79,7 @@ function outputConfigAllowsManualInput(outputConfig: unknown) {
       }
     ).flags?.allowManualInput === true
   );
-}
+};
 
 const asJson = (value: unknown): Json => value as Json;
 

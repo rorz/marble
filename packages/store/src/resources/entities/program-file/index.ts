@@ -33,7 +33,7 @@ type SyncProgramFilesForVersionInput = {
   versionId: string;
 };
 
-async function getFile(deps: ResourceDeps, id: string) {
+const getFile = async (deps: ResourceDeps, id: string) => {
   const { data, error } = await requireServiceSupabase(deps, "Program file")
     .from("program_file")
     .select("*")
@@ -45,16 +45,16 @@ async function getFile(deps: ResourceDeps, id: string) {
   }
 
   return toCamelKeys<"program_file">(data as DbRow<"program_file">);
-}
+};
 
-async function assertFilenameAvailable(
+const assertFilenameAvailable = async (
   deps: ResourceDeps,
   input: {
     exceptId?: string;
     filename: string;
     versionId: string;
   },
-) {
+) => {
   const { data, error } = await requireServiceSupabase(deps, "Program file")
     .from("program_file")
     .select("id")
@@ -69,9 +69,9 @@ async function assertFilenameAvailable(
   if (data && data.id !== input.exceptId) {
     throw new Error("Program files must have unique filenames per version.");
   }
-}
+};
 
-function normalizeVersionIds(input: ListProgramFilesInput = {}) {
+const normalizeVersionIds = (input: ListProgramFilesInput = {}) => {
   return [
     ...(input.versionId
       ? [
@@ -82,9 +82,9 @@ function normalizeVersionIds(input: ListProgramFilesInput = {}) {
   ].filter(
     (versionId, index, versionIds) => versionIds.indexOf(versionId) === index,
   );
-}
+};
 
-function assertUniqueFilenames(files: Array<Pick<ProgramFile, "filename">>) {
+const assertUniqueFilenames = (files: Array<Pick<ProgramFile, "filename">>) => {
   const filenames = new Set<string>();
 
   for (const file of files) {
@@ -94,7 +94,7 @@ function assertUniqueFilenames(files: Array<Pick<ProgramFile, "filename">>) {
 
     filenames.add(file.filename);
   }
-}
+};
 
 export class ProgramFileCollection {
   public constructor(private readonly deps: ResourceDeps) {}

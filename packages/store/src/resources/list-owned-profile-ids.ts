@@ -6,10 +6,10 @@ import { requireServiceSupabase, requireUserId } from "./require-deps";
  * `created_at` ascending. Callers that need a `Set` should wrap with
  * `new Set(...)`.
  */
-export async function listOwnedProfileIds(
+export const listOwnedProfileIds = async (
   deps: ResourceDeps,
   resource: string,
-): Promise<string[]> {
+): Promise<string[]> => {
   const { data, error } = await requireServiceSupabase(deps, resource)
     .from("profile")
     .select("id")
@@ -23,4 +23,4 @@ export async function listOwnedProfileIds(
   }
 
   return (data ?? []).map((profile) => profile.id);
-}
+};
