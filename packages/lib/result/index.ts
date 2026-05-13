@@ -16,10 +16,10 @@ const DEFAULT_MESSAGE = "Request failed.";
  * Extract a human-readable message from an unknown thrown value. Falls back
  * to `fallback` (default `"Request failed."`) when no message can be read.
  */
-export function getErrorMessage(
+export const getErrorMessage = (
   error: unknown,
   fallback: string = DEFAULT_MESSAGE,
-): string {
+): string => {
   if (error instanceof Error) {
     return error.message || fallback;
   }
@@ -41,7 +41,7 @@ export function getErrorMessage(
   }
 
   return fallback;
-}
+};
 
 /**
  * Format an unknown thrown value as a stable, agent-friendly string.
@@ -52,7 +52,7 @@ export function getErrorMessage(
  * `Error` instances collapse to `message[: cause]`. Everything else is
  * `String(value)`.
  */
-export function formatRpcError(error: unknown): string {
+export const formatRpcError = (error: unknown): string => {
   if (error && typeof error === "object") {
     const candidate = error as {
       cause?: unknown;
@@ -101,4 +101,4 @@ export function formatRpcError(error: unknown): string {
   }
 
   return String(error);
-}
+};

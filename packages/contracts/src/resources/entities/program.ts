@@ -121,13 +121,15 @@ export type ProgramManifestSecretDeclaration = z.infer<
 >;
 export type ProgramSecretConfig = ProgramManifestSecretDeclaration[];
 
-export function parseProgramSecretConfig(input: unknown): ProgramSecretConfig {
+export const parseProgramSecretConfig = (
+  input: unknown,
+): ProgramSecretConfig => {
   return ProgramSecretConfigSchema.parse(input).map((secret) =>
     ProgramSecretDeclarationSchema.parse(secret),
   );
-}
+};
 
-export function parseProgramManifest(input: unknown): ProgramManifest {
+export const parseProgramManifest = (input: unknown): ProgramManifest => {
   const parsed = programManifestSchema.parse(input);
   return {
     ...parsed,
@@ -144,22 +146,22 @@ export function parseProgramManifest(input: unknown): ProgramManifest {
           },
         }),
   };
-}
+};
 
-export function parseProgramManifestFileContent(content: string) {
+export const parseProgramManifestFileContent = (content: string) => {
   return parseProgramManifest(JSON.parse(content) as unknown);
-}
+};
 
-export function listProgramSecretDeclarationsFromManifest(input: unknown) {
+export const listProgramSecretDeclarationsFromManifest = (input: unknown) => {
   return parseProgramManifest(input).marble?.secrets ?? [];
-}
+};
 
-export function listProgramSecretDeclarationsFromFiles(
+export const listProgramSecretDeclarationsFromFiles = (
   files: Array<{
     content: string;
     filename: string;
   }>,
-) {
+) => {
   const manifestFile = files.find((file) => file.filename === "package.json");
 
   if (!manifestFile) {
@@ -169,7 +171,7 @@ export function listProgramSecretDeclarationsFromFiles(
   return listProgramSecretDeclarationsFromManifest(
     JSON.parse(manifestFile.content) as unknown,
   );
-}
+};
 
 const ProgramSchema = z.object({
   ...baseEntitySchema.shape,

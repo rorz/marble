@@ -14,39 +14,39 @@ export type Compare<T> = (left: T, right: T) => number;
  * entry with the same `id`. If a comparator is supplied the result is sorted
  * by it. Original array is never mutated.
  */
-export function upsertById<T extends Identified>(
+export const upsertById = <T extends Identified>(
   rows: readonly T[],
   row: T,
   compare?: Compare<T>,
-): T[] {
+): T[] => {
   const next = [
     row,
     ...rows.filter((candidate) => candidate.id !== row.id),
   ];
 
   return compare ? next.sort(compare) : next;
-}
+};
 
 /** Return a new array with the entry whose `id` matches removed. */
-export function removeById<T extends Identified>(
+export const removeById = <T extends Identified>(
   rows: readonly T[],
   id: string,
-): T[] {
+): T[] => {
   return rows.filter((row) => row.id !== id);
-}
+};
 
 /** Immutable sort: returns a new array sorted by `compare`. */
-export function sortBy<T>(rows: readonly T[], compare: Compare<T>): T[] {
+export const sortBy = <T>(rows: readonly T[], compare: Compare<T>): T[] => {
   return [
     ...rows,
   ].sort(compare);
-}
+};
 
 /**
  * Return a new array with duplicates collapsed. Keeps the **last** occurrence
  * for each `id` (Map insertion semantics: later writes overwrite earlier ones).
  */
-export function dedupeById<T extends Identified>(rows: readonly T[]): T[] {
+export const dedupeById = <T extends Identified>(rows: readonly T[]): T[] => {
   return Array.from(
     new Map(
       rows.map((row) => [
@@ -55,16 +55,16 @@ export function dedupeById<T extends Identified>(rows: readonly T[]): T[] {
       ]),
     ).values(),
   );
-}
+};
 
 /**
  * Group `items` into lists keyed by `keyOf(item)`. Insertion order within
  * each group matches the input.
  */
-export function groupBy<T, K>(
+export const groupBy = <T, K>(
   items: Iterable<T>,
   keyOf: (item: T) => K,
-): Map<K, T[]> {
+): Map<K, T[]> => {
   const groups = new Map<K, T[]>();
 
   for (const item of items) {
@@ -81,16 +81,16 @@ export function groupBy<T, K>(
   }
 
   return groups;
-}
+};
 
 /**
  * Index `items` by a unique key. When duplicate keys appear the last value
  * wins (matches `Object.fromEntries` semantics).
  */
-export function indexBy<T, K>(
+export const indexBy = <T, K>(
   items: Iterable<T>,
   keyOf: (item: T) => K,
-): Map<K, T> {
+): Map<K, T> => {
   const index = new Map<K, T>();
 
   for (const item of items) {
@@ -98,19 +98,19 @@ export function indexBy<T, K>(
   }
 
   return index;
-}
+};
 
 /**
  * Supabase relation columns come back as either `T`, `T[]`, or null
  * depending on whether the join is one-to-one or one-to-many. Pick the
  * first concrete value or `undefined`.
  */
-export function firstRelation<T>(
+export const firstRelation = <T>(
   value: T | T[] | null | undefined,
-): T | undefined {
+): T | undefined => {
   if (Array.isArray(value)) {
     return value[0];
   }
 
   return value ?? undefined;
-}
+};

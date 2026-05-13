@@ -38,10 +38,10 @@ export const resolveColumnOutputSchema = (
   return matchingOverload?.schema ?? outputConfig.schema;
 };
 
-export function resolveColumnConfig(
+export const resolveColumnConfig = (
   config: JsonValue,
   rowContext: Record<string, JsonValue>,
-): JsonValue {
+): JsonValue => {
   if (config === null || typeof config !== "object") {
     if (typeof config === "string") {
       const exactMatch = config.match(/^\{\{(\$\.[^}]+)\}\}$/);
@@ -89,7 +89,7 @@ export function resolveColumnConfig(
   }
 
   return resolvedObject;
-}
+};
 
 export const columnOperations = defineResourceOperations({
   create: {

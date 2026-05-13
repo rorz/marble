@@ -10,6 +10,7 @@ class AssertionError extends Error {
   }
 }
 
+// harness-ignore: enforce-arrow-function -- TS assertion functions (`asserts`) require declaration form so call-site narrowing propagates across modules (TS2775).
 export function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new AssertionError(message);
 }

@@ -21,15 +21,15 @@ const textEncoder = new TextEncoder();
  * Build a random-token generator over a fixed alphabet and length. Returns
  * a thunk to match `nanoid`'s `customAlphabet` shape.
  */
-export function randomToken(options: {
+export const randomToken = (options: {
   alphabet: string;
   length: number;
-}): () => string {
+}): (() => string) => {
   return customAlphabet(options.alphabet, options.length);
-}
+};
 
 /** Convert an `ArrayBuffer` to a URL-safe base64 string (no padding). */
-export function toBase64Url(value: ArrayBuffer): string {
+export const toBase64Url = (value: ArrayBuffer): string => {
   const bytes = new Uint8Array(value);
   let binary = "";
   for (let index = 0; index < bytes.length; index += 1) {
@@ -39,24 +39,24 @@ export function toBase64Url(value: ArrayBuffer): string {
     .replaceAll("+", "-")
     .replaceAll("/", "_")
     .replace(/=+$/u, "");
-}
+};
 
 /**
  * SHA-256 the input and return a URL-safe base64 digest. Pass `length` to
  * truncate the digest (e.g. 22 chars for a short, collision-resistant key
  * fingerprint).
  */
-export async function sha256Base64Url(
+export const sha256Base64Url = async (
   value: string,
   length?: number,
-): Promise<string> {
+): Promise<string> => {
   const digest = await crypto.subtle.digest(
     "SHA-256",
     textEncoder.encode(value),
   );
   const encoded = toBase64Url(digest);
   return length === undefined ? encoded : encoded.slice(0, length);
-}
+};
 
 type HeaderSource = {
   get(name: string): string | null;
@@ -72,12 +72,12 @@ type HeaderSource = {
  * by `@marble/keys` to require the `mbl_` namespace). Returns `null` when
  * no recognizable token is present.
  */
-export function parseBearerToken(
+export const parseBearerToken = (
   headers: HeaderSource,
   options: {
     tokenPrefix?: string;
   } = {},
-): string | null {
+): string | null => {
   const directKey = headers.get("x-api-key")?.trim();
   if (directKey) {
     return directKey;
@@ -104,4 +104,4 @@ export function parseBearerToken(
   }
 
   return token;
-}
+};

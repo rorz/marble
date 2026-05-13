@@ -16,49 +16,49 @@ export type Snakeize<T> = {
   [K in keyof T as K extends string ? CamelToSnake<K> : K]: T[K];
 };
 
-function toCamelKey(key: string) {
+const toCamelKey = (key: string) => {
   return key.replace(/_([a-z0-9])/g, (_, character: string) =>
     character.toUpperCase(),
   );
-}
+};
 
-export function toSnakeKey(key: string) {
+export const toSnakeKey = (key: string) => {
   return key.replace(/[A-Z]/g, (character) => `_${character.toLowerCase()}`);
-}
+};
 
-function mapObjectKeys<T extends Record<string, unknown>>(
+const mapObjectKeys = <T extends Record<string, unknown>>(
   value: T,
   mapKey: (key: string) => string,
-) {
+) => {
   return Object.fromEntries(
     Object.entries(value).map(([key, entry]) => [
       mapKey(key),
       entry,
     ]),
   );
-}
+};
 
-export function toCamelKeys<T extends Record<string, unknown>>(
+export const toCamelKeys = <T extends Record<string, unknown>>(
   value: T,
-): Camelize<T> {
+): Camelize<T> => {
   return mapObjectKeys(value, toCamelKey) as Camelize<T>;
-}
+};
 
-export function toSnakeKeys<T extends Record<string, unknown>>(
+export const toSnakeKeys = <T extends Record<string, unknown>>(
   value: T,
-): Snakeize<T> {
+): Snakeize<T> => {
   return mapObjectKeys(value, toSnakeKey) as Snakeize<T>;
-}
+};
 
 /**
  * Type-narrow an unknown value to a plain object record. Excludes arrays and
  * `null`. Useful for guard clauses that need to read keys off untyped JSON.
  */
-export function isPlainRecord(
+export const isPlainRecord = (
   value: unknown,
-): value is Record<string, unknown> {
+): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+};
 
 /**
  * Cast a snake_cased broadcast row to its camelCased domain type.
@@ -72,21 +72,21 @@ export function isPlainRecord(
  * always pass a domain object type whose keys are strings, so the
  * structural shape of `toCamelKeys(value)` is assignable.
  */
-export function castCamelKeys<T extends Record<string, unknown>>(
+export const castCamelKeys = <T extends Record<string, unknown>>(
   value: Record<string, unknown>,
-): T {
+): T => {
   return toCamelKeys(value) as T;
-}
+};
 
 /**
  * Read a non-empty trimmed string off `record[key]`. Returns `null` when
  * the value is missing, not a string, or empty after trimming. Centralises
  * the "user metadata extraction" pattern.
  */
-export function readNonEmptyString(
+export const readNonEmptyString = (
   record: Record<string, unknown> | null | undefined,
   key: string,
-): string | null {
+): string | null => {
   if (!record) {
     return null;
   }
@@ -100,4 +100,4 @@ export function readNonEmptyString(
   const trimmed = value.trim();
 
   return trimmed.length === 0 ? null : trimmed;
-}
+};

@@ -14,17 +14,19 @@
  * meaningful at the call site for failure cases — use `withTiming` if you
  * want side-effect recording on both arms).
  */
-export async function measure<T>(task: () => Promise<T> | T): Promise<{
+export const measure = async <T>(
+  task: () => Promise<T> | T,
+): Promise<{
   durationMs: number;
   result: T;
-}> {
+}> => {
   const startedAt = performance.now();
   const result = await task();
   return {
     durationMs: Math.round(performance.now() - startedAt),
     result,
   };
-}
+};
 
 /**
  * Run `task` while ensuring `record(name, durationMs)` fires once whether
@@ -33,23 +35,23 @@ export async function measure<T>(task: () => Promise<T> | T): Promise<{
  * `formatServerTimingEntry`) so consumers that compute ratios still see
  * full precision. Mirrors the `timeDbCall` shape in the store package.
  */
-export async function withTiming<T>(
+export const withTiming = async <T>(
   record: (name: string, durationMs: number) => void,
   name: string,
   task: () => Promise<T> | T,
-): Promise<T> {
+): Promise<T> => {
   const startedAt = performance.now();
   try {
     return await task();
   } finally {
     record(name, performance.now() - startedAt);
   }
-}
+};
 
 /**
  * Format a single Server-Timing entry: `name;dur=N`. Rounds the duration
  * to the nearest whole millisecond.
  */
-export function formatServerTimingEntry(name: string, durationMs: number) {
+export const formatServerTimingEntry = (name: string, durationMs: number) => {
   return `${name};dur=${Math.round(durationMs)}`;
-}
+};

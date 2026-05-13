@@ -30,9 +30,11 @@ const assignORPCOperation = <
   contract[name] = createORPCOperation(operations[name]);
 };
 
-export function createORPCResourceContract<
+export const createORPCResourceContract = <
   const Operations extends Record<string, ResourceOperationDefinition>,
->(operations: Operations): ORPCResourceContract<Operations> {
+>(
+  operations: Operations,
+): ORPCResourceContract<Operations> => {
   const contract = {} as Mutable<ORPCResourceContract<Operations>>;
 
   for (const name of Object.keys(operations)) {
@@ -40,4 +42,4 @@ export function createORPCResourceContract<
   }
 
   return contract;
-}
+};

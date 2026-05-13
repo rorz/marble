@@ -11,7 +11,7 @@
  * to schemas that accept "no value provided". Throws an `Error` whose `cause`
  * is the original `SyntaxError` for genuine parse failures.
  */
-export function parseJsonOrUndefined(input: string): unknown {
+export const parseJsonOrUndefined = (input: string): unknown => {
   const trimmed = input.trim();
 
   if (trimmed === "") {
@@ -25,21 +25,21 @@ export function parseJsonOrUndefined(input: string): unknown {
       cause,
     });
   }
-}
+};
 
 /** Pretty-print a value as JSON with 2-space indentation. */
-export function stringifyPretty(value: unknown): string {
+export const stringifyPretty = (value: unknown): string => {
   return JSON.stringify(value, null, 2);
-}
+};
 
 /**
  * Stringify a value as JSON, falling back to `String(value)` when the value
  * cannot be serialised (cycles, BigInts, etc.). Never throws.
  */
-export function safeStringify(value: unknown): string {
+export const safeStringify = (value: unknown): string => {
   try {
     return JSON.stringify(value);
   } catch {
     return String(value);
   }
-}
+};
