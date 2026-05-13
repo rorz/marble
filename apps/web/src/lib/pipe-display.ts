@@ -1,4 +1,7 @@
-import { formatJsonPathDisplay, normalizeDisplayLabel } from "@marble/lib/string";
+import {
+  formatJsonPathDisplay,
+  normalizeDisplayLabel,
+} from "@marble/lib/string";
 
 type PipeMappingRecord = {
   columnId: string;

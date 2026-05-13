@@ -57,14 +57,18 @@ describe("formatRpcError", () => {
         };
       },
     };
-    expect(formatRpcError(error)).toBe('{\n  "code": "X",\n  "message": "y"\n}');
+    expect(formatRpcError(error)).toBe(
+      '{\n  "code": "X",\n  "message": "y"\n}',
+    );
   });
 
   test("falls through when toJSON throws", () => {
     const error = new Error("boom");
-    (error as unknown as {
-      toJSON: () => unknown;
-    }).toJSON = () => {
+    (
+      error as unknown as {
+        toJSON: () => unknown;
+      }
+    ).toJSON = () => {
       throw new Error("nope");
     };
     expect(formatRpcError(error)).toBe("boom");

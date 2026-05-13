@@ -27,8 +27,8 @@ describe("toCamelKeys", () => {
   test("converts snake_case keys to camelCase", () => {
     expect(
       toCamelKeys({
-        foo_bar: 1,
         baz_qux_quux: 2,
+        foo_bar: 1,
       }),
     ).toEqual({
       bazQuxQuux: 2,

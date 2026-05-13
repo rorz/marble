@@ -14,9 +14,7 @@
  * meaningful at the call site for failure cases — use `withTiming` if you
  * want side-effect recording on both arms).
  */
-export async function measure<T>(
-  task: () => Promise<T> | T,
-): Promise<{
+export async function measure<T>(task: () => Promise<T> | T): Promise<{
   durationMs: number;
   result: T;
 }> {

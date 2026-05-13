@@ -3,9 +3,7 @@ import { parseJsonOrUndefined, safeStringify, stringifyPretty } from "./index";
 
 describe("parseJsonOrUndefined", () => {
   test("parses valid JSON", () => {
-    expect(
-      parseJsonOrUndefined('{"a":1}'),
-    ).toEqual({
+    expect(parseJsonOrUndefined('{"a":1}')).toEqual({
       a: 1,
     });
   });

@@ -21,9 +21,11 @@ describe("randomToken", () => {
     });
     const token = generate();
     expect(token).toHaveLength(16);
-    expect([
-      ...token,
-    ].every((char) => char === "a" || char === "b")).toBe(true);
+    expect(
+      [
+        ...token,
+      ].every((char) => char === "a" || char === "b"),
+    ).toBe(true);
   });
 
   test("ALPHANUMERIC contains the expected character classes", () => {

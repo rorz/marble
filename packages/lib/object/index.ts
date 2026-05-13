@@ -54,7 +54,9 @@ export function toSnakeKeys<T extends Record<string, unknown>>(
  * Type-narrow an unknown value to a plain object record. Excludes arrays and
  * `null`. Useful for guard clauses that need to read keys off untyped JSON.
  */
-export function isPlainRecord(value: unknown): value is Record<string, unknown> {
+export function isPlainRecord(
+  value: unknown,
+): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 

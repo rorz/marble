@@ -83,9 +83,3 @@ export function formatPipeSchemaPreview(schema: Record<string, unknown>) {
 
   return "value";
 }
-
-function jsonPathPropertySegment(key: string) {
-  return /^[$A-Z_a-z][\w$]*$/u.test(key)
-    ? `.${key}`
-    : `[${JSON.stringify(key)}]`;
-}

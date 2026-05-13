@@ -2,6 +2,7 @@
 
 // harness-ignore: max-file-lines -- single dense state machine: source detail orchestrator with 30+ useState/useMemo refs sharing handlers across source/event/pipe/schema/mapping concerns; lifting would obscure dataflow
 
+import { castCamelKeys } from "@marble/lib/object";
 import {
   MarbleAlert,
   MarbleBadge,
@@ -29,7 +30,6 @@ import {
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { castCamelKeys } from "@marble/lib/object";
 import type { MarbleSourceEvent } from "../../../../../../lib/marble-resources";
 import { useMarbleSdk } from "../../../../../../lib/marble-sdk-client";
 import {

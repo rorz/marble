@@ -1,7 +1,7 @@
 import { createSupabaseClientRouterClient } from "@marble/api/supabase-client";
 import type { MarbleContract } from "@marble/contracts";
 import { trimTrailingSlash } from "@marble/lib/string";
-import type { SupabaseClient } from "@marble/supabase";
+import type { SupabaseClient } from "../../../src";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { ContractRouterClient } from "@orpc/contract";
@@ -91,23 +91,32 @@ function createHostedApiClient(options: {
   return createORPCClient(link) as ContractRouterClient<MarbleContract>;
 }
 
-// MarbleClient is a thin façade over `ContractRouterClient<MarbleContract>`
-// that adds zero behavior — every resource property is just `rpcClient.<name>`.
-// We use the declaration-merging pattern so the surface is derived from the
-// contract type (no per-resource list to keep in sync) while still preserving
-// the named-class JSDoc/intellisense agents expect from `MarbleClient`.
-type MarbleRpcClient = ContractRouterClient<MarbleContract>;
-
-export interface MarbleClient extends MarbleRpcClient {}
-
 export class MarbleClient {
+  readonly cells: ContractRouterClient<MarbleContract>["cells"];
+  readonly columns: ContractRouterClient<MarbleContract>["columns"];
+  readonly events: ContractRouterClient<MarbleContract>["events"];
+  readonly keys: ContractRouterClient<MarbleContract>["keys"];
+  readonly pipes: ContractRouterClient<MarbleContract>["pipes"];
+  readonly programFiles: ContractRouterClient<MarbleContract>["programFiles"];
+  readonly programs: ContractRouterClient<MarbleContract>["programs"];
+  readonly programVersions: ContractRouterClient<MarbleContract>["programVersions"];
+  readonly profiles: ContractRouterClient<MarbleContract>["profiles"];
+  readonly projects: ContractRouterClient<MarbleContract>["projects"];
+  readonly rows: ContractRouterClient<MarbleContract>["rows"];
+  readonly secrets: ContractRouterClient<MarbleContract>["secrets"];
+  readonly secretBindings: ContractRouterClient<MarbleContract>["secretBindings"];
+  readonly sidebar: ContractRouterClient<MarbleContract>["sidebar"];
+  readonly sourceEvents: ContractRouterClient<MarbleContract>["sourceEvents"];
+  readonly sources: ContractRouterClient<MarbleContract>["sources"];
+  readonly tables: ContractRouterClient<MarbleContract>["tables"];
+
   constructor(options: MarbleClientOptions) {
-    const rpcClient: MarbleRpcClient =
+    const rpcClient =
       options.driver.type === "supabase"
         ? (createSupabaseClientRouterClient({
             profileId: options.driver.profileId,
             supabase: options.driver.client,
-          }) as MarbleRpcClient)
+          }) as ContractRouterClient<MarbleContract>)
         : createHostedApiClient({
             ...options.driver,
             profileId:
@@ -116,6 +125,22 @@ export class MarbleClient {
                 : undefined,
           });
 
-    Object.assign(this, rpcClient);
+    this.cells = rpcClient.cells;
+    this.columns = rpcClient.columns;
+    this.events = rpcClient.events;
+    this.keys = rpcClient.keys;
+    this.pipes = rpcClient.pipes;
+    this.programFiles = rpcClient.programFiles;
+    this.programs = rpcClient.programs;
+    this.programVersions = rpcClient.programVersions;
+    this.profiles = rpcClient.profiles;
+    this.projects = rpcClient.projects;
+    this.rows = rpcClient.rows;
+    this.secrets = rpcClient.secrets;
+    this.secretBindings = rpcClient.secretBindings;
+    this.sidebar = rpcClient.sidebar;
+    this.sourceEvents = rpcClient.sourceEvents;
+    this.sources = rpcClient.sources;
+    this.tables = rpcClient.tables;
   }
 }

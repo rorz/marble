@@ -1,6 +1,6 @@
+import { readFile } from "node:fs/promises";
 import { parseJsonOrUndefined, stringifyPretty } from "@marble/lib/json";
 import { formatRpcError } from "@marble/lib/result";
-import { readFile } from "node:fs/promises";
 
 export type JsonValue =
   | string

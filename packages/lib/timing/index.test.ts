@@ -29,10 +29,11 @@ describe("withTiming", () => {
       name: string;
     }> = [];
     const value = await withTiming(
-      (name, durationMs) => records.push({
-        durationMs,
-        name,
-      }),
+      (name, durationMs) =>
+        records.push({
+          durationMs,
+          name,
+        }),
       "task",
       () => "ok",
     );
@@ -50,10 +51,11 @@ describe("withTiming", () => {
 
     await expect(
       withTiming(
-        (name, durationMs) => records.push({
-          durationMs,
-          name,
-        }),
+        (name, durationMs) =>
+          records.push({
+            durationMs,
+            name,
+          }),
         "task",
         () => {
           throw new Error("boom");
