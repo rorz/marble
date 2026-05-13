@@ -28,9 +28,9 @@ type ReadInputOptions = {
  * straight through to the SDK; the contract's Zod schema decides whether the
  * operation accepts an empty input.
  */
-export async function readInput(
+export const readInput = async (
   options: ReadInputOptions,
-): Promise<JsonValue | undefined> {
+): Promise<JsonValue | undefined> => {
   if (options.arg !== undefined && options.file !== undefined) {
     throw new Error(
       "Pass either a positional JSON input or --input-file, not both.",
@@ -55,9 +55,9 @@ export async function readInput(
   }
 
   return parseJsonOrUndefined(options.arg) as JsonValue | undefined;
-}
+};
 
-async function readStdin() {
+const readStdin = async () => {
   const chunks: Buffer[] = [];
 
   for await (const chunk of process.stdin) {
@@ -65,17 +65,17 @@ async function readStdin() {
   }
 
   return Buffer.concat(chunks).toString("utf8");
-}
+};
 
-export function printJson(value: unknown) {
+export const printJson = (value: unknown) => {
   process.stdout.write(`${stringifyPretty(value)}\n`);
-}
+};
 
 /**
  * Print a structured error envelope to stderr. Delegates to
  * `@marble/lib/result.formatRpcError` so the CLI surfaces the same shape
  * an API consumer would see directly.
  */
-export function printError(error: unknown) {
+export const printError = (error: unknown) => {
   process.stderr.write(`${formatRpcError(error)}\n`);
-}
+};

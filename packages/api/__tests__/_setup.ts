@@ -52,7 +52,7 @@ const DUMMY_RUNTIME: MarbleApiRuntime = {
  * Use this for tests that prove input validation rejects bad payloads
  * before the handler runs.
  */
-export function createValidationContext(): ApiContext {
+export const createValidationContext = (): ApiContext => {
   const store = new Proxy(
     {},
     {
@@ -77,4 +77,4 @@ export function createValidationContext(): ApiContext {
     store,
     timings: [],
   };
-}
+};

@@ -62,7 +62,7 @@ type ContractProcedureMeta = {
   };
 };
 
-function getProcedureMeta(procedure: unknown): ContractProcedureMeta | null {
+const getProcedureMeta = (procedure: unknown): ContractProcedureMeta | null => {
   if (!isContractProcedure(procedure)) {
     return null;
   }
@@ -74,9 +74,9 @@ function getProcedureMeta(procedure: unknown): ContractProcedureMeta | null {
   )["~orpc"];
 
   return (def ?? null) as ContractProcedureMeta | null;
-}
+};
 
-function describeOperation(resource: string, operation: string) {
+const describeOperation = (resource: string, operation: string) => {
   const procedure = (marbleContract as Record<string, Record<string, unknown>>)[
     resource
   ]?.[operation];
@@ -102,9 +102,9 @@ function describeOperation(resource: string, operation: string) {
     route: meta.route ?? null,
     summary: meta.route?.summary,
   };
-}
+};
 
-function listOperations(resource?: string) {
+const listOperations = (resource?: string) => {
   const entries = Object.entries(marbleContract) as Array<
     [
       string,
@@ -131,9 +131,9 @@ function listOperations(resource?: string) {
       };
     }),
   );
-}
+};
 
-function summariseForHelp(procedure: unknown) {
+const summariseForHelp = (procedure: unknown) => {
   const meta = getProcedureMeta(procedure);
   const route = meta?.route;
 
@@ -150,9 +150,9 @@ function summariseForHelp(procedure: unknown) {
   ]
     .filter(Boolean)
     .join(" — ");
-}
+};
 
-function dispatch(resource: string, operation: string, input: unknown) {
+const dispatch = (resource: string, operation: string, input: unknown) => {
   const client = getMarbleClient() as unknown as MarbleClientShape;
   const handler = client[resource as keyof MarbleContract]?.[operation];
 
@@ -165,9 +165,9 @@ function dispatch(resource: string, operation: string, input: unknown) {
   // `{}` instead of `undefined`. Operations with required input will surface
   // their own Zod validation error if `{}` doesn't satisfy them.
   return handler(input === undefined ? {} : input);
-}
+};
 
-function registerResources(root: Command) {
+const registerResources = (root: Command) => {
   for (const [resource, operations] of Object.entries(marbleContract) as Array<
     [
       string,
@@ -217,9 +217,9 @@ function registerResources(root: Command) {
 
     root.addCommand(resourceCommand);
   }
-}
+};
 
-function registerDescribe(root: Command) {
+const registerDescribe = (root: Command) => {
   const command = new Command("describe").description(
     "Introspect contract operations. With no args, list every operation. With a resource, list its operations. With both, return the operation's HTTP route and full input/output JSON schemas.",
   );
@@ -242,9 +242,9 @@ function registerDescribe(root: Command) {
     });
 
   root.addCommand(command);
-}
+};
 
-export function createRootCommand() {
+export const createRootCommand = () => {
   const command = new Command()
     .name("marble")
     .description(
@@ -258,6 +258,6 @@ export function createRootCommand() {
   registerProgramDir(command);
 
   return command;
-}
+};
 
 export const rootCommand = createRootCommand();

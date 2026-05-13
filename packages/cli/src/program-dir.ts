@@ -41,7 +41,7 @@ type ProgramEditorData = Awaited<
 type EditorProgram = ProgramEditorData["programs"][number];
 type EditorProgramVersion = ProgramEditorData["programVersions"][number];
 
-function getFileType(filename: string): ProgramFileType {
+const getFileType = (filename: string): ProgramFileType => {
   if (filename.endsWith(".json")) {
     return "Json";
   }
@@ -51,17 +51,17 @@ function getFileType(filename: string): ProgramFileType {
   }
 
   return "TypeScript";
-}
+};
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+};
 
-async function readJsonFile(path: string) {
+const readJsonFile = async (path: string) => {
   return JSON.parse(await readFile(path, "utf8")) as JsonValue;
-}
+};
 
-async function readProgramManifest(dir: string) {
+const readProgramManifest = async (dir: string) => {
   const manifest = (await readJsonFile(join(dir, "package.json"))) as Record<
     string,
     unknown
@@ -83,9 +83,9 @@ async function readProgramManifest(dir: string) {
       ? (marble.secrets as JsonValue[])
       : [],
   };
-}
+};
 
-async function readProgramFiles(dir: string) {
+const readProgramFiles = async (dir: string) => {
   const entries = await readdir(dir, {
     withFileTypes: true,
   });
@@ -100,9 +100,9 @@ async function readProgramFiles(dir: string) {
         filetype: getFileType(entry.name),
       })),
   );
-}
+};
 
-async function readProgramDirectory(dir: string): Promise<ProgramDirectory> {
+const readProgramDirectory = async (dir: string): Promise<ProgramDirectory> => {
   const manifest = await readProgramManifest(dir);
 
   return {
@@ -112,21 +112,21 @@ async function readProgramDirectory(dir: string): Promise<ProgramDirectory> {
     outputConfig: await readJsonFile(join(dir, "output-config.json")),
     secretConfig: manifest.secrets,
   };
-}
+};
 
-function listVersionsForProgram(
+const listVersionsForProgram = (
   editorData: ProgramEditorData,
   programId: string,
-) {
+) => {
   return editorData.programVersions.filter(
     (version) => version.programId === programId,
   );
-}
+};
 
-function getDraftVersion(
+const getDraftVersion = (
   editorData: ProgramEditorData,
   programId: string,
-): EditorProgramVersion | undefined {
+): EditorProgramVersion | undefined => {
   return listVersionsForProgram(editorData, programId)
     .filter((version) => version.publishedAt === null)
     .sort(
@@ -134,18 +134,18 @@ function getDraftVersion(
         new Date(right.updatedAt).getTime() -
         new Date(left.updatedAt).getTime(),
     )[0];
-}
+};
 
-function findWritableProgram(
+const findWritableProgram = (
   editorData: ProgramEditorData,
   name: string,
-): EditorProgram | undefined {
+): EditorProgram | undefined => {
   return editorData.programs.find(
     (program) => program.name === name && !program.firstParty,
   );
-}
+};
 
-async function upsertProgramDirectory(marble: MarbleClient, dir: string) {
+const upsertProgramDirectory = async (marble: MarbleClient, dir: string) => {
   const source = await readProgramDirectory(dir);
   const editorData = await marble.programs.listForEditor({});
   const existingProgram = findWritableProgram(editorData, source.name);
@@ -189,17 +189,17 @@ async function upsertProgramDirectory(marble: MarbleClient, dir: string) {
     program,
     version,
   };
-}
+};
 
-function asInputConfig(value: unknown): Record<string, JsonValue> {
+const asInputConfig = (value: unknown): Record<string, JsonValue> => {
   if (!isRecord(value)) {
     return {};
   }
 
   return value as Record<string, JsonValue>;
-}
+};
 
-export function registerProgramDir(root: Command) {
+export const registerProgramDir = (root: Command) => {
   const command = new Command("program-dir").description(
     "Filesystem helper for syncing a local program directory to Marble. This is the one CLI subcommand that is not a contract pass-through.",
   );
@@ -273,4 +273,4 @@ export function registerProgramDir(root: Command) {
     );
 
   root.addCommand(command);
-}
+};

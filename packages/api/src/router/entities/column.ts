@@ -3,18 +3,18 @@ import { os } from "../../server";
 import type { RouterResourcePart } from "../../types";
 import { composeResourceRouter } from "../compose";
 
-function formatZodIssues(
+const formatZodIssues = (
   issues: Array<{
     message: string;
     path: PropertyKey[];
   }>,
-) {
+) => {
   return issues
     .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
     .join("; ");
-}
+};
 
-function parseOutputSchema(value: unknown) {
+const parseOutputSchema = (value: unknown) => {
   const parsed = ColumnOutputSchema.safeParse(value);
 
   if (!parsed.success) {
@@ -24,9 +24,9 @@ function parseOutputSchema(value: unknown) {
   }
 
   return parsed.data;
-}
+};
 
-function parseRunCondition(value: unknown) {
+const parseRunCondition = (value: unknown) => {
   const parsed = ColumnRunCondition.safeParse(value);
 
   if (!parsed.success) {
@@ -36,14 +36,16 @@ function parseRunCondition(value: unknown) {
   }
 
   return parsed.data;
-}
+};
 
-function normalizeColumnWriteInput<
+const normalizeColumnWriteInput = <
   T extends {
     outputSchema?: unknown;
     runCondition?: unknown;
   },
->(input: T) {
+>(
+  input: T,
+) => {
   return {
     ...input,
     ...(input.outputSchema === undefined
@@ -57,7 +59,7 @@ function normalizeColumnWriteInput<
           runCondition: parseRunCondition(input.runCondition),
         }),
   };
-}
+};
 
 export const columnRouter = {
   ...composeResourceRouter("columns"),

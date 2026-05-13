@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from "@marble/supabase";
 import { ORPCError } from "@orpc/server";
 import type { ApiActor, MarbleApiRuntime } from ".";
 
-function getBearerToken(request: Request) {
+const getBearerToken = (request: Request) => {
   const authorization =
     request.headers.get("authorization") ??
     request.headers.get("Authorization");
@@ -19,13 +19,13 @@ function getBearerToken(request: Request) {
   }
 
   return credentials.trim();
-}
+};
 
-async function requireSupabaseSessionActor(
+const requireSupabaseSessionActor = async (
   request: Request,
   runtime: MarbleApiRuntime,
   serviceSupabase: SupabaseClient,
-): Promise<ApiActor> {
+): Promise<ApiActor> => {
   const profileId = request.headers.get("x-marble-auth-profile-id")?.trim();
   const accessToken = getBearerToken(request);
 
@@ -75,12 +75,12 @@ async function requireSupabaseSessionActor(
     type: "supabase-session",
     userId,
   };
-}
+};
 
-async function requireApiKeyActor(
+const requireApiKeyActor = async (
   serviceSupabase: SupabaseClient,
   token: string,
-): Promise<ApiActor> {
+): Promise<ApiActor> => {
   const keyAuth = await resolveApiKeyAuth(serviceSupabase, token);
   const userId = keyAuth?.profile?.owner_user_id;
 
@@ -96,13 +96,13 @@ async function requireApiKeyActor(
     type: "api-key",
     userId,
   };
-}
+};
 
-export async function resolveHostedApiActor(
+export const resolveHostedApiActor = async (
   request: Request,
   runtime: MarbleApiRuntime,
   serviceSupabase: SupabaseClient,
-): Promise<ApiActor> {
+): Promise<ApiActor> => {
   const token = getApiKeyTokenFromHeaders(request.headers);
 
   if (token) {
@@ -110,9 +110,9 @@ export async function resolveHostedApiActor(
   }
 
   return requireSupabaseSessionActor(request, runtime, serviceSupabase);
-}
+};
 
-function base64UrlEncode(input: string | Uint8Array) {
+const base64UrlEncode = (input: string | Uint8Array) => {
   const bytes =
     typeof input === "string" ? new TextEncoder().encode(input) : input;
   let binary = "";
@@ -125,9 +125,9 @@ function base64UrlEncode(input: string | Uint8Array) {
     .replaceAll("+", "-")
     .replaceAll("/", "_")
     .replaceAll("=", "");
-}
+};
 
-async function signApiKeyActorAccessToken(
+const signApiKeyActorAccessToken = async (
   runtime: MarbleApiRuntime,
   actor: Extract<
     ApiActor,
@@ -135,7 +135,7 @@ async function signApiKeyActorAccessToken(
       type: "api-key";
     }
   >,
-) {
+) => {
   if (!runtime.jwtSecret) {
     throw new ORPCError("INTERNAL_SERVER_ERROR", {
       message: "SUPABASE_JWT_SECRET is required for API key data access.",
@@ -179,12 +179,12 @@ async function signApiKeyActorAccessToken(
   );
 
   return `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`;
-}
+};
 
-export async function createActorSupabaseClient(
+export const createActorSupabaseClient = async (
   runtime: MarbleApiRuntime,
   actor: ApiActor,
-) {
+) => {
   const accessToken =
     actor.type === "api-key"
       ? await signApiKeyActorAccessToken(runtime, actor)
@@ -198,4 +198,4 @@ export async function createActorSupabaseClient(
       persistSession: false,
     },
   });
-}
+};

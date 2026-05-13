@@ -7,18 +7,18 @@ import { os } from "../../server";
 import type { RouterResourcePart } from "../../types";
 import { composeResourceRouter } from "../compose";
 
-function formatZodIssues(
+const formatZodIssues = (
   issues: Array<{
     message: string;
     path: PropertyKey[];
   }>,
-) {
+) => {
   return issues
     .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
     .join("; ");
-}
+};
 
-function parseInputSchema(value: unknown) {
+const parseInputSchema = (value: unknown) => {
   const parsed = ProgramInputSchema.safeParse(value);
 
   if (!parsed.success) {
@@ -28,9 +28,9 @@ function parseInputSchema(value: unknown) {
   }
 
   return parsed.data;
-}
+};
 
-function parseOutputConfig(value: unknown) {
+const parseOutputConfig = (value: unknown) => {
   const parsed = ProgramOutputConfig.safeParse(value);
 
   if (!parsed.success) {
@@ -40,15 +40,17 @@ function parseOutputConfig(value: unknown) {
   }
 
   return parsed.data;
-}
+};
 
-function normalizeProgramVersionWriteInput<
+const normalizeProgramVersionWriteInput = <
   T extends {
     inputSchema?: unknown;
     outputConfig?: unknown;
     secretConfig?: unknown;
   },
->(input: T) {
+>(
+  input: T,
+) => {
   return {
     ...input,
     ...(input.inputSchema === undefined
@@ -67,7 +69,7 @@ function normalizeProgramVersionWriteInput<
           secretConfig: parseProgramSecretConfig(input.secretConfig),
         }),
   };
-}
+};
 
 export const programVersionRouter = {
   ...composeResourceRouter("programVersions"),

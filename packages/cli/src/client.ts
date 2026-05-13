@@ -6,7 +6,7 @@ dotenv.config();
 
 let marble: MarbleClient | undefined;
 
-export function getMarbleClient() {
+export const getMarbleClient = () => {
   marble ??= (() => {
     const env = readCliEnv(process.env);
 
@@ -21,4 +21,4 @@ export function getMarbleClient() {
   })();
 
   return marble;
-}
+};

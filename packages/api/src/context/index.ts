@@ -61,9 +61,9 @@ export type ApiContext = {
 
 const OPENAPI_DOCS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
 
-function normalizeEventSource(
+const normalizeEventSource = (
   value: string | null | undefined,
-): ResourceContext["eventSource"] | undefined {
+): ResourceContext["eventSource"] | undefined => {
   switch (value?.trim().toLowerCase()) {
     case "cli":
       return "CLI";
@@ -78,23 +78,23 @@ function normalizeEventSource(
     default:
       return undefined;
   }
-}
+};
 
-function resolveEventSource(options: {
+const resolveEventSource = (options: {
   actorKeyId?: string;
   forwardedUserId?: string;
   requestedActorSource?: string | null;
-}): ResourceContext["eventSource"] {
+}): ResourceContext["eventSource"] => {
   return (
     normalizeEventSource(options.requestedActorSource) ??
     (options.forwardedUserId ? "WEB_APP" : undefined) ??
     (options.actorKeyId ? "RAW_API" : "RAW_API")
   );
-}
+};
 
-export function createMarbleApiRuntime(
+export const createMarbleApiRuntime = (
   config: MarbleApiConfig,
-): MarbleApiRuntime {
+): MarbleApiRuntime => {
   return {
     ...(config.executor
       ? {
@@ -109,12 +109,12 @@ export function createMarbleApiRuntime(
     serviceRoleKey: config.supabase.serviceRoleKey,
     supabaseUrl: config.supabase.url,
   };
-}
+};
 
-export async function createHostedApiContext(
+export const createHostedApiContext = async (
   request: Request,
   runtime: MarbleApiRuntime,
-): Promise<ApiContext> {
+): Promise<ApiContext> => {
   const serviceSupabase = createClient(
     runtime.supabaseUrl,
     runtime.serviceRoleKey,
@@ -160,12 +160,12 @@ export async function createHostedApiContext(
     }),
     timings,
   };
-}
+};
 
-export function createOpenApiDocsContext(
+export const createOpenApiDocsContext = (
   request: Request,
   runtime: MarbleApiRuntime,
-): ApiContext {
+): ApiContext => {
   const supabase = createClient(runtime.supabaseUrl, runtime.publishableKey, {
     auth: {
       autoRefreshToken: false,
@@ -189,4 +189,4 @@ export function createOpenApiDocsContext(
     }),
     timings: [],
   };
-}
+};

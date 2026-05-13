@@ -63,9 +63,9 @@ type ResourceStoreMethods<R extends keyof MarbleContract> = {
  * is harmless — the underlying call is only made on a real request,
  * which the override always intercepts first.
  */
-export function composeResourceRouter<R extends keyof MarbleContract>(
+export const composeResourceRouter = <R extends keyof MarbleContract>(
   resource: R,
-): RouterResourcePart<R> {
+): RouterResourcePart<R> => {
   // `os[resource]` is an oRPC `RouterImplementer & { [Op]: ProcedureImplementer<...> }`
   // intersection that the compiler cannot reduce to a clean op-keyed record for a
   // generic `R`. We narrow it to `ResourceProcedures<R>` so every subsequent index
@@ -91,4 +91,4 @@ export function composeResourceRouter<R extends keyof MarbleContract>(
   }
 
   return router as RouterResourcePart<R>;
-}
+};

@@ -3,12 +3,12 @@ import { os } from "../../server";
 import type { RouterResourcePart } from "../../types";
 import { composeResourceRouter } from "../compose";
 
-function assertValidProgramManifest(
+const assertValidProgramManifest = (
   files: Array<{
     content: string;
     filename: string;
   }>,
-) {
+) => {
   const manifestFile = files.find((file) => file.filename === "package.json");
 
   if (!manifestFile) {
@@ -24,7 +24,7 @@ function assertValidProgramManifest(
         : "package.json is invalid.",
     );
   }
-}
+};
 
 export const programFileRouter = {
   ...composeResourceRouter("programFiles"),

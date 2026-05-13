@@ -12,13 +12,13 @@ type SupabaseClientApiContextInput = {
   userId?: string;
 };
 
-export function createSupabaseClientApiContext({
+export const createSupabaseClientApiContext = ({
   profileId,
   requestId,
   serviceSupabase,
   supabase,
   userId,
-}: SupabaseClientApiContextInput): ApiContext {
+}: SupabaseClientApiContextInput): ApiContext => {
   const timings: ApiTimingEntry[] = [];
   const recordTiming = (name: string, durationMs: number) => {
     timings.push({
@@ -45,9 +45,9 @@ export function createSupabaseClientApiContext({
     }),
     timings,
   };
-}
+};
 
-async function resolveSupabaseClientProfileId(supabase: SupabaseClient) {
+const resolveSupabaseClientProfileId = async (supabase: SupabaseClient) => {
   const { data, error } = await supabase
     .from("profile")
     .select("id")
@@ -67,9 +67,9 @@ async function resolveSupabaseClientProfileId(supabase: SupabaseClient) {
   }
 
   return data.id;
-}
+};
 
-export function createSupabaseClientRouterClient({
+export const createSupabaseClientRouterClient = ({
   profileId: explicitProfileId,
   serviceSupabase,
   supabase,
@@ -79,7 +79,7 @@ export function createSupabaseClientRouterClient({
   serviceSupabase?: SupabaseClient;
   supabase: SupabaseClient;
   userId?: string;
-}) {
+}) => {
   let profileId: Promise<string> | null = null;
   const getProfileId = () => {
     if (explicitProfileId) {
@@ -99,4 +99,4 @@ export function createSupabaseClientRouterClient({
         userId,
       }),
   });
-}
+};

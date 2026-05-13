@@ -70,10 +70,10 @@ const logOrpcError = (error: unknown) => {
   }
 };
 
-function isOpenApiDocsPath(request: Request) {
+const isOpenApiDocsPath = (request: Request) => {
   const pathname = new URL(request.url).pathname;
   return pathname === "/openapi" || pathname === "/openapi/spec.json";
-}
+};
 
 const MARBLE_SERVER_TIMING_HEADER = "x-marble-server-timing";
 const SERVER_TIMING_HEADER = "Server-Timing";
@@ -139,7 +139,7 @@ const logDebugTiming = (
   });
 };
 
-export function createMarbleApi(config: MarbleApiConfig) {
+export const createMarbleApi = (config: MarbleApiConfig) => {
   const runtime = createMarbleApiRuntime(config);
   const app = new Hono();
   const openApiHandler = new OpenAPIHandler(marbleRouter, {
@@ -265,4 +265,4 @@ export function createMarbleApi(config: MarbleApiConfig) {
   });
 
   return app;
-}
+};

@@ -38,7 +38,7 @@ export type MarbleClientOptions = {
   driver: MarbleClientDriver;
 };
 
-function resolveHostedApiUrl(apiUrl: string) {
+const resolveHostedApiUrl = (apiUrl: string) => {
   const trimmedApiUrl = trimTrailingSlash(apiUrl);
 
   try {
@@ -48,20 +48,20 @@ function resolveHostedApiUrl(apiUrl: string) {
       cause: error,
     });
   }
-}
+};
 
-function resolveHostedApiRpcUrl(apiUrl: string) {
+const resolveHostedApiRpcUrl = (apiUrl: string) => {
   return `${resolveHostedApiUrl(apiUrl)}/rpc`;
-}
+};
 
-function createHostedApiClient(options: {
+const createHostedApiClient = (options: {
   actorSource?: MarbleActorSource;
   apiKey?: string;
   apiUrl: string;
   fetch?: MarbleApiFetch;
   headers?: MarbleApiHeaders;
   profileId?: string;
-}) {
+}) => {
   const link = new RPCLink({
     fetch: options.fetch,
     headers: async (clientOptions, path, input) => {
@@ -89,7 +89,7 @@ function createHostedApiClient(options: {
   });
 
   return createORPCClient(link) as ContractRouterClient<MarbleContract>;
-}
+};
 
 export class MarbleClient {
   readonly cells: ContractRouterClient<MarbleContract>["cells"];

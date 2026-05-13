@@ -13,11 +13,11 @@ type ExecutorProxy = (input: {
   status: number;
 }>;
 
-function getForwardedHeader(request: Request, name: string) {
+const getForwardedHeader = (request: Request, name: string) => {
   return request.headers.get(name) ?? undefined;
-}
+};
 
-function requireExecutor(runtime: MarbleApiRuntime) {
+const requireExecutor = (runtime: MarbleApiRuntime) => {
   if (!runtime.executor) {
     throw new ORPCError("INTERNAL_SERVER_ERROR", {
       message: "Executor runtime is not configured.",
@@ -25,16 +25,16 @@ function requireExecutor(runtime: MarbleApiRuntime) {
   }
 
   return runtime.executor;
-}
+};
 
-function executorEndpointUrl(baseUrl: string, path: string, search = "") {
+const executorEndpointUrl = (baseUrl: string, path: string, search = "") => {
   const endpoint = new URL(baseUrl);
   endpoint.pathname = `${endpoint.pathname.replace(/\/$/, "")}${path}`;
   endpoint.search = search;
   return endpoint;
-}
+};
 
-function executorHeaders(actor: ApiActor, request: Request) {
+const executorHeaders = (actor: ApiActor, request: Request) => {
   const headers = new Headers();
 
   headers.set("Content-Type", "application/json");
@@ -62,9 +62,9 @@ function executorHeaders(actor: ApiActor, request: Request) {
   }
 
   return headers;
-}
+};
 
-async function readExecutorResponse(response: Response) {
+const readExecutorResponse = async (response: Response) => {
   const text = await response.text();
 
   try {
@@ -83,13 +83,13 @@ async function readExecutorResponse(response: Response) {
       status: response.status,
     };
   }
-}
+};
 
-function createExecutorProxy(
+const createExecutorProxy = (
   runtime: MarbleApiRuntime,
   actor: ApiActor,
   request: Request,
-): ExecutorProxy {
+): ExecutorProxy => {
   return async (input) => {
     const executor = requireExecutor(runtime);
     const executorRequest = new Request(
@@ -106,13 +106,13 @@ function createExecutorProxy(
 
     return readExecutorResponse(response);
   };
-}
+};
 
-export function createExecutorActions(
+export const createExecutorActions = (
   runtime: MarbleApiRuntime,
   actor: ApiActor,
   request: Request,
-): ResourceActions {
+): ResourceActions => {
   const proxyExecutorRequest = createExecutorProxy(runtime, actor, request);
 
   return {
@@ -133,4 +133,4 @@ export function createExecutorActions(
         }).toString(),
       }),
   };
-}
+};

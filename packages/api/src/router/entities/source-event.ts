@@ -2,11 +2,11 @@ import type { ApiContext } from "../../context";
 import { os } from "../../server";
 import type { RouterResourcePart } from "../../types";
 
-async function timeStoreCall<T>(
+const timeStoreCall = async <T>(
   context: ApiContext,
   name: string,
   task: () => Promise<T>,
-) {
+) => {
   const startedAt = performance.now();
 
   try {
@@ -14,7 +14,7 @@ async function timeStoreCall<T>(
   } finally {
     context.recordTiming(name, performance.now() - startedAt);
   }
-}
+};
 
 export const sourceEventRouter = {
   create: os.sourceEvents.create.handler(({ context, input }) =>
