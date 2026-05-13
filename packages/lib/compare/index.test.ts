@@ -37,6 +37,30 @@ describe("byDateDesc", () => {
       ),
     ).toBe(0);
   });
+
+  test("sinks invalid and empty date strings to the bottom", () => {
+    const items = [
+      {
+        at: "",
+      },
+      {
+        at: "2025-01-01T00:00:00Z",
+      },
+      {
+        at: "not-a-date",
+      },
+      {
+        at: "2026-01-01T00:00:00Z",
+      },
+    ];
+    items.sort(byDateDesc((item) => item.at));
+    expect(items.map((item) => item.at)).toEqual([
+      "2026-01-01T00:00:00Z",
+      "2025-01-01T00:00:00Z",
+      "",
+      "not-a-date",
+    ]);
+  });
 });
 
 describe("byDateAsc", () => {
@@ -53,6 +77,30 @@ describe("byDateAsc", () => {
     expect(items.map((item) => item.at)).toEqual([
       "2024-01-01T00:00:00Z",
       "2025-01-01T00:00:00Z",
+    ]);
+  });
+
+  test("sinks invalid and empty date strings to the bottom", () => {
+    const items = [
+      {
+        at: "not-a-date",
+      },
+      {
+        at: "2025-01-01T00:00:00Z",
+      },
+      {
+        at: "",
+      },
+      {
+        at: "2024-01-01T00:00:00Z",
+      },
+    ];
+    items.sort(byDateAsc((item) => item.at));
+    expect(items.map((item) => item.at)).toEqual([
+      "2024-01-01T00:00:00Z",
+      "2025-01-01T00:00:00Z",
+      "not-a-date",
+      "",
     ]);
   });
 });
@@ -79,13 +127,9 @@ describe("byString", () => {
   });
 
   test("respects locale options", () => {
-    const compare = byString<string>(
-      (value) => value,
-      "en",
-      {
-        sensitivity: "base",
-      },
-    );
+    const compare = byString<string>((value) => value, "en", {
+      sensitivity: "base",
+    });
     expect(compare("a", "A")).toBe(0);
   });
 });

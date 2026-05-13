@@ -7,19 +7,36 @@
 export type Compare<T> = (left: T, right: T) => number;
 
 /**
+ * Parse a date-like string to a millisecond timestamp. Falsy or unparseable
+ * inputs return the supplied `whenInvalid` sentinel so the caller can decide
+ * which end of the sort they sink to.
+ */
+function toTimestamp(value: string, whenInvalid: number): number {
+  if (!value) {
+    return whenInvalid;
+  }
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? whenInvalid : ms;
+}
+
+/**
  * Compare by a date-like string field, newest first. Items with falsy or
- * unparseable values sink to the bottom (they compare as `NaN` →
- * `Date.getTime()` returns `NaN`, which makes both arms `false`).
+ * unparseable values sink to the bottom (treated as `-Infinity`).
  */
 export function byDateDesc<T>(get: (value: T) => string): Compare<T> {
   return (left, right) =>
-    new Date(get(right)).getTime() - new Date(get(left)).getTime();
+    toTimestamp(get(right), Number.NEGATIVE_INFINITY) -
+    toTimestamp(get(left), Number.NEGATIVE_INFINITY);
 }
 
-/** Compare by a date-like string field, oldest first. */
+/**
+ * Compare by a date-like string field, oldest first. Items with falsy or
+ * unparseable values sink to the bottom (treated as `+Infinity`).
+ */
 export function byDateAsc<T>(get: (value: T) => string): Compare<T> {
   return (left, right) =>
-    new Date(get(left)).getTime() - new Date(get(right)).getTime();
+    toTimestamp(get(left), Number.POSITIVE_INFINITY) -
+    toTimestamp(get(right), Number.POSITIVE_INFINITY);
 }
 
 /**
