@@ -8,7 +8,7 @@ const queueMessageSchema = z.object({
 type QueueMessage = z.infer<typeof queueMessageSchema>;
 type ExecutorPayload = Record<string, unknown>;
 
-async function readExecutorResponse(response: Response) {
+const readExecutorResponse = async (response: Response) => {
   const text = await response.text();
 
   try {
@@ -19,13 +19,13 @@ async function readExecutorResponse(response: Response) {
       success: false,
     };
   }
-}
+};
 
-function executorPayloadMessage(payload: ExecutorPayload) {
+const executorPayloadMessage = (payload: ExecutorPayload) => {
   return typeof payload.message === "string" ? payload.message : undefined;
-}
+};
 
-async function executeRuns(env: Env, runIds: string[]) {
+const executeRuns = async (env: Env, runIds: string[]) => {
   if (runIds.length === 0) {
     return;
   }
@@ -50,14 +50,14 @@ async function executeRuns(env: Env, runIds: string[]) {
       }`,
     );
   }
-}
+};
 
-async function processQueuedSourceEvent(env: Env, input: QueueMessage) {
+const processQueuedSourceEvent = async (env: Env, input: QueueMessage) => {
   const { runIds } = await workerStore(env).sourceEvents.ingestWebhook(input);
   await executeRuns(env, runIds);
-}
+};
 
-export async function consumeQueue(batch: MessageBatch<unknown>, env: Env) {
+export const consumeQueue = async (batch: MessageBatch<unknown>, env: Env) => {
   for (const message of batch.messages) {
     try {
       const input = queueMessageSchema.parse(message.body);
@@ -68,4 +68,4 @@ export async function consumeQueue(batch: MessageBatch<unknown>, env: Env) {
       message.ack();
     }
   }
-}
+};
