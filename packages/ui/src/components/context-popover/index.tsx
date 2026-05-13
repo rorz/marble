@@ -138,7 +138,7 @@ export function MarbleContextPopover({
 
   const handleTriggerKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
     buttonRef.current = event.currentTarget;
-    onKeyDown?.(event as unknown as ReactKeyboardEvent<HTMLButtonElement>);
+    onKeyDown?.(event as ReactKeyboardEvent<HTMLButtonElement>);
 
     if (event.defaultPrevented || isTriggerDisabled) {
       return;

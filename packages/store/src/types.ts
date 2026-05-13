@@ -9,7 +9,7 @@ import type {
   SupabaseClient,
   TableName,
   Tables,
-} from "@marble/supabase";
+} from "../../../src";
 
 type DbTable<T extends TableName> = Database["public"]["Tables"][T];
 

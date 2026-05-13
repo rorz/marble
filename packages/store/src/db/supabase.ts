@@ -121,7 +121,7 @@ const timeDbCall = <T>(
 
 const toSupabaseMatch = <T extends TableWithIdName>(
   where: ListParams<T>,
-): Partial<DbRow<T>> => toSnakeKeys(where) as unknown as Partial<DbRow<T>>;
+): Partial<DbRow<T>> => toSnakeKeys<T>(where);
 
 const identityWhere = <T extends TableWithIdName>(
   id: string,

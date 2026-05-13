@@ -12,6 +12,7 @@ import {
   createFailureState,
   createRuntimeEnvelope,
   formatZodIssues,
+  zodIssuesToJson,
 } from "./failure-state";
 
 type CellExecutionCandidateResolution =
@@ -72,7 +73,7 @@ function resolveInputContext(context: ProgramRunInputContext) {
     cell: {
       manualInputValue: context.cell.manual_input,
     },
-    columns: context.columns as unknown as JsonValue,
+    columns: context.columns as JsonValue,
   };
   const inputTemplate = JSON.parse(context.column.input_template) as JsonValue;
   const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
@@ -139,7 +140,7 @@ async function resolveCellExecutionCandidate(
             error.issues,
           )}`,
           {
-            issues: error.issues as unknown as JsonValue,
+            issues: zodIssuesToJson(error.issues),
             sentinel: "AUTO_QUEUE_INPUT_VALIDATION_FAILED",
           } as JsonValue,
         ),

@@ -66,9 +66,16 @@ export function isPlainRecord(
  * Single-purpose helper that replaces a per-resource `xFromBroadcastRow`
  * pile with one well-typed primitive. Always pass the target type
  * explicitly: `castCamelKeys<MyType>(row)`.
+ *
+ * The `T extends Record<string, unknown>` constraint is what lets us
+ * cast through with a single `as T` (not `as unknown as T`): callers
+ * always pass a domain object type whose keys are strings, so the
+ * structural shape of `toCamelKeys(value)` is assignable.
  */
-export function castCamelKeys<T>(value: Record<string, unknown>): T {
-  return toCamelKeys(value) as unknown as T;
+export function castCamelKeys<T extends Record<string, unknown>>(
+  value: Record<string, unknown>,
+): T {
+  return toCamelKeys(value) as T;
 }
 
 /**

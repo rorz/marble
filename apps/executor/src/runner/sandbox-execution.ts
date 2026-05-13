@@ -11,7 +11,11 @@ import {
   BATCH_EXECUTOR_FILE_CONTENT,
   EXECUTOR_FILE_CONTENT,
 } from "../constants";
-import { createFailureState, formatZodIssues } from "./failure-state";
+import {
+  createFailureState,
+  formatZodIssues,
+  zodIssuesToJson,
+} from "./failure-state";
 
 export type ProgramFile = ProgramVersionTestData["files"][number];
 export type BatchExecutionJob = {
@@ -136,7 +140,7 @@ export function validateOutputValue(
       return createFailureState(
         "Parser",
         `Output validation failed: ${formatZodIssues(validation.error.issues)}`,
-        validation.error.issues as unknown as JsonValue,
+        zodIssuesToJson(validation.error.issues),
       );
     }
 

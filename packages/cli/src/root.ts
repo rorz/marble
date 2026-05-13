@@ -1,4 +1,4 @@
-import { marbleContract } from "@marble/contracts";
+import { type MarbleContract, marbleContract } from "@marble/contracts";
 import { isContractProcedure } from "@orpc/contract";
 import { Command } from "commander";
 import { z } from "zod";
@@ -28,9 +28,25 @@ import { registerProgramDir } from "./program-dir";
 
 type CommandHandler = (input: unknown) => Promise<unknown>;
 
-type ResourceClient = Record<string, CommandHandler>;
-
-type MarbleClientShape = Record<string, ResourceClient>;
+/**
+ * Shape of `MarbleClient` for dynamic dispatch from CLI argv.
+ *
+ * Outer keys are tied to `MarbleContract` resource names, so renaming or
+ * removing a resource will surface here. Inner keys stay string-indexed
+ * because operations are looked up by raw argv strings — operation
+ * existence is checked at runtime by `dispatch`.
+ *
+ * The cast to this shape requires `as unknown as` (not a single `as`)
+ * because the typed RPC client's per-op handlers have specific
+ * `(input: SpecificInput) => Promise<SpecificOutput>` signatures and
+ * function-parameter contravariance correctly rejects widening them to
+ * `(input: unknown) => Promise<unknown>`. The CLI is a thin JSON
+ * pass-through — input validation happens via the API's Zod schemas at
+ * call time — so the widening is safe in practice.
+ */
+type MarbleClientShape = {
+  readonly [R in keyof MarbleContract]: Record<string, CommandHandler>;
+};
 
 type ContractProcedureMeta = {
   description?: string;
@@ -138,7 +154,7 @@ function summariseForHelp(procedure: unknown) {
 
 function dispatch(resource: string, operation: string, input: unknown) {
   const client = getMarbleClient() as unknown as MarbleClientShape;
-  const handler = client[resource]?.[operation];
+  const handler = client[resource as keyof MarbleContract]?.[operation];
 
   if (typeof handler !== "function") {
     throw new Error(`Operation '${resource}.${operation}' is not callable.`);

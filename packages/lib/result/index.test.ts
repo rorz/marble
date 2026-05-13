@@ -63,12 +63,10 @@ describe("formatRpcError", () => {
   });
 
   test("falls through when toJSON throws", () => {
-    const error = new Error("boom");
-    (
-      error as unknown as {
-        toJSON: () => unknown;
-      }
-    ).toJSON = () => {
+    const error = new Error("boom") as Error & {
+      toJSON?: () => unknown;
+    };
+    error.toJSON = () => {
       throw new Error("nope");
     };
     expect(formatRpcError(error)).toBe("boom");

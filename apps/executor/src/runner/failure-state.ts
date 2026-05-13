@@ -17,6 +17,19 @@ export const formatZodIssues = (issues: z.ZodIssue[]): string =>
     .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
     .join("; ");
 
+/**
+ * Convert a `z.ZodIssue[]` to `JsonValue` for persistence as run detail.
+ *
+ * TS rejects a direct `as JsonValue` because `ZodIssue.path` is typed as
+ * `PropertyKey[]` (which includes `symbol`) and symbols are not part of
+ * `JsonValue`. In practice Zod only produces string/number paths, so a
+ * JSON round-trip is the safest no-cast conversion: it eliminates any
+ * stray non-JSON values at the same time as it crosses the type
+ * boundary. These are error paths, not hot paths.
+ */
+export const zodIssuesToJson = (issues: z.ZodIssue[]): JsonValue =>
+  JSON.parse(JSON.stringify(issues));
+
 export const createFailureState = (
   errorType: string,
   message: string,
@@ -27,7 +40,7 @@ export const createFailureState = (
     ...(detail == null
       ? {}
       : {
-          detail: detail as unknown as JsonValue,
+          detail,
         }),
   },
   message,
@@ -52,7 +65,7 @@ export class MissingSecretConfigurationError extends Error {
       {
         missingSecrets,
         sentinel: "WAITING_FOR_SECRET_CONFIGURATION",
-      } as unknown as JsonValue,
+      } as JsonValue,
     );
   }
 }

@@ -10,6 +10,7 @@ import {
   createFailureState,
   createRuntimeEnvelope,
   formatZodIssues,
+  zodIssuesToJson,
 } from "./failure-state";
 import {
   type BatchExecutionJob,
@@ -49,7 +50,7 @@ export const failureStateFromError = (error: unknown): RunReturnValueType => {
     return createFailureState(
       "Validation",
       formatZodIssues(error.issues),
-      error.issues as unknown as JsonValue,
+      zodIssuesToJson(error.issues),
     );
   }
 
