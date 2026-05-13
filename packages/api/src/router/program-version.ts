@@ -5,6 +5,7 @@ import {
 } from "@marble/contracts";
 import { os } from "../server";
 import type { RouterResourcePart } from "../types";
+import { composeResourceRouter } from "./compose";
 
 function formatZodIssues(
   issues: Array<{
@@ -69,13 +70,11 @@ function normalizeProgramVersionWriteInput<
 }
 
 export const programVersionRouter = {
+  ...composeResourceRouter("programVersions"),
   create: os.programVersions.create.handler(({ context, input }) =>
     context.store.programVersions.create(
       normalizeProgramVersionWriteInput(input),
     ),
-  ),
-  test: os.programVersions.test.handler(({ context, input }) =>
-    context.store.programVersions.test(input),
   ),
   update: os.programVersions.update.handler(({ context, input }) =>
     context.store.programVersions.update({

@@ -1,8 +1,3 @@
-import { os } from "../server";
-import type { RouterResourcePart } from "../types";
+import { composeResourceRouter } from "./compose";
 
-export const sidebarRouter = {
-  getData: os.sidebar.getData.handler(({ context }) =>
-    context.store.sidebar.getData(),
-  ),
-} satisfies RouterResourcePart<"sidebar">;
+export const sidebarRouter = composeResourceRouter("sidebar");

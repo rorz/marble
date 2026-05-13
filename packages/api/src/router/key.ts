@@ -1,14 +1,3 @@
-import { os } from "../server";
-import type { RouterResourcePart } from "../types";
+import { composeResourceRouter } from "./compose";
 
-export const keyRouter = {
-  create: os.keys.create.handler(({ context, input }) =>
-    context.store.keys.create(input),
-  ),
-  list: os.keys.list.handler(({ context, input }) =>
-    context.store.keys.list(input),
-  ),
-  revoke: os.keys.revoke.handler(({ context, input }) =>
-    context.store.keys.revoke(input),
-  ),
-} satisfies RouterResourcePart<"keys">;
+export const keyRouter = composeResourceRouter("keys");
