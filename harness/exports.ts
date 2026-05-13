@@ -57,7 +57,7 @@ interface OrphanExport {
   relPath: string;
 }
 
-function isExcludedSurface(relPath: string): boolean {
+const isExcludedSurface = (relPath: string): boolean => {
   // Workspace package barrels.
   if (/^packages\/[\w-]+\/src\/index\.ts$/.test(relPath)) return true;
   // Public contract package — every export is a public surface by design.
@@ -65,7 +65,7 @@ function isExcludedSurface(relPath: string): boolean {
   // Type surface modules.
   if (/(?:^|\/)types\.ts$/.test(relPath)) return true;
   return false;
-}
+};
 
 const EXPORT_REGEX = /export\s+(?:type|interface)\s+([A-Z][A-Za-z0-9_]*)\b/g;
 
@@ -111,7 +111,7 @@ for (const rel of files) {
   allSources.set(rel, readFileSync(resolve(REPO_ROOT, rel), "utf8"));
 }
 
-function hasConsumer(name: string, definedIn: string): boolean {
+const hasConsumer = (name: string, definedIn: string): boolean => {
   // Word-bounded substring search across all files except the definition site.
   const re = new RegExp(`\\b${name}\\b`);
   for (const [rel, source] of allSources) {
@@ -119,7 +119,7 @@ function hasConsumer(name: string, definedIn: string): boolean {
     if (re.test(source)) return true;
   }
   return false;
-}
+};
 
 const orphans: OrphanExport[] = [];
 for (const site of exportSites) {

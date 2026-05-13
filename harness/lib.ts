@@ -53,10 +53,10 @@ export interface CollectFilesOptions {
  * Patterns are POSIX-style and relative to repo root, e.g.
  * `"apps/**\/*.{ts,tsx}"`.
  */
-export async function collectFiles(
+export const collectFiles = async (
   patterns: readonly string[],
   options: CollectFilesOptions = {},
-): Promise<string[]> {
+): Promise<string[]> => {
   const skip = new Set<string>(
     options.skipDirsReplace
       ? (options.skipDirs ?? [])
@@ -80,18 +80,18 @@ export async function collectFiles(
   return [
     ...seen,
   ].sort();
-}
+};
 
 /**
  * 1-indexed { line, col } for a byte offset in `source`.
  */
-export function locate(
+export const locate = (
   source: string,
   index: number,
 ): {
   col: number;
   line: number;
-} {
+} => {
   let line = 1;
   let lastNl = -1;
   for (let i = 0; i < index; i++) {
@@ -104,36 +104,36 @@ export function locate(
     col: index - lastNl,
     line,
   };
-}
+};
 
 /**
  * Line-only shorthand. Equivalent to `locate(source, index).line` but
  * shaves a few cycles by skipping the column calculation.
  */
-export function locateLine(source: string, index: number): number {
+export const locateLine = (source: string, index: number): number => {
   let line = 1;
   for (let i = 0; i < index; i++) {
     if (source.charCodeAt(i) === 10) line++;
   }
   return line;
-}
+};
 
 /**
  * The full line of text containing `index`, with no trailing newline.
  */
-export function lineAt(source: string, index: number): string {
+export const lineAt = (source: string, index: number): string => {
   let start = index;
   while (start > 0 && source.charCodeAt(start - 1) !== 10) start--;
   let end = index;
   while (end < source.length && source.charCodeAt(end) !== 10) end++;
   return source.slice(start, end);
-}
+};
 
 /**
  * The line immediately above `index` (used to detect a previous-line
  * `// harness-ignore` opt-out). Returns "" if `index` is on line 1.
  */
-export function prevLine(source: string, index: number): string {
+export const prevLine = (source: string, index: number): string => {
   let start = index;
   while (start > 0 && source.charCodeAt(start - 1) !== 10) start--;
   if (start === 0) return "";
@@ -141,21 +141,21 @@ export function prevLine(source: string, index: number): string {
   let prevStart = prevEnd;
   while (prevStart > 0 && source.charCodeAt(prevStart - 1) !== 10) prevStart--;
   return source.slice(prevStart, prevEnd);
-}
+};
 
 /**
  * Does the given line contain a `// harness-ignore: <ruleId>` directive
  * that mentions this rule? Accepts comma-separated rule lists; trailing
  * justification prose after the id list is ignored.
  */
-export function hasIgnore(line: string, ruleId: string): boolean {
+export const hasIgnore = (line: string, ruleId: string): boolean => {
   const m = /harness-ignore:\s*([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)/i.exec(line);
   if (!m) return false;
   return m[1]
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .includes(ruleId);
-}
+};
 
 /**
  * Almanac sections that look like `## name` but are NOT resources. Kept
@@ -188,7 +188,7 @@ export interface ParsedAlmanac {
  * by design. Sections that look like a resource but have no allow-list
  * are returned via `unknownSections` for the caller to decide what to do.
  */
-export function parseAlmanac(source: string): ParsedAlmanac {
+export const parseAlmanac = (source: string): ParsedAlmanac => {
   const resources = new Map<string, AlmanacResourceEntry>();
   const unknownSections: string[] = [];
 
@@ -239,14 +239,14 @@ export function parseAlmanac(source: string): ParsedAlmanac {
     resources,
     unknownSections,
   };
-}
+};
 
 /**
  * Read the almanac from its canonical path.
  */
-export function readAlmanac(): string {
+export const readAlmanac = (): string => {
   return readFileSync(
     resolve(REPO_ROOT, "docs/internal/data-interface-definitions.md"),
     "utf8",
   );
-}
+};

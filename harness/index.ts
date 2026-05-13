@@ -40,14 +40,16 @@ const CHECKS = [
 
 type CheckName = (typeof CHECKS)[number];
 
-function isCheck(value: string): value is CheckName {
+const isCheck = (value: string): value is CheckName => {
   return (CHECKS as readonly string[]).includes(value);
-}
+};
 
-function runCheck(name: CheckName): Promise<{
+const runCheck = (
+  name: CheckName,
+): Promise<{
   exitCode: number;
   name: CheckName;
-}> {
+}> => {
   return new Promise((resolveCheck) => {
     const child = spawn(
       "bun",
@@ -66,7 +68,7 @@ function runCheck(name: CheckName): Promise<{
       });
     });
   });
-}
+};
 
 const requested = process.argv.slice(2);
 for (const arg of requested) {

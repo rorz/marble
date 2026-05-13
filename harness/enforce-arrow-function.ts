@@ -37,7 +37,9 @@ const SCAN_GLOBS: readonly string[] = [
 ];
 
 const isExcludedFile = (relPath: string): boolean =>
-  /\.generated\.(ts|tsx)$/.test(relPath) || /\.d\.(ts|tsx)$/.test(relPath);
+  /\.generated\.(ts|tsx)$/.test(relPath) ||
+  /\.d\.(ts|tsx)$/.test(relPath) ||
+  relPath.startsWith("harness/fixtures/");
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 

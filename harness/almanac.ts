@@ -25,7 +25,7 @@
 import { marbleContract } from "@marble/contracts";
 import { parseAlmanac, readAlmanac } from "./lib";
 
-function extractContractOperations(): Map<string, Set<string>> {
+const extractContractOperations = (): Map<string, Set<string>> => {
   const result = new Map<string, Set<string>>();
   for (const [resource, contract] of Object.entries(marbleContract)) {
     result.set(
@@ -34,7 +34,7 @@ function extractContractOperations(): Map<string, Set<string>> {
     );
   }
   return result;
-}
+};
 
 interface DriftReport {
   /** Operations in the almanac with no contract implementation. Info. */
@@ -55,11 +55,11 @@ interface DriftReport {
   unknownSections: string[];
 }
 
-function diff(
+const diff = (
   contract: Map<string, Set<string>>,
   almanac: ReturnType<typeof parseAlmanac>["resources"],
   unknownSections: string[],
-): DriftReport {
+): DriftReport => {
   const contractNotInAlmanac: DriftReport["contractNotInAlmanac"] = [];
   const contractResourceNotInAlmanac: string[] = [];
   const almanacNotInContract: DriftReport["almanacNotInContract"] = [];
@@ -104,11 +104,13 @@ function diff(
     contractResourceNotInAlmanac,
     unknownSections,
   };
-}
+};
 
-function report(d: DriftReport): {
+const report = (
+  d: DriftReport,
+): {
   failed: boolean;
-} {
+} => {
   const errors =
     d.contractNotInAlmanac.length + d.contractResourceNotInAlmanac.length;
   const info =
@@ -198,7 +200,7 @@ function report(d: DriftReport): {
   return {
     failed: errors > 0,
   };
-}
+};
 
 const { resources: almanac, unknownSections } = parseAlmanac(readAlmanac());
 const contract = extractContractOperations();

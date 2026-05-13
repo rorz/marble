@@ -47,15 +47,15 @@ const FIXTURES_DIR = resolve(THIS_DIR, "../seed-fixtures/programs");
 const ACCOUNTS_FILE = resolve(THIS_DIR, "../.private/accounts.json");
 const OUTPUT_FILE = resolve(THIS_DIR, "../seed.sql");
 
-function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+const isErrnoException = (error: unknown): error is NodeJS.ErrnoException => {
   return error instanceof Error && "code" in error;
-}
+};
 
-function isJsonObject(value: unknown): value is JsonObject {
+const isJsonObject = (value: unknown): value is JsonObject => {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+};
 
-function readOptionalJson(path: string): unknown | null {
+const readOptionalJson = (path: string): unknown | null => {
   try {
     return JSON.parse(readFileSync(path, "utf-8"));
   } catch (error) {
@@ -65,14 +65,14 @@ function readOptionalJson(path: string): unknown | null {
 
     throw error;
   }
-}
+};
 
-function readJsonObject(path: string): JsonObject {
+const readJsonObject = (path: string): JsonObject => {
   const value = readOptionalJson(path);
   return isJsonObject(value) ? value : {};
-}
+};
 
-function readOptionalText(path: string): string | null {
+const readOptionalText = (path: string): string | null => {
   try {
     return readFileSync(path, "utf-8").trim();
   } catch (error) {
@@ -82,17 +82,17 @@ function readOptionalText(path: string): string | null {
 
     throw error;
   }
-}
+};
 
-function readRequiredText(path: string): string {
+const readRequiredText = (path: string): string => {
   return readOptionalText(path) ?? "";
-}
+};
 
-function sqlEscape(value: string): string {
+const sqlEscape = (value: string): string => {
   return value.replaceAll("'", "''");
-}
+};
 
-function getFileType(filename: string): ProgramFileType {
+const getFileType = (filename: string): ProgramFileType => {
   if (filename.endsWith(".ts")) {
     return "TypeScript";
   }
@@ -106,9 +106,9 @@ function getFileType(filename: string): ProgramFileType {
   }
 
   return "TypeScript";
-}
+};
 
-function getProgramName(dirName: string, dir: string): string {
+const getProgramName = (dirName: string, dir: string): string => {
   const packageJson = readOptionalJson(join(dir, "package.json"));
 
   if (isJsonObject(packageJson) && typeof packageJson.name === "string") {
@@ -116,9 +116,9 @@ function getProgramName(dirName: string, dir: string): string {
   }
 
   return dirName;
-}
+};
 
-function buildProgramSeed(dirName: string): ProgramSeed {
+const buildProgramSeed = (dirName: string): ProgramSeed => {
   const dir = join(FIXTURES_DIR, dirName);
   const inputSchema = readJsonObject(join(dir, "input-schema.json"));
   const outputConfig = readJsonObject(join(dir, "output-config.json"));
@@ -142,7 +142,7 @@ function buildProgramSeed(dirName: string): ProgramSeed {
     outputConfig: JSON.stringify(outputConfig),
     slug: dirName,
   };
-}
+};
 
 const programDirs = readdirSync(FIXTURES_DIR, {
   withFileTypes: true,

@@ -32,7 +32,7 @@ interface ListenerSite {
   table: string;
 }
 
-async function findListenerCallsites(): Promise<ListenerSite[]> {
+const findListenerCallsites = async (): Promise<ListenerSite[]> => {
   const sites: ListenerSite[] = [];
 
   // Match `.on(...)` calls with `postgres_changes` as the first argument,
@@ -82,9 +82,9 @@ async function findListenerCallsites(): Promise<ListenerSite[]> {
   }
 
   return sites;
-}
+};
 
-async function findPublicationTables(): Promise<Set<string>> {
+const findPublicationTables = async (): Promise<Set<string>> => {
   const tables = new Set<string>();
   const files = await collectFiles([
     "supabase/migrations/*.sql",
@@ -100,7 +100,7 @@ async function findPublicationTables(): Promise<Set<string>> {
     }
   }
   return tables;
-}
+};
 
 const listeners = await findListenerCallsites();
 const published = await findPublicationTables();

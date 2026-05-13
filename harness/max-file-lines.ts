@@ -46,33 +46,33 @@ const SCAN_GLOBS: readonly string[] = [
   "harness/**/*.{ts,tsx}",
 ];
 
-function isExcludedFile(relPath: string): boolean {
+const isExcludedFile = (relPath: string): boolean => {
   // Generated TypeScript marker.
   if (/\.generated\.(ts|tsx)$/.test(relPath)) return true;
   // All declaration files (typically generated or auto-derived).
   if (/\.d\.(ts|tsx)$/.test(relPath)) return true;
   return false;
-}
+};
 
 /**
  * Match `wc -l` semantics: the count of newline characters in the source.
  * A file with content `"foo"` (no trailing newline) reports 0 lines; a
  * file ending in `"\n"` reports the visual line count.
  */
-function countLines(source: string): number {
+const countLines = (source: string): number => {
   let count = 0;
   for (let i = 0; i < source.length; i++) {
     if (source.charCodeAt(i) === 10) count++;
   }
   return count;
-}
+};
 
 /**
  * Whole-file opt-out: scan the first `OPT_OUT_SCAN_LINES` lines for a
  * `harness-ignore: max-file-lines` directive. The comment must live at
  * the top of the file so its presence is obvious to anyone reading it.
  */
-function hasFileLevelIgnore(source: string): boolean {
+const hasFileLevelIgnore = (source: string): boolean => {
   let scanned = 0;
   let lineStart = 0;
   while (scanned < OPT_OUT_SCAN_LINES && lineStart <= source.length) {
@@ -85,7 +85,7 @@ function hasFileLevelIgnore(source: string): boolean {
     scanned++;
   }
   return false;
-}
+};
 
 interface Finding {
   lines: number;
@@ -115,7 +115,7 @@ for (const relPath of files) {
   });
 }
 
-function report(found: readonly Finding[]): void {
+const report = (found: readonly Finding[]): void => {
   if (found.length === 0) {
     console.log("harness/max-file-lines: OK");
     return;
@@ -157,7 +157,7 @@ function report(found: readonly Finding[]): void {
   );
   console.error("");
   console.error(`${found.length} file(s) over the ${MAX_LINES}-line ceiling.`);
-}
+};
 
 report(findings);
 process.exit(findings.length === 0 ? 0 : 1);

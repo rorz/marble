@@ -5,20 +5,20 @@ export interface Account {
   password: string;
 }
 
-function isErrnoException(error: unknown): error is NodeJS.ErrnoException {
+const isErrnoException = (error: unknown): error is NodeJS.ErrnoException => {
   return error instanceof Error && "code" in error;
-}
+};
 
-function isAccount(value: unknown): value is Account {
+const isAccount = (value: unknown): value is Account => {
   return (
     typeof value === "object" &&
     value !== null &&
     typeof (value as Account).email === "string" &&
     typeof (value as Account).password === "string"
   );
-}
+};
 
-export function readAccountsFile(path: string): Account[] {
+export const readAccountsFile = (path: string): Account[] => {
   let raw: string;
   try {
     raw = readFileSync(path, "utf-8");
@@ -48,9 +48,9 @@ export function readAccountsFile(path: string): Account[] {
 
     return entry;
   });
-}
+};
 
-function buildAccountSql(account: Account): string {
+const buildAccountSql = (account: Account): string => {
   const email = account.email.replaceAll("'", "''");
   const password = account.password.replaceAll("'", "''");
 
@@ -85,9 +85,9 @@ function buildAccountSql(account: Account): string {
     ),
     'email', NOW(), NOW(), NOW()
   );`;
-}
+};
 
-export function buildAccountsSql(accounts: Account[]): string {
+export const buildAccountsSql = (accounts: Account[]): string => {
   if (accounts.length === 0) {
     return "-- No operator accounts to seed (.private/accounts.json missing or empty).";
   }
@@ -97,4 +97,4 @@ DECLARE
   new_user_id uuid;
 BEGIN${accounts.map(buildAccountSql).join("")}
 END $$;`;
-}
+};

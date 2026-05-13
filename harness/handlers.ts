@@ -37,11 +37,11 @@ interface RouterFile {
   resource: string;
 }
 
-function parseRouterFile(
+const parseRouterFile = (
   filePath: string,
   source: string,
   layout: "entities" | "flat" | "nested",
-): RouterFile | null {
+): RouterFile | null => {
   // Strip /* ... */ blocks so JSDoc examples (e.g. compose.ts's docstring
   // showing a `satisfies RouterResourcePart<"programFiles">` snippet) do not
   // falsely register as router files.
@@ -82,9 +82,9 @@ function parseRouterFile(
     operations: keys,
     resource,
   };
-}
+};
 
-async function collectRouterFiles(): Promise<RouterFile[]> {
+const collectRouterFiles = async (): Promise<RouterFile[]> => {
   const result: RouterFile[] = [];
 
   // Entities layout: packages/api/src/router/entities/<resource>.ts.
@@ -124,9 +124,9 @@ async function collectRouterFiles(): Promise<RouterFile[]> {
   }
 
   return result;
-}
+};
 
-function parseMountedResources(indexSource: string): Set<string> {
+const parseMountedResources = (indexSource: string): Set<string> => {
   const mounted = new Set<string>();
   const objectMatch =
     /marbleRouter\s*=\s*os\.router\(\s*\{([\s\S]*?)\}\s*\)/.exec(indexSource);
@@ -139,7 +139,7 @@ function parseMountedResources(indexSource: string): Set<string> {
     m = keyRegex.exec(body);
   }
   return mounted;
-}
+};
 
 const indexSource = readFileSync(resolve(REPO_ROOT, ROUTER_INDEX), "utf8");
 

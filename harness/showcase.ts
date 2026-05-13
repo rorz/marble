@@ -47,7 +47,7 @@ interface PrimitiveExport {
  * primitives. Everything else (type exports, lowercase exports like `cx`,
  * `marbleToast`) is skipped.
  */
-function parseUiExports(source: string): PrimitiveExport[] {
+const parseUiExports = (source: string): PrimitiveExport[] => {
   const result: PrimitiveExport[] = [];
   // Match `export { ... } from "./components/<file>";` blocks.
   const blockRegex =
@@ -71,7 +71,7 @@ function parseUiExports(source: string): PrimitiveExport[] {
     block = blockRegex.exec(source);
   }
   return result;
-}
+};
 
 const uiSource = readFileSync(resolve(REPO_ROOT, UI_INDEX), "utf8");
 const showcaseFiles = await collectFiles([
@@ -85,9 +85,9 @@ const primitives = parseUiExports(uiSource);
 const seen = new Set<string>();
 const missing: PrimitiveExport[] = [];
 
-function escapeRegex(value: string): string {
+const escapeRegex = (value: string): string => {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+};
 
 for (const primitive of primitives) {
   if (seen.has(primitive.name)) continue;

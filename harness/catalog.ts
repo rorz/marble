@@ -63,10 +63,12 @@ for (const name of knownCatalogKeys.keys()) {
 
 const errors: CatalogError[] = [];
 
-function classify(spec: string): {
+const classify = (
+  spec: string,
+): {
   kind: "workspace" | "catalog" | "drift";
   catalog?: string;
-} {
+} => {
   if (spec === "workspace:*")
     return {
       kind: "workspace",
@@ -90,7 +92,7 @@ function classify(spec: string): {
   return {
     kind: "drift",
   };
-}
+};
 
 const FIELDS = [
   "dependencies",

@@ -225,7 +225,7 @@ const SCAN_GLOBS: readonly string[] = [
   "package.json",
 ];
 
-async function scan(): Promise<Finding[]> {
+const scan = async (): Promise<Finding[]> => {
   const files = await collectFiles(SCAN_GLOBS);
   const findings: Finding[] = [];
 
@@ -262,9 +262,9 @@ async function scan(): Promise<Finding[]> {
   }
 
   return findings;
-}
+};
 
-function report(findings: readonly Finding[]): void {
+const report = (findings: readonly Finding[]): void => {
   if (findings.length === 0) {
     console.log("harness/patterns: OK");
     return;
@@ -305,7 +305,7 @@ function report(findings: readonly Finding[]): void {
     }" to a line to opt that single instance out.`,
   );
   console.error(`${findings.length} finding(s) across ${byRule.size} rule(s).`);
-}
+};
 
 const findings = await scan();
 report(findings);
