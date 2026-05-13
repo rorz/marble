@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
-import { marbleRouter } from "../src/router";
+import { marbleRouter } from "../src/router/entities";
 import { createValidationContext, INVALID_UUID, VALID_UUID } from "./_setup";
 
 const VALID_CREATE_INPUT = {

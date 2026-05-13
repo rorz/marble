@@ -1,7 +1,7 @@
 import { parseProgramManifestFileContent } from "@marble/contracts";
-import { os } from "../server";
-import type { RouterResourcePart } from "../types";
-import { composeResourceRouter } from "./compose";
+import { os } from "../../server";
+import type { RouterResourcePart } from "../../types";
+import { composeResourceRouter } from "../compose";
 
 function assertValidProgramManifest(
   files: Array<{

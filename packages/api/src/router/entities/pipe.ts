@@ -1,3 +1,3 @@
-import { composeResourceRouter } from "./compose";
+import { composeResourceRouter } from "../compose";
 
 export const pipeRouter = composeResourceRouter("pipes");

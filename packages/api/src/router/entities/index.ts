@@ -1,5 +1,5 @@
-import { os } from "../server";
-import { cellRouter } from "./cell";
+import { os } from "../../server";
+import { cellRouter } from "../cell";
 import { columnRouter } from "./column";
 import { eventRouter } from "./event";
 import { keyRouter } from "./key";

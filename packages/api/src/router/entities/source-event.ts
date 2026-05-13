@@ -1,6 +1,6 @@
-import type { ApiContext } from "../context";
-import { os } from "../server";
-import type { RouterResourcePart } from "../types";
+import type { ApiContext } from "../../context";
+import { os } from "../../server";
+import type { RouterResourcePart } from "../../types";
 
 async function timeStoreCall<T>(
   context: ApiContext,

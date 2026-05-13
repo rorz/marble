@@ -1,6 +1,6 @@
-import { os } from "../server";
-import type { RouterResourcePart } from "../types";
-import { composeResourceRouter } from "./compose";
+import { os } from "../../server";
+import type { RouterResourcePart } from "../../types";
+import { composeResourceRouter } from "../compose";
 
 export const projectRouter = {
   ...composeResourceRouter("projects"),
