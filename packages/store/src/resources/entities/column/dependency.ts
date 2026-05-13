@@ -10,8 +10,10 @@ function extractDependenciesFromTemplate(template: string) {
     return [];
   }
 
-  const jsonPathPattern = /^\$\.columns\.([a-f0-9-]+)\./;
-  const interpolationPattern = /\{\{\$\.columns\.([a-f0-9-]+)\.[^}]+\}\}/g;
+  const jsonPathPattern =
+    /^\$\.columns\.([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\./;
+  const interpolationPattern =
+    /\{\{\$\.columns\.([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.[^}]+\}\}/g;
 
   const visit = (value: unknown) => {
     if (typeof value === "string") {

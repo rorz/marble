@@ -69,6 +69,9 @@ const isPackageJson = (p: string): boolean =>
 const isGlobalsCss = (p: string): boolean =>
   p === "apps/web/src/app/globals.css";
 
+const isPackageSrc = (p: string): boolean =>
+  isTsLike(p) && /^(packages|apps)\/[^/]+\/src\//.test(p);
+
 const RULES: readonly Rule[] = [
   {
     applies: isTsLike,
@@ -187,6 +190,22 @@ const RULES: readonly Rule[] = [
       /^\s*--shadow-[a-z0-9-]+\s*:[^;]*(?:#[0-9a-fA-F]{3,8}\b|\brgba?\()/gm,
     reason:
       "Shadow tokens must use Tailwind palette refs (`var(--color-*)`) or `--alpha(var(--color-*) / N%)`. Raw hex / rgba is forbidden.",
+  },
+  {
+    applies: isPackageSrc,
+    id: "no-cross-package-src-escape",
+    link: "AGENTS.md (workspace specifiers)",
+    // The fingerprint of a workspace specifier (e.g. `@marble/supabase`,
+    // `@marble/lib`) being silently rewritten into a relative path by an
+    // auto-organize pass — every observed instance has been corruption,
+    // never intent. Inside `packages/<pkg>/src/` or `apps/<app>/src/`
+    // there is no legitimate way to reach a sibling package's `src/`
+    // via a relative path; the workspace specifier must be used. A
+    // single `../src` from a `__tests__/` sibling stays under the 2-level
+    // threshold and is unaffected.
+    pattern: /from\s+["'](?:\.\.\/){2,}src(?:\/[^"']*)?["']/g,
+    reason:
+      "Use the workspace specifier (e.g. `@marble/supabase`, `@marble/lib`) instead of a relative path escaping the package's src/. This shape is also the fingerprint of biome auto-organize misresolving an unresolved workspace import — if you see it after running `bun check`, your last edit reset the import and biome filled in a broken path.",
   },
 ];
 
