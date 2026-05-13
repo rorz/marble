@@ -13,11 +13,11 @@ import {
 } from "./runner/index.js";
 import type { BatchRunItemSchema } from "./schemas.js";
 
-async function triggerDependentRuns(
+const triggerDependentRuns = async (
   c: Context<ExecutorEnv>,
   successfulRuns: StoredProgramRun[],
   visitedCellIds: Set<string>,
-) {
+) => {
   if (successfulRuns.length === 0) {
     return;
   }
@@ -47,13 +47,13 @@ async function triggerDependentRuns(
       error,
     );
   }
-}
+};
 
-export async function executeStoredRunsInternal(
+export const executeStoredRunsInternal = async (
   c: Context<ExecutorEnv>,
   runIds: string[],
   visitedCellIds = new Set<string>(),
-) {
+) => {
   const runs = await c.var.store.programRuns.loadMany(runIds);
   const resultsByRunId = new Map<string, z.infer<typeof BatchRunItemSchema>>();
   const runsByColumnId = new Map<string, StoredProgramRun[]>();
@@ -202,4 +202,4 @@ export async function executeStoredRunsInternal(
   await triggerDependentRuns(c, successfulRuns, visitedCellIds);
 
   return orderedResults;
-}
+};

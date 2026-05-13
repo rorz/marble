@@ -31,7 +31,7 @@ type CellExecutionCandidateResolution =
       status: "blocked";
     };
 
-function getFailureStateSentinel(state: unknown) {
+const getFailureStateSentinel = (state: unknown) => {
   if (!state || typeof state !== "object") {
     return undefined;
   }
@@ -62,13 +62,13 @@ function getFailureStateSentinel(state: unknown) {
     }
   ).sentinel;
   return typeof sentinel === "string" ? sentinel : undefined;
-}
+};
 
-function hasUnreadyInputDependencies(context: ProgramRunInputContext) {
+const hasUnreadyInputDependencies = (context: ProgramRunInputContext) => {
   return Object.values(context.columns).some((column) => !column.ready);
-}
+};
 
-function resolveInputContext(context: ProgramRunInputContext) {
+const resolveInputContext = (context: ProgramRunInputContext) => {
   const rowContext: Record<string, JsonValue> = {
     cell: {
       manualInputValue: context.cell.manual_input,
@@ -88,21 +88,21 @@ function resolveInputContext(context: ProgramRunInputContext) {
     parsedInput,
     runInput: createRuntimeEnvelope(parsedInput, context.cell.manual_input),
   };
-}
+};
 
-export async function resolveProgramRunInput(
+export const resolveProgramRunInput = async (
   store: ProgramRunRuntimeStore,
   run: StoredProgramRun,
-) {
+) => {
   return resolveInputContext(
     await store.programRuns.loadInputContextForRun(run),
   );
-}
+};
 
-async function resolveCellExecutionCandidate(
+const resolveCellExecutionCandidate = async (
   store: ProgramRunRuntimeStore,
   cellId: string,
-): Promise<CellExecutionCandidateResolution | null> {
+): Promise<CellExecutionCandidateResolution | null> => {
   const context = await store.programRuns.loadInputContextForCellId(cellId);
   const state = context.cell.state as {
     ok?: boolean | null;
@@ -155,16 +155,16 @@ async function resolveCellExecutionCandidate(
     cellId: context.cell.id,
     status: "ready",
   };
-}
+};
 
-export async function listReadyDependentCellIds(
+export const listReadyDependentCellIds = async (
   store: ProgramRunRuntimeStore,
   input: {
     requestId?: string;
     successfulRuns: StoredProgramRun[];
     visitedCellIds: Set<string>;
   },
-) {
+) => {
   const candidateCellIds =
     await store.programRuns.listDependentCandidateCellIds(input);
   const resolvedCandidates = await Promise.all(
@@ -208,4 +208,4 @@ export async function listReadyDependentCellIds(
         ]
       : [],
   );
-}
+};

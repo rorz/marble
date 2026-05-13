@@ -128,10 +128,10 @@ export const executeProgramBatch = async (
   return result;
 };
 
-export function validateOutputValue(
+export const validateOutputValue = (
   outputSchemaConfig: JsonValue,
   rawValue: JsonValue,
-): RunReturnValueType {
+): RunReturnValueType => {
   try {
     const outputSchema = ColumnOutputSchema.parse(outputSchemaConfig);
     const validation = z.fromJSONSchema(outputSchema).safeParse(rawValue);
@@ -158,4 +158,4 @@ export function validateOutputValue(
       }`,
     );
   }
-}
+};

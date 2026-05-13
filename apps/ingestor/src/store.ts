@@ -1,7 +1,7 @@
 import { MarbleStore } from "@marble/store";
 import { createClient } from "@marble/supabase";
 
-export function workerStore(env: Env) {
+export const workerStore = (env: Env) => {
   const supabase = createClient(
     env.SUPABASE_URL,
     env.SUPABASE_SERVICE_ROLE_KEY,
@@ -14,4 +14,4 @@ export function workerStore(env: Env) {
     serviceSupabase: supabase,
     supabase,
   });
-}
+};

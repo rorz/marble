@@ -21,15 +21,15 @@ export type ProgramRunRuntimeStore = {
   >;
 };
 
-function firstRelation<T>(value: T | T[] | null | undefined): T | undefined {
+const firstRelation = <T>(value: T | T[] | null | undefined): T | undefined => {
   if (Array.isArray(value)) {
     return value[0];
   }
 
   return value ?? undefined;
-}
+};
 
-function ownerUserIdForRun(run: StoredProgramRun) {
+const ownerUserIdForRun = (run: StoredProgramRun) => {
   const row = firstRelation(run.cell.row);
   const table = firstRelation(row?.table);
   const project = firstRelation(table?.project);
@@ -40,9 +40,9 @@ function ownerUserIdForRun(run: StoredProgramRun) {
   }
 
   return profile.owner_user_id;
-}
+};
 
-async function resolveDeclaredEnvironmentVariables(
+const resolveDeclaredEnvironmentVariables = async (
   store: ProgramRunRuntimeStore,
   input: {
     columnId?: string;
@@ -50,7 +50,7 @@ async function resolveDeclaredEnvironmentVariables(
     programId: string;
     secretConfig?: JsonValue | null;
   },
-) {
+) => {
   const declarations =
     input.secretConfig === undefined || input.secretConfig === null
       ? []
@@ -68,28 +68,28 @@ async function resolveDeclaredEnvironmentVariables(
   }
 
   return resolved.environmentVariables;
-}
+};
 
-export function resolveEnvironmentVariablesForRun(
+export const resolveEnvironmentVariablesForRun = (
   store: ProgramRunRuntimeStore,
   run: StoredProgramRun,
-) {
+) => {
   return resolveDeclaredEnvironmentVariables(store, {
     columnId: run.cell.column_id,
     ownerUserId: ownerUserIdForRun(run),
     programId: run.program_version.program_id,
     secretConfig: run.program_version.secret_config as JsonValue | null,
   });
-}
+};
 
-export async function resolveEnvironmentVariablesForProgramVersion(
+export const resolveEnvironmentVariablesForProgramVersion = async (
   store: ProgramRunRuntimeStore,
   options: {
     auth: ExecutorAuthContext;
     programId: string;
     secretConfig?: JsonValue | null;
   },
-) {
+) => {
   const ownerUserId =
     options.auth?.userId ??
     (options.auth?.profileId
@@ -107,4 +107,4 @@ export async function resolveEnvironmentVariablesForProgramVersion(
     programId: options.programId,
     secretConfig: options.secretConfig,
   });
-}
+};

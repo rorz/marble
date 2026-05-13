@@ -70,10 +70,10 @@ export class MissingSecretConfigurationError extends Error {
   }
 }
 
-export function createRuntimeEnvelope(
+export const createRuntimeEnvelope = (
   input: JsonValue,
   manualInputValue?: string | null,
-): JsonValue {
+): JsonValue => {
   return {
     cell:
       manualInputValue == null
@@ -84,4 +84,4 @@ export function createRuntimeEnvelope(
     input,
     system: {},
   };
-}
+};

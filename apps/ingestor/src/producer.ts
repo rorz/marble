@@ -1,7 +1,7 @@
 import type { Context } from "hono";
 import { workerStore } from "./store";
 
-function getWebhookToken(request: Request) {
+const getWebhookToken = (request: Request) => {
   const authorization = request.headers.get("authorization")?.trim();
 
   if (authorization) {
@@ -14,16 +14,16 @@ function getWebhookToken(request: Request) {
 
   const headerToken = request.headers.get("x-marble-webhook-token")?.trim();
   return headerToken && headerToken.length > 0 ? headerToken : null;
-}
+};
 
-export async function handleWebhook(
+export const handleWebhook = async (
   c: Context<
     {
       Bindings: Env;
     },
     "/webhooks/:sourceId"
   >,
-) {
+) => {
   const sourceId = c.req.param("sourceId");
   const token = getWebhookToken(c.req.raw);
   let payload: unknown;
@@ -91,4 +91,4 @@ export async function handleWebhook(
     queued: true,
     sourceId,
   });
-}
+};
