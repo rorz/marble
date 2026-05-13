@@ -29,7 +29,8 @@ import {
 } from "@marble/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { sourceEventFromBroadcastRow } from "../../../../../../lib/marble-resources";
+import { castCamelKeys } from "@marble/lib/object";
+import type { MarbleSourceEvent } from "../../../../../../lib/marble-resources";
 import { useMarbleSdk } from "../../../../../../lib/marble-sdk-client";
 import {
   buildPipeMappingSummary,
@@ -373,7 +374,7 @@ export function ProjectSourceDetailPageView({
         return;
       }
 
-      const nextEvent = sourceEventFromBroadcastRow(record);
+      const nextEvent = castCamelKeys<MarbleSourceEvent>(record);
 
       if (nextEvent.sourceId !== currentSourceId) {
         return;

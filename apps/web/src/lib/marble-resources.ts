@@ -1,4 +1,3 @@
-import { toCamelKeys } from "@marble/lib/object";
 import type { MarbleClient } from "@marble/sdk";
 
 type MarbleProject = Awaited<ReturnType<MarbleClient["projects"]["get"]>>;
@@ -33,16 +32,6 @@ export type ProjectInputColumn = {
   tableName: string;
 };
 
-type BroadcastRow = Record<string, unknown>;
-
-export function projectFromBroadcastRow(row: BroadcastRow): MarbleProject {
-  return toCamelKeys(row) as MarbleProject;
-}
-
-export function tableFromBroadcastRow(row: BroadcastRow): MarbleTable {
-  return toCamelKeys(row) as MarbleTable;
-}
-
 export function projectTableFromSdkTable(
   table: MarbleTable,
   project: Pick<MarbleProject, "folderPath" | "name">,
@@ -52,18 +41,4 @@ export function projectTableFromSdkTable(
     projectFolderPath: project.folderPath,
     projectName: project.name,
   };
-}
-
-export function sourceFromBroadcastRow(row: BroadcastRow): MarbleSource {
-  return toCamelKeys(row) as MarbleSource;
-}
-
-export function sourceEventFromBroadcastRow(
-  row: BroadcastRow,
-): MarbleSourceEvent {
-  return toCamelKeys(row) as MarbleSourceEvent;
-}
-
-export function pipeFromBroadcastRow(row: BroadcastRow): MarblePipe {
-  return toCamelKeys(row) as MarblePipe;
 }

@@ -34,6 +34,9 @@
     },
     "packages/api": {
       "entry": ["__tests__/**/*.test.ts"]
+    },
+    "packages/lib": {
+      "entry": ["**/index.test.ts"]
     }
   }
 }
