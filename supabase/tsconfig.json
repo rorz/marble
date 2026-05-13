@@ -4,5 +4,5 @@
   },
   "exclude": ["node_modules", "dist"],
   "extends": "../tsconfig.json",
-  "include": ["src/**/*.ts", "generate-seed.ts"]
+  "include": ["../src/**/*.ts", "generate-seed.ts"]
 }

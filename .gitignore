@@ -63,3 +63,7 @@ dependency-graph.svg
 # supabase
 supabase/.branches
 supabase/.temp
+supabase/seed.sql
+
+# private operator inputs (e.g. seed account credentials)
+.private/

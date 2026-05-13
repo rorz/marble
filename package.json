@@ -11,11 +11,13 @@
   "scripts": {
     "build": "turbo run build",
     "check": "bun typegen && turbo run format-and-lint:fix && bun harness && bun typecheck && bun run build",
+    "dangerously-splat": "turbo run dangerously-splat --",
     "dependency-graph": "dot -Tsvg dependency-graph.dot -o dependency-graph.svg",
     "deploy": "turbo run deploy",
     "dev": "turbo run dev",
     "format-and-lint": "biome check .",
     "format-and-lint:fix": "biome check . --write",
+    "gen:seed": "turbo run gen:seed",
     "harness": "bun run harness/index.ts",
     "install:local": "turbo run install:local",
     "symlink": "turbo run symlink",

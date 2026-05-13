@@ -22,6 +22,9 @@
       "cache": false,
       "dependsOn": ["^build"]
     },
+    "dangerously-splat": {
+      "cache": false
+    },
     "deploy": {
       "cache": false,
       "dependsOn": ["^deploy"]
@@ -29,6 +32,9 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "gen:seed": {
+      "cache": false
     },
     "install:local": {
       "cache": false,
