@@ -6,7 +6,9 @@
     "supabase/src/types.generated.ts",
     // Seed fixtures are read at build time by supabase/generate-seed.ts via
     // filesystem scanning, not imports.
-    "supabase/seed-fixtures/**"
+    "supabase/seed-fixtures/**",
+    // Test fixtures for harness rules are scanned by the rule tests, not imported.
+    "harness/fixtures/**"
   ],
   "ignoreBinaries": [
     // `dot` is graphviz, invoked by `bun run dependency-graph` to produce
