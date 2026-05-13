@@ -155,90 +155,92 @@ export const detectViolations = (
 
 // ─── CLI ──────────────────────────────────────────────────────────────────────
 
-const USAGE = `Usage: bun harness/${RULE_ID}.ts [--file <abs-or-rel-path>]`;
+if (import.meta.main) {
+  const USAGE = `Usage: bun harness/${RULE_ID}.ts [--file <abs-or-rel-path>]`;
 
-const printUsage = (): void => {
-  console.error(USAGE);
-};
+  const printUsage = (): void => {
+    console.error(USAGE);
+  };
 
-const printViolation = (v: Violation): void => {
-  console.log(`${v.file}:${v.line}:${v.col} ${v.message}`);
-};
+  const printViolation = (v: Violation): void => {
+    console.log(`${v.file}:${v.line}:${v.col} ${v.message}`);
+  };
 
-const args = process.argv.slice(2);
+  const args = process.argv.slice(2);
 
-// Validate and parse arguments
-let singleFile: string | undefined;
+  // Validate and parse arguments
+  let singleFile: string | undefined;
 
-if (args.length === 0) {
-  singleFile = undefined; // bulk scan
-} else if (args.length === 2 && args[0] === "--file") {
-  singleFile = args[1];
-} else if (args.length === 1 && args[0] === "--file") {
-  console.error(`${RULE_ID}: --file requires a path argument.`);
-  printUsage();
-  process.exit(2);
-} else {
-  console.error(`${RULE_ID}: unknown argument(s): ${args.join(" ")}`);
-  printUsage();
-  process.exit(2);
-}
-
-console.error(`harness/${RULE_ID}: scanning…`);
-
-if (singleFile !== undefined) {
-  // ── Single-file mode ────────────────────────────────────────────────────────
-  const rawPath = singleFile;
-  const absPath = rawPath.startsWith("/")
-    ? rawPath
-    : resolve(REPO_ROOT, rawPath);
-
-  let source: string;
-  try {
-    source = readFileSync(absPath, "utf8");
-  } catch {
-    console.error(`${RULE_ID}: cannot read file: ${absPath}`);
+  if (args.length === 0) {
+    singleFile = undefined; // bulk scan
+  } else if (args.length === 2 && args[0] === "--file") {
+    singleFile = args[1];
+  } else if (args.length === 1 && args[0] === "--file") {
+    console.error(`${RULE_ID}: --file requires a path argument.`);
+    printUsage();
+    process.exit(2);
+  } else {
+    console.error(`${RULE_ID}: unknown argument(s): ${args.join(" ")}`);
+    printUsage();
     process.exit(2);
   }
 
-  // Use the path as provided for the violation display (preserves intent of caller)
-  const violations = detectViolations(rawPath, source);
+  console.error(`harness/${RULE_ID}: scanning…`);
 
-  if (violations.length === 0) {
+  if (singleFile !== undefined) {
+    // ── Single-file mode ────────────────────────────────────────────────────────
+    const rawPath = singleFile;
+    const absPath = rawPath.startsWith("/")
+      ? rawPath
+      : resolve(REPO_ROOT, rawPath);
+
+    let source: string;
+    try {
+      source = readFileSync(absPath, "utf8");
+    } catch {
+      console.error(`${RULE_ID}: cannot read file: ${absPath}`);
+      process.exit(2);
+    }
+
+    // Use the path as provided for the violation display (preserves intent of caller)
+    const violations = detectViolations(rawPath, source);
+
+    if (violations.length === 0) {
+      console.error(`harness/${RULE_ID}: OK`);
+      process.exit(0);
+    }
+
+    for (const v of violations) printViolation(v);
+    process.exit(1);
+  }
+
+  // ── Bulk scan mode ─────────────────────────────────────────────────────────────
+  const files = await collectFiles(SCAN_GLOBS, {
+    skipDirs: [
+      "coverage",
+    ],
+  });
+  const allViolations: Violation[] = [];
+
+  for (const relPath of files) {
+    if (isExcludedFile(relPath)) continue;
+
+    let source: string;
+    try {
+      source = readFileSync(resolve(REPO_ROOT, relPath), "utf8");
+    } catch {
+      continue;
+    }
+
+    allViolations.push(...detectViolations(relPath, source));
+  }
+
+  if (allViolations.length === 0) {
     console.error(`harness/${RULE_ID}: OK`);
     process.exit(0);
   }
 
-  for (const v of violations) printViolation(v);
+  for (const v of allViolations) printViolation(v);
+  console.error(`\n${RULE_ID}: ${allViolations.length} violation(s) found.`);
   process.exit(1);
 }
-
-// ── Bulk scan mode ─────────────────────────────────────────────────────────────
-const files = await collectFiles(SCAN_GLOBS, {
-  skipDirs: [
-    "coverage",
-  ],
-});
-const allViolations: Violation[] = [];
-
-for (const relPath of files) {
-  if (isExcludedFile(relPath)) continue;
-
-  let source: string;
-  try {
-    source = readFileSync(resolve(REPO_ROOT, relPath), "utf8");
-  } catch {
-    continue;
-  }
-
-  allViolations.push(...detectViolations(relPath, source));
-}
-
-if (allViolations.length === 0) {
-  console.error(`harness/${RULE_ID}: OK`);
-  process.exit(0);
-}
-
-for (const v of allViolations) printViolation(v);
-console.error(`\n${RULE_ID}: ${allViolations.length} violation(s) found.`);
-process.exit(1);
