@@ -42,6 +42,7 @@ A Bun + Turborepo monorepo.
 | `packages/cli` | The `marble` CLI, auto-generated from the contract. |
 | `packages/store` | Typed Supabase access for every resource. |
 | `packages/ui` | The shared React design system. |
+| `packages/wizard` | The `marble-wizard` agent skill that drives the CLI for operator work. |
 | `packages/lib`, `packages/keys` | Small internal helpers. |
 | `supabase/` | Postgres schema, auth config, and the seed generator. |
 
