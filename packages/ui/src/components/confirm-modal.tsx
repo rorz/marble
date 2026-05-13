@@ -28,11 +28,11 @@ export type MarbleConfirmModalProps = {
   state: MarbleConfirmModalState | null;
 };
 
-export function MarbleConfirmModal({
+export const MarbleConfirmModal = ({
   onClose,
   size = "sm",
   state,
-}: MarbleConfirmModalProps) {
+}: MarbleConfirmModalProps) => {
   if (!state) {
     return null;
   }
@@ -68,4 +68,4 @@ export function MarbleConfirmModal({
       </MarbleModalFooter>
     </MarbleModal>
   );
-}
+};

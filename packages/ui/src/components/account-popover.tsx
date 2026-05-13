@@ -13,11 +13,11 @@ type MarbleAccountMarkProps = {
   displayName?: string;
 };
 
-export function MarbleAccountMark({
+export const MarbleAccountMark = ({
   avatarUrl,
   className,
   displayName,
-}: MarbleAccountMarkProps) {
+}: MarbleAccountMarkProps) => {
   if (avatarUrl) {
     return (
       <span
@@ -49,7 +49,7 @@ export function MarbleAccountMark({
       {initials}
     </span>
   );
-}
+};
 
 type MarbleAccountPopoverProps = {
   align?: "end" | "start";
@@ -67,7 +67,7 @@ type MarbleAccountPopoverProps = {
   triggerClassName?: string;
 };
 
-function CaretDownGlyph({ className }: { className?: string }) {
+const CaretDownGlyph = ({ className }: { className?: string }) => {
   return (
     <svg
       aria-hidden="true"
@@ -86,9 +86,9 @@ function CaretDownGlyph({ className }: { className?: string }) {
       />
     </svg>
   );
-}
+};
 
-export function MarbleAccountPopover({
+export const MarbleAccountPopover = ({
   align = "start",
   ariaLabel = "Open account menu",
   avatarUrl,
@@ -102,7 +102,7 @@ export function MarbleAccountPopover({
   name,
   sections,
   triggerClassName,
-}: MarbleAccountPopoverProps) {
+}: MarbleAccountPopoverProps) => {
   const resolvedDisplayName = displayName ?? name;
   const triggerMark = mark ?? (
     <MarbleAccountMark
@@ -169,9 +169,9 @@ export function MarbleAccountPopover({
       </div>
     </MarbleContextPopover>
   );
-}
+};
 
-function initialsFromDisplayName(displayName: string): string {
+const initialsFromDisplayName = (displayName: string): string => {
   const trimmed = displayName.trim();
 
   if (trimmed.length === 0) {
@@ -191,4 +191,4 @@ function initialsFromDisplayName(displayName: string): string {
   }
 
   return `${firstPart.charAt(0)}${lastPart.charAt(0)}`;
-}
+};

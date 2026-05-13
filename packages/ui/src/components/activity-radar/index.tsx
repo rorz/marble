@@ -38,11 +38,11 @@ export type MarbleActivityRadarProps = {
   unreadCount?: number;
 };
 
-function pluralize(label: string, count: number) {
+const pluralize = (label: string, count: number) => {
   return `${count} ${label}${count === 1 ? "" : "s"}`;
-}
+};
 
-function summarizeSegments(batches: MarbleActivityRadarBatch[]) {
+const summarizeSegments = (batches: MarbleActivityRadarBatch[]) => {
   const segmentTotals = {
     create: 0,
     delete: 0,
@@ -69,12 +69,12 @@ function summarizeSegments(batches: MarbleActivityRadarBatch[]) {
       value: segmentTotals[tone],
     }))
     .filter((segment) => segment.value > 0);
-}
+};
 
-export function getRadarSummary(
+export const getRadarSummary = (
   batches: MarbleActivityRadarBatch[],
   unreadCount: number,
-) {
+) => {
   const unreadBatches = batches.filter((batch) => batch.unread);
   const reviewedBatches = batches.filter((batch) => !batch.unread);
 
@@ -85,9 +85,9 @@ export function getRadarSummary(
     reviewedBatches,
     unreadBatches,
   };
-}
+};
 
-export function MarbleActivityRadar({
+export const MarbleActivityRadar = ({
   batches,
   className,
   compact = false,
@@ -97,7 +97,7 @@ export function MarbleActivityRadar({
   onOpenFeed,
   triggerClassName,
   unreadCount = 0,
-}: MarbleActivityRadarProps) {
+}: MarbleActivityRadarProps) => {
   const { changedPlaceLabel, hasUnread, unreadBatches, reviewedBatches } =
     getRadarSummary(batches, unreadCount);
   const visibleUnreadBatches = unreadBatches.slice(0, 4);
@@ -229,4 +229,4 @@ export function MarbleActivityRadar({
       />
     </MarbleContextPopover>
   );
-}
+};

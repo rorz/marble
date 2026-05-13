@@ -12,7 +12,7 @@ export type MarbleEditableTextProps = {
   value: string;
 };
 
-export function MarbleEditableText({
+export const MarbleEditableText = ({
   className,
   disabled = false,
   editing,
@@ -21,7 +21,7 @@ export function MarbleEditableText({
   onCommit,
   onEdit,
   value,
-}: MarbleEditableTextProps) {
+}: MarbleEditableTextProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -86,4 +86,4 @@ export function MarbleEditableText({
       )}
     </span>
   );
-}
+};

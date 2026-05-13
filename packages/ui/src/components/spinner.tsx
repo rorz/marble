@@ -31,13 +31,13 @@ export type MarbleSpinnerProps = HTMLAttributes<HTMLSpanElement> &
     label?: string;
   };
 
-export function MarbleSpinner({
+export const MarbleSpinner = ({
   className,
   label = "Loading",
   size,
   tone,
   ...props
-}: MarbleSpinnerProps) {
+}: MarbleSpinnerProps) => {
   return (
     <span
       aria-label={label}
@@ -52,4 +52,4 @@ export function MarbleSpinner({
       {...props}
     />
   );
-}
+};

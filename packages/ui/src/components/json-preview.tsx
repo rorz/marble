@@ -21,7 +21,7 @@ const marbleJsonPreviewVariants = cva(
 );
 
 // harness-ignore: no-tokenize-json-helper -- MarbleJsonPreview is the canonical home for the JSON tokenizer; consumers must not re-implement it.
-function tokenizeJson(json: string): ReactNode[] {
+const tokenizeJson = (json: string): ReactNode[] => {
   const parts = json.split(JSON_TOKEN);
 
   return parts.map((part, index) => {
@@ -51,9 +51,9 @@ function tokenizeJson(json: string): ReactNode[] {
       </span>
     );
   });
-}
+};
 
-function stringifyValue(value: unknown): string {
+const stringifyValue = (value: unknown): string => {
   if (typeof value === "string") {
     return value;
   }
@@ -63,7 +63,7 @@ function stringifyValue(value: unknown): string {
   } catch {
     return String(value);
   }
-}
+};
 
 export type MarbleJsonPreviewProps = Omit<
   HTMLAttributes<HTMLPreElement>,
@@ -74,13 +74,13 @@ export type MarbleJsonPreviewProps = Omit<
     value: unknown;
   };
 
-export function MarbleJsonPreview({
+export const MarbleJsonPreview = ({
   borderClassName = "border-zinc-200",
   className,
   size,
   value,
   ...props
-}: MarbleJsonPreviewProps) {
+}: MarbleJsonPreviewProps) => {
   const json = stringifyValue(value);
   const tokens = tokenizeJson(json); // harness-ignore: no-tokenize-json-helper -- internal use within the primitive that owns this helper.
 
@@ -98,4 +98,4 @@ export function MarbleJsonPreview({
       {tokens}
     </pre>
   );
-}
+};

@@ -8,11 +8,11 @@ import type {
 } from "react";
 import { cx } from "../utils/cx";
 
-function WorkbenchChevronIcon({
+const WorkbenchChevronIcon = ({
   collapsed,
 }: Readonly<{
   collapsed: boolean;
-}>) {
+}>) => {
   return (
     <svg
       aria-hidden="true"
@@ -32,9 +32,9 @@ function WorkbenchChevronIcon({
       />
     </svg>
   );
-}
+};
 
-function WorkbenchCloseIcon() {
+const WorkbenchCloseIcon = () => {
   return (
     <svg
       aria-hidden="true"
@@ -50,7 +50,7 @@ function WorkbenchCloseIcon() {
       />
     </svg>
   );
-}
+};
 
 export type MarbleWorkbenchSectionProps = HTMLAttributes<HTMLElement> & {
   actions?: ReactNode;
@@ -66,7 +66,7 @@ export type MarbleWorkbenchSectionProps = HTMLAttributes<HTMLElement> & {
   title: ReactNode;
 };
 
-export function MarbleWorkbenchSection({
+export const MarbleWorkbenchSection = ({
   actions,
   badge,
   bodyClassName,
@@ -81,7 +81,7 @@ export function MarbleWorkbenchSection({
   onToggleCollapsed,
   title,
   ...props
-}: MarbleWorkbenchSectionProps) {
+}: MarbleWorkbenchSectionProps) => {
   const canToggle = collapsible && Boolean(onToggleCollapsed);
   const hasDescription = description !== undefined && description !== null;
   const titleBlock = (
@@ -165,7 +165,7 @@ export function MarbleWorkbenchSection({
       )}
     </section>
   );
-}
+};
 
 export type MarbleWorkbenchResizeHandleProps = Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -175,13 +175,13 @@ export type MarbleWorkbenchResizeHandleProps = Omit<
   orientation?: "horizontal" | "vertical";
 };
 
-export function MarbleWorkbenchResizeHandle({
+export const MarbleWorkbenchResizeHandle = ({
   active = false,
   className,
   orientation = "horizontal",
   type = "button",
   ...props
-}: MarbleWorkbenchResizeHandleProps) {
+}: MarbleWorkbenchResizeHandleProps) => {
   const isHorizontal = orientation === "horizontal";
 
   return (
@@ -215,15 +215,15 @@ export function MarbleWorkbenchResizeHandle({
       />
     </button>
   );
-}
+};
 
 export type MarbleWorkbenchTabsProps = HTMLAttributes<HTMLDivElement>;
 
-export function MarbleWorkbenchTabs({
+export const MarbleWorkbenchTabs = ({
   children,
   className,
   ...props
-}: MarbleWorkbenchTabsProps) {
+}: MarbleWorkbenchTabsProps) => {
   return (
     <div
       className={cx(
@@ -236,7 +236,7 @@ export function MarbleWorkbenchTabs({
       {children}
     </div>
   );
-}
+};
 
 export type MarbleWorkbenchTabProps = HTMLAttributes<HTMLDivElement> & {
   active?: boolean;
@@ -247,7 +247,7 @@ export type MarbleWorkbenchTabProps = HTMLAttributes<HTMLDivElement> & {
   onSelect?: () => void;
 };
 
-export function MarbleWorkbenchTab({
+export const MarbleWorkbenchTab = ({
   active = false,
   className,
   dirty = false,
@@ -256,7 +256,7 @@ export function MarbleWorkbenchTab({
   onClose,
   onSelect,
   ...props
-}: MarbleWorkbenchTabProps) {
+}: MarbleWorkbenchTabProps) => {
   return (
     <div
       className={cx(
@@ -298,4 +298,4 @@ export function MarbleWorkbenchTab({
       ) : null}
     </div>
   );
-}
+};

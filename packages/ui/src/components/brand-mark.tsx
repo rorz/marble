@@ -4,7 +4,7 @@ type MarbleBrandMarkProps = {
   className?: string;
 };
 
-export function MarbleBrandMark({ className }: MarbleBrandMarkProps) {
+export const MarbleBrandMark = ({ className }: MarbleBrandMarkProps) => {
   return (
     <div
       className={cx(
@@ -16,4 +16,4 @@ export function MarbleBrandMark({ className }: MarbleBrandMarkProps) {
       <div className="absolute top-1.5 right-1.5 size-2 rounded-full border border-white bg-orange-400" />
     </div>
   );
-}
+};

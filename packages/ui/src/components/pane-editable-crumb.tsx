@@ -6,11 +6,11 @@ import {
 } from "./editable-text";
 import { marblePaneInteractiveCrumbClassName } from "./pane";
 
-export function MarblePaneEditableCrumb(props: MarbleEditableTextProps) {
+export const MarblePaneEditableCrumb = (props: MarbleEditableTextProps) => {
   return (
     <MarbleEditableText
       {...props}
       className={marblePaneInteractiveCrumbClassName}
     />
   );
-}
+};

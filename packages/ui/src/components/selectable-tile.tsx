@@ -41,14 +41,14 @@ export type MarbleSelectableTileProps =
   ButtonHTMLAttributes<HTMLButtonElement> &
     VariantProps<typeof marbleSelectableTileVariants>;
 
-export function MarbleSelectableTile({
+export const MarbleSelectableTile = ({
   active,
   children,
   className,
   shape,
   type = "button",
   ...props
-}: MarbleSelectableTileProps) {
+}: MarbleSelectableTileProps) => {
   return (
     <button
       aria-pressed={active ?? undefined}
@@ -65,4 +65,4 @@ export function MarbleSelectableTile({
       {children}
     </button>
   );
-}
+};

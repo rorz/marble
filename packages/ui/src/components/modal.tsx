@@ -42,7 +42,7 @@ export type MarbleModalProps = {
   panelClassName?: string;
 } & VariantProps<typeof marbleModalPanelVariants>;
 
-export function MarbleModal({
+export const MarbleModal = ({
   ariaDescribedBy,
   ariaLabel,
   ariaLabelledBy,
@@ -51,7 +51,7 @@ export function MarbleModal({
   onClose,
   panelClassName,
   size,
-}: MarbleModalProps) {
+}: MarbleModalProps) => {
   const panelRef = useRef<HTMLDivElement>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const handleClose = useEffectEvent(() => {
@@ -122,15 +122,15 @@ export function MarbleModal({
     </div>,
     portalTarget,
   );
-}
+};
 
 export type MarbleModalHeaderProps = HTMLAttributes<HTMLDivElement>;
 
-export function MarbleModalHeader({
+export const MarbleModalHeader = ({
   children,
   className,
   ...props
-}: MarbleModalHeaderProps) {
+}: MarbleModalHeaderProps) => {
   return (
     <div
       className={cx(marbleModalHeaderVariants(), className)}
@@ -139,15 +139,15 @@ export function MarbleModalHeader({
       {children}
     </div>
   );
-}
+};
 
 export type MarbleModalContentProps = HTMLAttributes<HTMLDivElement>;
 
-export function MarbleModalContent({
+export const MarbleModalContent = ({
   children,
   className,
   ...props
-}: MarbleModalContentProps) {
+}: MarbleModalContentProps) => {
   return (
     <div
       className={cx(marbleModalContentVariants(), className)}
@@ -156,15 +156,15 @@ export function MarbleModalContent({
       {children}
     </div>
   );
-}
+};
 
 export type MarbleModalFooterProps = HTMLAttributes<HTMLDivElement>;
 
-export function MarbleModalFooter({
+export const MarbleModalFooter = ({
   children,
   className,
   ...props
-}: MarbleModalFooterProps) {
+}: MarbleModalFooterProps) => {
   return (
     <div
       className={cx(marbleModalFooterVariants(), className)}
@@ -173,15 +173,15 @@ export function MarbleModalFooter({
       {children}
     </div>
   );
-}
+};
 
 export type MarbleModalTitleProps = HTMLAttributes<HTMLHeadingElement>;
 
-export function MarbleModalTitle({
+export const MarbleModalTitle = ({
   children,
   className,
   ...props
-}: MarbleModalTitleProps) {
+}: MarbleModalTitleProps) => {
   return (
     <h3
       className={cx(marbleModalTitleVariants(), className)}
@@ -190,15 +190,15 @@ export function MarbleModalTitle({
       {children}
     </h3>
   );
-}
+};
 
 export type MarbleModalDescriptionProps = HTMLAttributes<HTMLParagraphElement>;
 
-export function MarbleModalDescription({
+export const MarbleModalDescription = ({
   children,
   className,
   ...props
-}: MarbleModalDescriptionProps) {
+}: MarbleModalDescriptionProps) => {
   return (
     <p
       className={cx(marbleModalDescriptionVariants(), className)}
@@ -207,16 +207,16 @@ export function MarbleModalDescription({
       {children}
     </p>
   );
-}
+};
 
 export type MarbleModalCloseProps = ButtonHTMLAttributes<HTMLButtonElement>;
 
-export function MarbleModalClose({
+export const MarbleModalClose = ({
   children,
   className,
   type = "button",
   ...props
-}: MarbleModalCloseProps) {
+}: MarbleModalCloseProps) => {
   return (
     <button
       aria-label="Close dialog"
@@ -244,4 +244,4 @@ export function MarbleModalClose({
       )}
     </button>
   );
-}
+};

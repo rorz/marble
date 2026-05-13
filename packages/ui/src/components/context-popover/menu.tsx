@@ -44,7 +44,7 @@ const getSectionKey = (section: MarbleContextPopoverSection) =>
     ...section.items.map(getItemKey),
   ].join("|");
 
-export function ContextPopoverMenu({
+export const ContextPopoverMenu = ({
   closeMenu,
   dismissMenu,
   enabledItemIndexes,
@@ -57,7 +57,7 @@ export function ContextPopoverMenu({
   menuRef,
   menuSections,
   portalTarget,
-}: ContextPopoverMenuProps) {
+}: ContextPopoverMenuProps) => {
   const handleItemKeyDown =
     (itemIndex: number) => (event: ReactKeyboardEvent<HTMLButtonElement>) => {
       const currentEnabledIndex = enabledItemIndexes.indexOf(itemIndex);
@@ -200,4 +200,4 @@ export function ContextPopoverMenu({
     </div>,
     portalTarget,
   );
-}
+};

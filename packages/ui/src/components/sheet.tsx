@@ -19,9 +19,9 @@ const marbleSheetContentSideClassNames = {
 
 export type MarbleSheetProps = ComponentProps<typeof DialogPrimitive.Root>;
 
-export function MarbleSheet({ children, ...props }: MarbleSheetProps) {
+export const MarbleSheet = ({ children, ...props }: MarbleSheetProps) => {
   return <DialogPrimitive.Root {...props}>{children}</DialogPrimitive.Root>;
-}
+};
 
 type MarbleSheetCloseVariant = "button" | "icon";
 
@@ -38,13 +38,13 @@ const marbleSheetCloseVariantClassName: Record<
   icon: "flex size-8 items-center justify-center rounded-sm text-taupe-400 hover:bg-taupe-100 hover:text-taupe-900",
 };
 
-export function MarbleSheetClose({
+export const MarbleSheetClose = ({
   children,
   className,
   type = "button",
   variant = "icon",
   ...props
-}: MarbleSheetCloseProps) {
+}: MarbleSheetCloseProps) => {
   return (
     <DialogPrimitive.Close asChild>
       <button
@@ -77,7 +77,7 @@ export function MarbleSheetClose({
       </button>
     </DialogPrimitive.Close>
   );
-}
+};
 
 export type MarbleSheetContentProps = ComponentProps<
   typeof DialogPrimitive.Content
@@ -88,7 +88,7 @@ export type MarbleSheetContentProps = ComponentProps<
   side?: keyof typeof marbleSheetContentSideClassNames;
 };
 
-export function MarbleSheetContent({
+export const MarbleSheetContent = ({
   backdropClassName,
   children,
   className,
@@ -97,7 +97,7 @@ export function MarbleSheetContent({
   showCloseButton = true,
   side = "right",
   ...props
-}: MarbleSheetContentProps) {
+}: MarbleSheetContentProps) => {
   return (
     <DialogPrimitive.Portal
       {...(forceMount
@@ -140,15 +140,15 @@ export function MarbleSheetContent({
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
   );
-}
+};
 
 export type MarbleSheetHeaderProps = HTMLAttributes<HTMLDivElement>;
 
-export function MarbleSheetHeader({
+export const MarbleSheetHeader = ({
   children,
   className,
   ...props
-}: MarbleSheetHeaderProps) {
+}: MarbleSheetHeaderProps) => {
   return (
     <div
       className={cx(
@@ -160,15 +160,15 @@ export function MarbleSheetHeader({
       {children}
     </div>
   );
-}
+};
 
 export type MarbleSheetFooterProps = HTMLAttributes<HTMLDivElement>;
 
-export function MarbleSheetFooter({
+export const MarbleSheetFooter = ({
   children,
   className,
   ...props
-}: MarbleSheetFooterProps) {
+}: MarbleSheetFooterProps) => {
   return (
     <div
       className={cx(
@@ -180,15 +180,15 @@ export function MarbleSheetFooter({
       {children}
     </div>
   );
-}
+};
 
 export type MarbleSheetTitleProps = HTMLAttributes<HTMLHeadingElement>;
 
-export function MarbleSheetTitle({
+export const MarbleSheetTitle = ({
   children,
   className,
   ...props
-}: MarbleSheetTitleProps) {
+}: MarbleSheetTitleProps) => {
   return (
     <DialogPrimitive.Title
       className={cx("pr-8 font-semibold text-base text-taupe-950", className)}
@@ -197,15 +197,15 @@ export function MarbleSheetTitle({
       {children}
     </DialogPrimitive.Title>
   );
-}
+};
 
 export type MarbleSheetDescriptionProps = HTMLAttributes<HTMLParagraphElement>;
 
-export function MarbleSheetDescription({
+export const MarbleSheetDescription = ({
   children,
   className,
   ...props
-}: MarbleSheetDescriptionProps) {
+}: MarbleSheetDescriptionProps) => {
   return (
     <DialogPrimitive.Description
       className={cx("text-sm text-taupe-600", className)}
@@ -214,4 +214,4 @@ export function MarbleSheetDescription({
       {children}
     </DialogPrimitive.Description>
   );
-}
+};

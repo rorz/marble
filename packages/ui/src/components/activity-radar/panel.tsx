@@ -19,13 +19,13 @@ export type MarbleActivityRadarPanelProps = HTMLAttributes<HTMLDivElement> & {
   unreadCount?: number;
 };
 
-function ActivityRadarPanelSection({
+const ActivityRadarPanelSection = ({
   batches,
   label,
 }: {
   batches: MarbleActivityRadarBatch[];
   label: string;
-}) {
+}) => {
   if (batches.length === 0) {
     return null;
   }
@@ -84,9 +84,9 @@ function ActivityRadarPanelSection({
       </div>
     </section>
   );
-}
+};
 
-export function MarbleActivityRadarPanel({
+export const MarbleActivityRadarPanel = ({
   actions,
   batches,
   className,
@@ -94,7 +94,7 @@ export function MarbleActivityRadarPanel({
   onMarkAllRead,
   unreadCount = 0,
   ...props
-}: MarbleActivityRadarPanelProps) {
+}: MarbleActivityRadarPanelProps) => {
   const {
     changedPlaceLabel,
     hasUnread,
@@ -182,4 +182,4 @@ export function MarbleActivityRadarPanel({
       </div>
     </div>
   );
-}
+};

@@ -45,7 +45,7 @@ export const marblePaneInteractiveCrumbClassName = cx(
   "hover:bg-taupe-100",
 );
 
-export function MarblePane({
+export const MarblePane = ({
   actions,
   children,
   className,
@@ -56,7 +56,7 @@ export function MarblePane({
   frame = "normal",
   title,
   width = "Full",
-}: MarblePaneProps) {
+}: MarblePaneProps) => {
   const isFramed = frame === "normal";
 
   return (
@@ -170,4 +170,4 @@ export function MarblePane({
       </div>
     </div>
   );
-}
+};

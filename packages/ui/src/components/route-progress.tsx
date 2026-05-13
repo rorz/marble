@@ -15,11 +15,11 @@ type Listener = (count: number) => void;
 const listeners = new Set<Listener>();
 let pendingCount = 0;
 
-function notify() {
+const notify = () => {
   for (const listener of listeners) {
     listener(pendingCount);
   }
-}
+};
 
 const routeProgressStore = {
   decrement() {
@@ -45,7 +45,7 @@ const routeProgressStore = {
  * Invisible — must be rendered as a descendant of `<Link>`. Publishes that
  * link's pending navigation state to the global `<MarbleRouteProgress />`.
  */
-export function MarbleRouteProgressBeacon() {
+export const MarbleRouteProgressBeacon = () => {
   const { pending } = useLinkStatus();
 
   useEffect(() => {
@@ -61,13 +61,13 @@ export function MarbleRouteProgressBeacon() {
   ]);
 
   return null;
-}
+};
 
 /**
  * Report a programmatic navigation to the global progress bar. Pass the
  * `isPending` flag from `useTransition()` that wraps your `router.push`.
  */
-export function useReportRouteProgress(isPending: boolean) {
+export const useReportRouteProgress = (isPending: boolean) => {
   useEffect(() => {
     if (!isPending) {
       return;
@@ -79,7 +79,7 @@ export function useReportRouteProgress(isPending: boolean) {
   }, [
     isPending,
   ]);
-}
+};
 
 /**
  * Ergonomic shape of `useMarbleRouter()`. Mirrors the subset of
@@ -106,7 +106,7 @@ export type MarbleRouter = {
  * `router.push()` calls will not surface in the top progress bar — that is
  * intentional, and the consistent visual feedback is the whole point.
  */
-export function useMarbleRouter(): MarbleRouter {
+export const useMarbleRouter = (): MarbleRouter => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   useReportRouteProgress(isPending);
@@ -135,7 +135,7 @@ export function useMarbleRouter(): MarbleRouter {
         router.replace(href);
       }),
   };
-}
+};
 
 const SHOW_DEBOUNCE_MS = 80;
 const GROW_DURATION_MS = 2000;
@@ -153,9 +153,9 @@ export type MarbleRouteProgressProps = {
  * root of an authenticated shell; listens to every `MarbleRouteProgressBeacon`
  * and every `useReportRouteProgress` subscriber.
  */
-export function MarbleRouteProgress({
+export const MarbleRouteProgress = ({
   className,
-}: MarbleRouteProgressProps = {}) {
+}: MarbleRouteProgressProps = {}) => {
   const count = useSyncExternalStore(
     routeProgressStore.subscribe,
     routeProgressStore.getSnapshot,
@@ -214,4 +214,4 @@ export function MarbleRouteProgress({
       />
     </div>
   );
-}
+};

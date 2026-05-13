@@ -16,21 +16,21 @@ export type MarbleProfileAttributionProps = {
   profiles: MarbleProfileAttributionProfile[];
 };
 
-function resolveProfileGlyph(profile: MarbleProfileAttributionProfile) {
+const resolveProfileGlyph = (profile: MarbleProfileAttributionProfile) => {
   if (profile.type === "Human") {
     return "H";
   }
 
   return profile.icon?.trim() || "🤖";
-}
+};
 
-function ProfileMark({
+const ProfileMark = ({
   profile,
   stacked = false,
 }: {
   profile: MarbleProfileAttributionProfile;
   stacked?: boolean;
-}) {
+}) => {
   return (
     <span
       aria-hidden="true"
@@ -45,13 +45,13 @@ function ProfileMark({
       {resolveProfileGlyph(profile)}
     </span>
   );
-}
+};
 
-export function MarbleProfileAttribution({
+export const MarbleProfileAttribution = ({
   className,
   maxVisible = 2,
   profiles,
-}: MarbleProfileAttributionProps) {
+}: MarbleProfileAttributionProps) => {
   const visibleProfiles = profiles.slice(0, maxVisible);
   const overflowCount = Math.max(0, profiles.length - visibleProfiles.length);
   const leadProfile = profiles[0];
@@ -104,4 +104,4 @@ export function MarbleProfileAttribution({
       <span className="truncate text-taupe-500">{profiles.length} agents</span>
     </div>
   );
-}
+};

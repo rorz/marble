@@ -16,7 +16,7 @@ export type MarbleCopyFieldProps = Omit<
   value: null | string | undefined;
 };
 
-async function writeClipboardText(value: string) {
+const writeClipboardText = async (value: string) => {
   if (navigator.clipboard?.writeText) {
     await navigator.clipboard.writeText(value);
     return;
@@ -32,9 +32,9 @@ async function writeClipboardText(value: string) {
   textarea.select();
   document.execCommand("copy");
   textarea.remove();
-}
+};
 
-export function MarbleCopyField({
+export const MarbleCopyField = ({
   className,
   copiedLabel = "Copied",
   copyLabel = "Copy",
@@ -44,7 +44,7 @@ export function MarbleCopyField({
   onCopy,
   value,
   ...props
-}: MarbleCopyFieldProps) {
+}: MarbleCopyFieldProps) => {
   const [copied, setCopied] = useState(false);
   const hasValue = typeof value === "string" && value.length > 0;
 
@@ -108,4 +108,4 @@ export function MarbleCopyField({
       </span>
     </button>
   );
-}
+};

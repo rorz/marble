@@ -29,13 +29,13 @@ const marbleBadgeVariants = cva(
 export type MarbleBadgeProps = HTMLAttributes<HTMLSpanElement> &
   VariantProps<typeof marbleBadgeVariants>;
 
-export function MarbleBadge({
+export const MarbleBadge = ({
   caps,
   children,
   className,
   tone,
   ...props
-}: MarbleBadgeProps) {
+}: MarbleBadgeProps) => {
   return (
     <span
       className={cx(
@@ -50,4 +50,4 @@ export function MarbleBadge({
       <span>{children}</span>
     </span>
   );
-}
+};

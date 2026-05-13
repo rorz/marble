@@ -55,13 +55,13 @@ const marbleDropzoneIconVariants = cva(
   },
 );
 
-function isFileDrag(dataTransfer: DataTransfer | null | undefined) {
+const isFileDrag = (dataTransfer: DataTransfer | null | undefined) => {
   return Array.from(dataTransfer?.types ?? []).includes("Files");
-}
+};
 
-function normalizeFiles(files: FileList | null | undefined) {
+const normalizeFiles = (files: FileList | null | undefined) => {
   return files ? Array.from(files) : [];
-}
+};
 
 export type MarbleDropzoneProps = Omit<
   InputHTMLAttributes<HTMLInputElement>,
@@ -76,7 +76,7 @@ export type MarbleDropzoneProps = Omit<
     title: ReactNode;
   };
 
-export function MarbleDropzone({
+export const MarbleDropzone = ({
   className,
   description,
   disabled = false,
@@ -90,7 +90,7 @@ export function MarbleDropzone({
   title,
   tone,
   ...inputProps
-}: MarbleDropzoneProps) {
+}: MarbleDropzoneProps) => {
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -231,4 +231,4 @@ export function MarbleDropzone({
       </button>
     </div>
   );
-}
+};

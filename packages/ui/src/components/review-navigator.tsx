@@ -5,7 +5,7 @@ import { cx } from "../utils/cx";
 
 const MARBLE_REVIEW_NAVIGATOR_MARKER_LIMIT = 8;
 
-function getVisibleMarkerIndexes(activeIndex: number, totalCount: number) {
+const getVisibleMarkerIndexes = (activeIndex: number, totalCount: number) => {
   if (totalCount <= MARBLE_REVIEW_NAVIGATOR_MARKER_LIMIT) {
     return Array.from({
       length: totalCount,
@@ -24,9 +24,9 @@ function getVisibleMarkerIndexes(activeIndex: number, totalCount: number) {
   return Array.from({
     length: MARBLE_REVIEW_NAVIGATOR_MARKER_LIMIT,
   }).map((_, offset) => startIndex + offset);
-}
+};
 
-function ChevronLeftGlyph() {
+const ChevronLeftGlyph = () => {
   return (
     <svg
       aria-hidden="true"
@@ -44,9 +44,9 @@ function ChevronLeftGlyph() {
       />
     </svg>
   );
-}
+};
 
-function ChevronRightGlyph() {
+const ChevronRightGlyph = () => {
   return (
     <svg
       aria-hidden="true"
@@ -64,9 +64,9 @@ function ChevronRightGlyph() {
       />
     </svg>
   );
-}
+};
 
-function CloseGlyph() {
+const CloseGlyph = () => {
   return (
     <svg
       aria-hidden="true"
@@ -84,13 +84,13 @@ function CloseGlyph() {
       />
     </svg>
   );
-}
+};
 
-function ReviewNavigatorButton({
+const ReviewNavigatorButton = ({
   children,
   className,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
+}: ButtonHTMLAttributes<HTMLButtonElement>) => {
   return (
     <button
       className={cx(
@@ -103,7 +103,7 @@ function ReviewNavigatorButton({
       {children}
     </button>
   );
-}
+};
 
 export type MarbleReviewNavigatorDiff = {
   count: number;
@@ -117,7 +117,7 @@ export type MarbleReviewNavigatorDetailItem = {
   targetKeys?: string[];
 };
 
-function formatDiffLabel(diff: MarbleReviewNavigatorDiff) {
+const formatDiffLabel = (diff: MarbleReviewNavigatorDiff) => {
   if (diff.tone === "create") {
     return `+${diff.count}`;
   }
@@ -127,9 +127,9 @@ function formatDiffLabel(diff: MarbleReviewNavigatorDiff) {
   }
 
   return `~${diff.count}`;
-}
+};
 
-function ReviewNavigatorPreviewButton({
+const ReviewNavigatorPreviewButton = ({
   children,
   className,
   onPreviewTargetsEnd,
@@ -141,7 +141,7 @@ function ReviewNavigatorPreviewButton({
   onPreviewTargetsEnd?: () => void;
   onPreviewTargetsStart?: (targetKeys: string[]) => void;
   targetKeys?: string[];
-}) {
+}) => {
   if (!targetKeys || targetKeys.length === 0) {
     return <span className={className}>{children}</span>;
   }
@@ -160,9 +160,9 @@ function ReviewNavigatorPreviewButton({
       {children}
     </button>
   );
-}
+};
 
-function ReviewDiffChip({
+const ReviewDiffChip = ({
   diff,
   fallbackTargetKeys,
   onPreviewTargetsEnd,
@@ -172,7 +172,7 @@ function ReviewDiffChip({
   fallbackTargetKeys?: string[];
   onPreviewTargetsEnd?: () => void;
   onPreviewTargetsStart?: (targetKeys: string[]) => void;
-}) {
+}) => {
   const targetKeys = diff.targetKeys ?? fallbackTargetKeys;
 
   return (
@@ -196,7 +196,7 @@ function ReviewDiffChip({
       </span>
     </ReviewNavigatorPreviewButton>
   );
-}
+};
 
 export type MarbleReviewNavigatorProps = HTMLAttributes<HTMLDivElement> & {
   currentIndex: number;
@@ -212,7 +212,7 @@ export type MarbleReviewNavigatorProps = HTMLAttributes<HTMLDivElement> & {
   totalCount: number;
 };
 
-export function MarbleReviewNavigator({
+export const MarbleReviewNavigator = ({
   className,
   currentIndex,
   detail,
@@ -226,7 +226,7 @@ export function MarbleReviewNavigator({
   summary,
   totalCount,
   ...props
-}: MarbleReviewNavigatorProps) {
+}: MarbleReviewNavigatorProps) => {
   const markerIndexes = getVisibleMarkerIndexes(currentIndex, totalCount);
 
   return (
@@ -320,4 +320,4 @@ export function MarbleReviewNavigator({
       </div>
     </div>
   );
-}
+};

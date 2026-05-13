@@ -19,7 +19,7 @@ export type MarbleActivityRadarTriggerProps = Omit<
   unreadCount?: number;
 };
 
-export function MarbleActivityRadarTrigger({
+export const MarbleActivityRadarTrigger = ({
   batches,
   className,
   compact = false,
@@ -27,7 +27,7 @@ export function MarbleActivityRadarTrigger({
   type = "button",
   unreadCount = 0,
   ...props
-}: MarbleActivityRadarTriggerProps) {
+}: MarbleActivityRadarTriggerProps) => {
   const { hasUnread, headerSegments } = getRadarSummary(batches, unreadCount);
 
   if (slim) {
@@ -99,4 +99,4 @@ export function MarbleActivityRadarTrigger({
       </div>
     </button>
   );
-}
+};

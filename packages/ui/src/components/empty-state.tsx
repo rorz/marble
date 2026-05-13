@@ -27,7 +27,7 @@ export type MarbleEmptyStateProps = HTMLAttributes<HTMLDivElement> & {
   title: ReactNode;
 };
 
-export function MarbleEmptyState({
+export const MarbleEmptyState = ({
   actions,
   className,
   description,
@@ -35,7 +35,7 @@ export function MarbleEmptyState({
   iconTone,
   title,
   ...props
-}: MarbleEmptyStateProps) {
+}: MarbleEmptyStateProps) => {
   const renderedIcon = icon ? (
     iconTone ? (
       <div
@@ -65,4 +65,4 @@ export function MarbleEmptyState({
       {actions ? <div className="mt-4">{actions}</div> : null}
     </div>
   );
-}
+};

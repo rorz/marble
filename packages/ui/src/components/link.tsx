@@ -15,11 +15,11 @@ export type MarbleLinkProps = ComponentProps<typeof Link>;
  * navigation. Naked `<Link>` clicks won't surface in the progress bar, and
  * raw `<a>` tags trigger full document reloads — both regress the SPA UX.
  */
-export function MarbleLink({ children, ...props }: MarbleLinkProps) {
+export const MarbleLink = ({ children, ...props }: MarbleLinkProps) => {
   return (
     <Link {...props}>
       <MarbleRouteProgressBeacon />
       {children}
     </Link>
   );
-}
+};

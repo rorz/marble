@@ -28,13 +28,13 @@ export type MarbleTextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> &
     wrapperClassName?: string;
   };
 
-export function MarbleTextarea({
+export const MarbleTextarea = ({
   className,
   monospace,
   size,
   wrapperClassName,
   ...props
-}: MarbleTextareaProps) {
+}: MarbleTextareaProps) => {
   return (
     <div className={cx("relative flex", wrapperClassName)}>
       <textarea
@@ -49,4 +49,4 @@ export function MarbleTextarea({
       />
     </div>
   );
-}
+};

@@ -37,17 +37,17 @@ const SEGMENT_TONE_CLASS_NAMES: Record<MarbleActivityRadarSegmentTone, string> =
     update: "bg-amber-500",
   };
 
-function getSegmentTotal(segments: MarbleActivityRadarSegment[]) {
+const getSegmentTotal = (segments: MarbleActivityRadarSegment[]) => {
   return segments.reduce((total, segment) => total + segment.value, 0);
-}
+};
 
-export function ActivityMeter({
+export const ActivityMeter = ({
   className,
   segments,
 }: {
   className?: string;
   segments: MarbleActivityRadarSegment[];
-}) {
+}) => {
   const filteredSegments = segments.filter((segment) => segment.value > 0);
   const total = getSegmentTotal(filteredSegments);
   const resolvedSegments: MarbleActivityRadarSegment[] =
@@ -82,15 +82,15 @@ export function ActivityMeter({
       ))}
     </div>
   );
-}
+};
 
-export function ActivityGlyph({
+export const ActivityGlyph = ({
   pulse = false,
   segments,
 }: {
   pulse?: boolean;
   segments: MarbleActivityRadarSegment[];
-}) {
+}) => {
   return (
     <div className="relative flex size-8 shrink-0 items-center justify-center">
       <div
@@ -123,17 +123,17 @@ export function ActivityGlyph({
       </div>
     </div>
   );
-}
+};
 
-function formatUnreadCount(value: number) {
+const formatUnreadCount = (value: number) => {
   if (value > 99) {
     return "99+";
   }
 
   return String(value);
-}
+};
 
-export function ActivityUnreadBadge({ count }: { count: number }) {
+export const ActivityUnreadBadge = ({ count }: { count: number }) => {
   return (
     <MarbleBadge
       aria-label={`${count} unread changesets`}
@@ -142,13 +142,13 @@ export function ActivityUnreadBadge({ count }: { count: number }) {
       {formatUnreadCount(count)}
     </MarbleBadge>
   );
-}
+};
 
-export function ActivityBatchDescription({
+export const ActivityBatchDescription = ({
   batch,
 }: {
   batch: MarbleActivityRadarBatch;
-}) {
+}) => {
   return batch.actors && batch.actors.length > 0 ? (
     <div className="space-y-1">
       <MarbleProfileAttribution profiles={batch.actors} />
@@ -161,9 +161,9 @@ export function ActivityBatchDescription({
       {batch.description}
     </div>
   );
-}
+};
 
-export function CaretDownGlyph({ className }: { className?: string }) {
+export const CaretDownGlyph = ({ className }: { className?: string }) => {
   return (
     <svg
       aria-hidden="true"
@@ -182,4 +182,4 @@ export function CaretDownGlyph({ className }: { className?: string }) {
       />
     </svg>
   );
-}
+};

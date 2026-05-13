@@ -22,11 +22,11 @@ export type MarbleCommandMenuProps = ComponentProps<typeof CommandPrimitive> & {
   embedded?: boolean;
 };
 
-export function MarbleCommandMenu({
+export const MarbleCommandMenu = ({
   className,
   embedded = false,
   ...props
-}: MarbleCommandMenuProps) {
+}: MarbleCommandMenuProps) => {
   return (
     <CommandPrimitive
       className={cx(
@@ -36,19 +36,19 @@ export function MarbleCommandMenu({
       {...props}
     />
   );
-}
+};
 
 export type MarbleCommandDialogProps = ComponentProps<
   typeof CommandPrimitive.Dialog
 >;
 
-export function MarbleCommandDialog({
+export const MarbleCommandDialog = ({
   className,
   contentClassName,
   label,
   overlayClassName,
   ...props
-}: MarbleCommandDialogProps) {
+}: MarbleCommandDialogProps) => {
   return (
     <CommandPrimitive.Dialog
       className={cx(
@@ -73,7 +73,7 @@ export function MarbleCommandDialog({
       {props.children}
     </CommandPrimitive.Dialog>
   );
-}
+};
 
 export type MarbleCommandInputProps = ComponentProps<
   typeof CommandPrimitive.Input
@@ -81,11 +81,11 @@ export type MarbleCommandInputProps = ComponentProps<
   wrapperClassName?: string;
 };
 
-export function MarbleCommandInput({
+export const MarbleCommandInput = ({
   className,
   wrapperClassName,
   ...props
-}: MarbleCommandInputProps) {
+}: MarbleCommandInputProps) => {
   return (
     <div
       className={cx(
@@ -102,16 +102,16 @@ export function MarbleCommandInput({
       />
     </div>
   );
-}
+};
 
 export type MarbleCommandListProps = ComponentProps<
   typeof CommandPrimitive.List
 >;
 
-export function MarbleCommandList({
+export const MarbleCommandList = ({
   className,
   ...props
-}: MarbleCommandListProps) {
+}: MarbleCommandListProps) => {
   return (
     <CommandPrimitive.List
       className={cx(
@@ -121,32 +121,32 @@ export function MarbleCommandList({
       {...props}
     />
   );
-}
+};
 
 export type MarbleCommandEmptyProps = ComponentProps<
   typeof CommandPrimitive.Empty
 >;
 
-export function MarbleCommandEmpty({
+export const MarbleCommandEmpty = ({
   className,
   ...props
-}: MarbleCommandEmptyProps) {
+}: MarbleCommandEmptyProps) => {
   return (
     <CommandPrimitive.Empty
       className={cx("px-4 py-10 text-center text-sm text-taupe-500", className)}
       {...props}
     />
   );
-}
+};
 
 export type MarbleCommandGroupProps = ComponentProps<
   typeof CommandPrimitive.Group
 >;
 
-export function MarbleCommandGroup({
+export const MarbleCommandGroup = ({
   className,
   ...props
-}: MarbleCommandGroupProps) {
+}: MarbleCommandGroupProps) => {
   return (
     <CommandPrimitive.Group
       className={cx(
@@ -156,16 +156,16 @@ export function MarbleCommandGroup({
       {...props}
     />
   );
-}
+};
 
 export type MarbleCommandItemProps = ComponentProps<
   typeof CommandPrimitive.Item
 >;
 
-export function MarbleCommandItem({
+export const MarbleCommandItem = ({
   className,
   ...props
-}: MarbleCommandItemProps) {
+}: MarbleCommandItemProps) => {
   return (
     <CommandPrimitive.Item
       className={cx(
@@ -175,20 +175,20 @@ export function MarbleCommandItem({
       {...props}
     />
   );
-}
+};
 
 export type MarbleCommandSeparatorProps = ComponentProps<
   typeof CommandPrimitive.Separator
 >;
 
-export function MarbleCommandSeparator({
+export const MarbleCommandSeparator = ({
   className,
   ...props
-}: MarbleCommandSeparatorProps) {
+}: MarbleCommandSeparatorProps) => {
   return (
     <CommandPrimitive.Separator
       className={cx("-mx-1 my-1 h-px bg-taupe-200", className)}
       {...props}
     />
   );
-}
+};

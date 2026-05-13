@@ -38,13 +38,13 @@ export type MarbleInputProps = Omit<
     wrapperClassName?: string;
   };
 
-export function MarbleInput({
+export const MarbleInput = ({
   className,
   disabled = false,
   size,
   wrapperClassName,
   ...props
-}: MarbleInputProps) {
+}: MarbleInputProps) => {
   return (
     <div
       className={cx(
@@ -67,4 +67,4 @@ export function MarbleInput({
       />
     </div>
   );
-}
+};

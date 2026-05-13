@@ -80,7 +80,7 @@ export type MarbleStatProps = Omit<HTMLAttributes<HTMLDivElement>, "title"> &
     valueClassName?: string;
   };
 
-export function MarbleStat({
+export const MarbleStat = ({
   className,
   framed,
   label,
@@ -88,7 +88,7 @@ export function MarbleStat({
   value,
   valueClassName,
   ...props
-}: MarbleStatProps) {
+}: MarbleStatProps) => {
   return (
     <div
       className={cx(
@@ -120,4 +120,4 @@ export function MarbleStat({
       </div>
     </div>
   );
-}
+};

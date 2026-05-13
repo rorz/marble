@@ -40,7 +40,7 @@ export type MarbleCardProps = HTMLAttributes<HTMLDivElement> &
     interactive?: boolean;
   };
 
-export function MarbleCard({
+export const MarbleCard = ({
   children,
   className,
   href,
@@ -48,7 +48,7 @@ export function MarbleCard({
   tone,
   style,
   ...props
-}: MarbleCardProps) {
+}: MarbleCardProps) => {
   const resolvedTone = tone ?? "default";
   const isInteractive = interactive ?? Boolean(href);
 
@@ -100,7 +100,7 @@ export function MarbleCard({
       {inner}
     </div>
   );
-}
+};
 
 export type MarbleCardHeaderAction = MarbleButtonProps & {
   id?: string;
@@ -116,7 +116,7 @@ export type MarbleCardHeaderProps = HTMLAttributes<HTMLDivElement> & {
   divided?: boolean;
 };
 
-export function MarbleCardHeader({
+export const MarbleCardHeader = ({
   actions,
   children,
   className,
@@ -127,7 +127,7 @@ export function MarbleCardHeader({
   disclosureTriggerClassName,
   divided,
   ...props
-}: MarbleCardHeaderProps) {
+}: MarbleCardHeaderProps) => {
   const hasHeaderActions =
     Boolean(actions?.length) || Boolean(disclosureActions?.length);
 
@@ -185,15 +185,15 @@ export function MarbleCardHeader({
       </div>
     </div>
   );
-}
+};
 
 export type MarbleCardContentProps = HTMLAttributes<HTMLDivElement>;
 
-export function MarbleCardContent({
+export const MarbleCardContent = ({
   children,
   className,
   ...props
-}: MarbleCardContentProps) {
+}: MarbleCardContentProps) => {
   return (
     <div
       className={cx(marbleCardContentVariants(), className)}
@@ -202,15 +202,15 @@ export function MarbleCardContent({
       {children}
     </div>
   );
-}
+};
 
 export type MarbleCardSectionProps = HTMLAttributes<HTMLElement>;
 
-export function MarbleCardSection({
+export const MarbleCardSection = ({
   children,
   className,
   ...props
-}: MarbleCardSectionProps) {
+}: MarbleCardSectionProps) => {
   return (
     <section
       className={cx(marbleCardSectionVariants(), className)}
@@ -219,15 +219,15 @@ export function MarbleCardSection({
       {children}
     </section>
   );
-}
+};
 
 export type MarbleCardFooterProps = HTMLAttributes<HTMLDivElement>;
 
-export function MarbleCardFooter({
+export const MarbleCardFooter = ({
   children,
   className,
   ...props
-}: MarbleCardFooterProps) {
+}: MarbleCardFooterProps) => {
   return (
     <div
       className={cx(marbleCardFooterVariants(), className)}
@@ -236,15 +236,15 @@ export function MarbleCardFooter({
       {children}
     </div>
   );
-}
+};
 
 export type MarbleCardTitleProps = HTMLAttributes<HTMLHeadingElement>;
 
-export function MarbleCardTitle({
+export const MarbleCardTitle = ({
   children,
   className,
   ...props
-}: MarbleCardTitleProps) {
+}: MarbleCardTitleProps) => {
   return (
     <h2
       className={cx(marbleCardTitleVariants(), className)}
@@ -253,15 +253,15 @@ export function MarbleCardTitle({
       {children}
     </h2>
   );
-}
+};
 
 export type MarbleCardDescriptionProps = HTMLAttributes<HTMLParagraphElement>;
 
-export function MarbleCardDescription({
+export const MarbleCardDescription = ({
   children,
   className,
   ...props
-}: MarbleCardDescriptionProps) {
+}: MarbleCardDescriptionProps) => {
   return (
     <p
       className={cx(marbleCardDescriptionVariants(), className)}
@@ -270,4 +270,4 @@ export function MarbleCardDescription({
       {children}
     </p>
   );
-}
+};

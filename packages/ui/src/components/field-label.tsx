@@ -8,11 +8,11 @@ const marbleFieldLabelVariants = cva(
 
 export type MarbleFieldLabelProps = HTMLAttributes<HTMLSpanElement>;
 
-export function MarbleFieldLabel({
+export const MarbleFieldLabel = ({
   children,
   className,
   ...props
-}: MarbleFieldLabelProps) {
+}: MarbleFieldLabelProps) => {
   return (
     <span
       className={cx(marbleFieldLabelVariants(), className)}
@@ -21,4 +21,4 @@ export function MarbleFieldLabel({
       {children}
     </span>
   );
-}
+};

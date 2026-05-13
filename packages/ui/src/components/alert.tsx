@@ -25,13 +25,13 @@ const marbleAlertVariants = cva("rounded-xs border", {
 export type MarbleAlertProps = HTMLAttributes<HTMLDivElement> &
   VariantProps<typeof marbleAlertVariants>;
 
-export function MarbleAlert({
+export const MarbleAlert = ({
   children,
   className,
   size,
   tone,
   ...props
-}: MarbleAlertProps) {
+}: MarbleAlertProps) => {
   return (
     <div
       className={cx(
@@ -46,4 +46,4 @@ export function MarbleAlert({
       {children}
     </div>
   );
-}
+};

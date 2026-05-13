@@ -31,13 +31,13 @@ type PopoverOverlay = {
   setIsOpen: (next: boolean | ((current: boolean) => boolean)) => void;
 };
 
-export function usePopoverOverlay({
+export const usePopoverOverlay = ({
   align,
   onOpenChange,
 }: {
   align: "end" | "start";
   onOpenChange?: (isOpen: boolean) => void;
-}): PopoverOverlay {
+}): PopoverOverlay => {
   const menuId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLElement | null>(null);
@@ -217,4 +217,4 @@ export function usePopoverOverlay({
     rootRef,
     setIsOpen,
   };
-}
+};

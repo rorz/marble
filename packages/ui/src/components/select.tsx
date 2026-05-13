@@ -26,13 +26,13 @@ export type MarbleSelectProps = Omit<
     wrapperClassName?: string;
   };
 
-export function MarbleSelect({
+export const MarbleSelect = ({
   children,
   className,
   size,
   wrapperClassName,
   ...props
-}: MarbleSelectProps) {
+}: MarbleSelectProps) => {
   return (
     <div className={cx("relative inline-flex", wrapperClassName)}>
       <select
@@ -58,4 +58,4 @@ export function MarbleSelect({
       </div>
     </div>
   );
-}
+};

@@ -64,11 +64,11 @@ export type MarbleContextPopoverProps = {
   "aria-label" | "children" | "content" | "disabled" | "type"
 >;
 
-function getEnabledItemIndexes(items: MarbleContextPopoverItem[]) {
+const getEnabledItemIndexes = (items: MarbleContextPopoverItem[]) => {
   return items.flatMap((item, index) => (item.disabled ? [] : index));
-}
+};
 
-export function MarbleContextPopover({
+export const MarbleContextPopover = ({
   align = "end",
   ariaLabel = "Open menu",
   asChild = false,
@@ -85,7 +85,7 @@ export function MarbleContextPopover({
   onKeyDown,
   triggerClassName,
   ...props
-}: MarbleContextPopoverProps) {
+}: MarbleContextPopoverProps) => {
   // harness-ignore: no-handrolled-anchor-dropdown -- this IS the primitive
   const {
     buttonRef,
@@ -312,4 +312,4 @@ export function MarbleContextPopover({
       {contentNode}
     </div>
   );
-}
+};

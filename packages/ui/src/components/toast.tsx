@@ -4,7 +4,7 @@ import { Toaster, toast } from "sonner";
 
 export const marbleToast = toast;
 
-export function MarbleToaster() {
+export const MarbleToaster = () => {
   return (
     <Toaster
       closeButton
@@ -26,4 +26,4 @@ export function MarbleToaster() {
       visibleToasts={6}
     />
   );
-}
+};

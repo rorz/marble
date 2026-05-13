@@ -15,7 +15,7 @@ export type MarbleSearchSelectProps = Omit<MarbleInputProps, "type"> & {
   options: ReadonlyArray<MarbleSearchSelectOption>;
 };
 
-function normalizeOption(option: MarbleSearchSelectOption) {
+const normalizeOption = (option: MarbleSearchSelectOption) => {
   return typeof option === "string"
     ? {
         label: option,
@@ -25,14 +25,14 @@ function normalizeOption(option: MarbleSearchSelectOption) {
         label: option.label ?? option.value,
         value: option.value,
       };
-}
+};
 
-export function MarbleSearchSelect({
+export const MarbleSearchSelect = ({
   autoComplete = "off",
   list,
   options,
   ...props
-}: MarbleSearchSelectProps) {
+}: MarbleSearchSelectProps) => {
   const generatedId = useId();
   const normalizedOptions = options.map(normalizeOption);
   const datalistId = list ?? `marble-search-select-${generatedId}`;
@@ -56,4 +56,4 @@ export function MarbleSearchSelect({
       </datalist>
     </>
   );
-}
+};

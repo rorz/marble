@@ -9,7 +9,7 @@ export type MarbleFieldProps = HTMLAttributes<HTMLDivElement> & {
   labelClassName?: string;
 };
 
-export function MarbleField({
+export const MarbleField = ({
   children,
   className,
   description,
@@ -17,7 +17,7 @@ export function MarbleField({
   label,
   labelClassName,
   ...props
-}: MarbleFieldProps) {
+}: MarbleFieldProps) => {
   return (
     <div
       className={cx("space-y-1.5", className)}
@@ -31,4 +31,4 @@ export function MarbleField({
       {hint ? <p className="text-xs text-taupe-500">{hint}</p> : null}
     </div>
   );
-}
+};

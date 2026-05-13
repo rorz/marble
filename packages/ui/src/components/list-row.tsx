@@ -100,7 +100,7 @@ export type MarbleListRowProps = Omit<
     wrapperClassName?: string;
   };
 
-export function MarbleListRow({
+export const MarbleListRow = ({
   active,
   align,
   aside,
@@ -118,7 +118,7 @@ export function MarbleListRow({
   type = "button",
   wrapperClassName,
   ...props
-}: MarbleListRowProps) {
+}: MarbleListRowProps) => {
   const renderedIcon =
     icon && iconTone ? (
       <div
@@ -185,4 +185,4 @@ export function MarbleListRow({
       {aside ? <div className="flex items-center px-3">{aside}</div> : null}
     </div>
   );
-}
+};

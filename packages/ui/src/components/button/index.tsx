@@ -23,10 +23,10 @@ import {
   marbleButtonRootVariants,
 } from "./styles";
 
-function setCursorDotPosition(
+const setCursorDotPosition = (
   button: HTMLButtonElement,
   event: ReactPointerEvent<HTMLButtonElement>,
-) {
+) => {
   if (event.pointerType === "touch") {
     return;
   }
@@ -41,20 +41,20 @@ function setCursorDotPosition(
     "--marble-button-dot-y",
     `${event.clientY - bounds.top}px`,
   );
-}
+};
 
-function centerCursorDotPosition(button: HTMLButtonElement) {
+const centerCursorDotPosition = (button: HTMLButtonElement) => {
   button.style.setProperty("--marble-button-dot-x", "50%");
   button.style.setProperty("--marble-button-dot-y", "50%");
-}
+};
 
-function centerCursorDotPositionIfKeyboardFocused(
+const centerCursorDotPositionIfKeyboardFocused = (
   event: ReactFocusEvent<HTMLButtonElement>,
-) {
+) => {
   if (event.currentTarget.matches(":focus-visible")) {
     centerCursorDotPosition(event.currentTarget);
   }
-}
+};
 
 type MarbleButtonIconWeight =
   | "thin"
@@ -93,7 +93,7 @@ type MarbleButtonIconProps =
 
 export type MarbleButtonProps = MarbleButtonBaseProps & MarbleButtonIconProps;
 
-export function MarbleButton({
+export const MarbleButton = ({
   children,
   className,
   disabled = false,
@@ -110,7 +110,7 @@ export function MarbleButton({
   type = "button",
   variant = "light",
   ...props
-}: MarbleButtonProps) {
+}: MarbleButtonProps) => {
   const iconSize = marbleButtonIconSizes[size ?? "md"];
 
   return (
@@ -217,4 +217,4 @@ export function MarbleButton({
       </div>
     </button>
   );
-}
+};
