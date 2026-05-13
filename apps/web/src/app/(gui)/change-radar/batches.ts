@@ -27,9 +27,9 @@ type RadarBatchRecord = {
   unread: boolean;
 };
 
-function buildRadarSegments(
+const buildRadarSegments = (
   operationCounts: Record<EventOperation, number>,
-): MarbleActivityRadarSegment[] {
+): MarbleActivityRadarSegment[] => {
   return [
     operationCounts.Create > 0
       ? {
@@ -52,9 +52,11 @@ function buildRadarSegments(
   ].filter(
     (segment): segment is MarbleActivityRadarSegment => segment !== null,
   );
-}
+};
 
-function buildBatchDescription(detailItems: MarbleReviewNavigatorDetailItem[]) {
+const buildBatchDescription = (
+  detailItems: MarbleReviewNavigatorDetailItem[],
+) => {
   return detailItems
     .map((item) =>
       [
@@ -70,15 +72,15 @@ function buildBatchDescription(detailItems: MarbleReviewNavigatorDetailItem[]) {
     )
     .filter((part) => part.length > 0)
     .join(" · ");
-}
+};
 
-function buildBatchDetailItems(
+const buildBatchDetailItems = (
   counts: Map<string, number>,
   burstCount: number,
   resourceTargetKeys: Map<string, string[]>,
   resourceOperationTargetKeys: Map<string, string[]>,
   targetKeys: string[],
-): MarbleReviewNavigatorDetailItem[] {
+): MarbleReviewNavigatorDetailItem[] => {
   const resourceTotals = new Map<
     string,
     {
@@ -164,14 +166,14 @@ function buildBatchDetailItems(
       : []),
     ...resourceItems,
   ];
-}
+};
 
-export function buildRadarBatches(
+export const buildRadarBatches = (
   events: EventRow[],
   indexes: RadarIndexes,
   resolutionMaps: ResolutionMaps,
   lastReviewedAt: null | string,
-) {
+) => {
   const grouped = new Map<
     string,
     {
@@ -306,4 +308,4 @@ export function buildRadarBatches(
         unread: batch.unread,
       };
     });
-}
+};

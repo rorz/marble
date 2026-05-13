@@ -1,35 +1,42 @@
 import type { Source } from "./types";
 
-export function sortByCreatedAtDesc<
+export const sortByCreatedAtDesc = <
   T extends {
     createdAt: string;
   },
->(records: T[]) {
+>(
+  records: T[],
+) => {
   return [
     ...records,
   ].sort(
     (left, right) =>
       new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
   );
-}
+};
 
-export function sortByUpdatedAtDesc<
+export const sortByUpdatedAtDesc = <
   T extends {
     updatedAt: string;
   },
->(records: T[]) {
+>(
+  records: T[],
+) => {
   return [
     ...records,
   ].sort(
     (left, right) =>
       new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
   );
-}
+};
 
-export function webhookEndpoint(baseUrl: string, source: Pick<Source, "id">) {
+export const webhookEndpoint = (
+  baseUrl: string,
+  source: Pick<Source, "id">,
+) => {
   return `${baseUrl}/webhooks/${source.id}`;
-}
+};
 
-export function sourceTitle(source: null | Pick<Source, "name">) {
+export const sourceTitle = (source: null | Pick<Source, "name">) => {
   return source?.name || "Untitled Source";
-}
+};

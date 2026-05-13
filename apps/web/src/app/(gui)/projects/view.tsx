@@ -37,19 +37,19 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
 });
 
-function sortProjects(projects: ProjectSummary[]) {
+const sortProjects = (projects: ProjectSummary[]) => {
   return sortRows(projects, compareByUpdatedAtCamelDesc);
-}
+};
 
-function upsertProject(projects: ProjectSummary[], project: ProjectSummary) {
+const upsertProject = (projects: ProjectSummary[], project: ProjectSummary) => {
   return upsertRow(projects, project, compareByUpdatedAtCamelDesc);
-}
+};
 
-function updateTableCount(
+const updateTableCount = (
   projects: ProjectSummary[],
   projectId: string,
   delta: number,
-) {
+) => {
   return projects.map((project) =>
     project.id === projectId
       ? {
@@ -58,9 +58,9 @@ function updateTableCount(
         }
       : project,
   );
-}
+};
 
-export function ProjectsPageView({
+export const ProjectsPageView = ({
   initialProjects,
   ownerProfileIds,
   userId,
@@ -68,7 +68,7 @@ export function ProjectsPageView({
   initialProjects: ProjectSummary[];
   ownerProfileIds: string[];
   userId: string;
-}) {
+}) => {
   const router = useMarbleRouter();
   const getSdk = useMarbleSdkFactory();
   const [projects, setProjects] = useState(() => sortProjects(initialProjects));
@@ -257,4 +257,4 @@ export function ProjectsPageView({
       />
     </div>
   );
-}
+};

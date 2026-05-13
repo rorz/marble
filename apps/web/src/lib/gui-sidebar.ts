@@ -28,18 +28,18 @@ const EMPTY_SIDEBAR_TREE_STATE: SidebarTreeState = {
   openKeys: [],
 };
 
-export function clampSidebarWidth(width: number) {
+export const clampSidebarWidth = (width: number) => {
   return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
-}
+};
 
-export function clampAgentSidebarWidth(width: number) {
+export const clampAgentSidebarWidth = (width: number) => {
   return Math.min(
     MAX_AGENT_SIDEBAR_WIDTH,
     Math.max(MIN_AGENT_SIDEBAR_WIDTH, width),
   );
-}
+};
 
-export function parseSidebarWidth(value: null | string | undefined) {
+export const parseSidebarWidth = (value: null | string | undefined) => {
   if (!value) {
     return DEFAULT_SIDEBAR_WIDTH;
   }
@@ -49,9 +49,9 @@ export function parseSidebarWidth(value: null | string | undefined) {
   return Number.isFinite(width)
     ? clampSidebarWidth(width)
     : DEFAULT_SIDEBAR_WIDTH;
-}
+};
 
-export function parseAgentSidebarWidth(value: null | string | undefined) {
+export const parseAgentSidebarWidth = (value: null | string | undefined) => {
   if (!value) {
     return DEFAULT_AGENT_SIDEBAR_WIDTH;
   }
@@ -61,17 +61,17 @@ export function parseAgentSidebarWidth(value: null | string | undefined) {
   return Number.isFinite(width)
     ? clampAgentSidebarWidth(width)
     : DEFAULT_AGENT_SIDEBAR_WIDTH;
-}
+};
 
-function normalizeSidebarTreeStateKeys(keys: readonly string[]) {
+const normalizeSidebarTreeStateKeys = (keys: readonly string[]) => {
   return [
     ...new Set(keys.filter((key) => SIDEBAR_TREE_STATE_KEY_PATTERN.test(key))),
   ]
     .sort()
     .slice(0, MAX_SIDEBAR_TREE_STATE_KEYS);
-}
+};
 
-export function parseSidebarTreeState(value: null | string | undefined) {
+export const parseSidebarTreeState = (value: null | string | undefined) => {
   if (!value) {
     return EMPTY_SIDEBAR_TREE_STATE;
   }
@@ -93,19 +93,19 @@ export function parseSidebarTreeState(value: null | string | undefined) {
   } catch {
     return EMPTY_SIDEBAR_TREE_STATE;
   }
-}
+};
 
-export function serializeSidebarTreeState(state: SidebarTreeState) {
+export const serializeSidebarTreeState = (state: SidebarTreeState) => {
   return JSON.stringify({
     closedKeys: normalizeSidebarTreeStateKeys(state.closedKeys),
     openKeys: normalizeSidebarTreeStateKeys(state.openKeys),
   });
-}
+};
 
-export function applySidebarTreeState(
+export const applySidebarTreeState = (
   defaultOpenKeys: ReadonlySet<string>,
   state: SidebarTreeState,
-) {
+) => {
   const next = new Set(defaultOpenKeys);
 
   for (const key of state.closedKeys) {
@@ -117,14 +117,14 @@ export function applySidebarTreeState(
   }
 
   return next;
-}
+};
 
-export function updateSidebarTreeStateForKey(
+export const updateSidebarTreeStateForKey = (
   state: SidebarTreeState,
   key: string,
   nextIsOpen: boolean,
   defaultOpenKeys: ReadonlySet<string>,
-): SidebarTreeState {
+): SidebarTreeState => {
   const openKeys = new Set(state.openKeys);
   const closedKeys = new Set(state.closedKeys);
 
@@ -147,4 +147,4 @@ export function updateSidebarTreeStateForKey(
       ...openKeys,
     ]),
   };
-}
+};

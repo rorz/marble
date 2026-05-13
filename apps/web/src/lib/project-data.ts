@@ -13,7 +13,7 @@ export type ProjectSummary = SidebarProject & {
   tableCount: number;
 };
 
-export async function listProjectIndexData() {
+export const listProjectIndexData = async () => {
   const sdk = await createServerMarbleSdk();
   const data = await sdk.sidebar.getData({});
   const tableCounts = new Map<string, number>();
@@ -33,4 +33,4 @@ export async function listProjectIndexData() {
     })),
     userId: data.userId,
   };
-}
+};

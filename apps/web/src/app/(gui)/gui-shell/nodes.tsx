@@ -14,13 +14,13 @@ import {
 import { changeTargetKey } from "../change-spotlight";
 import { isNodePathActive } from "./pathname";
 
-export function collectCommandPaletteResources(
+export const collectCommandPaletteResources = (
   nodes: SidebarTreeNode[],
   parents: SidebarTreeNode[] = [],
 ): Array<{
   node: SidebarTreeNode;
   parents: SidebarTreeNode[];
-}> {
+}> => {
   return nodes.flatMap((node) => [
     {
       node,
@@ -31,16 +31,16 @@ export function collectCommandPaletteResources(
       node,
     ]),
   ]);
-}
+};
 
-function findProjectChildNode(
+const findProjectChildNode = (
   projectNode: SidebarTreeNode,
   kind: "source" | "table",
-) {
+) => {
   return projectNode.children.find((child) => child.kind === kind) ?? null;
-}
+};
 
-export function getPipeCreateDefaults(projectNode: SidebarTreeNode) {
+export const getPipeCreateDefaults = (projectNode: SidebarTreeNode) => {
   const sourceNode = findProjectChildNode(projectNode, "source");
   const tableNode = findProjectChildNode(projectNode, "table");
 
@@ -50,9 +50,9 @@ export function getPipeCreateDefaults(projectNode: SidebarTreeNode) {
         tableId: tableNode.id,
       }
     : null;
-}
+};
 
-export function getNodeIcon(node: SidebarTreeNode) {
+export const getNodeIcon = (node: SidebarTreeNode) => {
   if (node.kind === "project") {
     return null;
   }
@@ -90,9 +90,9 @@ export function getNodeIcon(node: SidebarTreeNode) {
       weight="duotone"
     />
   );
-}
+};
 
-export function getNodeTargetKey(node: SidebarTreeNode) {
+export const getNodeTargetKey = (node: SidebarTreeNode) => {
   if (node.kind === "project") {
     return changeTargetKey.project(node.id);
   }
@@ -110,9 +110,9 @@ export function getNodeTargetKey(node: SidebarTreeNode) {
   }
 
   return changeTargetKey.program(node.id);
-}
+};
 
-export function buildDefaultSidebarOpenKeys({
+export const buildDefaultSidebarOpenKeys = ({
   pathname,
   selectedProgramId,
   sidebarData,
@@ -122,7 +122,7 @@ export function buildDefaultSidebarOpenKeys({
   selectedProgramId: null | string;
   sidebarData: SidebarTreeData;
   sidebarMode: SidebarMode;
-}) {
+}) => {
   const keys = new Set<string>(
     sidebarMode === "expanded"
       ? [
@@ -160,4 +160,4 @@ export function buildDefaultSidebarOpenKeys({
   }
 
   return keys;
-}
+};

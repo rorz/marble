@@ -19,10 +19,10 @@ type BroadcastMutation =
   | DeleteMutation<string, unknown>
   | UpsertMutation<string, unknown>;
 
-function isBroadcastMutation<Type extends string>(
+const isBroadcastMutation = <Type extends string>(
   value: unknown,
   mutationTypes: Record<Type, true>,
-) {
+) => {
   if (
     !isPlainRecord(value) ||
     typeof value.type !== "string" ||
@@ -34,11 +34,13 @@ function isBroadcastMutation<Type extends string>(
   return value.type.endsWith(":delete")
     ? typeof value.id === "string"
     : isPlainRecord(value.row);
-}
+};
 
-export function createBroadcastMutationGuard<
+export const createBroadcastMutationGuard = <
   Mutation extends BroadcastMutation,
->(mutationTypes: Record<Mutation["type"], true>) {
+>(
+  mutationTypes: Record<Mutation["type"], true>,
+) => {
   return (value: unknown): value is Mutation =>
     isBroadcastMutation(value, mutationTypes);
-}
+};

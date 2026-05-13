@@ -147,13 +147,13 @@ type ProgramsPageViewProps = {
   initialSecrets: ProgramsPageData["secrets"];
 };
 
-export function ProgramsPageView({
+export const ProgramsPageView = ({
   initialMode = "master",
   initialProgramId,
   initialProgramSecretBindings,
   initialPrograms,
   initialSecrets,
-}: ProgramsPageViewProps) {
+}: ProgramsPageViewProps) => {
   const router = useMarbleRouter();
   const sdk = useMarbleWebSessionSdk();
   const [programs, setPrograms] = useState(() => sortPrograms(initialPrograms));
@@ -3121,4 +3121,4 @@ export function ProgramsPageView({
       ) : null}
     </MarblePane>
   );
-}
+};

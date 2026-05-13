@@ -23,13 +23,13 @@ import {
   UsersThreeIcon,
 } from "@phosphor-icons/react/dist/ssr";
 
-export function Topics({
+export const Topics = ({
   selectedTopic,
   onSelect,
 }: Readonly<{
   selectedTopic: string;
   onSelect: (value: string) => void;
-}>) {
+}>) => {
   return (
     <MarbleCard className="min-h-0 overflow-hidden">
       <MarbleCardHeader>
@@ -179,4 +179,4 @@ export function Topics({
       </MarbleCardContent>
     </MarbleCard>
   );
-}
+};

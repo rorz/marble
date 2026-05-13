@@ -25,7 +25,7 @@ type ProgramWithVersionsLike = {
   }>;
 };
 
-function getLatestPublishedProgramVersion(program: ProgramWithVersionsLike) {
+const getLatestPublishedProgramVersion = (program: ProgramWithVersionsLike) => {
   return (
     [
       ...program.programVersions,
@@ -34,17 +34,17 @@ function getLatestPublishedProgramVersion(program: ProgramWithVersionsLike) {
       .sort((left, right) => (right.version ?? 0) - (left.version ?? 0))[0] ??
     null
   );
-}
+};
 
-export async function listSecretsForUser(_userId: string) {
+export const listSecretsForUser = async (_userId: string) => {
   const sdk = await createServerMarbleSdk();
   return (await sdk.secrets.list({})) satisfies SecretRecord[];
-}
+};
 
-export async function listProgramSecretBindingsForUser(
+export const listProgramSecretBindingsForUser = async (
   _userId: string,
   programIds: string[],
-) {
+) => {
   if (programIds.length === 0) {
     return {} satisfies SecretBindingMap;
   }
@@ -53,9 +53,9 @@ export async function listProgramSecretBindingsForUser(
   return sdk.secretBindings.listPrograms({
     programIds,
   });
-}
+};
 
-export async function listColumnSecretBindings(columnIds: string[]) {
+export const listColumnSecretBindings = async (columnIds: string[]) => {
   if (columnIds.length === 0) {
     return {} satisfies SecretBindingMap;
   }
@@ -64,11 +64,11 @@ export async function listColumnSecretBindings(columnIds: string[]) {
   return sdk.secretBindings.listColumns({
     columnIds,
   });
-}
+};
 
-export function listLatestProgramSecretDeclarationsByProgramId(
+export const listLatestProgramSecretDeclarationsByProgramId = (
   programs: ProgramWithVersionsLike[],
-) {
+) => {
   return Object.fromEntries(
     programs.map((program) => {
       const latestVersion = getLatestPublishedProgramVersion(program);
@@ -84,4 +84,4 @@ export function listLatestProgramSecretDeclarationsByProgramId(
       ];
     }),
   ) as Record<string, ProgramManifestSecretDeclaration[]>;
-}
+};

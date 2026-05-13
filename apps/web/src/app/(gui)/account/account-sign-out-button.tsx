@@ -4,7 +4,7 @@ import { MarbleButton } from "@marble/ui";
 import { SignOutIcon } from "@phosphor-icons/react";
 import { useSignOut } from "../../sign-out-button";
 
-export function AccountSignOutButton() {
+export const AccountSignOutButton = () => {
   const { error, pending, signOut } = useSignOut();
 
   return (
@@ -23,4 +23,4 @@ export function AccountSignOutButton() {
       {error ? <p className="text-red-600 text-xs">{error}</p> : null}
     </div>
   );
-}
+};

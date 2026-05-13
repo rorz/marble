@@ -6,7 +6,7 @@ import type {
   PublishedProgramVersionWithFiles,
 } from "./types";
 
-export function CurrentWorkspaceRow({
+export const CurrentWorkspaceRow = ({
   active,
   draftVersion,
   latestPublishedVersion,
@@ -16,7 +16,7 @@ export function CurrentWorkspaceRow({
   draftVersion: ProgramVersionWithFiles | null;
   latestPublishedVersion: PublishedProgramVersionWithFiles | null;
   onSelect: () => void;
-}>) {
+}>) => {
   const timestamp =
     draftVersion?.updatedAt ?? latestPublishedVersion?.updatedAt;
 
@@ -58,4 +58,4 @@ export function CurrentWorkspaceRow({
       </div>
     </button>
   );
-}
+};

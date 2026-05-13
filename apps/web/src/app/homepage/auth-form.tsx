@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { createClient } from "../../lib/supabase/browser";
 
-export default function AuthForm() {
+const AuthForm = () => {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState("");
@@ -20,7 +20,7 @@ export default function AuthForm() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function handleSignIn() {
+  const handleSignIn = async () => {
     setPending(true);
     setError(null);
     setMessage(null);
@@ -47,9 +47,9 @@ export default function AuthForm() {
 
     router.replace("/projects");
     router.refresh();
-  }
+  };
 
-  async function handleSignUp() {
+  const handleSignUp = async () => {
     setPending(true);
     setError(null);
     setMessage(null);
@@ -75,7 +75,7 @@ export default function AuthForm() {
     setMessage(
       "Account created. Confirm the email address from Supabase before signing in.",
     );
-  }
+  };
 
   return (
     <MarbleCard className="bg-taupe-200 p-1">
@@ -135,4 +135,5 @@ export default function AuthForm() {
       </MarbleCardContent>
     </MarbleCard>
   );
-}
+};
+export default AuthForm;

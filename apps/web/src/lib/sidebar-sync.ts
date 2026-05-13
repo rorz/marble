@@ -50,10 +50,10 @@ const sidebarMutationTypes = {
 export const isSidebarMutation =
   createBroadcastMutationGuard<SidebarMutation>(sidebarMutationTypes);
 
-function resolveProjectIdForPipe(
+const resolveProjectIdForPipe = (
   current: SidebarTreeData,
   pipe: SidebarPipeRow,
-) {
+) => {
   for (const project of current.projects) {
     for (const child of project.children) {
       if (child.id === pipe.sourceId || child.id === pipe.tableId) {
@@ -63,9 +63,9 @@ function resolveProjectIdForPipe(
   }
 
   return null;
-}
+};
 
-function upsertProjectChildMutation<
+const upsertProjectChildMutation = <
   Row extends {
     id: string;
     projectId: string;
@@ -74,7 +74,7 @@ function upsertProjectChildMutation<
   current: SidebarTreeData,
   row: Row,
   buildNode: (row: Row) => ReturnType<typeof buildTableNode>,
-): SidebarTreeData {
+): SidebarTreeData => {
   const projects = removeSidebarChildFromAll(current.projects, row.id);
 
   if (!projects.some((project) => project.id === row.projectId)) {
@@ -88,12 +88,12 @@ function upsertProjectChildMutation<
     ...current,
     projects: upsertSidebarChild(projects, row.projectId, buildNode(row)),
   };
-}
+};
 
-export function applySidebarMutation(
+export const applySidebarMutation = (
   current: SidebarTreeData,
   mutation: SidebarMutation,
-): SidebarTreeData {
+): SidebarTreeData => {
   switch (mutation.type) {
     case "program:delete":
       return {
@@ -207,4 +207,4 @@ export function applySidebarMutation(
       };
     }
   }
-}
+};

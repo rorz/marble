@@ -10,13 +10,13 @@ import {
 } from "@marble/ui";
 import type { InspectedCell } from "./types";
 
-export function CellInspectorModal({
+export const CellInspectorModal = ({
   cell,
   onClose,
 }: {
   cell: InspectedCell;
   onClose: () => void;
-}) {
+}) => {
   const { state } = cell;
 
   return (
@@ -79,4 +79,4 @@ export function CellInspectorModal({
       </MarbleModalContent>
     </MarbleModal>
   );
-}
+};

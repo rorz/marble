@@ -37,7 +37,7 @@ const FALLBACK_METRICS: MarketingMetrics = {
   sourceEvents: 0,
 };
 
-export async function getMarketingMetrics(): Promise<MarketingMetrics> {
+export const getMarketingMetrics = async (): Promise<MarketingMetrics> => {
   try {
     const supabase = createServiceRoleClient();
 
@@ -100,7 +100,7 @@ export async function getMarketingMetrics(): Promise<MarketingMetrics> {
     // let the demo skyline render synthetic content.
     return FALLBACK_METRICS;
   }
-}
+};
 
 /**
  * Convert real program names into a deterministic skyline. If we have
@@ -123,9 +123,9 @@ const PAD_PROGRAM_NAMES = [
   "dedupe",
 ] as const;
 
-export async function getMarketingSkyline(
+export const getMarketingSkyline = async (
   metrics: MarketingMetrics,
-): Promise<MarketingSkyscraperProps[]> {
+): Promise<MarketingSkyscraperProps[]> => {
   const names = [
     ...metrics.programNames,
     ...PAD_PROGRAM_NAMES,
@@ -157,12 +157,12 @@ export async function getMarketingSkyline(
       width,
     };
   });
-}
+};
 
-function hashName(name: string): number {
+const hashName = (name: string): number => {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
   }
   return hash;
-}
+};

@@ -9,14 +9,14 @@ type LegacySupabaseConfig = {
   url: string;
 };
 
-export function getServiceRoleSupabaseConfig(): LegacySupabaseConfig {
+export const getServiceRoleSupabaseConfig = (): LegacySupabaseConfig => {
   return {
     serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
     url: env.NEXT_PUBLIC_SUPABASE_URL,
   };
-}
+};
 
-export function getMarbleApiConfig(): MarbleApiConfig {
+export const getMarbleApiConfig = (): MarbleApiConfig => {
   return {
     executor: {
       url: env.MARBLE_EXECUTOR_URL,
@@ -27,8 +27,8 @@ export function getMarbleApiConfig(): MarbleApiConfig {
       publishableKey: env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     },
   };
-}
+};
 
-export function getMarbleIngestorBaseUrl() {
+export const getMarbleIngestorBaseUrl = () => {
   return env.MARBLE_INGESTOR_URL.replace(/\/$/, "");
-}
+};

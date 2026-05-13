@@ -4,7 +4,7 @@ import { createServerMarbleSdk } from "../../../lib/marble-sdk-server";
 import type { ManagedProfileRecord, ProfileKeyRecord } from "./shared";
 import { ProfilesPageView } from "./view";
 
-export default async function ProfilesPage() {
+const ProfilesPage = async () => {
   const user = await requireUser();
   const sdk = await createServerMarbleSdk();
   const [profiles, keys] = await Promise.all([
@@ -50,4 +50,5 @@ export default async function ProfilesPage() {
       )}
     </MarblePane>
   );
-}
+};
+export default ProfilesPage;

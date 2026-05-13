@@ -5,13 +5,13 @@ import { useEffect } from "react";
 
 import type { ContextMenuState } from "./types";
 
-export function ContextMenu({
+export const ContextMenu = ({
   state,
   onClose,
 }: {
   state: NonNullable<ContextMenuState>;
   onClose: () => void;
-}) {
+}) => {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -64,6 +64,6 @@ export function ContextMenu({
       </div>
     </>
   );
-}
+};
 
 // ── Cell Inspector Modal ────────────────────────────────

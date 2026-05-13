@@ -11,7 +11,7 @@ import type { SecretRecord } from "../actions";
 import { SecretEditor } from "./editor";
 import { SecretList } from "./list";
 
-function sortSecrets(secrets: SecretRecord[]) {
+const sortSecrets = (secrets: SecretRecord[]) => {
   return [
     ...secrets,
   ].sort(
@@ -19,13 +19,13 @@ function sortSecrets(secrets: SecretRecord[]) {
       left.name.localeCompare(right.name) ||
       new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
   );
-}
+};
 
-export function SecretsPageView({
+export const SecretsPageView = ({
   initialSecrets,
 }: {
   initialSecrets: SecretRecord[];
-}) {
+}) => {
   const sdk = useMarbleWebSessionSdk();
   const [secrets, setSecrets] = useState(() => sortSecrets(initialSecrets));
   const [selectedSecretId, setSelectedSecretId] = useState<string | null>(
@@ -229,4 +229,4 @@ export function SecretsPageView({
       />
     </div>
   );
-}
+};

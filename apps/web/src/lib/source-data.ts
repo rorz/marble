@@ -22,7 +22,7 @@ export type ProjectSourceWorkspaceData = {
   webhookBaseUrl: string;
 };
 
-function outputConfigAllowsManualInput(outputConfig: unknown) {
+const outputConfigAllowsManualInput = (outputConfig: unknown) => {
   if (!outputConfig || typeof outputConfig !== "object") {
     return false;
   }
@@ -36,12 +36,12 @@ function outputConfigAllowsManualInput(outputConfig: unknown) {
   ).flags;
 
   return flags?.allowManualInput === true;
-}
+};
 
-function toProjectInputColumn(
+const toProjectInputColumn = (
   column: MarbleColumn,
   table: ProjectTable,
-): ProjectInputColumn {
+): ProjectInputColumn => {
   return {
     allowManualInput: true,
     id: column.id,
@@ -52,9 +52,9 @@ function toProjectInputColumn(
     tableId: table.id,
     tableName: table.name,
   };
-}
+};
 
-export async function getProjectSourceWorkspaceData(projectId: string) {
+export const getProjectSourceWorkspaceData = async (projectId: string) => {
   const resolved = await createServerMarbleSdkForProject(projectId);
 
   if (!resolved) {
@@ -128,4 +128,4 @@ export async function getProjectSourceWorkspaceData(projectId: string) {
     sources,
     webhookBaseUrl: getMarbleIngestorBaseUrl(),
   } satisfies ProjectSourceWorkspaceData;
-}
+};

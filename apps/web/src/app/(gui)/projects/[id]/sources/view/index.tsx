@@ -74,7 +74,7 @@ import type {
 } from "./types";
 import { formatJson, isRecord, validateSourceSchemaText } from "./validators";
 
-export function ProjectSourceDetailPageView({
+export const ProjectSourceDetailPageView = ({
   initialData,
   initialPipeId = null,
   initialSourceId = null,
@@ -84,7 +84,7 @@ export function ProjectSourceDetailPageView({
   initialPipeId?: string | null;
   initialSourceId?: string | null;
   mode: ProjectSourceDetailMode;
-}) {
+}) => {
   const router = useMarbleRouter();
   const sdk = useMarbleSdk({
     profileId: initialData.project.ownerProfileId,
@@ -1310,4 +1310,4 @@ export function ProjectSourceDetailPageView({
       />
     </MarblePane>
   );
-}
+};

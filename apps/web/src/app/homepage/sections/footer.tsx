@@ -2,7 +2,7 @@ import { MarketingFooterColumn, MarketingFooterGrid } from "../ui/footer-grid";
 import { MarketingDotRow, MarketingStackedWordmark } from "../ui/mark";
 import { Section, SectionInner } from "../ui/section";
 
-export function FooterSection() {
+export const FooterSection = () => {
   return (
     <Section
       padding="md"
@@ -118,4 +118,4 @@ export function FooterSection() {
       </SectionInner>
     </Section>
   );
-}
+};

@@ -100,11 +100,11 @@ ModuleRegistry.registerModules([
   AllCommunityModule,
 ]);
 
-export default function TablePageView({
+const TablePageView = ({
   initialTablePageData,
 }: {
   initialTablePageData: InitialTablePageData;
-}) {
+}) => {
   const router = useMarbleRouter();
   const selectedTableId = initialTablePageData.table.id;
   const [table, setTable] = useState(initialTablePageData.table);
@@ -1578,4 +1578,5 @@ export default function TablePageView({
       </div>
     </MarblePane>
   );
-}
+};
+export default TablePageView;

@@ -25,7 +25,11 @@ const CREATED_AT_FORMATTER = new Intl.DateTimeFormat("en-GB", {
 });
 const VISIBLE_KEY_COUNT = 3;
 
-function ProfileAvatar({ profile }: { profile: Pick<ProfileRecord, "type"> }) {
+const ProfileAvatar = ({
+  profile,
+}: {
+  profile: Pick<ProfileRecord, "type">;
+}) => {
   const Icon = profile.type === "Human" ? UserIcon : RobotIcon;
 
   return (
@@ -36,9 +40,9 @@ function ProfileAvatar({ profile }: { profile: Pick<ProfileRecord, "type"> }) {
       />
     </div>
   );
-}
+};
 
-function ProfileHeading({ profile }: { profile: ManagedProfileRecord }) {
+const ProfileHeading = ({ profile }: { profile: ManagedProfileRecord }) => {
   const activeKeyCount = profile.keys.filter((key) => !key.deletedAt).length;
 
   return (
@@ -56,9 +60,9 @@ function ProfileHeading({ profile }: { profile: ManagedProfileRecord }) {
       </div>
     </div>
   );
-}
+};
 
-function KeyList({
+const KeyList = ({
   keys,
   onRevokeKey,
   revokingKeyId,
@@ -66,7 +70,7 @@ function KeyList({
   keys: ProfileKeyRecord[];
   onRevokeKey: (key: ProfileKeyRecord) => void;
   revokingKeyId: null | string;
-}) {
+}) => {
   const [isShowingAllKeys, setIsShowingAllKeys] = useState(false);
   const hiddenKeyCount = Math.max(keys.length - VISIBLE_KEY_COUNT, 0);
   const visibleKeys = isShowingAllKeys
@@ -141,9 +145,9 @@ function KeyList({
       </div>
     </div>
   );
-}
+};
 
-export function ProfileCard({
+export const ProfileCard = ({
   mintLabel,
   mintVariant,
   onCreateKey,
@@ -161,7 +165,7 @@ export function ProfileCard({
   profile: ManagedProfileRecord;
   revokingKeyId: null | string;
   tone: "default" | "orange" | "subtle";
-}) {
+}) => {
   return (
     <MarbleCard
       className="flex h-full min-w-0 flex-col"
@@ -192,4 +196,4 @@ export function ProfileCard({
       </MarbleCardContent>
     </MarbleCard>
   );
-}
+};

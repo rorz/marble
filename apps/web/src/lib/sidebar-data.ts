@@ -14,9 +14,9 @@ import {
   sortSidebarNodes,
 } from "./sidebar-tree";
 
-export async function listSidebarDataForUser(
+export const listSidebarDataForUser = async (
   _userId: string,
-): Promise<SidebarTreeData> {
+): Promise<SidebarTreeData> => {
   const sdk = await createServerMarbleSdk();
   const data = await sdk.sidebar.getData({});
   const projects = data.projects;
@@ -92,4 +92,4 @@ export async function listSidebarDataForUser(
     ),
     userId: data.userId,
   };
-}
+};

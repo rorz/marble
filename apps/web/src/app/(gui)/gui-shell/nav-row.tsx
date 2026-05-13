@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 
 import { getChangeTargetProps } from "../change-spotlight";
 
-export function SidebarNavRow({
+export const SidebarNavRow = ({
   active = false,
   expandable = false,
   expanded = false,
@@ -31,7 +31,7 @@ export function SidebarNavRow({
   previewTone?: "ancestor" | "direct" | null;
   targetKey?: string;
   title?: string;
-}) {
+}) => {
   const router = useMarbleRouter();
   const showDisclosure = expandable && !iconOnly;
   const showIconSlot = Boolean(icon);
@@ -115,4 +115,4 @@ export function SidebarNavRow({
       ) : null}
     </div>
   );
-}
+};

@@ -12,7 +12,7 @@ import {
   MarbleModalTitle,
 } from "@marble/ui";
 
-export function NewKeyModal({
+export const NewKeyModal = ({
   onClose,
   profileName,
   token,
@@ -20,7 +20,7 @@ export function NewKeyModal({
   onClose: () => void;
   profileName: string;
   token: string;
-}) {
+}) => {
   return (
     <MarbleModal
       ariaLabel={`New key for ${profileName}`}
@@ -52,4 +52,4 @@ export function NewKeyModal({
       </MarbleModalFooter>
     </MarbleModal>
   );
-}
+};

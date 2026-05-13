@@ -1,7 +1,7 @@
 import { forwardMarbleApiRequest } from "../../../lib/api-route-forwarding";
 import { getMarbleApi } from "../../../lib/marble-api";
 
-async function forward(req: Request) {
+const forward = async (req: Request) => {
   return forwardMarbleApiRequest(req, {
     api: getMarbleApi(),
     forwardUserSupabaseAuth: true,
@@ -14,7 +14,7 @@ async function forward(req: Request) {
     ],
     stripPathPrefix: "/api",
   });
-}
+};
 
 export const GET = forward;
 export const POST = forward;

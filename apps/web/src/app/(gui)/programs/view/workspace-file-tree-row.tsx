@@ -10,7 +10,7 @@ import {
 import { getFileAccent } from "./files";
 import type { EditableProgramFile } from "./types";
 
-export function WorkspaceFileTreeRow({
+export const WorkspaceFileTreeRow = ({
   active,
   dirty,
   file,
@@ -22,7 +22,7 @@ export function WorkspaceFileTreeRow({
   file: EditableProgramFile;
   onSelect: () => void;
   targetKey?: string;
-}>) {
+}>) => {
   return (
     <button
       className={cx(
@@ -43,4 +43,4 @@ export function WorkspaceFileTreeRow({
       {dirty ? <span className="size-1.5 rounded-full bg-orange-500" /> : null}
     </button>
   );
-}
+};

@@ -7,9 +7,9 @@ import type {
   SecretRecord,
 } from "./types";
 
-export function buildFieldsFromSchema(
+export const buildFieldsFromSchema = (
   schema: Record<string, unknown>,
-): SchemaField[] {
+): SchemaField[] => {
   const props = (schema.properties ?? {}) as Record<
     string,
     Record<string, unknown>
@@ -23,18 +23,18 @@ export function buildFieldsFromSchema(
     title: (def.title as string) ?? key,
     type: (def.type as string) ?? "string",
   }));
-}
+};
 
-export function secretBindingEntriesToMap(bindings: SecretBindingInput[]) {
+export const secretBindingEntriesToMap = (bindings: SecretBindingInput[]) => {
   return Object.fromEntries(
     bindings.map((binding) => [
       binding.envName,
       binding.secretId,
     ]),
   ) as Record<string, string>;
-}
+};
 
-export function secretBindingMapToEntries(bindings: Record<string, string>) {
+export const secretBindingMapToEntries = (bindings: Record<string, string>) => {
   return Object.entries(bindings)
     .sort(([leftEnvName], [rightEnvName]) =>
       leftEnvName.localeCompare(rightEnvName),
@@ -43,16 +43,16 @@ export function secretBindingMapToEntries(bindings: Record<string, string>) {
       envName,
       secretId,
     })) satisfies SecretBindingInput[];
-}
+};
 
-export function describeColumnSecretResolution(
+export const describeColumnSecretResolution = (
   declaration: ProgramSecretDeclarationsByProgramId[string][number],
   options: {
     overrideSecretId?: string;
     programDefaultSecretId?: string;
     secrets: SecretRecord[];
   },
-) {
+) => {
   const overrideSecret =
     options.overrideSecretId === undefined
       ? null
@@ -126,12 +126,12 @@ export function describeColumnSecretResolution(
       : "Optional secret.",
     inheritedLabel: "No inherited secret available",
   };
-}
+};
 
-export function coerceFieldValue(
+export const coerceFieldValue = (
   field: SchemaField,
   raw: string,
-): unknown | undefined {
+): unknown | undefined => {
   const trimmed = raw.trim();
   if (trimmed === "" && !field.required) return undefined;
 
@@ -158,13 +158,13 @@ export function coerceFieldValue(
     default:
       return raw;
   }
-}
+};
 
-export function resolveReferenceColumnToken(
+export const resolveReferenceColumnToken = (
   token: string,
   referenceColumns: ReferenceableColumn[],
   currentTableId?: string,
-) {
+) => {
   const sortedColumns = [
     ...referenceColumns,
   ].sort(
@@ -198,9 +198,9 @@ export function resolveReferenceColumnToken(
   }
 
   return null;
-}
+};
 
-export function parseTemplateToFieldValues(
+export const parseTemplateToFieldValues = (
   templateJson: string,
   fields: SchemaField[],
   referenceColumns: ReferenceableColumn[],
@@ -210,7 +210,7 @@ export function parseTemplateToFieldValues(
     mode: "static" | "column";
     value: string;
   }
-> {
+> => {
   let template: Record<string, unknown> = {};
   try {
     template = JSON.parse(templateJson);
@@ -266,4 +266,4 @@ export function parseTemplateToFieldValues(
   }
 
   return result;
-}
+};

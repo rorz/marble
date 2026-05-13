@@ -13,7 +13,7 @@ type PipeMappingDisplayRecord = PipeMappingRecord & {
   jsonPathLabel: string;
 };
 
-export function normalizePipeMappings(value: unknown): PipeMappingRecord[] {
+export const normalizePipeMappings = (value: unknown): PipeMappingRecord[] => {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -42,22 +42,22 @@ export function normalizePipeMappings(value: unknown): PipeMappingRecord[] {
       },
     ];
   });
-}
+};
 
-export function buildPipeTitle({
+export const buildPipeTitle = ({
   sourceLabel,
   tableLabel,
 }: {
   sourceLabel: null | string | undefined;
   tableLabel: null | string | undefined;
-}) {
+}) => {
   return `${normalizeDisplayLabel(sourceLabel, "Unknown source")} -> ${normalizeDisplayLabel(tableLabel, "Unknown table")}`;
-}
+};
 
-export function buildPipeMappingDisplayRecords(
+export const buildPipeMappingDisplayRecords = (
   value: unknown,
   columnLabelById: ReadonlyMap<string, string>,
-) {
+) => {
   const seenMappings = new Set<string>();
 
   return normalizePipeMappings(value).flatMap((mapping) => {
@@ -87,13 +87,13 @@ export function buildPipeMappingDisplayRecords(
       } satisfies PipeMappingDisplayRecord,
     ];
   });
-}
+};
 
-export function buildPipeMappingSummary(
+export const buildPipeMappingSummary = (
   value: unknown,
   columnLabelById: ReadonlyMap<string, string>,
   maxVisibleFields = 3,
-) {
+) => {
   const mappings = buildPipeMappingDisplayRecords(value, columnLabelById);
   const mappedFieldCount = mappings.length;
 
@@ -127,4 +127,4 @@ export function buildPipeMappingSummary(
   ];
 
   return `${mappedFieldCount} mapped field${mappedFieldCount === 1 ? "" : "s"}${detailParts.length > 0 ? `: ${detailParts.join(", ")}` : ""}`;
-}
+};

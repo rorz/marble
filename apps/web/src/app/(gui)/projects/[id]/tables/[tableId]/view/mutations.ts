@@ -7,25 +7,25 @@ import type {
   SecretBindingInput,
 } from "./types";
 
-export function deleteColumn(sdk: MarbleClient, columnId: string) {
+export const deleteColumn = (sdk: MarbleClient, columnId: string) => {
   return sdk.columns.delete({
     id: columnId,
   });
-}
+};
 
-export function deleteRow(sdk: MarbleClient, rowId: string) {
+export const deleteRow = (sdk: MarbleClient, rowId: string) => {
   return sdk.rows.delete({
     id: rowId,
   });
-}
+};
 
-export function executeRun(
+export const executeRun = (
   sdk: MarbleClient,
   input: {
     cellId: string;
     cellValue?: string;
   },
-): Promise<RunExecutionResult> {
+): Promise<RunExecutionResult> => {
   return sdk.cells.run({
     id: input.cellId,
     ...(input.cellValue === undefined
@@ -34,12 +34,12 @@ export function executeRun(
           manualInput: input.cellValue,
         }),
   });
-}
+};
 
-function findProgramVersionForColumn(
+const findProgramVersionForColumn = (
   programs: Program[],
   programVersionId: string,
-): Column["programVersion"] | null {
+): Column["programVersion"] | null => {
   for (const program of programs) {
     for (const version of program.programVersions ?? []) {
       if (version.id === programVersionId) {
@@ -52,12 +52,12 @@ function findProgramVersionForColumn(
   }
 
   return null;
-}
+};
 
-export function hydrateColumnRecord(
+export const hydrateColumnRecord = (
   column: ColumnRecord,
   programs: Program[],
-): Column {
+): Column => {
   return {
     ...column,
     programVersion: findProgramVersionForColumn(
@@ -65,9 +65,9 @@ export function hydrateColumnRecord(
       column.programVersionId,
     ),
   };
-}
+};
 
-export function createColumn(
+export const createColumn = (
   sdk: MarbleClient,
   input: {
     inputTemplate: string;
@@ -76,7 +76,7 @@ export function createColumn(
     runCondition: boolean;
     tableId: string;
   },
-) {
+) => {
   return sdk.columns.create({
     inputTemplate: input.inputTemplate,
     name: input.name,
@@ -84,9 +84,9 @@ export function createColumn(
     runCondition: input.runCondition,
     tableId: input.tableId,
   });
-}
+};
 
-export function updateColumn(
+export const updateColumn = (
   sdk: MarbleClient,
   input: {
     columnId: string;
@@ -95,7 +95,7 @@ export function updateColumn(
     programVersionId?: string;
     runCondition?: boolean;
   },
-) {
+) => {
   return sdk.columns.update({
     id: input.columnId,
     values: {
@@ -121,15 +121,15 @@ export function updateColumn(
           }),
     },
   });
-}
+};
 
-export function updateColumnSecretBindings(
+export const updateColumnSecretBindings = (
   sdk: MarbleClient,
   columnId: string,
   bindings: SecretBindingInput[],
-) {
+) => {
   return sdk.secretBindings.setColumn({
     bindings,
     columnId,
   });
-}
+};

@@ -69,7 +69,7 @@ const IMAGE_POSITIONS = {
   right: "object-right",
 } as const;
 
-export function MarketingSplash({
+export const MarketingSplash = ({
   imageSrc,
   imageAlt = "",
   tone = "darkest",
@@ -81,7 +81,7 @@ export function MarketingSplash({
   className,
   id,
   children,
-}: MarketingSplashProps) {
+}: MarketingSplashProps) => {
   return (
     <section
       className={cx(
@@ -129,20 +129,20 @@ export function MarketingSplash({
       {children}
     </section>
   );
-}
+};
 
 /**
  * Layered content slot for `MarketingSplash` — centers a content cluster
  * over the visual.
  */
-export function MarketingSplashContent({
+export const MarketingSplashContent = ({
   className,
   align = "center",
   children,
 }: PropsWithChildren<{
   className?: string;
   align?: "start" | "center" | "end";
-}>) {
+}>) => {
   return (
     <div
       className={cx(
@@ -156,20 +156,20 @@ export function MarketingSplashContent({
       {children}
     </div>
   );
-}
+};
 
 /**
  * Massive splash title — uses display font + ultra-tight tracking. Drops
  * into a `MarketingSplash` for the headline statement.
  */
-export function MarketingSplashTitle({
+export const MarketingSplashTitle = ({
   children,
   className,
   size = "lg",
 }: PropsWithChildren<{
   className?: string;
   size?: "md" | "lg" | "xl";
-}>) {
+}>) => {
   const sizes = {
     lg: "text-7xl md:text-[10rem]",
     md: "text-6xl md:text-8xl",
@@ -186,18 +186,18 @@ export function MarketingSplashTitle({
       {children}
     </h2>
   );
-}
+};
 
 /**
  * Small monospaced "specification line" rendered alongside the title.
  * Pure TE-style label energy — "EP-001 / RT-MARBLE / OSS-MIT".
  */
-export function MarketingSplashSpec({
+export const MarketingSplashSpec = ({
   children,
   className,
 }: PropsWithChildren<{
   className?: string;
-}>) {
+}>) => {
   return (
     <span
       className={cx(
@@ -209,7 +209,7 @@ export function MarketingSplashSpec({
       {children}
     </span>
   );
-}
+};
 
 /**
  * Horizontal scrolling marquee strip. Use as a full-bleed visual page-break
@@ -239,7 +239,7 @@ type MarketingMarqueeProps = {
   className?: string;
 };
 
-export function MarketingMarquee({
+export const MarketingMarquee = ({
   phrase,
   separator = "·",
   tone = "orange",
@@ -247,7 +247,7 @@ export function MarketingMarquee({
   speed = "normal",
   tilt,
   className,
-}: MarketingMarqueeProps) {
+}: MarketingMarqueeProps) => {
   // Duplicate so the marquee animation can loop seamlessly.
   const items = Array.from({
     length: 12,
@@ -298,7 +298,7 @@ export function MarketingMarquee({
       </div>
     </div>
   );
-}
+};
 
 /**
  * Stacked marquee strips — two rows of marquee scrolling in opposite
@@ -315,10 +315,10 @@ type MarketingMarqueeStackProps = {
   className?: string;
 };
 
-export function MarketingMarqueeStack({
+export const MarketingMarqueeStack = ({
   rows,
   className,
-}: MarketingMarqueeStackProps) {
+}: MarketingMarqueeStackProps) => {
   return (
     <div className={cx("flex flex-col", className)}>
       {rows.map((row, index) => (
@@ -334,4 +334,4 @@ export function MarketingMarqueeStack({
       ))}
     </div>
   );
-}
+};

@@ -9,7 +9,7 @@ import {
 
 import type { GridContext } from "./types";
 
-export function ColumnHeader(props: IHeaderParams) {
+export const ColumnHeader = (props: IHeaderParams) => {
   const ctx = props.context as GridContext;
   const columnId = props.column.getColId();
   const isActive = ctx.activeColumnId === columnId;
@@ -30,11 +30,11 @@ export function ColumnHeader(props: IHeaderParams) {
       <span className="truncate">{props.displayName}</span>
     </button>
   );
-}
+};
 
 // ── Add Column Button (rendered as a header) ────────────
 
-export function AddColumnButton(props: IHeaderParams) {
+export const AddColumnButton = (props: IHeaderParams) => {
   const ctx = props.context as GridContext;
 
   return (
@@ -48,6 +48,6 @@ export function AddColumnButton(props: IHeaderParams) {
       </span>
     </button>
   );
-}
+};
 
 // ── Cell Renderer ───────────────────────────────────────

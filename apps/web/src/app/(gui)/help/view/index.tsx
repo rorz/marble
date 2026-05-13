@@ -11,7 +11,7 @@ import { useState } from "react";
 import { Topics } from "./topics";
 import { WorkspaceActions } from "./workspace-actions";
 
-export function HelpCommandExamples() {
+export const HelpCommandExamples = () => {
   const [selectedAction, setSelectedAction] = useState("Create project");
   const [selectedTopic, setSelectedTopic] = useState("Profiles overview");
 
@@ -57,4 +57,4 @@ export function HelpCommandExamples() {
       </div>
     </div>
   );
-}
+};

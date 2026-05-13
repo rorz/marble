@@ -8,17 +8,17 @@ import type {
 
 export const spotlightResolvers = new Set<ChangeSpotlightResolver>();
 
-function encodeChangeTargetSegment(value: string) {
+const encodeChangeTargetSegment = (value: string) => {
   return encodeURIComponent(value);
-}
+};
 
-function decodeChangeTargetSegment(value: string) {
+const decodeChangeTargetSegment = (value: string) => {
   try {
     return decodeURIComponent(value);
   } catch {
     return value;
   }
-}
+};
 
 export const changeTargetKey = {
   cell: (rowId: string, columnId: string) =>
@@ -39,9 +39,9 @@ export const changeTargetKey = {
   table: (tableId: string) => `table:${encodeChangeTargetSegment(tableId)}`,
 } as const;
 
-export function parseChangeTargetKey(
+export const parseChangeTargetKey = (
   targetKey: string,
-): ChangeTargetDescriptor | null {
+): ChangeTargetDescriptor | null => {
   if (targetKey === changeTargetKey.profiles()) {
     return {
       kind: "profiles",
@@ -124,15 +124,17 @@ export function parseChangeTargetKey(
   }
 
   return null;
-}
+};
 
-export function getChangeTargetProps(targetKey: string) {
+export const getChangeTargetProps = (targetKey: string) => {
   return {
     [CHANGE_SPOTLIGHT_ATTRIBUTE]: targetKey,
   } as const;
-}
+};
 
-export function useChangeSpotlightResolver(resolver: ChangeSpotlightResolver) {
+export const useChangeSpotlightResolver = (
+  resolver: ChangeSpotlightResolver,
+) => {
   useEffect(() => {
     spotlightResolvers.add(resolver);
 
@@ -142,17 +144,17 @@ export function useChangeSpotlightResolver(resolver: ChangeSpotlightResolver) {
   }, [
     resolver,
   ]);
-}
+};
 
-export function dedupeTargetKeys(targetKeys: string[]) {
+export const dedupeTargetKeys = (targetKeys: string[]) => {
   return Array.from(
     new Set(
       targetKeys.map((key) => key.trim()).filter((key) => key.length > 0),
     ),
   );
-}
+};
 
-export function parseTargetKeys(targetKeys: string[]) {
+export const parseTargetKeys = (targetKeys: string[]) => {
   return dedupeTargetKeys(targetKeys)
     .map((key) => {
       const descriptor = parseChangeTargetKey(key);
@@ -167,13 +169,13 @@ export function parseTargetKeys(targetKeys: string[]) {
       } satisfies ParsedTarget;
     })
     .filter((target): target is ParsedTarget => target !== null);
-}
+};
 
-function pluralize(label: string, count: number) {
+const pluralize = (label: string, count: number) => {
   return `${count} ${label}${count === 1 ? "" : "s"}`;
-}
+};
 
-export function formatReviewSummary(targetKeys: string[]) {
+export const formatReviewSummary = (targetKeys: string[]) => {
   const kindCounts = new Map<ChangeTargetDescriptor["kind"], number>();
 
   for (const target of parseTargetKeys(targetKeys)) {
@@ -216,4 +218,4 @@ export function formatReviewSummary(targetKeys: string[]) {
   }
 
   return `${parts[0]} + ${parts.length - 1} more`;
-}
+};

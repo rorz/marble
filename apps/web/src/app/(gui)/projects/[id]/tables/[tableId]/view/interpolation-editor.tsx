@@ -5,17 +5,17 @@ import { useMemo } from "react";
 import Editor from "react-simple-code-editor";
 import type { ReferenceableColumn } from "./types";
 
-export function escapeChangeTargetSelector(value: string) {
+export const escapeChangeTargetSelector = (value: string) => {
   if (typeof window !== "undefined" && window.CSS?.escape) {
     return window.CSS.escape(value);
   }
 
   return value.replaceAll('"', '\\"');
-}
+};
 
 // ── Components ──────────────────────────────────────────
 
-export function InterpolationEditor({
+export const InterpolationEditor = ({
   value,
   onChange,
   placeholder,
@@ -27,7 +27,7 @@ export function InterpolationEditor({
   placeholder?: string;
   currentTableId?: string;
   referenceColumns: ReferenceableColumn[];
-}) {
+}) => {
   const validTokens = useMemo(
     () =>
       new Set(
@@ -130,6 +130,6 @@ export function InterpolationEditor({
       `}</style>
     </div>
   );
-}
+};
 
 // ── Component ───────────────────────────────────────────

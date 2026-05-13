@@ -231,7 +231,7 @@ const providerOptions = [
   },
 ] satisfies MarbleSearchSelectOption[];
 
-function Section({
+const Section = ({
   children,
   description,
   id,
@@ -241,7 +241,7 @@ function Section({
   description: string;
   id: string;
   title: string;
-}>) {
+}>) => {
   return (
     <section
       className="scroll-mt-6"
@@ -262,9 +262,9 @@ function Section({
       </MarbleCard>
     </section>
   );
-}
+};
 
-function DemoPanel({
+const DemoPanel = ({
   children,
   className,
   contentClassName,
@@ -278,7 +278,7 @@ function DemoPanel({
   description?: string;
   title: string;
   tone?: "default" | "orange" | "subtle";
-}>) {
+}>) => {
   return (
     <MarbleCard
       className={className}
@@ -295,9 +295,9 @@ function DemoPanel({
       </MarbleCardContent>
     </MarbleCard>
   );
-}
+};
 
-function RouteProgressDemo() {
+const RouteProgressDemo = () => {
   const [pending, setPending] = useState(false);
   useReportRouteProgress(pending);
   return (
@@ -323,9 +323,9 @@ function RouteProgressDemo() {
       </div>
     </div>
   );
-}
+};
 
-function MarbleRouterDemo() {
+const MarbleRouterDemo = () => {
   const router = useMarbleRouter();
   return (
     <div className="flex flex-wrap items-center gap-3 border-taupe-200 border-t pt-3">
@@ -347,9 +347,9 @@ function MarbleRouterDemo() {
       ) : null}
     </div>
   );
-}
+};
 
-export default function UiPage() {
+const UiPage = () => {
   const defaultProjectName = "Untitled Project";
   const defaultCrumbName = "Audience Enrichment";
   const [editableValue, setEditableValue] = useState(defaultProjectName);
@@ -2676,4 +2676,5 @@ export default function UiPage() {
       ) : null}
     </main>
   );
-}
+};
+export default UiPage;

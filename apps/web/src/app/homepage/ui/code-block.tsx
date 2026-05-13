@@ -36,7 +36,7 @@ type MarketingCodeBlockProps = {
   children: ReactNode;
 };
 
-export function MarketingCodeBlock({
+export const MarketingCodeBlock = ({
   title,
   prompt,
   tone = "dark",
@@ -44,7 +44,7 @@ export function MarketingCodeBlock({
   className,
   trailing,
   children,
-}: MarketingCodeBlockProps) {
+}: MarketingCodeBlockProps) => {
   return (
     <div
       className={cx(
@@ -84,15 +84,15 @@ export function MarketingCodeBlock({
       </pre>
     </div>
   );
-}
+};
 
-function PromptedChildren({
+const PromptedChildren = ({
   prompt,
   children,
 }: {
   prompt: string;
   children: ReactNode;
-}) {
+}) => {
   if (typeof children !== "string") {
     return <code>{children}</code>;
   }
@@ -111,19 +111,19 @@ function PromptedChildren({
       ))}
     </code>
   );
-}
+};
 
 /**
  * Inline highlight inside a `MarketingCodeBlock`. Use it for keywords or
  * token emphasis like `marble init` → highlight `marble`.
  */
-export function MarketingCodeMark({
+export const MarketingCodeMark = ({
   children,
   tone = "orange",
 }: {
   children: ReactNode;
   tone?: "orange" | "cream";
-}) {
+}) => {
   return (
     <span
       className={cx(tone === "orange" ? "text-orange-400" : "text-taupe-200")}
@@ -131,4 +131,4 @@ export function MarketingCodeMark({
       {children}
     </span>
   );
-}
+};

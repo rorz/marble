@@ -182,7 +182,7 @@ const SECTIONS = [
   },
 ] as const;
 
-function Showcase({
+const Showcase = ({
   id,
   title,
   description,
@@ -192,7 +192,7 @@ function Showcase({
   title: string;
   description: ReactNode;
   children: ReactNode;
-}) {
+}) => {
   return (
     <section
       className="scroll-mt-6"
@@ -213,9 +213,9 @@ function Showcase({
       </MarbleCard>
     </section>
   );
-}
+};
 
-function Demo({
+const Demo = ({
   label,
   description,
   contained = true,
@@ -226,7 +226,7 @@ function Demo({
   /** Wrap demo in a framed container. */
   contained?: boolean;
   children: ReactNode;
-}) {
+}) => {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-col gap-0.5">
@@ -244,9 +244,9 @@ function Demo({
       )}
     </div>
   );
-}
+};
 
-export default function MarketingShowcasePage() {
+const MarketingShowcasePage = () => {
   return (
     <main className="min-h-screen bg-taupe-100">
       <header className="border-b-2 border-taupe-300 bg-taupe-50 px-6 py-8 md:px-10">
@@ -1259,9 +1259,10 @@ bun run dev`}
       </div>
     </main>
   );
-}
+};
+export default MarketingShowcasePage;
 
-function AnimationSwatch({
+const AnimationSwatch = ({
   cls,
   label,
   swatch,
@@ -1271,7 +1272,7 @@ function AnimationSwatch({
   label: string;
   swatch?: boolean;
   text?: boolean;
-}) {
+}) => {
   return (
     <div className="flex flex-col gap-2 rounded-xs border-2 border-taupe-300 bg-taupe-50 p-4">
       <span className="font-mono text-eyebrow-xs text-taupe-700">{label}</span>
@@ -1290,4 +1291,4 @@ function AnimationSwatch({
       </code>
     </div>
   );
-}
+};

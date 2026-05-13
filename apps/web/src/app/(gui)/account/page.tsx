@@ -7,7 +7,7 @@ import {
 import { requireUserIdentity } from "../../../lib/auth";
 import { AccountSignOutButton } from "./account-sign-out-button";
 
-export default async function AccountPage() {
+const AccountPage = async () => {
   const identity = await requireUserIdentity();
 
   return (
@@ -61,4 +61,5 @@ export default async function AccountPage() {
       </div>
     </MarblePane>
   );
-}
+};
+export default AccountPage;

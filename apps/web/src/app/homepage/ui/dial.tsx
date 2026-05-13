@@ -33,7 +33,7 @@ type MarketingDialProps = {
   className?: string;
 };
 
-export function MarketingDial({
+export const MarketingDial = ({
   label,
   caption,
   angle = -45,
@@ -41,7 +41,7 @@ export function MarketingDial({
   size = "md",
   tone = "dark",
   className,
-}: MarketingDialProps) {
+}: MarketingDialProps) => {
   const [autoAngle, setAutoAngle] = useState(angle);
 
   useEffect(() => {
@@ -111,9 +111,9 @@ export function MarketingDial({
       ) : null}
     </div>
   );
-}
+};
 
-function KnobTicks() {
+const KnobTicks = () => {
   // 24 tick marks distributed around the perimeter — a classic TE knob.
   const ticks = Array.from({
     length: 24,
@@ -143,7 +143,7 @@ function KnobTicks() {
       })}
     </div>
   );
-}
+};
 
 /**
  * Vertical fader / mixer slider. CSS-only with optional animated handle.
@@ -163,7 +163,7 @@ type MarketingFaderProps = {
   className?: string;
 };
 
-export function MarketingFader({
+export const MarketingFader = ({
   label,
   caption,
   value = 0.7,
@@ -171,7 +171,7 @@ export function MarketingFader({
   height = "md",
   tone = "orange",
   className,
-}: MarketingFaderProps) {
+}: MarketingFaderProps) => {
   const [position, setPosition] = useState(value);
 
   useEffect(() => {
@@ -242,4 +242,4 @@ export function MarketingFader({
       ) : null}
     </div>
   );
-}
+};

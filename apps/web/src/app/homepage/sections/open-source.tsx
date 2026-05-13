@@ -3,7 +3,7 @@ import { MarketingPin } from "../ui/mark";
 import { Section, SectionHeader, SectionInner } from "../ui/section";
 import { MarketingStat, MarketingStatGrid } from "../ui/stat";
 
-export function OpenSourceSection() {
+export const OpenSourceSection = () => {
   return (
     <Section
       id="open-source"
@@ -89,4 +89,4 @@ bun install && bun run deploy`}
       </SectionInner>
     </Section>
   );
-}
+};

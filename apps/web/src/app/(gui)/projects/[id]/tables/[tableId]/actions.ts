@@ -26,10 +26,10 @@ type TableInfo = {
   projectOwnerProfileId: string;
   updatedAt: string;
 };
-function findProgramVersionForColumn(
+const findProgramVersionForColumn = (
   programs: FullProgram[],
   programVersionId: string,
-): ProgramVersionForColumn | null {
+): ProgramVersionForColumn | null => {
   for (const program of programs) {
     for (const version of program.programVersions ?? []) {
       if (version.id === programVersionId) {
@@ -42,9 +42,9 @@ function findProgramVersionForColumn(
   }
 
   return null;
-}
+};
 
-function toTableInfo(
+const toTableInfo = (
   table: {
     createdAt: string;
     id: string;
@@ -57,7 +57,7 @@ function toTableInfo(
     name: string;
     ownerProfileId: string;
   },
-): TableInfo {
+): TableInfo => {
   return {
     createdAt: table.createdAt,
     id: table.id,
@@ -68,14 +68,14 @@ function toTableInfo(
     projectOwnerProfileId: project.ownerProfileId,
     updatedAt: table.updatedAt,
   };
-}
+};
 
-async function loadTableData(
+const loadTableData = async (
   resolved: NonNullable<
     Awaited<ReturnType<typeof createServerMarbleSdkForTable>>
   >,
   programs: FullProgram[],
-) {
+) => {
   const [columns, rows] = await Promise.all([
     resolved.sdk.columns.list({
       tableId: resolved.table.id,
@@ -103,12 +103,12 @@ async function loadTableData(
     })),
     rows,
   };
-}
+};
 
-export async function loadTablePageDataForUser(
+export const loadTablePageDataForUser = async (
   userId: string,
   tableId: string,
-) {
+) => {
   const resolved = await createServerMarbleSdkForTable(tableId);
 
   if (!resolved) {
@@ -143,16 +143,16 @@ export async function loadTablePageDataForUser(
     secrets,
     table: toTableInfo(resolved.table, resolved.project),
   };
-}
+};
 
 export type TablePageData = Awaited<
   ReturnType<typeof loadTablePageDataForUser>
 >;
 
-export async function updateProgramOutputSchema(
+export const updateProgramOutputSchema = async (
   programVersionId: string,
   outputConfig: unknown,
-) {
+) => {
   const sdk = await createServerMarbleSdk();
 
   await sdk.programVersions.update({
@@ -161,4 +161,4 @@ export async function updateProgramOutputSchema(
       outputConfig,
     },
   });
-}
+};

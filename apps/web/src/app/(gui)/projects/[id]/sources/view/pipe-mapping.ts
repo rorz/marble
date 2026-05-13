@@ -1,20 +1,20 @@
 import type { PipeMappingDraft, PipeMappingInput } from "./types";
 
-export function createPipeMappingDraft(
+export const createPipeMappingDraft = (
   value: Partial<PipeMappingInput> = {},
-): PipeMappingDraft {
+): PipeMappingDraft => {
   return {
     columnId: value.columnId ?? "",
     draftId: crypto.randomUUID(),
     jsonPath: value.jsonPath ?? "",
   };
-}
+};
 
-export function normalizePipeFieldName(value: string) {
+export const normalizePipeFieldName = (value: string) => {
   return value.toLowerCase().replaceAll(/[^a-z0-9]/g, "");
-}
+};
 
-export function formatPipeCandidatePreview(value: unknown) {
+export const formatPipeCandidatePreview = (value: unknown) => {
   if (value === null) {
     return "null";
   }
@@ -29,15 +29,15 @@ export function formatPipeCandidatePreview(value: unknown) {
 
   const preview = String(value);
   return preview.length > 48 ? `${preview.slice(0, 45)}...` : preview;
-}
+};
 
-export function isPlainObject(
+export const isPlainObject = (
   value: unknown,
-): value is Record<string, unknown> {
+): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+};
 
-export function formatPipeSchemaPreview(schema: Record<string, unknown>) {
+export const formatPipeSchemaPreview = (schema: Record<string, unknown>) => {
   const enumValues = Array.isArray(schema.enum)
     ? schema.enum.filter(
         (value): value is boolean | null | number | string =>
@@ -82,4 +82,4 @@ export function formatPipeSchemaPreview(schema: Record<string, unknown>) {
   }
 
   return "value";
-}
+};

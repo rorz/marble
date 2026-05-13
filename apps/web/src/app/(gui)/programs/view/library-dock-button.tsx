@@ -1,7 +1,7 @@
 import { cx } from "@marble/ui";
 import type { ReactNode } from "react";
 
-export function LibraryDockButton({
+export const LibraryDockButton = ({
   active,
   count,
   icon,
@@ -15,7 +15,7 @@ export function LibraryDockButton({
   label: string;
   onClick: () => void;
   subtitle: string;
-}>) {
+}>) => {
   return (
     <button
       className={cx(
@@ -46,4 +46,4 @@ export function LibraryDockButton({
       ) : null}
     </button>
   );
-}
+};

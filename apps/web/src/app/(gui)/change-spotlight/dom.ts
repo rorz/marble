@@ -6,15 +6,15 @@ import type {
   SpotlightVisibleTarget,
 } from "./types";
 
-function escapeChangeTarget(value: string) {
+const escapeChangeTarget = (value: string) => {
   if (typeof window !== "undefined" && window.CSS?.escape) {
     return window.CSS.escape(value);
   }
 
   return value.replaceAll('"', '\\"');
-}
+};
 
-function queryChangeTargetElement(targetKey: string) {
+const queryChangeTargetElement = (targetKey: string) => {
   if (typeof document === "undefined") {
     return null;
   }
@@ -22,12 +22,12 @@ function queryChangeTargetElement(targetKey: string) {
   return document.querySelector<HTMLElement>(
     `[${CHANGE_SPOTLIGHT_ATTRIBUTE}="${escapeChangeTarget(targetKey)}"]`,
   );
-}
+};
 
-export function findChangeTargetElement(
+export const findChangeTargetElement = (
   targetKey: string,
   descriptor: ChangeTargetDescriptor | null,
-) {
+) => {
   if (descriptor) {
     for (const resolver of spotlightResolvers) {
       if (!resolver.match(descriptor)) {
@@ -43,9 +43,9 @@ export function findChangeTargetElement(
   }
 
   return queryChangeTargetElement(targetKey);
-}
+};
 
-async function _revealChangeTarget(descriptor: ChangeTargetDescriptor) {
+const _revealChangeTarget = async (descriptor: ChangeTargetDescriptor) => {
   for (const resolver of spotlightResolvers) {
     if (!resolver.match(descriptor) || !resolver.reveal) {
       continue;
@@ -57,18 +57,18 @@ async function _revealChangeTarget(descriptor: ChangeTargetDescriptor) {
       return;
     }
   }
-}
+};
 
-function parseBorderRadius(value: string) {
+const parseBorderRadius = (value: string) => {
   const numericValue = Number.parseFloat(value);
 
   return Number.isFinite(numericValue) ? numericValue : 0;
-}
+};
 
-export function buildSpotlightRect(
+export const buildSpotlightRect = (
   element: HTMLElement,
   margin = 0,
-): SpotlightRect {
+): SpotlightRect => {
   const rect = element.getBoundingClientRect();
   const computedStyle = window.getComputedStyle(element);
   const maxHeight =
@@ -94,28 +94,28 @@ export function buildSpotlightRect(
     top,
     width: Math.max(0, right - left),
   };
-}
+};
 
-export function shouldReduceMotion() {
+export const shouldReduceMotion = () => {
   return (
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
-}
+};
 
-export function waitForAnimationFrame() {
+export const waitForAnimationFrame = () => {
   return new Promise<void>((resolve) => {
     window.requestAnimationFrame(() => resolve());
   });
-}
+};
 
-export function buildSearchOrder(startIndex: number, length: number) {
+export const buildSearchOrder = (startIndex: number, length: number) => {
   return Array.from({
     length,
   }).map((_, offset) => (startIndex + offset) % length);
-}
+};
 
-export function collectTargetElements(targetKeys: string[]) {
+export const collectTargetElements = (targetKeys: string[]) => {
   return targetKeys
     .map((targetKey) => {
       const descriptor = parseChangeTargetKey(targetKey);
@@ -137,9 +137,11 @@ export function collectTargetElements(targetKeys: string[]) {
       } satisfies SpotlightVisibleTarget;
     })
     .filter((target): target is SpotlightVisibleTarget => target !== null);
-}
+};
 
-export async function revealChangeTarget(descriptor: ChangeTargetDescriptor) {
+export const revealChangeTarget = async (
+  descriptor: ChangeTargetDescriptor,
+) => {
   for (const resolver of spotlightResolvers) {
     if (!resolver.match(descriptor) || !resolver.reveal) {
       continue;
@@ -151,4 +153,4 @@ export async function revealChangeTarget(descriptor: ChangeTargetDescriptor) {
       return;
     }
   }
-}
+};

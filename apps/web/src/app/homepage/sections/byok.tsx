@@ -22,7 +22,7 @@ const PROVIDER_BRANDS: BrandId[] = [
   "ollama",
 ];
 
-export function ByokSection() {
+export const ByokSection = () => {
   return (
     <Section
       id="byok"
@@ -153,4 +153,4 @@ export function ByokSection() {
       </SectionInner>
     </Section>
   );
-}
+};

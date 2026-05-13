@@ -43,13 +43,13 @@ type ChangeRadarProps = {
   sidebarData: SidebarTreeData;
 };
 
-export function ChangeRadar({
+export const ChangeRadar = ({
   className,
   headerActions,
   mode = "panel",
   onToggleSidebar,
   sidebarData,
-}: ChangeRadarProps) {
+}: ChangeRadarProps) => {
   const router = useMarbleRouter();
   const [supabase] = useState(() => createClient());
   const sdk = useMarbleWebSessionSdk();
@@ -356,4 +356,4 @@ export function ChangeRadar({
       unreadCount={unreadCount}
     />
   );
-}
+};

@@ -16,7 +16,7 @@ const inferredSourceSchemaResultSchema = z.object({
     ),
 });
 
-function normalizeInferredSourceSchema(value: string) {
+const normalizeInferredSourceSchema = (value: string) => {
   let parsed: unknown;
 
   try {
@@ -44,12 +44,12 @@ function normalizeInferredSourceSchema(value: string) {
   }
 
   return parsed;
-}
+};
 
-export async function inferSourceSchemaFromEventAction(
+export const inferSourceSchemaFromEventAction = async (
   projectId: string,
   sourceEventId: string,
-) {
+) => {
   await requireUser();
 
   const resolved = await createServerMarbleSdkForProject(projectId);
@@ -86,4 +86,4 @@ export async function inferSourceSchemaFromEventAction(
   });
 
   return normalizeInferredSourceSchema(object.jsonSchema);
-}
+};

@@ -13,34 +13,34 @@ const PROTECTED_PATHS = [
   "/secrets",
 ];
 
-function isProtectedPath(pathname: string): boolean {
+const isProtectedPath = (pathname: string): boolean => {
   return PROTECTED_PATHS.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
-}
+};
 
-function clearSupabaseAuthCookies(
+const clearSupabaseAuthCookies = (
   request: NextRequest,
   response: NextResponse,
   cookieNames: ReadonlyArray<string>,
-) {
+) => {
   for (const cookieName of cookieNames) {
     request.cookies.delete(cookieName);
     response.cookies.delete(cookieName);
   }
 
   return response;
-}
+};
 
-function copySupabaseCookies(source: NextResponse, target: NextResponse) {
+const copySupabaseCookies = (source: NextResponse, target: NextResponse) => {
   for (const cookie of source.cookies.getAll()) {
     target.cookies.set(cookie.name, cookie.value, cookie);
   }
 
   return target;
-}
+};
 
-export async function updateSession(request: NextRequest) {
+export const updateSession = async (request: NextRequest) => {
   let response = NextResponse.next({
     request,
   });
@@ -100,4 +100,4 @@ export async function updateSession(request: NextRequest) {
   }
 
   return response;
-}
+};

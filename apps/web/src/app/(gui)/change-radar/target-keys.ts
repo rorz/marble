@@ -11,10 +11,10 @@ export type RadarScope = {
   targetKeys: string[];
 };
 
-export function resolveEventTargetKeys(
+export const resolveEventTargetKeys = (
   event: EventRow,
   resolutionMaps: ResolutionMaps,
-) {
+) => {
   const snapshot = getEventSnapshot(event);
 
   if (event.resource === "project") {
@@ -218,12 +218,12 @@ export function resolveEventTargetKeys(
   }
 
   return [];
-}
+};
 
-export function appendLimitedTargetKeys(
+export const appendLimitedTargetKeys = (
   targetKeys: string[],
   nextTargetKeys: string[],
-) {
+) => {
   for (const targetKey of nextTargetKeys) {
     if (
       targetKeys.length >= CHANGE_RADAR_TARGET_LIMIT ||
@@ -234,12 +234,12 @@ export function appendLimitedTargetKeys(
 
     targetKeys.push(targetKey);
   }
-}
+};
 
-export function resolveEventDetailTargetKeys(
+export const resolveEventDetailTargetKeys = (
   event: EventRow,
   resolutionMaps: ResolutionMaps,
-) {
+) => {
   const snapshot = getEventSnapshot(event);
 
   if (
@@ -331,4 +331,4 @@ export function resolveEventDetailTargetKeys(
   }
 
   return [];
-}
+};

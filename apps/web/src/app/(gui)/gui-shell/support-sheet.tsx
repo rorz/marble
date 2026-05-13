@@ -10,13 +10,13 @@ import {
 import { SupportPanelSection } from "./support-section";
 import type { SupportSheetView } from "./types";
 
-export function CommandPaletteSupportSheet({
+export const CommandPaletteSupportSheet = ({
   onClose,
   view,
 }: Readonly<{
   onClose: () => void;
   view: SupportSheetView;
-}>) {
+}>) => {
   if (view === "contact") {
     return (
       <>
@@ -104,4 +104,4 @@ export function CommandPaletteSupportSheet({
       </MarbleSheetFooter>
     </>
   );
-}
+};

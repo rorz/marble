@@ -2,7 +2,7 @@ import { requireUser } from "../../../lib/auth";
 import { loadProgramsPageDataForUser } from "./actions";
 import { ProgramsPageView } from "./view";
 
-export default async function ProgramsPage() {
+const ProgramsPage = async () => {
   const user = await requireUser();
   const pageData = await loadProgramsPageDataForUser(user.id);
 
@@ -13,4 +13,5 @@ export default async function ProgramsPage() {
       initialSecrets={pageData.secrets}
     />
   );
-}
+};
+export default ProgramsPage;

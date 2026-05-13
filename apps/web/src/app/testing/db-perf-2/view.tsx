@@ -197,35 +197,35 @@ const timingKindOrder = {
   wall: 1,
 } satisfies Record<TimingKind, number>;
 
-function nowMs() {
+const nowMs = () => {
   return performance.now();
-}
+};
 
-function formatMs(value: number) {
+const formatMs = (value: number) => {
   return `${Math.round(value)}ms`;
-}
+};
 
-function shortId(value: string) {
+const shortId = (value: string) => {
   return value.slice(0, 8);
-}
+};
 
-function isObject(value: unknown): value is Record<string, unknown> {
+const isObject = (value: unknown): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+};
 
-function getPayloadRunId(value: Json) {
+const getPayloadRunId = (value: Json) => {
   if (!isObject(value)) {
     return null;
   }
 
   return typeof value.perfRunId === "string" ? value.perfRunId : null;
-}
+};
 
-function formatJson(value: Json) {
+const formatJson = (value: Json) => {
   return JSON.stringify(value, null, 2);
-}
+};
 
-function getLatestWallEntry(entries: TimingEntry[]) {
+const getLatestWallEntry = (entries: TimingEntry[]) => {
   for (let index = entries.length - 1; index >= 0; index -= 1) {
     if (entries[index]?.kind === "wall") {
       return entries[index];
@@ -233,9 +233,9 @@ function getLatestWallEntry(entries: TimingEntry[]) {
   }
 
   return null;
-}
+};
 
-function orderTimingEntriesForDisplay(entries: TimingEntry[]) {
+const orderTimingEntriesForDisplay = (entries: TimingEntry[]) => {
   return [
     ...entries,
   ].sort((left, right) => {
@@ -251,21 +251,21 @@ function orderTimingEntriesForDisplay(entries: TimingEntry[]) {
 
     return left.id - right.id;
   });
-}
+};
 
-function getErrorMessage(cause: unknown) {
+const getErrorMessage = (cause: unknown) => {
   return cause instanceof Error ? cause.message : String(cause);
-}
+};
 
-function sourceToSnapshot(source: SdkSource): SourceSnapshot {
+const sourceToSnapshot = (source: SdkSource): SourceSnapshot => {
   return {
     id: source.id,
     name: source.name,
     projectId: source.projectId,
   };
-}
+};
 
-function dbEventToSnapshot(event: SourceEventRow): SourceEventSnapshot {
+const dbEventToSnapshot = (event: SourceEventRow): SourceEventSnapshot => {
   return {
     createdAt: event.created_at,
     id: event.id,
@@ -273,9 +273,9 @@ function dbEventToSnapshot(event: SourceEventRow): SourceEventSnapshot {
     rawPayload: event.raw_payload,
     sourceId: event.source_id,
   };
-}
+};
 
-function requireSupabaseData<T>(
+const requireSupabaseData = <T,>(
   result: {
     data: T | null;
     error: {
@@ -283,7 +283,7 @@ function requireSupabaseData<T>(
     } | null;
   },
   missingMessage: string,
-) {
+) => {
   if (result.error) {
     throw new Error(result.error.message);
   }
@@ -293,26 +293,26 @@ function requireSupabaseData<T>(
   }
 
   return result.data;
-}
+};
 
-function createPayload(input: {
+const createPayload = (input: {
   laneId: LaneId;
   runId: string;
   value: string;
-}) {
+}) => {
   return {
     laneId: input.laneId,
     message: input.value.trim() || "db-perf-2 source event",
     perfRunId: input.runId,
     sentAt: new Date().toISOString(),
   } satisfies Json;
-}
+};
 
-function sourceEventTopic(sourceId: string) {
+const sourceEventTopic = (sourceId: string) => {
   return `source-events:${sourceId}`;
-}
+};
 
-export function DbPerf2View() {
+export const DbPerf2View = () => {
   const supabase = useMemo(() => createClient(), []);
   const pageStartedAtRef = useRef(nowMs());
   const timingIdRef = useRef(0);
@@ -616,15 +616,15 @@ export function DbPerf2View() {
       </div>
     </div>
   );
-}
+};
 
-function useBroadcastSubscription({
+const useBroadcastSubscription = ({
   sourceId,
   supabase,
 }: Readonly<{
   sourceId: string | null;
   supabase: BrowserSupabaseClient;
-}>): BroadcastSubscription {
+}>): BroadcastSubscription => {
   const observersRef = useRef(new Set<BroadcastObserver>());
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<LaneStatus>("subscribing");
@@ -741,9 +741,9 @@ function useBroadcastSubscription({
       status,
     ],
   );
-}
+};
 
-function useCaptureLane({
+const useCaptureLane = ({
   appendTiming,
   broadcastSubscription,
   lane,
@@ -755,7 +755,7 @@ function useCaptureLane({
   lane: LaneConfig;
   sourceId: string | null;
   supabase: BrowserSupabaseClient;
-}>): LaneState {
+}>): LaneState => {
   const pendingObservationRef = useRef<PendingObservation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [latestEvent, setLatestEvent] = useState<SourceEventSnapshot | null>(
@@ -1075,15 +1075,15 @@ function useCaptureLane({
     status: pending ? "pending" : effectiveStatus,
     timings,
   };
-}
+};
 
-function LanePanel({
+const LanePanel = ({
   lane,
   state,
 }: Readonly<{
   lane: LaneConfig;
   state: LaneState;
-}>) {
+}>) => {
   const styles = laneStyles[lane.captureKind];
   const latestWall = getLatestWallEntry(state.timings);
 
@@ -1153,28 +1153,28 @@ function LanePanel({
       </MarbleCardContent>
     </MarbleCard>
   );
-}
+};
 
-function Metric({
+const Metric = ({
   label,
   value,
 }: Readonly<{
   label: string;
   value: string;
-}>) {
+}>) => {
   return (
     <div className="min-w-0">
       <div className="font-medium text-eyebrow-xs text-taupe-500">{label}</div>
       <div className="truncate font-mono text-sm text-taupe-950">{value}</div>
     </div>
   );
-}
+};
 
-function TimingList({
+const TimingList = ({
   entries,
 }: Readonly<{
   entries: TimingEntry[];
-}>) {
+}>) => {
   const orderedEntries = orderTimingEntriesForDisplay(entries);
 
   if (entries.length === 0) {
@@ -1237,13 +1237,13 @@ function TimingList({
       ))}
     </ol>
   );
-}
+};
 
-function TimingPanel({
+const TimingPanel = ({
   entries,
 }: Readonly<{
   entries: TimingEntry[];
-}>) {
+}>) => {
   if (entries.length === 0) {
     return null;
   }
@@ -1279,4 +1279,4 @@ function TimingPanel({
       </MarbleCardContent>
     </MarbleCard>
   );
-}
+};

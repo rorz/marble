@@ -73,20 +73,23 @@ const PROJECT_RESOURCE_ORDER: Record<
   table: 2,
 };
 
-function compareNodes(left: SidebarTreeNode, right: SidebarTreeNode) {
+const compareNodes = (left: SidebarTreeNode, right: SidebarTreeNode) => {
   return (
     new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime() ||
     left.label.localeCompare(right.label)
   );
-}
+};
 
-export function sortSidebarNodes(nodes: SidebarTreeNode[]) {
+export const sortSidebarNodes = (nodes: SidebarTreeNode[]) => {
   return [
     ...nodes,
   ].sort(compareNodes);
-}
+};
 
-function compareProjectChildren(left: SidebarTreeNode, right: SidebarTreeNode) {
+const compareProjectChildren = (
+  left: SidebarTreeNode,
+  right: SidebarTreeNode,
+) => {
   const resourceOrderDifference =
     (PROJECT_RESOURCE_ORDER[left.kind as keyof typeof PROJECT_RESOURCE_ORDER] ??
       Number.MAX_SAFE_INTEGER) -
@@ -95,15 +98,15 @@ function compareProjectChildren(left: SidebarTreeNode, right: SidebarTreeNode) {
     ] ?? Number.MAX_SAFE_INTEGER);
 
   return resourceOrderDifference || compareNodes(left, right);
-}
+};
 
-function sortProjectChildren(nodes: SidebarTreeNode[]) {
+const sortProjectChildren = (nodes: SidebarTreeNode[]) => {
   return [
     ...nodes,
   ].sort(compareProjectChildren);
-}
+};
 
-function createSidebarNode(spec: {
+const createSidebarNode = (spec: {
   children?: SidebarTreeNode[];
   href: string;
   id: string;
@@ -111,7 +114,7 @@ function createSidebarNode(spec: {
   label: string;
   ownerProfileId?: string;
   updatedAt: string;
-}): SidebarTreeNode {
+}): SidebarTreeNode => {
   const node: SidebarTreeNode = {
     children: spec.children ?? [],
     href: spec.href,
@@ -126,12 +129,12 @@ function createSidebarNode(spec: {
   }
 
   return node;
-}
+};
 
-export function buildProjectNode(
+export const buildProjectNode = (
   project: SidebarProjectRow,
   children: SidebarTreeNode[] = [],
-): SidebarTreeNode {
+): SidebarTreeNode => {
   return createSidebarNode({
     children: sortProjectChildren(children),
     href: `/projects/${project.id}`,
@@ -141,9 +144,11 @@ export function buildProjectNode(
     ownerProfileId: project.ownerProfileId,
     updatedAt: project.updatedAt,
   });
-}
+};
 
-export function buildProgramNode(program: SidebarProgramRow): SidebarTreeNode {
+export const buildProgramNode = (
+  program: SidebarProgramRow,
+): SidebarTreeNode => {
   return createSidebarNode({
     href: `/programs/${program.id}`,
     id: program.id,
@@ -151,9 +156,9 @@ export function buildProgramNode(program: SidebarProgramRow): SidebarTreeNode {
     label: normalizeDisplayLabel(program.name, "Untitled Program"),
     updatedAt: program.updatedAt,
   });
-}
+};
 
-export function buildTableNode(table: SidebarTableRow): SidebarTreeNode {
+export const buildTableNode = (table: SidebarTableRow): SidebarTreeNode => {
   return createSidebarNode({
     href: `/projects/${table.projectId}/tables/${table.id}`,
     id: table.id,
@@ -161,9 +166,9 @@ export function buildTableNode(table: SidebarTableRow): SidebarTreeNode {
     label: normalizeDisplayLabel(table.name, "Untitled Table"),
     updatedAt: table.updatedAt,
   });
-}
+};
 
-export function buildSourceNode(source: SidebarSourceRow): SidebarTreeNode {
+export const buildSourceNode = (source: SidebarSourceRow): SidebarTreeNode => {
   return createSidebarNode({
     href: `/projects/${source.projectId}/sources/${source.id}`,
     id: source.id,
@@ -171,16 +176,16 @@ export function buildSourceNode(source: SidebarSourceRow): SidebarTreeNode {
     label: normalizeDisplayLabel(source.name, "Untitled Source"),
     updatedAt: source.updatedAt,
   });
-}
+};
 
-export function buildPipeNode(
+export const buildPipeNode = (
   pipe: SidebarPipeRow,
   projectId: string,
   labels?: {
     sourceLabel?: null | string;
     tableLabel?: null | string;
   },
-): SidebarTreeNode {
+): SidebarTreeNode => {
   return createSidebarNode({
     href: `/projects/${projectId}/pipes/${pipe.id}`,
     id: pipe.id,
@@ -191,27 +196,27 @@ export function buildPipeNode(
     }),
     updatedAt: pipe.updatedAt,
   });
-}
+};
 
-export function upsertSidebarNode(
+export const upsertSidebarNode = (
   nodes: SidebarTreeNode[],
   nextNode: SidebarTreeNode,
-) {
+) => {
   return sortSidebarNodes([
     nextNode,
     ...nodes.filter((node) => node.id !== nextNode.id),
   ]);
-}
+};
 
-export function removeSidebarNode(nodes: SidebarTreeNode[], nodeId: string) {
+export const removeSidebarNode = (nodes: SidebarTreeNode[], nodeId: string) => {
   return removeById(nodes, nodeId);
-}
+};
 
-export function upsertSidebarChild(
+export const upsertSidebarChild = (
   nodes: SidebarTreeNode[],
   parentId: string,
   childNode: SidebarTreeNode,
-) {
+) => {
   return nodes.map((node) =>
     node.id === parentId
       ? {
@@ -223,12 +228,12 @@ export function upsertSidebarChild(
         }
       : node,
   );
-}
+};
 
-export function removeSidebarChildFromAll(
+export const removeSidebarChildFromAll = (
   nodes: SidebarTreeNode[],
   childId: string,
-) {
+) => {
   return nodes.map((node) =>
     node.children.some((child) => child.id === childId)
       ? {
@@ -237,13 +242,13 @@ export function removeSidebarChildFromAll(
         }
       : node,
   );
-}
+};
 
-export function collectActiveSidebarKeys(
+export const collectActiveSidebarKeys = (
   nodes: SidebarTreeNode[],
   isActive: (node: SidebarTreeNode) => boolean,
   keys = new Set<string>(),
-) {
+) => {
   for (const node of nodes) {
     const childKeys = collectActiveSidebarKeys(node.children, isActive, keys);
     const hasActiveChild = node.children.some((child) =>
@@ -256,4 +261,4 @@ export function collectActiveSidebarKeys(
   }
 
   return keys;
-}
+};

@@ -5,17 +5,17 @@ import {
 } from "./pipe-mapping";
 import type { PipePathCandidate } from "./types";
 
-function jsonPathPropertySegment(key: string) {
+const jsonPathPropertySegment = (key: string) => {
   return /^[$A-Z_a-z][\w$]*$/u.test(key)
     ? `.${key}`
     : `[${JSON.stringify(key)}]`;
-}
+};
 
-export function collectPipePathCandidates(
+export const collectPipePathCandidates = (
   value: unknown,
   path = "$",
   key = "$",
-): PipePathCandidate[] {
+): PipePathCandidate[] => {
   if (Array.isArray(value)) {
     return [
       {
@@ -55,9 +55,9 @@ export function collectPipePathCandidates(
       preview: formatPipeCandidatePreview(value),
     },
   ];
-}
+};
 
-function dedupePipePathCandidates(candidates: PipePathCandidate[]) {
+const dedupePipePathCandidates = (candidates: PipePathCandidate[]) => {
   const candidateByPath = new Map<string, PipePathCandidate>();
 
   for (const candidate of candidates) {
@@ -69,13 +69,13 @@ function dedupePipePathCandidates(candidates: PipePathCandidate[]) {
   }
 
   return Array.from(candidateByPath.values());
-}
+};
 
-export function collectPipePathCandidatesFromSchema(
+export const collectPipePathCandidatesFromSchema = (
   schema: unknown,
   path = "$",
   key = "$",
-): PipePathCandidate[] {
+): PipePathCandidate[] => {
   if (!isPlainObject(schema)) {
     return [];
   }
@@ -125,9 +125,9 @@ export function collectPipePathCandidatesFromSchema(
       preview: formatPipeSchemaPreview(schema),
     },
   ];
-}
+};
 
-function parseGeneratedJsonPath(path: string) {
+const parseGeneratedJsonPath = (path: string) => {
   if (path === "$") {
     return [];
   }
@@ -190,9 +190,9 @@ function parseGeneratedJsonPath(path: string) {
   }
 
   return segments;
-}
+};
 
-export function resolveGeneratedJsonPath(value: unknown, path: string) {
+export const resolveGeneratedJsonPath = (value: unknown, path: string) => {
   const segments = parseGeneratedJsonPath(path);
 
   if (segments === null) {
@@ -210,4 +210,4 @@ export function resolveGeneratedJsonPath(value: unknown, path: string) {
   }
 
   return currentValue;
-}
+};

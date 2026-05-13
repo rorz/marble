@@ -65,29 +65,29 @@ export const REALTIME_STATUS_TONES: Record<RealtimeStatus, MarbleBadgeTone> = {
   live: "success",
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+};
 
-export function shortId(value: string) {
+export const shortId = (value: string) => {
   return value.slice(0, 8);
-}
+};
 
-export function titleCase(value: string) {
+export const titleCase = (value: string) => {
   return value
     .replace(/_/g, " ")
     .replace(/\b\w/g, (segment) => segment.toUpperCase());
-}
+};
 
-function truncate(value: string, limit: number) {
+const truncate = (value: string, limit: number) => {
   if (value.length <= limit) {
     return value;
   }
 
   return `${value.slice(0, Math.max(0, limit - 1))}…`;
-}
+};
 
-export function formatRelativeTime(value: string) {
+export const formatRelativeTime = (value: string) => {
   const diffMs = new Date(value).getTime() - Date.now();
   const absDiffMs = Math.abs(diffMs);
 
@@ -110,13 +110,13 @@ export function formatRelativeTime(value: string) {
   }
 
   return RELATIVE_TIME_FORMATTER.format(Math.round(diffMs / 86_400_000), "day");
-}
+};
 
-export function formatAbsoluteTime(value: string) {
+export const formatAbsoluteTime = (value: string) => {
   return ABSOLUTE_TIME_FORMATTER.format(new Date(value));
-}
+};
 
-export function parseDiffEntries(diff: unknown): EventDiffEntry[] {
+export const parseDiffEntries = (diff: unknown): EventDiffEntry[] => {
   if (!Array.isArray(diff)) {
     return [];
   }
@@ -145,17 +145,17 @@ export function parseDiffEntries(diff: unknown): EventDiffEntry[] {
       },
     ];
   });
-}
+};
 
-function getSnapshot(event: EventRow) {
+const getSnapshot = (event: EventRow) => {
   return isRecord(event.afterState)
     ? event.afterState
     : isRecord(event.beforeState)
       ? event.beforeState
       : null;
-}
+};
 
-function getNamedValue(snapshot: Record<string, unknown> | null) {
+const getNamedValue = (snapshot: Record<string, unknown> | null) => {
   if (!snapshot) {
     return null;
   }
@@ -175,17 +175,17 @@ function getNamedValue(snapshot: Record<string, unknown> | null) {
   }
 
   return null;
-}
+};
 
-function getNumericValue(
+const getNumericValue = (
   snapshot: Record<string, unknown> | null,
   key: string,
-) {
+) => {
   const candidate = snapshot?.[key];
   return typeof candidate === "number" ? candidate : null;
-}
+};
 
-export function describeEntity(event: EventRow) {
+export const describeEntity = (event: EventRow) => {
   const snapshot = getSnapshot(event);
   const namedValue = getNamedValue(snapshot);
 
@@ -210,12 +210,12 @@ export function describeEntity(event: EventRow) {
   }
 
   return `${titleCase(event.resource)} ${shortId(event.entityId)}`;
-}
+};
 
-export function describeDiff(
+export const describeDiff = (
   event: EventRow,
   diffEntries = parseDiffEntries(event.diff),
-) {
+) => {
   const paths = diffEntries
     .map((entry) => entry.path.join("."))
     .filter((path) => path.length > 0);
@@ -240,25 +240,25 @@ export function describeDiff(
   return `${COUNT_FORMATTER.format(paths.length)} field${
     paths.length === 1 ? "" : "s"
   }${preview ? ` · ${preview}` : ""}`;
-}
+};
 
-export function describeRequest(event: EventRow) {
+export const describeRequest = (event: EventRow) => {
   return event.requestId ? shortId(event.requestId) : "system";
-}
+};
 
-export function formatStatValue(value: number) {
+export const formatStatValue = (value: number) => {
   return COUNT_FORMATTER.format(value);
-}
+};
 
-export function upsertEvent(
+export const upsertEvent = (
   current: EventRow[],
   nextEvent: EventRow,
   limit: number,
-) {
+) => {
   return [
     nextEvent,
     ...current.filter((event) => event.id !== nextEvent.id),
   ]
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
     .slice(0, limit);
-}
+};

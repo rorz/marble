@@ -4,13 +4,13 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { createClient } from "../lib/supabase/browser";
 
-export function useSignOut() {
+export const useSignOut = () => {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function signOut() {
+  const signOut = async () => {
     setPending(true);
     setError(null);
 
@@ -39,11 +39,11 @@ export function useSignOut() {
     router.refresh();
 
     return true;
-  }
+  };
 
   return {
     error,
     pending,
     signOut,
   };
-}
+};

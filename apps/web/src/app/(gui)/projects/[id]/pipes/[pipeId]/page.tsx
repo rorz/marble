@@ -3,12 +3,12 @@ import { requireUser } from "../../../../../../lib/auth";
 import { getProjectSourceWorkspaceData } from "../../../../../../lib/source-data";
 import { ProjectSourceDetailPageView } from "../../sources/view";
 
-export default async function ProjectPipePage(props: {
+const ProjectPipePage = async (props: {
   params: Promise<{
     pipeId: string;
     id: string;
   }>;
-}) {
+}) => {
   await requireUser();
   const { pipeId, id } = await props.params;
   const data = await getProjectSourceWorkspaceData(id);
@@ -24,4 +24,5 @@ export default async function ProjectPipePage(props: {
       mode="pipe"
     />
   );
-}
+};
+export default ProjectPipePage;

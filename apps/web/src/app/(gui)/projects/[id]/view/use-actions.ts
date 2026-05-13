@@ -41,7 +41,7 @@ type UseProjectActionsOptions = {
   sources: Awaited<ReturnType<Sdk["sources"]["create"]>>[];
 };
 
-export function useProjectActions(options: UseProjectActionsOptions) {
+export const useProjectActions = (options: UseProjectActionsOptions) => {
   const {
     nameDraft,
     project,
@@ -329,4 +329,4 @@ export function useProjectActions(options: UseProjectActionsOptions) {
     startEditingName,
     stopEditing,
   };
-}
+};

@@ -11,15 +11,17 @@ import type {
   SecretRecord,
 } from "./types";
 
-export function normalizeStoredProgramSecretConfig(secretConfig: unknown) {
+export const normalizeStoredProgramSecretConfig = (secretConfig: unknown) => {
   try {
     return parseProgramSecretConfig(secretConfig ?? []);
   } catch {
     return [] satisfies ProgramSecretConfig;
   }
-}
+};
 
-export function createEditableProgramSecretDeclarations(secretConfig: unknown) {
+export const createEditableProgramSecretDeclarations = (
+  secretConfig: unknown,
+) => {
   return normalizeStoredProgramSecretConfig(secretConfig).map((secret) => ({
     description: secret.description ?? "",
     env: secret.env,
@@ -27,11 +29,11 @@ export function createEditableProgramSecretDeclarations(secretConfig: unknown) {
     label: secret.label,
     required: secret.required,
   })) satisfies EditableProgramSecretDeclaration[];
-}
+};
 
-function serializeEditableProgramSecretConfig(
+const serializeEditableProgramSecretConfig = (
   secretConfigDraft: EditableProgramSecretDeclaration[],
-) {
+) => {
   return secretConfigDraft.map((secret) => {
     const envName = secret.env.trim();
 
@@ -46,11 +48,11 @@ function serializeEditableProgramSecretConfig(
       required: secret.required,
     };
   });
-}
+};
 
-export function getEditableProgramSecretConfigState(
+export const getEditableProgramSecretConfigState = (
   secretConfigDraft: EditableProgramSecretDeclaration[],
-) {
+) => {
   try {
     return {
       declarations: parseProgramSecretConfig(
@@ -64,15 +66,17 @@ export function getEditableProgramSecretConfigState(
       error: error instanceof Error ? error.message : String(error),
     };
   }
-}
+};
 
-export function getProgramSecretConfigComparisonValue(secretConfig: unknown) {
+export const getProgramSecretConfigComparisonValue = (
+  secretConfig: unknown,
+) => {
   return JSON.stringify(normalizeStoredProgramSecretConfig(secretConfig));
-}
+};
 
-export function getSuggestedSecretEnvironmentName(
+export const getSuggestedSecretEnvironmentName = (
   secretConfigDraft: EditableProgramSecretDeclaration[],
-) {
+) => {
   const existingNames = new Set(
     secretConfigDraft.map((secret) => secret.env.trim()).filter(Boolean),
   );
@@ -88,11 +92,11 @@ export function getSuggestedSecretEnvironmentName(
   }
 
   return `API_KEY_${suffix}`;
-}
+};
 
-export function getSecretDeclarationIssuesById(
+export const getSecretDeclarationIssuesById = (
   secretConfigDraft: EditableProgramSecretDeclaration[],
-) {
+) => {
   const envCounts = new Map<string, number>();
 
   for (const secret of secretConfigDraft) {
@@ -127,18 +131,18 @@ export function getSecretDeclarationIssuesById(
       ];
     }),
   ) as Record<string, string | null>;
-}
+};
 
-export function secretBindingEntriesToMap(bindings: SecretBindingInput[]) {
+export const secretBindingEntriesToMap = (bindings: SecretBindingInput[]) => {
   return Object.fromEntries(
     bindings.map((binding) => [
       binding.envName,
       binding.secretId,
     ]),
   ) as Record<string, string>;
-}
+};
 
-export function secretBindingMapToEntries(bindings: Record<string, string>) {
+export const secretBindingMapToEntries = (bindings: Record<string, string>) => {
   return Object.entries(bindings)
     .sort(([leftEnvName], [rightEnvName]) =>
       leftEnvName.localeCompare(rightEnvName),
@@ -147,11 +151,11 @@ export function secretBindingMapToEntries(bindings: Record<string, string>) {
       envName,
       secretId,
     })) satisfies SecretBindingInput[];
-}
+};
 
-export function getMissingSecretConfigurationDetail(
+export const getMissingSecretConfigurationDetail = (
   detail: unknown,
-): MissingSecretConfigurationDetail | null {
+): MissingSecretConfigurationDetail | null => {
   if (!detail || typeof detail !== "object") {
     return null;
   }
@@ -214,13 +218,13 @@ export function getMissingSecretConfigurationDetail(
         }
       : {}),
   };
-}
+};
 
-export function describeProgramSecretResolution(
+export const describeProgramSecretResolution = (
   declaration: ProgramManifestSecretDeclaration,
   explicitSecretId: string | undefined,
   secrets: SecretRecord[],
-) {
+) => {
   const explicitSecret =
     explicitSecretId === undefined
       ? null
@@ -265,4 +269,4 @@ export function describeProgramSecretResolution(
       : "Optional secret.",
     implicitSecret,
   };
-}
+};

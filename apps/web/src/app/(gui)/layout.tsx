@@ -14,11 +14,11 @@ import {
 import { listSidebarDataForUser } from "../../lib/sidebar-data";
 import { GuiShell } from "./gui-shell";
 
-export default async function GuiLayout({
+const GuiLayout = async ({
   children,
 }: Readonly<{
   children: React.ReactNode;
-}>) {
+}>) => {
   const user = await requireUserIdentity();
   const [cookieStore, initialSidebarData] = await Promise.all([
     cookies(),
@@ -61,4 +61,5 @@ export default async function GuiLayout({
       </GuiShell>
     </>
   );
-}
+};
+export default GuiLayout;

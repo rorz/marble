@@ -6,7 +6,7 @@ export type BrandGlyphProps = {
   className?: string;
 };
 
-export function GlyphBase({
+export const GlyphBase = ({
   size = 24,
   className,
   children,
@@ -14,7 +14,7 @@ export function GlyphBase({
 }: BrandGlyphProps &
   SVGProps<SVGSVGElement> & {
     children: ReactNode;
-  }) {
+  }) => {
   return (
     <svg
       aria-hidden="true"
@@ -33,4 +33,4 @@ export function GlyphBase({
       {children}
     </svg>
   );
-}
+};

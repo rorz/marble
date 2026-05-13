@@ -5,7 +5,7 @@ import { MarketingMarqueeStack } from "../ui/splash";
  * the column flow. Three offset rows in alternating tones / directions.
  */
 
-export function MarqueeRoutineSection() {
+export const MarqueeRoutineSection = () => {
   return (
     <div className="relative overflow-hidden bg-taupe-800 py-2">
       <MarketingMarqueeStack
@@ -35,4 +35,4 @@ export function MarqueeRoutineSection() {
       />
     </div>
   );
-}
+};

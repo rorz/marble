@@ -32,7 +32,7 @@ import {
   titleCase,
 } from "./transforms";
 
-export function EventFeedList({
+export const EventFeedList = ({
   enteringIdSet,
   events,
   limit,
@@ -50,7 +50,7 @@ export function EventFeedList({
   profiles: ProfileRow[];
   realtimeStatus: RealtimeStatus;
   selectedEventId: null | string;
-}) {
+}) => {
   const router = useMarbleRouter();
 
   return (
@@ -185,4 +185,4 @@ export function EventFeedList({
       </MarbleCardContent>
     </MarbleCard>
   );
-}
+};

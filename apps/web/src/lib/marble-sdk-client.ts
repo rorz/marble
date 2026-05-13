@@ -9,7 +9,7 @@ type MarbleSdkOptions = {
   profileId?: string;
 };
 
-export function useMarbleSdkFactory() {
+export const useMarbleSdkFactory = () => {
   const supabase = useMemo(() => createClient(), []);
 
   return useMemo(() => {
@@ -37,9 +37,9 @@ export function useMarbleSdkFactory() {
   }, [
     supabase,
   ]);
-}
+};
 
-export function useMarbleSdk(options: MarbleSdkOptions = {}) {
+export const useMarbleSdk = (options: MarbleSdkOptions = {}) => {
   const { profileId } = options;
   const getSdk = useMarbleSdkFactory();
 
@@ -53,9 +53,9 @@ export function useMarbleSdk(options: MarbleSdkOptions = {}) {
       profileId,
     ],
   );
-}
+};
 
-export function useMarbleWebSessionSdk(options: MarbleSdkOptions = {}) {
+export const useMarbleWebSessionSdk = (options: MarbleSdkOptions = {}) => {
   const { profileId } = options;
 
   return useMemo(
@@ -71,4 +71,4 @@ export function useMarbleWebSessionSdk(options: MarbleSdkOptions = {}) {
       profileId,
     ],
   );
-}
+};

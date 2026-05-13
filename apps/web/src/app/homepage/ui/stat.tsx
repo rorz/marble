@@ -34,7 +34,7 @@ type MarketingStatProps = {
   className?: string;
 };
 
-export function MarketingStat({
+export const MarketingStat = ({
   label,
   value,
   caption,
@@ -42,7 +42,7 @@ export function MarketingStat({
   tone = "current",
   align = "start",
   className,
-}: MarketingStatProps) {
+}: MarketingStatProps) => {
   return (
     <div
       className={cx(
@@ -68,7 +68,7 @@ export function MarketingStat({
       ) : null}
     </div>
   );
-}
+};
 
 type MarketingStatGridProps = {
   children: ReactNode;
@@ -82,11 +82,11 @@ const STAT_COLUMNS = {
   4: "md:grid-cols-2 lg:grid-cols-4",
 } as const;
 
-export function MarketingStatGrid({
+export const MarketingStatGrid = ({
   children,
   columns = 3,
   className,
-}: MarketingStatGridProps) {
+}: MarketingStatGridProps) => {
   return (
     <div
       className={cx(
@@ -98,4 +98,4 @@ export function MarketingStatGrid({
       {children}
     </div>
   );
-}
+};

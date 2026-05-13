@@ -2,7 +2,7 @@
 
 import { MarbleEditableText } from "@marble/ui";
 
-export function EditableName({
+export const EditableName = ({
   className,
   disabled,
   editing,
@@ -20,7 +20,7 @@ export function EditableName({
   onChange: (value: string) => void;
   onCommit: () => void;
   onEdit: () => void;
-}) {
+}) => {
   return (
     <MarbleEditableText
       className={className}
@@ -33,4 +33,4 @@ export function EditableName({
       value={name}
     />
   );
-}
+};

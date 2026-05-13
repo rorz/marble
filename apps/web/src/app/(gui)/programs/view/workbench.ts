@@ -5,22 +5,24 @@ import {
   workbenchPanelHeightLimits,
 } from "./types";
 
-export function clampWorkbenchPanelHeight(
+export const clampWorkbenchPanelHeight = (
   panelId: ResizablePanelId,
   nextHeight: number,
-) {
+) => {
   const { max, min } = workbenchPanelHeightLimits[panelId];
 
   return Math.min(max, Math.max(min, nextHeight));
-}
+};
 
-export function buildFieldsFromSchema(schema: Record<string, unknown>): {
+export const buildFieldsFromSchema = (
+  schema: Record<string, unknown>,
+): {
   defaultValue?: string;
   enumValues?: string[];
   key: string;
   title: string;
   type: string;
-}[] {
+}[] => {
   const properties = (schema?.properties ?? {}) as Record<
     string,
     Record<string, unknown>
@@ -33,9 +35,9 @@ export function buildFieldsFromSchema(schema: Record<string, unknown>): {
     title: (definition.title as string) ?? key,
     type: (definition.type as string) ?? "string",
   }));
-}
+};
 
-export function buildPendingChanges({
+export const buildPendingChanges = ({
   files,
   inputSchemaStr,
   isDraftProgram,
@@ -59,7 +61,7 @@ export function buildPendingChanges({
   programName: string;
   savedProgramName: string;
   secretConfigStr: string;
-}): PendingChange[] {
+}): PendingChange[] => {
   const changes: PendingChange[] = [];
   const nextProgramName = programName.trim() || "Untitled Program";
 
@@ -160,9 +162,9 @@ export function buildPendingChanges({
   }
 
   return changes;
-}
+};
 
-export function getDefaultDraftInputSchema() {
+export const getDefaultDraftInputSchema = () => {
   return JSON.stringify(
     {
       properties: {
@@ -175,9 +177,9 @@ export function getDefaultDraftInputSchema() {
     null,
     2,
   );
-}
+};
 
-export function getDefaultDraftOutputConfig() {
+export const getDefaultDraftOutputConfig = () => {
   return JSON.stringify(
     {
       schema: {
@@ -187,4 +189,4 @@ export function getDefaultDraftOutputConfig() {
     null,
     2,
   );
-}
+};

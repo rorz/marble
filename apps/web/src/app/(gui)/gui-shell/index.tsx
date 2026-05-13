@@ -112,7 +112,7 @@ import type {
   TreeCollectionKey,
 } from "./types";
 
-export function GuiShell({
+export const GuiShell = ({
   children,
   initialAgentSidebarMode,
   initialAgentSidebarWidth,
@@ -136,7 +136,7 @@ export function GuiShell({
   userDisplayName: string;
   userEmail: string | null;
   userId: string;
-}) {
+}) => {
   const [agentSidebarMode, setAgentSidebarMode] = useState<SidebarMode>(
     initialAgentSidebarMode,
   );
@@ -1881,4 +1881,4 @@ export function GuiShell({
       ) : null}
     </div>
   );
-}
+};

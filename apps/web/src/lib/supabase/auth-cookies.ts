@@ -5,14 +5,14 @@ const SUPABASE_AUTH_COOKIE_PATTERNS = [
   /^supabase-auth-token-code-verifier(?:\.\d+)?$/,
 ];
 
-function isSupabaseAuthCookieName(name: string): boolean {
+const isSupabaseAuthCookieName = (name: string): boolean => {
   return SUPABASE_AUTH_COOKIE_PATTERNS.some((pattern) => pattern.test(name));
-}
+};
 
-export function getSupabaseAuthCookieNames(
+export const getSupabaseAuthCookieNames = (
   cookies: ReadonlyArray<{
     name: string;
   }>,
-): string[] {
+): string[] => {
   return cookies.map((cookie) => cookie.name).filter(isSupabaseAuthCookieName);
-}
+};

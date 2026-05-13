@@ -1,10 +1,11 @@
 import { requireUser } from "../../../lib/auth";
 
-export default async function TestProgramsLayout({
+const TestProgramsLayout = async ({
   children,
 }: Readonly<{
   children: React.ReactNode;
-}>) {
+}>) => {
   await requireUser();
   return children;
-}
+};
+export default TestProgramsLayout;

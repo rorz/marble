@@ -29,11 +29,11 @@ export const metadata: Metadata = {
   title: "Marble",
 };
 
-export default function RootLayout({
+const RootLayout = ({
   children,
 }: Readonly<{
   children: React.ReactNode;
-}>) {
+}>) => {
   return (
     <html
       className={`${geistSans.variable} ${jetBrainsMono.variable} ${manrope.variable} h-full antialiased`}
@@ -45,4 +45,5 @@ export default function RootLayout({
       </body>
     </html>
   );
-}
+};
+export default RootLayout;

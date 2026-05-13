@@ -23,13 +23,13 @@ import {
   UsersThreeIcon,
 } from "@phosphor-icons/react/dist/ssr";
 
-export function WorkspaceActions({
+export const WorkspaceActions = ({
   selectedAction,
   onSelect,
 }: Readonly<{
   selectedAction: string;
   onSelect: (value: string) => void;
-}>) {
+}>) => {
   return (
     <MarbleCard className="min-h-0 overflow-hidden">
       <MarbleCardHeader>
@@ -196,4 +196,4 @@ export function WorkspaceActions({
       </MarbleCardContent>
     </MarbleCard>
   );
-}
+};

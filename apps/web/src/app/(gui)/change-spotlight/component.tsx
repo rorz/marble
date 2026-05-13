@@ -51,7 +51,7 @@ type PreviewChangeSpotlight = {
   targetKeys: string[];
 };
 
-export function ChangeSpotlight() {
+export const ChangeSpotlight = () => {
   const router = useMarbleRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -790,4 +790,4 @@ export function ChangeSpotlight() {
       ) : null}
     </div>
   );
-}
+};

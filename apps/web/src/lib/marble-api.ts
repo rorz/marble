@@ -4,7 +4,7 @@ import { getMarbleApiConfig } from "./server-config";
 
 let marbleApi: ReturnType<typeof createMarbleApi> | undefined;
 
-export function getMarbleApi() {
+export const getMarbleApi = () => {
   marbleApi ??= createMarbleApi(getMarbleApiConfig());
   return marbleApi;
-}
+};

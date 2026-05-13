@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { getSupabaseAuthCookieNames } from "../../../../lib/supabase/auth-cookies";
 
-export async function POST() {
+export const POST = async () => {
   const cookieStore = await cookies();
 
   for (const cookieName of getSupabaseAuthCookieNames(cookieStore.getAll())) {
@@ -12,4 +12,4 @@ export async function POST() {
   return NextResponse.json({
     ok: true,
   });
-}
+};

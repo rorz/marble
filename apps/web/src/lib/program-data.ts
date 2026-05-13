@@ -21,7 +21,9 @@ export type EditableProgramFile = Pick<
   "content" | "filename" | "filetype"
 >;
 
-export function hydrateEditorPrograms(data: ProgramEditorData): FullProgram[] {
+export const hydrateEditorPrograms = (
+  data: ProgramEditorData,
+): FullProgram[] => {
   const filesByVersionId = groupBy(data.programFiles, (file) => file.versionId);
   const versionsByProgramId = groupBy(
     data.programVersions.map((version) => ({
@@ -35,4 +37,4 @@ export function hydrateEditorPrograms(data: ProgramEditorData): FullProgram[] {
     ...program,
     programVersions: versionsByProgramId.get(program.id) ?? [],
   }));
-}
+};

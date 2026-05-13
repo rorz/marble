@@ -30,11 +30,11 @@ type MsBurnedSplashSectionProps = {
   totalAgents?: number;
 };
 
-export function MsBurnedSplashSection({
+export const MsBurnedSplashSection = ({
   totalCells,
   totalRuns,
   totalAgents,
-}: MsBurnedSplashSectionProps = {}) {
+}: MsBurnedSplashSectionProps = {}) => {
   // Seed the headline counter from real cell count when available.
   // Otherwise fall back to an evocative starting integer.
   const cellsSeed = totalCells ?? 8_124_473;
@@ -147,4 +147,4 @@ export function MsBurnedSplashSection({
       />
     </div>
   );
-}
+};

@@ -17,9 +17,9 @@ type InstrumentSplashSectionProps = {
  * CSS, floating in 3D inside a full-bleed splash. Carries the agentic
  * thesis on the left, the device on the right.
  */
-export function InstrumentSplashSection({
+export const InstrumentSplashSection = ({
   totalCells,
-}: InstrumentSplashSectionProps = {}) {
+}: InstrumentSplashSectionProps = {}) => {
   return (
     <MarketingSplash
       height="tall"
@@ -71,4 +71,4 @@ export function InstrumentSplashSection({
       </MarketingSplashContent>
     </MarketingSplash>
   );
-}
+};

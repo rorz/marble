@@ -3,7 +3,7 @@
 import { MarbleButton, MarbleContextPopover } from "@marble/ui";
 import AuthForm from "../auth-form";
 
-export function AuthPopover() {
+export const AuthPopover = () => {
   return (
     <MarbleContextPopover
       align="end"
@@ -15,4 +15,4 @@ export function AuthPopover() {
       <MarbleButton variant="orange">Sign in</MarbleButton>
     </MarbleContextPopover>
   );
-}
+};

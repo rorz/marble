@@ -7,7 +7,7 @@ import type {
   PendingChangeSpotlight,
 } from "./types";
 
-export function normalizeQueuedGroups(groups: ChangeSpotlightQueueGroup[]) {
+export const normalizeQueuedGroups = (groups: ChangeSpotlightQueueGroup[]) => {
   return groups
     .map((group) => {
       const reviewTargetKeys = buildReviewTargetKeys(group.targetKeys);
@@ -27,9 +27,9 @@ export function normalizeQueuedGroups(groups: ChangeSpotlightQueueGroup[]) {
       } satisfies ChangeSpotlightGroup;
     })
     .filter((group): group is ChangeSpotlightGroup => group !== null);
-}
+};
 
-export function readPendingChangeSpotlight() {
+export const readPendingChangeSpotlight = () => {
   if (typeof window === "undefined") {
     return null;
   }
@@ -101,11 +101,11 @@ export function readPendingChangeSpotlight() {
   } catch {
     return null;
   }
-}
+};
 
-export function persistPendingChangeSpotlight(
+export const persistPendingChangeSpotlight = (
   spotlight: null | PendingChangeSpotlight,
-) {
+) => {
   if (typeof window === "undefined") {
     return;
   }
@@ -119,4 +119,4 @@ export function persistPendingChangeSpotlight(
     CHANGE_SPOTLIGHT_STORAGE_KEY,
     JSON.stringify(spotlight),
   );
-}
+};

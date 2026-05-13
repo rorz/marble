@@ -26,7 +26,13 @@ import {
   titleCase,
 } from "./transforms";
 
-function EventDetailField({ label, value }: { label: string; value: string }) {
+const EventDetailField = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) => {
   return (
     <MarbleStat
       label={label}
@@ -34,9 +40,9 @@ function EventDetailField({ label, value }: { label: string; value: string }) {
       value={<span className="break-all">{value}</span>}
     />
   );
-}
+};
 
-function EventSnapshot({ title, value }: { title: string; value: unknown }) {
+const EventSnapshot = ({ title, value }: { title: string; value: unknown }) => {
   return (
     <div className="overflow-hidden rounded-xs border border-taupe-200 bg-zinc-50">
       <div className="border-taupe-200 border-b px-3 py-2 text-eyebrow-xs text-zinc-500">
@@ -50,9 +56,9 @@ function EventSnapshot({ title, value }: { title: string; value: unknown }) {
       />
     </div>
   );
-}
+};
 
-export function EventFeedDetail({
+export const EventFeedDetail = ({
   diffEntries,
   profileById,
   selectedEvent,
@@ -60,7 +66,7 @@ export function EventFeedDetail({
   diffEntries: EventDiffEntry[];
   profileById: Map<string, ProfileRow>;
   selectedEvent: EventRow | undefined;
-}) {
+}) => {
   return (
     <MarbleCard className="flex min-h-[24rem] w-full flex-col xl:w-[24rem] xl:max-w-[24rem]">
       {selectedEvent ? (
@@ -159,4 +165,4 @@ export function EventFeedDetail({
       )}
     </MarbleCard>
   );
-}
+};

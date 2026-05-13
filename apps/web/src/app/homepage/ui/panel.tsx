@@ -38,7 +38,7 @@ type MarketingPanelProps = PropsWithChildren<{
   className?: string;
 }>;
 
-export function MarketingPanel({
+export const MarketingPanel = ({
   tone = "dark",
   spec,
   model,
@@ -49,7 +49,7 @@ export function MarketingPanel({
   float = false,
   className,
   children,
-}: MarketingPanelProps) {
+}: MarketingPanelProps) => {
   const isDark = tone === "dark" || tone === "midnight";
   return (
     <div
@@ -90,9 +90,9 @@ export function MarketingPanel({
       <div className="relative">{children}</div>
     </div>
   );
-}
+};
 
-function PanelScrews() {
+const PanelScrews = () => {
   return (
     <>
       <PanelScrew className="top-2 left-2" />
@@ -101,9 +101,9 @@ function PanelScrews() {
       <PanelScrew className="bottom-2 right-2" />
     </>
   );
-}
+};
 
-function PanelScrew({ className }: { className?: string }) {
+const PanelScrew = ({ className }: { className?: string }) => {
   return (
     <span
       aria-hidden
@@ -115,18 +115,18 @@ function PanelScrew({ className }: { className?: string }) {
       <span className="block h-px w-2 rotate-45 bg-current/40" />
     </span>
   );
-}
+};
 
-function PanelRegistration() {
+const PanelRegistration = () => {
   return (
     <>
       <PanelCross className="top-6 left-1/2 -translate-x-1/2" />
       <PanelCross className="right-6 bottom-1/3" />
     </>
   );
-}
+};
 
-function PanelCross({ className }: { className?: string }) {
+const PanelCross = ({ className }: { className?: string }) => {
   return (
     <span
       aria-hidden
@@ -139,19 +139,19 @@ function PanelCross({ className }: { className?: string }) {
       <span className="absolute h-3 w-px bg-current" />
     </span>
   );
-}
+};
 
 /**
  * Section divider inside a panel — a hairline rule with an optional
  * mono-text label sitting on top.
  */
-export function MarketingPanelDivider({
+export const MarketingPanelDivider = ({
   label,
   className,
 }: {
   label?: ReactNode;
   className?: string;
-}) {
+}) => {
   return (
     <div className={cx("flex items-center gap-4", className)}>
       <span className="h-px flex-1 bg-current/15" />
@@ -161,14 +161,14 @@ export function MarketingPanelDivider({
       <span className="h-px flex-1 bg-current/15" />
     </div>
   );
-}
+};
 
 /**
  * Spec-line label intended for use inside a panel — small, mono, and
  * paired with a colored dot. Use for sub-component identification (e.g.
  * "01 / DISPLAY", "FN-02 / TRIGGER").
  */
-export function MarketingPanelLabel({
+export const MarketingPanelLabel = ({
   children,
   index,
   className,
@@ -177,7 +177,7 @@ export function MarketingPanelLabel({
   index?: ReactNode;
   className?: string;
   dot?: "orange" | "cream" | "none";
-}>) {
+}>) => {
   return (
     <span
       className={cx(
@@ -197,19 +197,19 @@ export function MarketingPanelLabel({
       <span>{children}</span>
     </span>
   );
-}
+};
 
 /**
  * Speaker-grille decorative tile — used as a pure visual element inside
  * a panel. Pure dotted-circles pattern.
  */
-export function MarketingPanelGrille({
+export const MarketingPanelGrille = ({
   className,
   ratio = "16/5",
 }: {
   className?: string;
   ratio?: string;
-}) {
+}) => {
   return (
     <div
       aria-hidden
@@ -222,4 +222,4 @@ export function MarketingPanelGrille({
       }}
     />
   );
-}
+};

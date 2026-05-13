@@ -2,7 +2,7 @@ import "server-only";
 import { createClient } from "@marble/supabase";
 import { getServiceRoleSupabaseConfig } from "../server-config";
 
-export function createServiceRoleClient(headers?: Record<string, string>) {
+export const createServiceRoleClient = (headers?: Record<string, string>) => {
   const config = getServiceRoleSupabaseConfig();
 
   if (!headers) {
@@ -14,12 +14,12 @@ export function createServiceRoleClient(headers?: Record<string, string>) {
       headers,
     },
   });
-}
+};
 
-export async function maybeResolveOwnedProfileId(
+export const maybeResolveOwnedProfileId = async (
   userId: string,
   profileId?: string | null,
-) {
+) => {
   if (profileId) {
     const { data, error } = await createServiceRoleClient()
       .from("profile")
@@ -51,4 +51,4 @@ export async function maybeResolveOwnedProfileId(
   }
 
   return data?.id;
-}
+};

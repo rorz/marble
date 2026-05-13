@@ -1,20 +1,20 @@
 import { collectTargetElements } from "./dom";
 import type { SpotlightVisibleTarget } from "./types";
 
-function rectsTouchOrOverlap(
+const rectsTouchOrOverlap = (
   startA: number,
   endA: number,
   startB: number,
   endB: number,
   tolerance = 1,
-) {
+) => {
   return endA + tolerance >= startB && endB + tolerance >= startA;
-}
+};
 
-function canMergeSpotlightTargets(
+const canMergeSpotlightTargets = (
   left: SpotlightVisibleTarget,
   right: SpotlightVisibleTarget,
-) {
+) => {
   const horizontallyAligned =
     Math.abs(left.rect.top - right.rect.top) <= 1 &&
     Math.abs(left.rect.height - right.rect.height) <= 1 &&
@@ -48,9 +48,9 @@ function canMergeSpotlightTargets(
     );
 
   return horizontallyAligned || verticallyAligned || overlapping;
-}
+};
 
-export function mergeSpotlightTargets(targets: SpotlightVisibleTarget[]) {
+export const mergeSpotlightTargets = (targets: SpotlightVisibleTarget[]) => {
   const pending = [
     ...targets,
   ].sort(
@@ -110,8 +110,8 @@ export function mergeSpotlightTargets(targets: SpotlightVisibleTarget[]) {
   }
 
   return merged;
-}
+};
 
-export function collectMergedTargetElements(targetKeys: string[]) {
+export const collectMergedTargetElements = (targetKeys: string[]) => {
   return mergeSpotlightTargets(collectTargetElements(targetKeys));
-}
+};

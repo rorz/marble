@@ -35,7 +35,7 @@ export type RadarIndexes = {
   >;
 };
 
-export function buildRadarIndexes(sidebarData: SidebarTreeData) {
+export const buildRadarIndexes = (sidebarData: SidebarTreeData) => {
   const indexes: RadarIndexes = {
     pipes: new Map(),
     profiles: new Map(),
@@ -87,29 +87,29 @@ export function buildRadarIndexes(sidebarData: SidebarTreeData) {
   }
 
   return indexes;
-}
+};
 
-export function buildTableHref(
+export const buildTableHref = (
   indexes: RadarIndexes,
   tableId: string,
   explicitProjectId?: string,
-) {
+) => {
   const projectId = explicitProjectId ?? indexes.tables.get(tableId)?.projectId;
 
   return projectId
     ? `/projects/${projectId}/tables/${tableId}`
     : `/tables/${tableId}`;
-}
+};
 
-export function buildTableLabel(indexes: RadarIndexes, tableId: string) {
+export const buildTableLabel = (indexes: RadarIndexes, tableId: string) => {
   return indexes.tables.get(tableId)?.label ?? `Table ${shortId(tableId)}`;
-}
+};
 
-export function buildPipeLabel(
+export const buildPipeLabel = (
   indexes: RadarIndexes,
   pipeId: string,
   snapshot: Record<string, unknown> | null,
-) {
+) => {
   const indexedPipe = indexes.pipes.get(pipeId);
 
   if (indexedPipe?.label) {
@@ -127,8 +127,8 @@ export function buildPipeLabel(
       ? (indexes.tables.get(tableId)?.label ?? `Table ${shortId(tableId)}`)
       : undefined,
   });
-}
+};
 
-export function buildProgramHref(programId?: string) {
+export const buildProgramHref = (programId?: string) => {
   return programId ? `/programs/${programId}` : "/programs";
-}
+};

@@ -19,10 +19,10 @@ type PreviewChangeSpotlight = {
   targetKeys: string[];
 };
 
-export function queueChangeSpotlightDeck(
+export const queueChangeSpotlightDeck = (
   groups: ChangeSpotlightQueueGroup[],
   activeGroupId = groups[0]?.id,
-) {
+) => {
   const normalizedGroups = normalizeQueuedGroups(groups);
 
   if (
@@ -47,9 +47,9 @@ export function queueChangeSpotlightDeck(
       detail: spotlight,
     }),
   );
-}
+};
 
-export function previewChangeSpotlight(targetKeys: string[]) {
+export const previewChangeSpotlight = (targetKeys: string[]) => {
   const nextTargetKeys = dedupeTargetKeys(targetKeys);
 
   if (typeof window === "undefined" || nextTargetKeys.length === 0) {
@@ -63,17 +63,17 @@ export function previewChangeSpotlight(targetKeys: string[]) {
       },
     }),
   );
-}
+};
 
-export function clearPreviewChangeSpotlight() {
+export const clearPreviewChangeSpotlight = () => {
   if (typeof window === "undefined") {
     return;
   }
 
   window.dispatchEvent(new Event(CHANGE_SPOTLIGHT_PREVIEW_CLEAR_EVENT));
-}
+};
 
-export function useChangeSpotlightPreviewTargetKeys() {
+export const useChangeSpotlightPreviewTargetKeys = () => {
   const [previewTargetKeys, setPreviewTargetKeys] = useState<string[]>([]);
 
   useEffect(() => {
@@ -102,4 +102,4 @@ export function useChangeSpotlightPreviewTargetKeys() {
   }, []);
 
   return previewTargetKeys;
-}
+};

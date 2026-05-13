@@ -14,7 +14,7 @@ type CurrentUserIdentity = {
   id: string;
 };
 
-export async function getCurrentUser() {
+export const getCurrentUser = async () => {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
   const userId = data.user?.id;
@@ -26,9 +26,9 @@ export async function getCurrentUser() {
   return {
     id: userId,
   } satisfies CurrentUser;
-}
+};
 
-async function getCurrentUserIdentity() {
+const getCurrentUserIdentity = async () => {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
   const user = data.user;
@@ -58,9 +58,9 @@ async function getCurrentUserIdentity() {
     email,
     id: user.id,
   } satisfies CurrentUserIdentity;
-}
+};
 
-export async function getCurrentSupabaseAccessToken() {
+export const getCurrentSupabaseAccessToken = async () => {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getSession();
 
@@ -69,17 +69,17 @@ export async function getCurrentSupabaseAccessToken() {
   }
 
   return data.session?.access_token ?? null;
-}
+};
 
-export async function redirectIfAuthenticated() {
+export const redirectIfAuthenticated = async () => {
   const user = await getCurrentUser();
 
   if (user) {
     redirect("/projects");
   }
-}
+};
 
-export async function requireUser() {
+export const requireUser = async () => {
   const user = await getCurrentUser();
 
   if (!user) {
@@ -87,9 +87,9 @@ export async function requireUser() {
   }
 
   return user;
-}
+};
 
-export async function requireUserIdentity() {
+export const requireUserIdentity = async () => {
   const user = await getCurrentUserIdentity();
 
   if (!user) {
@@ -97,14 +97,14 @@ export async function requireUserIdentity() {
   }
 
   return user;
-}
+};
 
-function deriveDisplayName(params: {
+const deriveDisplayName = (params: {
   email: string | null;
   fullName: string | null;
   id: string;
   name: string | null;
-}): string {
+}): string => {
   if (params.fullName) {
     return params.fullName;
   }
@@ -122,4 +122,4 @@ function deriveDisplayName(params: {
   }
 
   return params.id.slice(0, 8);
-}
+};

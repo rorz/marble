@@ -1,6 +1,6 @@
 import type { EditableProgramFile, ProgramFile } from "./types";
 
-export function getFileAccent(filename: string) {
+export const getFileAccent = (filename: string) => {
   if (filename.endsWith(".json")) {
     return "text-amber-600";
   }
@@ -10,11 +10,11 @@ export function getFileAccent(filename: string) {
   }
 
   return "text-sky-600";
-}
+};
 
-export function getProgramFiletype(
+export const getProgramFiletype = (
   filename: string,
-): EditableProgramFile["filetype"] {
+): EditableProgramFile["filetype"] => {
   if (filename.endsWith(".json")) {
     return "Json";
   }
@@ -24,13 +24,13 @@ export function getProgramFiletype(
   }
 
   return "TypeScript";
-}
+};
 
-export function isFileDrag(dataTransfer: DataTransfer | null | undefined) {
+export const isFileDrag = (dataTransfer: DataTransfer | null | undefined) => {
   return Array.from(dataTransfer?.types ?? []).includes("Files");
-}
+};
 
-export function getSuggestedFileName(files: EditableProgramFile[]) {
+export const getSuggestedFileName = (files: EditableProgramFile[]) => {
   const preferredFilenames = [
     "utils.ts",
     "helpers.ts",
@@ -51,19 +51,19 @@ export function getSuggestedFileName(files: EditableProgramFile[]) {
   }
 
   return `file-${suffix}.ts`;
-}
+};
 
-export function normalizeProgramFiles(
+export const normalizeProgramFiles = (
   programFiles: ProgramFile[] | null | undefined,
-): EditableProgramFile[] {
+): EditableProgramFile[] => {
   return (programFiles ?? []).map((file) => ({
     content: file.content,
     filename: file.filename,
     filetype: file.filetype,
   }));
-}
+};
 
-export function createDefaultDraftFiles(): EditableProgramFile[] {
+export const createDefaultDraftFiles = (): EditableProgramFile[] => {
   return [
     {
       content:
@@ -72,4 +72,4 @@ export function createDefaultDraftFiles(): EditableProgramFile[] {
       filetype: "TypeScript",
     },
   ];
-}
+};

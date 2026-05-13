@@ -31,7 +31,7 @@ type MarketingTickerProps = {
   className?: string;
 };
 
-export function MarketingTicker({
+export const MarketingTicker = ({
   label,
   start = 0,
   step = 31,
@@ -42,7 +42,7 @@ export function MarketingTicker({
   tone = "orange",
   progress = true,
   className,
-}: MarketingTickerProps) {
+}: MarketingTickerProps) => {
   const [value, setValue] = useState(start);
 
   useEffect(() => {
@@ -93,4 +93,4 @@ export function MarketingTicker({
       ) : null}
     </div>
   );
-}
+};

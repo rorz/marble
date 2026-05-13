@@ -5,7 +5,7 @@ import { DATE_TIME_FORMATTER } from "./constants";
 import { countLabel } from "./programs";
 import type { ProgramVersionWithFiles } from "./types";
 
-export function VersionHistoryRow({
+export const VersionHistoryRow = ({
   active,
   activeBadge,
   onSelect,
@@ -17,7 +17,7 @@ export function VersionHistoryRow({
   onSelect?: () => void;
   targetKey?: string;
   version: ProgramVersionWithFiles;
-}>) {
+}>) => {
   return (
     <button
       className={cx(
@@ -53,4 +53,4 @@ export function VersionHistoryRow({
       </div>
     </button>
   );
-}
+};

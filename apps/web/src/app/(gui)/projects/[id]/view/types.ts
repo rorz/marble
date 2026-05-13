@@ -28,15 +28,15 @@ export const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
 });
 
-export function buildSectionHeading(label: string, count: number): string {
+export const buildSectionHeading = (label: string, count: number): string => {
   return count > 0 ? `${label} (${count})` : label;
-}
+};
 
-export function sortTables(
+export const sortTables = (
   tables: ProjectState["tables"],
-): ProjectState["tables"] {
+): ProjectState["tables"] => {
   return sortRows(tables, compareByUpdatedAtCamelDesc);
-}
+};
 
 const projectMutationTypes = {
   "pipe:delete": true,

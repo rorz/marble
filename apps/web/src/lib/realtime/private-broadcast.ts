@@ -20,7 +20,7 @@ type PrivateBroadcastOptions<Payload> = {
   topic: string;
 };
 
-export function usePrivateBroadcast<Payload = unknown>({
+export const usePrivateBroadcast = <Payload = unknown>({
   client,
   enabled = true,
   event,
@@ -29,7 +29,7 @@ export function usePrivateBroadcast<Payload = unknown>({
   onMessage,
   onStatus,
   topic,
-}: PrivateBroadcastOptions<Payload>) {
+}: PrivateBroadcastOptions<Payload>) => {
   const fallbackClientRef = useRef<null | SupabaseBrowserClient>(null);
   fallbackClientRef.current ??= createClient();
   const supabase = client ?? fallbackClientRef.current;
@@ -122,4 +122,4 @@ export function usePrivateBroadcast<Payload = unknown>({
     supabase,
     topic,
   ]);
-}
+};

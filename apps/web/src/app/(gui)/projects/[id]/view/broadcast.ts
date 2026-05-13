@@ -33,7 +33,9 @@ type UseProjectBroadcastOptions = {
   sourcesRef: MutableRefObject<Sources>;
 };
 
-export function useProjectBroadcast(options: UseProjectBroadcastOptions): void {
+export const useProjectBroadcast = (
+  options: UseProjectBroadcastOptions,
+): void => {
   const {
     project,
     projectRef,
@@ -157,4 +159,4 @@ export function useProjectBroadcast(options: UseProjectBroadcastOptions): void {
     },
     topic: `project:${project.id}`,
   });
-}
+};

@@ -37,7 +37,7 @@ import type {
   SecretRecord,
 } from "./types";
 
-export function ColumnSidebar({
+export const ColumnSidebar = ({
   columnSecretBindings,
   mode,
   columns,
@@ -84,7 +84,7 @@ export function ColumnSidebar({
   onClose: () => void;
   referenceColumns: ReferenceableColumn[];
   secrets: SecretRecord[];
-}) {
+}) => {
   const editingColumn =
     mode.kind === "edit"
       ? (columns.find((c) => c.id === mode.columnId) ?? null)
@@ -754,4 +754,4 @@ export function ColumnSidebar({
       </div>
     </aside>
   );
-}
+};

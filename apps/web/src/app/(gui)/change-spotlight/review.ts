@@ -1,20 +1,20 @@
 import { dedupeTargetKeys, parseTargetKeys } from "./target-keys";
 import type { ChangeTargetDescriptor, ParsedTarget } from "./types";
 
-export function isBroadPreviewDescriptor(
+export const isBroadPreviewDescriptor = (
   descriptor: ChangeTargetDescriptor | null,
-) {
+) => {
   return (
     descriptor?.kind === "profiles" ||
     descriptor?.kind === "program" ||
     descriptor?.kind === "project" ||
     descriptor?.kind === "table"
   );
-}
+};
 
-export function hasSpecificPreviewDescriptor(
+export const hasSpecificPreviewDescriptor = (
   descriptor: ChangeTargetDescriptor | null,
-) {
+) => {
   return (
     descriptor?.kind === "cell" ||
     descriptor?.kind === "column" ||
@@ -22,9 +22,9 @@ export function hasSpecificPreviewDescriptor(
     descriptor?.kind === "program-version" ||
     descriptor?.kind === "row"
   );
-}
+};
 
-function compactTableReviewTargets(targets: ParsedTarget[]) {
+const compactTableReviewTargets = (targets: ParsedTarget[]) => {
   const cellTargets = targets.filter(
     (
       target,
@@ -90,9 +90,9 @@ function compactTableReviewTargets(targets: ParsedTarget[]) {
         tableTargets[0].key,
       ]
     : [];
-}
+};
 
-export function buildReviewTargetKeys(targetKeys: string[]) {
+export const buildReviewTargetKeys = (targetKeys: string[]) => {
   const parsedTargets = parseTargetKeys(targetKeys);
   const results: string[] = [];
 
@@ -156,9 +156,9 @@ export function buildReviewTargetKeys(targetKeys: string[]) {
   }
 
   return dedupeTargetKeys(results);
-}
+};
 
-export function buildPreviewTargetKeys(targetKeys: string[]) {
+export const buildPreviewTargetKeys = (targetKeys: string[]) => {
   const parsedTargets = parseTargetKeys(targetKeys);
   const anchorTargetKeys = [
     parsedTargets.find((target) => target.descriptor.kind === "table")?.key,
@@ -171,4 +171,4 @@ export function buildPreviewTargetKeys(targetKeys: string[]) {
     ...buildReviewTargetKeys(targetKeys),
     ...anchorTargetKeys,
   ]);
-}
+};

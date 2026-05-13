@@ -56,7 +56,7 @@ type MarketingKeyProps = {
   className?: string;
 };
 
-export function MarketingKey({
+export const MarketingKey = ({
   glyph,
   index,
   caption,
@@ -67,7 +67,7 @@ export function MarketingKey({
   pressable = true,
   attention = false,
   className,
-}: MarketingKeyProps) {
+}: MarketingKeyProps) => {
   return (
     <div
       className={cx(
@@ -107,7 +107,7 @@ export function MarketingKey({
       ) : null}
     </div>
   );
-}
+};
 
 const KEYPAD_COLS = {
   3: "grid-cols-3",
@@ -128,12 +128,12 @@ type MarketingKeypadProps = PropsWithChildren<{
   className?: string;
 }>;
 
-export function MarketingKeypad({
+export const MarketingKeypad = ({
   columns = 6,
   gap = "md",
   className,
   children,
-}: MarketingKeypadProps) {
+}: MarketingKeypadProps) => {
   return (
     <div
       className={cx("grid", KEYPAD_COLS[columns], KEYPAD_GAPS[gap], className)}
@@ -141,7 +141,7 @@ export function MarketingKeypad({
       {children}
     </div>
   );
-}
+};
 
 /**
  * A wider rectangular utility key — e.g. for "FN", "REC", "PLAY" type
@@ -156,14 +156,14 @@ type MarketingKeyBarProps = {
   className?: string;
 };
 
-export function MarketingKeyBar({
+export const MarketingKeyBar = ({
   label,
   caption,
   tone = "midnight",
   active = false,
   led = false,
   className,
-}: MarketingKeyBarProps) {
+}: MarketingKeyBarProps) => {
   return (
     <div
       className={cx(
@@ -192,4 +192,4 @@ export function MarketingKeyBar({
       ) : null}
     </div>
   );
-}
+};

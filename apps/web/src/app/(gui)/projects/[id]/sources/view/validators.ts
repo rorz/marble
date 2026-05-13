@@ -2,17 +2,17 @@ import { z } from "zod";
 import { isPlainObject } from "./pipe-mapping";
 import type { SourceSchemaValidation } from "./types";
 
-export function isRecord(value: unknown): value is Record<string, unknown> {
+export const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+};
 
-export function formatJson(value: unknown) {
+export const formatJson = (value: unknown) => {
   return JSON.stringify(value, null, 2);
-}
+};
 
-export function validateSourceSchemaText(
+export const validateSourceSchemaText = (
   value: string,
-): SourceSchemaValidation {
+): SourceSchemaValidation => {
   let parsed: unknown;
 
   try {
@@ -48,4 +48,4 @@ export function validateSourceSchemaText(
     ok: true,
     value: parsed,
   };
-}
+};

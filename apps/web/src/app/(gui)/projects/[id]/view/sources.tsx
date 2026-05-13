@@ -30,22 +30,22 @@ type ProjectSourcesSectionProps = {
   sources: Source[];
 };
 
-function EmptyIcon({ children }: { children: ReactNode }) {
+const EmptyIcon = ({ children }: { children: ReactNode }) => {
   return (
     <div className="flex size-14 items-center justify-center rounded-full border border-orange-200/40 bg-orange-50/35 text-orange-500/45 inset-shadow-2xs inset-shadow-white/70">
       {children}
     </div>
   );
-}
+};
 
-export function ProjectSourcesSection({
+export const ProjectSourcesSection = ({
   creating,
   onCreate,
   onRequestDelete,
   onSelect,
   sourceEventCountBySourceId,
   sources,
-}: ProjectSourcesSectionProps) {
+}: ProjectSourcesSectionProps) => {
   return (
     <div className="space-y-3">
       <div className="flex items-end justify-between gap-3">
@@ -113,4 +113,4 @@ export function ProjectSourcesSection({
       </MarbleCard>
     </div>
   );
-}
+};

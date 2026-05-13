@@ -19,7 +19,7 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   month: "short",
 });
 
-export function SecretList({
+export const SecretList = ({
   creating,
   onCreate,
   onSelect,
@@ -31,7 +31,7 @@ export function SecretList({
   onSelect: (secretId: string) => void;
   secrets: SecretRecord[];
   selectedSecretId: string | null;
-}) {
+}) => {
   return (
     <MarbleCard className="min-h-[32rem]">
       <MarbleCardHeader
@@ -89,4 +89,4 @@ export function SecretList({
       </MarbleCardContent>
     </MarbleCard>
   );
-}
+};

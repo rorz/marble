@@ -20,7 +20,7 @@ import {
 } from "../ui/diagram";
 import { Section, SectionHeader, SectionInner } from "../ui/section";
 
-export function GiantsSection() {
+export const GiantsSection = () => {
   return (
     <Section
       id="giants"
@@ -175,4 +175,4 @@ export function GiantsSection() {
       </SectionInner>
     </Section>
   );
-}
+};

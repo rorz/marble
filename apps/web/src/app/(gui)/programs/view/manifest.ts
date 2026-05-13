@@ -1,7 +1,9 @@
 import { parseProgramManifestFileContent } from "@marble/contracts";
 import type { EditableProgramFile } from "./types";
 
-export function getProgramPackageManifestState(files: EditableProgramFile[]) {
+export const getProgramPackageManifestState = (
+  files: EditableProgramFile[],
+) => {
   const manifestFile = files.find((file) => file.filename === "package.json");
 
   if (!manifestFile) {
@@ -21,4 +23,4 @@ export function getProgramPackageManifestState(files: EditableProgramFile[]) {
       error: error instanceof Error ? error.message : String(error),
     };
   }
-}
+};

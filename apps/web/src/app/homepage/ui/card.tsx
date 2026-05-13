@@ -31,13 +31,13 @@ type MarketingCardProps = PropsWithChildren<{
   tilt?: number;
 }>;
 
-export function MarketingCard({
+export const MarketingCard = ({
   tone = "cream",
   accent = "none",
   className,
   tilt,
   children,
-}: MarketingCardProps) {
+}: MarketingCardProps) => {
   return (
     <div
       className={cx(
@@ -57,22 +57,22 @@ export function MarketingCard({
       {children}
     </div>
   );
-}
+};
 
 type MarketingCardEyebrowProps = PropsWithChildren<{
   className?: string;
 }>;
 
-export function MarketingCardEyebrow({
+export const MarketingCardEyebrow = ({
   className,
   children,
-}: MarketingCardEyebrowProps) {
+}: MarketingCardEyebrowProps) => {
   return (
     <span className={cx("font-mono text-eyebrow opacity-60", className)}>
       {children}
     </span>
   );
-}
+};
 
 type MarketingCardTitleProps = PropsWithChildren<{
   className?: string;
@@ -86,11 +86,11 @@ const TITLE_SIZES = {
   sm: "text-xl md:text-2xl",
 } as const;
 
-export function MarketingCardTitle({
+export const MarketingCardTitle = ({
   size = "md",
   className,
   children,
-}: MarketingCardTitleProps) {
+}: MarketingCardTitleProps) => {
   return (
     <h3
       className={cx(
@@ -102,37 +102,37 @@ export function MarketingCardTitle({
       {children}
     </h3>
   );
-}
+};
 
 type MarketingCardBodyProps = PropsWithChildren<{
   className?: string;
 }>;
 
-export function MarketingCardBody({
+export const MarketingCardBody = ({
   className,
   children,
-}: MarketingCardBodyProps) {
+}: MarketingCardBodyProps) => {
   return (
     <p className={cx("text-base opacity-80 md:text-lg", className)}>
       {children}
     </p>
   );
-}
+};
 
 type MarketingCardFooterProps = PropsWithChildren<{
   className?: string;
 }>;
 
-export function MarketingCardFooter({
+export const MarketingCardFooter = ({
   className,
   children,
-}: MarketingCardFooterProps) {
+}: MarketingCardFooterProps) => {
   return (
     <div className={cx("flex flex-wrap items-center gap-3", className)}>
       {children}
     </div>
   );
-}
+};
 
 type MarketingCardGridProps = PropsWithChildren<{
   columns?: 2 | 3 | 4;
@@ -155,12 +155,12 @@ const GAPS = {
 /**
  * Responsive grid for poster-style cards or tiles.
  */
-export function MarketingCardGrid({
+export const MarketingCardGrid = ({
   columns = 3,
   gap = "md",
   className,
   children,
-}: MarketingCardGridProps) {
+}: MarketingCardGridProps) => {
   return (
     <div
       className={cx("grid grid-cols-1", COLUMNS[columns], GAPS[gap], className)}
@@ -168,27 +168,27 @@ export function MarketingCardGrid({
       {children}
     </div>
   );
-}
+};
 
 type MarketingCardContentProps = PropsWithChildren<{
   className?: string;
 }>;
 
 /** Vertical-stack content wrapper for `MarketingCard` interior. */
-export function MarketingCardContent({
+export const MarketingCardContent = ({
   className,
   children,
-}: MarketingCardContentProps) {
+}: MarketingCardContentProps) => {
   return <div className={cx("flex flex-col gap-3", className)}>{children}</div>;
-}
+};
 
 /** Big iconish glyph slot, e.g. for the head of a feature card. */
-export function MarketingCardGlyph({
+export const MarketingCardGlyph = ({
   className,
   children,
 }: PropsWithChildren<{
   className?: string;
-}>) {
+}>) => {
   return (
     <div
       className={cx(
@@ -199,17 +199,17 @@ export function MarketingCardGlyph({
       {children}
     </div>
   );
-}
+};
 
 /** Inline pill/sticker affordance for callouts inside a card. */
-export function MarketingCardPill({
+export const MarketingCardPill = ({
   children,
   className,
   tone = "orange",
 }: PropsWithChildren<{
   className?: string;
   tone?: "orange" | "neutral";
-}>) {
+}>) => {
   return (
     <span
       className={cx(
@@ -223,7 +223,7 @@ export function MarketingCardPill({
       {children}
     </span>
   );
-}
+};
 
 type MarketingPosterProps = PropsWithChildren<{
   /** Overlay heading laid on top of the children. */
@@ -235,11 +235,11 @@ type MarketingPosterProps = PropsWithChildren<{
  * Decorative framed container for visual "exhibits" (graphics, screenshots,
  * fake spreadsheet, schematic diagrams). Has the thick poster border.
  */
-export function MarketingPoster({
+export const MarketingPoster = ({
   caption,
   className,
   children,
-}: MarketingPosterProps) {
+}: MarketingPosterProps) => {
   return (
     <figure
       className={cx(
@@ -255,4 +255,4 @@ export function MarketingPoster({
       ) : null}
     </figure>
   );
-}
+};

@@ -32,7 +32,7 @@ type MarketingLCDProps = PropsWithChildren<{
   className?: string;
 }>;
 
-export function MarketingLCD({
+export const MarketingLCD = ({
   label,
   caption,
   size = "md",
@@ -40,7 +40,7 @@ export function MarketingLCD({
   digitTone = "orange",
   className,
   children,
-}: MarketingLCDProps) {
+}: MarketingLCDProps) => {
   return (
     <div
       className={cx(
@@ -75,7 +75,7 @@ export function MarketingLCD({
       </div>
     </div>
   );
-}
+};
 
 /**
  * Live-ticking digit run — re-renders the supplied digit sequence at the
@@ -98,7 +98,7 @@ type MarketingLCDCounterProps = {
   className?: string;
 };
 
-export function MarketingLCDCounter({
+export const MarketingLCDCounter = ({
   start = 0,
   step = 17,
   intervalMs = 80,
@@ -106,7 +106,7 @@ export function MarketingLCDCounter({
   format,
   suffix,
   className,
-}: MarketingLCDCounterProps) {
+}: MarketingLCDCounterProps) => {
   const [value, setValue] = useState(start);
 
   useEffect(() => {
@@ -131,19 +131,19 @@ export function MarketingLCDCounter({
       ) : null}
     </span>
   );
-}
+};
 
 /**
  * Inline "waveform" — pure CSS bar chart used inside an LCD display as
  * decoration suggesting a signal / oscillation. Bars animate up/down.
  */
-export function MarketingLCDWaveform({
+export const MarketingLCDWaveform = ({
   bars = 24,
   className,
 }: {
   bars?: number;
   className?: string;
-}) {
+}) => {
   return (
     <div
       aria-hidden
@@ -164,4 +164,4 @@ export function MarketingLCDWaveform({
       ))}
     </div>
   );
-}
+};

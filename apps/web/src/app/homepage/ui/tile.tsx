@@ -36,7 +36,7 @@ type MarketingTileProps = {
   className?: string;
 };
 
-export function MarketingTile({
+export const MarketingTile = ({
   eyebrow,
   index,
   glyph,
@@ -46,7 +46,7 @@ export function MarketingTile({
   tone = "cream",
   emphasize = false,
   className,
-}: MarketingTileProps) {
+}: MarketingTileProps) => {
   return (
     <article
       className={cx(
@@ -90,4 +90,4 @@ export function MarketingTile({
       {footer ? <div className="mt-auto pt-2">{footer}</div> : null}
     </article>
   );
-}
+};

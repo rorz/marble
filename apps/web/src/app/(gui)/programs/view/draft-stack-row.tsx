@@ -2,11 +2,11 @@ import { MarbleBadge } from "@marble/ui";
 
 import type { PendingChange } from "./types";
 
-export function DraftStackRow({
+export const DraftStackRow = ({
   change,
 }: Readonly<{
   change: PendingChange;
-}>) {
+}>) => {
   const toneClassName =
     change.badgeTone === "info"
       ? {
@@ -41,4 +41,4 @@ export function DraftStackRow({
       </div>
     </div>
   );
-}
+};

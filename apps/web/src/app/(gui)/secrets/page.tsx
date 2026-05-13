@@ -2,7 +2,7 @@ import { MarblePane } from "@marble/ui";
 import { listSecrets } from "./actions";
 import { SecretsPageView } from "./view";
 
-export default async function SecretsPage() {
+const SecretsPage = async () => {
   const secrets = await listSecrets();
 
   return (
@@ -14,4 +14,5 @@ export default async function SecretsPage() {
       <SecretsPageView initialSecrets={secrets} />
     </MarblePane>
   );
-}
+};
+export default SecretsPage;

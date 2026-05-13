@@ -1,6 +1,8 @@
 import type { EditableProgramFile, MonacoLanguage } from "./types";
 
-export function getMonacoLanguage(file: EditableProgramFile): MonacoLanguage {
+export const getMonacoLanguage = (
+  file: EditableProgramFile,
+): MonacoLanguage => {
   if (file.filetype === "Json" || file.filename.endsWith(".json")) {
     return "json";
   }
@@ -10,8 +12,11 @@ export function getMonacoLanguage(file: EditableProgramFile): MonacoLanguage {
   }
 
   return "typescript";
-}
+};
 
-export function getMonacoModelPath(programId: string | null, filename: string) {
+export const getMonacoModelPath = (
+  programId: string | null,
+  filename: string,
+) => {
   return `inmemory://model/${programId ?? "__draft__"}/${filename}`;
-}
+};

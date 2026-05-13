@@ -3,11 +3,11 @@ import { requireUser } from "../../../../lib/auth";
 import { loadProgramsPageDataForUser } from "../actions";
 import { ProgramsPageView } from "../view";
 
-export default async function ProgramPage(props: {
+const ProgramPage = async (props: {
   params: Promise<{
     id: string;
   }>;
-}) {
+}) => {
   const user = await requireUser();
   const { id } = await props.params;
   const pageData = await loadProgramsPageDataForUser(user.id);
@@ -24,4 +24,5 @@ export default async function ProgramPage(props: {
       initialSecrets={pageData.secrets}
     />
   );
-}
+};
+export default ProgramPage;

@@ -67,7 +67,7 @@ const WIDTH_CLASS = {
  * the same ground line. Place several in a flex row to compose a
  * skyline.
  */
-export function MarketingSkyscraper({
+export const MarketingSkyscraper = ({
   name,
   code,
   status = "running",
@@ -77,7 +77,7 @@ export function MarketingSkyscraper({
   width = "md",
   tilt,
   className,
-}: MarketingSkyscraperProps) {
+}: MarketingSkyscraperProps) => {
   // Default deterministic pattern derived from the name so the same
   // tower always looks the same render-to-render (matches SSR).
   const seed = pattern ?? defaultPattern(name, rows);
@@ -163,15 +163,15 @@ export function MarketingSkyscraper({
       </div>
     </div>
   );
-}
+};
 
-function Window({
+const Window = ({
   state,
   delay,
 }: {
   state: SkyscraperWindowState;
   delay: number;
-}) {
+}) => {
   const style: CSSProperties =
     state === "running"
       ? {
@@ -187,14 +187,17 @@ function Window({
       style={style}
     />
   );
-}
+};
 
 /**
  * Deterministic pseudo-random window pattern keyed off the tower name.
  * Most windows lit (the platform is mostly busy), with a sprinkle of
  * success-greens and a few dim/off ones for visual texture.
  */
-function defaultPattern(name: string, rows: number): SkyscraperWindowState[] {
+const defaultPattern = (
+  name: string,
+  rows: number,
+): SkyscraperWindowState[] => {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
@@ -209,4 +212,4 @@ function defaultPattern(name: string, rows: number): SkyscraperWindowState[] {
     else out.push("running");
   }
   return out;
-}
+};

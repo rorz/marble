@@ -12,7 +12,7 @@ import {
 import { Section, SectionHeader, SectionInner } from "../ui/section";
 import { MarketingStat, MarketingStatGrid } from "../ui/stat";
 
-export function PricingSection() {
+export const PricingSection = () => {
   return (
     <Section
       id="pricing"
@@ -189,9 +189,9 @@ export function PricingSection() {
       </SectionInner>
     </Section>
   );
-}
+};
 
-function ComparisonTable() {
+const ComparisonTable = () => {
   const rows = [
     {
       ms: "Add 1k agents. No invoice change.",
@@ -246,4 +246,4 @@ function ComparisonTable() {
       ))}
     </div>
   );
-}
+};

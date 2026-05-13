@@ -33,7 +33,7 @@ import {
  * tone via Tailwind `text-*` classes on the wrapper.
  */
 
-function MarbleGlyph(props: BrandGlyphProps) {
+const MarbleGlyph = (props: BrandGlyphProps) => {
   // Orange-cornered marble disc — matches `MarbleBrandMark` in app UI.
   return (
     <GlyphBase {...props}>
@@ -53,7 +53,7 @@ function MarbleGlyph(props: BrandGlyphProps) {
       />
     </GlyphBase>
   );
-}
+};
 
 export type BrandId =
   | "claude"

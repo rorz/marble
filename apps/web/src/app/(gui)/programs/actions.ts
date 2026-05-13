@@ -25,14 +25,14 @@ type SecretBindingInput = {
   secretId: string;
 };
 
-async function listProgramsForUser(_userId: string): Promise<FullProgram[]> {
+const listProgramsForUser = async (_userId: string): Promise<FullProgram[]> => {
   const sdk = await createServerMarbleSdk();
   return hydrateEditorPrograms(await sdk.programs.listForEditor({}));
-}
+};
 
-export async function loadProgramsPageDataForUser(
+export const loadProgramsPageDataForUser = async (
   userId: string,
-): Promise<ProgramsPageData> {
+): Promise<ProgramsPageData> => {
   const programs = await listProgramsForUser(userId);
   const [secrets, programSecretBindings] = await Promise.all([
     listSecretsForUser(userId),
@@ -47,14 +47,14 @@ export async function loadProgramsPageDataForUser(
     programs,
     secrets,
   };
-}
+};
 
-export async function listPrograms() {
+export const listPrograms = async () => {
   const user = await requireUser();
   return listProgramsForUser(user.id);
-}
+};
 
-async function patchProgramVersion(
+const patchProgramVersion = async (
   sdk: ServerMarbleSdk,
   programVersionId: string,
   body: {
@@ -63,20 +63,20 @@ async function patchProgramVersion(
     publish?: boolean;
     secretConfig?: ProgramSecretConfig;
   },
-) {
+) => {
   return sdk.programVersions.update({
     id: programVersionId,
     values: body,
   });
-}
+};
 
-export async function createDraftVersion(
+export const createDraftVersion = async (
   programId: string,
   inputSchema: unknown,
   outputConfig: unknown,
   files: EditableProgramFile[],
   secretConfig: ProgramSecretConfig,
-) {
+) => {
   const sdk = await createServerMarbleSdk();
   const version = await sdk.programVersions.create({
     inputSchema,
@@ -97,15 +97,15 @@ export async function createDraftVersion(
       programFiles,
     },
   };
-}
+};
 
-export async function syncDraftVersion(
+export const syncDraftVersion = async (
   programVersionId: string,
   inputSchema: unknown,
   outputConfig: unknown,
   files: EditableProgramFile[],
   secretConfig: ProgramSecretConfig,
-) {
+) => {
   const sdk = await createServerMarbleSdk();
   const version = await patchProgramVersion(sdk, programVersionId, {
     inputSchema,
@@ -121,15 +121,15 @@ export async function syncDraftVersion(
     ...version,
     programFiles,
   };
-}
+};
 
-export async function publishDraftVersion(
+export const publishDraftVersion = async (
   programVersionId: string,
   inputSchema: unknown,
   outputConfig: unknown,
   files: EditableProgramFile[],
   secretConfig: ProgramSecretConfig,
-) {
+) => {
   const sdk = await createServerMarbleSdk();
   await sdk.programFiles.syncForVersion({
     files,
@@ -148,9 +148,9 @@ export async function publishDraftVersion(
       versionId: programVersionId,
     }),
   };
-}
+};
 
-export async function testProgram(
+export const testProgram = async (
   programVersionId: string,
   inputConfig: Record<string, unknown>,
   manualInput?: string,
@@ -160,7 +160,7 @@ export async function testProgram(
   errorType?: string;
   ok: boolean;
   output: unknown;
-}> {
+}> => {
   const sdk = await createServerMarbleSdk();
 
   return sdk.programVersions.test({
@@ -168,15 +168,15 @@ export async function testProgram(
     manualInput,
     programVersionId,
   });
-}
+};
 
-export async function updateProgramSecretBindings(
+export const updateProgramSecretBindings = async (
   programId: string,
   bindings: SecretBindingInput[],
-) {
+) => {
   const sdk = await createServerMarbleSdk();
   return sdk.secretBindings.setProgram({
     bindings,
     programId,
   });
-}
+};

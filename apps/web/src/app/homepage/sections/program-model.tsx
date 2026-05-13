@@ -17,7 +17,7 @@ import {
 import { Section, SectionHeader, SectionInner } from "../ui/section";
 import { MarketingTile } from "../ui/tile";
 
-export function ProgramModelSection() {
+export const ProgramModelSection = () => {
   return (
     <Section
       id="program-model"
@@ -183,13 +183,13 @@ export default program({
       </SectionInner>
     </Section>
   );
-}
+};
 
 /**
  * Loose CSS-only fake of Marble's table — purely decorative. The third
  * column is highlighted to map to the adjacent program snippet.
  */
-function FakeTable() {
+const FakeTable = () => {
   const rows = [
     [
       "Acme",
@@ -247,9 +247,9 @@ function FakeTable() {
       ))}
     </div>
   );
-}
+};
 
-function Cell({
+const Cell = ({
   children,
   heading,
   accent,
@@ -257,7 +257,7 @@ function Cell({
   children: ReactNode;
   heading?: boolean;
   accent?: boolean;
-}) {
+}) => {
   return (
     <div
       className={cx(
@@ -271,4 +271,4 @@ function Cell({
       {children}
     </div>
   );
-}
+};

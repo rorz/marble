@@ -32,13 +32,13 @@ export type ProjectInputColumn = {
   tableName: string;
 };
 
-export function projectTableFromSdkTable(
+export const projectTableFromSdkTable = (
   table: MarbleTable,
   project: Pick<MarbleProject, "folderPath" | "name">,
-): ProjectTable {
+): ProjectTable => {
   return {
     ...table,
     projectFolderPath: project.folderPath,
     projectName: project.name,
   };
-}
+};

@@ -15,11 +15,11 @@ import {
 import type { RadarScope } from "./target-keys";
 import { resolveEventTargetKeys } from "./target-keys";
 
-export function resolveRadarScope(
+export const resolveRadarScope = (
   event: EventRow,
   indexes: RadarIndexes,
   resolutionMaps: ResolutionMaps,
-): RadarScope {
+): RadarScope => {
   const snapshot = getEventSnapshot(event);
 
   if (event.resource === "project") {
@@ -197,4 +197,4 @@ export function resolveRadarScope(
     label: titleCase(event.resource),
     targetKeys: resolveEventTargetKeys(event, resolutionMaps),
   };
-}
+};

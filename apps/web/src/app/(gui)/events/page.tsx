@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: "Events | Marble",
 };
 
-async function loadOwnedEventFeed() {
+const loadOwnedEventFeed = async () => {
   const user = await requireUser();
   const sdk = await createServerMarbleSdk();
   const [profiles, events] = await Promise.all([
@@ -27,9 +27,9 @@ async function loadOwnedEventFeed() {
     profiles,
     userId: user.id,
   };
-}
+};
 
-export default async function EventsPage() {
+const EventsPage = async () => {
   const { events, profiles, userId } = await loadOwnedEventFeed();
 
   return (
@@ -49,4 +49,5 @@ export default async function EventsPage() {
       />
     </MarblePane>
   );
-}
+};
+export default EventsPage;

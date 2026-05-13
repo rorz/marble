@@ -10,9 +10,9 @@ import {
 
 const PROFILELESS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
 
-export async function createServerMarbleSdk(
+export const createServerMarbleSdk = async (
   options: { profileId?: string } = {},
-) {
+) => {
   const [supabase, user] = await Promise.all([
     createClient(),
     requireUser(),
@@ -30,17 +30,17 @@ export async function createServerMarbleSdk(
     supabase,
     userId: user.id,
   });
-}
+};
 
-async function listCurrentUserProfileIds() {
+const listCurrentUserProfileIds = async () => {
   const sdk = await createServerMarbleSdk({
     profileId: PROFILELESS_PROFILE_ID,
   });
 
   return (await sdk.profiles.list({})).map((profile) => profile.id);
-}
+};
 
-export async function createServerMarbleSdkForProject(projectId: string) {
+export const createServerMarbleSdkForProject = async (projectId: string) => {
   const profileIds = await listCurrentUserProfileIds();
 
   for (const profileId of profileIds) {
@@ -63,9 +63,9 @@ export async function createServerMarbleSdkForProject(projectId: string) {
   }
 
   return null;
-}
+};
 
-export async function createServerMarbleSdkForTable(tableId: string) {
+export const createServerMarbleSdkForTable = async (tableId: string) => {
   const profileIds = await listCurrentUserProfileIds();
 
   for (const profileId of profileIds) {
@@ -92,4 +92,4 @@ export async function createServerMarbleSdkForTable(tableId: string) {
   }
 
   return null;
-}
+};

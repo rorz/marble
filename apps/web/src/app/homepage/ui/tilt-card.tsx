@@ -24,20 +24,20 @@ type MarketingTiltCardProps = PropsWithChildren<{
   innerClassName?: string;
 }>;
 
-export function MarketingTiltCard({
+export const MarketingTiltCard = ({
   maxTilt = 10,
   float = false,
   glare = true,
   className,
   innerClassName,
   children,
-}: MarketingTiltCardProps) {
+}: MarketingTiltCardProps) => {
   const innerRef = useRef<HTMLDivElement>(null);
   const glareRef = useRef<HTMLSpanElement>(null);
 
-  function handleMove(
+  const handleMove = (
     event: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>,
-  ) {
+  ) => {
     const target = event.currentTarget;
     const rect = target.getBoundingClientRect();
     const offsetX = (event.clientX - rect.left) / rect.width - 0.5;
@@ -52,16 +52,16 @@ export function MarketingTiltCard({
       const cy = (offsetY + 0.5) * 100;
       glareRef.current.style.background = `radial-gradient(circle at ${cx}% ${cy}%, rgba(255,255,255,0.35), transparent 55%)`;
     }
-  }
+  };
 
-  function handleLeave() {
+  const handleLeave = () => {
     if (innerRef.current) {
       innerRef.current.style.transform = "rotateX(0deg) rotateY(0deg)";
     }
     if (glareRef.current) {
       glareRef.current.style.background = "transparent";
     }
-  }
+  };
 
   // The tilt handlers are pure visual pointer-tracking — no semantic
   // interaction, no keyboard activation. Wrapper stays a div.
@@ -92,4 +92,4 @@ export function MarketingTiltCard({
       </div>
     </div>
   );
-}
+};

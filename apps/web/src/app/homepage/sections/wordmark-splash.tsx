@@ -16,7 +16,7 @@ import { MarketingTiltCard } from "../ui/tilt-card";
  * over a faded dude image. Acts as the visual button before the
  * footer's link grid.
  */
-export function WordmarkSplashSection() {
+export const WordmarkSplashSection = () => {
   return (
     <div className="bg-taupe-900">
       <MarketingSplash
@@ -87,4 +87,4 @@ export function WordmarkSplashSection() {
       />
     </div>
   );
-}
+};

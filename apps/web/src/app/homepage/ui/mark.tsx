@@ -21,12 +21,12 @@ type MarketingPinProps = {
   className?: string;
 };
 
-export function MarketingPin({
+export const MarketingPin = ({
   children,
   tone = "orange",
   rotate,
   className,
-}: MarketingPinProps) {
+}: MarketingPinProps) => {
   return (
     <span
       className={cx(
@@ -45,7 +45,7 @@ export function MarketingPin({
       {children}
     </span>
   );
-}
+};
 
 /**
  * Layered display wordmark — three offset copies of the text in
@@ -82,13 +82,13 @@ const STACKED_TONES = {
   },
 } as const;
 
-export function MarketingStackedWordmark({
+export const MarketingStackedWordmark = ({
   children,
   size = "xl",
   tone = "orange",
   className,
   as = "h1",
-}: MarketingStackedWordmarkProps) {
+}: MarketingStackedWordmarkProps) => {
   const tones = STACKED_TONES[tone];
   const Outer = as;
 
@@ -109,10 +109,10 @@ export function MarketingStackedWordmark({
       <Outer className={cx("relative", tones.front)}>{children}</Outer>
     </div>
   );
-}
+};
 
 /** Small decorative dot row — used as a visual rhythm break. */
-export function MarketingDotRow({
+export const MarketingDotRow = ({
   count = 3,
   tone = "orange",
   className,
@@ -120,7 +120,7 @@ export function MarketingDotRow({
   count?: number;
   tone?: "orange" | "current";
   className?: string;
-}) {
+}) => {
   return (
     <div
       className={cx("flex items-center gap-2", className)}
@@ -140,4 +140,4 @@ export function MarketingDotRow({
       ))}
     </div>
   );
-}
+};

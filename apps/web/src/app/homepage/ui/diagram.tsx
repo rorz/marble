@@ -12,10 +12,10 @@ type MarketingDiagramProps = {
   className?: string;
 };
 
-export function MarketingDiagram({
+export const MarketingDiagram = ({
   children,
   className,
-}: MarketingDiagramProps) {
+}: MarketingDiagramProps) => {
   return (
     <div
       className={cx(
@@ -26,7 +26,7 @@ export function MarketingDiagram({
       {children}
     </div>
   );
-}
+};
 
 const NODE_TONES = {
   cream: "border-taupe-700 bg-taupe-100 text-taupe-800",
@@ -52,7 +52,7 @@ type MarketingDiagramNodeProps = {
   className?: string;
 };
 
-export function MarketingDiagramNode({
+export const MarketingDiagramNode = ({
   label,
   eyebrow,
   body,
@@ -60,7 +60,7 @@ export function MarketingDiagramNode({
   tone = "cream",
   grow = true,
   className,
-}: MarketingDiagramNodeProps) {
+}: MarketingDiagramNodeProps) => {
   return (
     <div
       className={cx(
@@ -80,7 +80,7 @@ export function MarketingDiagramNode({
       {body ? <p className="text-sm opacity-70 md:text-base">{body}</p> : null}
     </div>
   );
-}
+};
 
 /**
  * Connector arrow between two diagram nodes. Stacked CSS, no SVG — uses
@@ -94,11 +94,11 @@ type MarketingDiagramArrowProps = {
   className?: string;
 };
 
-export function MarketingDiagramArrow({
+export const MarketingDiagramArrow = ({
   label,
   direction = "right",
   className,
-}: MarketingDiagramArrowProps) {
+}: MarketingDiagramArrowProps) => {
   if (direction === "down") {
     return (
       <div
@@ -134,4 +134,4 @@ export function MarketingDiagramArrow({
       ) : null}
     </div>
   );
-}
+};

@@ -3,11 +3,11 @@ import { requireUser } from "../../../../lib/auth";
 import { getProjectSourceWorkspaceData } from "../../../../lib/source-data";
 import { ProjectPageView } from "./view";
 
-export default async function ProjectPage(props: {
+const ProjectPage = async (props: {
   params: Promise<{
     id: string;
   }>;
-}) {
+}) => {
   await requireUser();
   const { id } = await props.params;
   const project = await getProjectSourceWorkspaceData(id);
@@ -17,4 +17,5 @@ export default async function ProjectPage(props: {
   }
 
   return <ProjectPageView initialProject={project} />;
-}
+};
+export default ProjectPage;

@@ -17,20 +17,20 @@ type CellState =
     }
   | null;
 
-export function getCellState(cell: Cell | undefined): CellState {
+export const getCellState = (cell: Cell | undefined): CellState => {
   if (!cell) return null;
   return cell.state as CellState;
-}
+};
 
-export function isTerminalCellState(state: CellState) {
+export const isTerminalCellState = (state: CellState) => {
   return state?.ok === true || state?.ok === false;
-}
+};
 
-export function isRunningCellState(state: CellState) {
+export const isRunningCellState = (state: CellState) => {
   return state?.ok === null;
-}
+};
 
-export function displayCellValue(cell: Cell | undefined): string {
+export const displayCellValue = (cell: Cell | undefined): string => {
   const state = getCellState(cell);
   if (!state) return cell?.manualInput ?? "";
   if (state.ok === null) return "⏳";
@@ -42,9 +42,9 @@ export function displayCellValue(cell: Cell | undefined): string {
   }
   if (state.ok === false) return `⚠ ${state.message}`;
   return cell?.manualInput ?? "";
-}
+};
 
-export function describeRunOutput(output: unknown) {
+export const describeRunOutput = (output: unknown) => {
   if (!output || typeof output !== "object") {
     return JSON.stringify(output);
   }
@@ -59,35 +59,35 @@ export function describeRunOutput(output: unknown) {
   }
 
   return JSON.stringify(record.value ?? output);
-}
+};
 
-export function getProgramOutputConfig(
+export const getProgramOutputConfig = (
   programVersion: unknown,
-): Record<string, unknown> | null {
+): Record<string, unknown> | null => {
   if (!programVersion || typeof programVersion !== "object") return null;
   const record = programVersion as Record<string, unknown>;
   const config = record.outputConfig;
   if (!config || typeof config !== "object" || Array.isArray(config))
     return null;
   return config as Record<string, unknown>;
-}
+};
 
-export function getProgramInputSchema(
+export const getProgramInputSchema = (
   programVersion: unknown,
-): Record<string, unknown> | null {
+): Record<string, unknown> | null => {
   if (!programVersion || typeof programVersion !== "object") return null;
   const record = programVersion as Record<string, unknown>;
   const schema = record.inputSchema;
   if (!schema || typeof schema !== "object" || Array.isArray(schema))
     return null;
   return schema as Record<string, unknown>;
-}
+};
 
-export function isManualInputColumn(column: Column): boolean {
+export const isManualInputColumn = (column: Column): boolean => {
   const config = getProgramOutputConfig(column.programVersion) as {
     flags?: {
       allowManualInput?: boolean;
     };
   } | null;
   return config?.flags?.allowManualInput === true;
-}
+};

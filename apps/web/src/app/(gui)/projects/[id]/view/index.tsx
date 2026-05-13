@@ -28,11 +28,11 @@ import { ProjectTablesSection } from "./tables";
 import { type ProjectInfo, type ProjectState, sortTables } from "./types";
 import { useProjectActions } from "./use-actions";
 
-export function ProjectPageView({
+export const ProjectPageView = ({
   initialProject,
 }: {
   initialProject: ProjectInfo;
-}) {
+}) => {
   const router = useMarbleRouter();
   const sdk = useMarbleSdk({
     profileId: initialProject.project.ownerProfileId,
@@ -219,4 +219,4 @@ export function ProjectPageView({
       />
     </MarblePane>
   );
-}
+};

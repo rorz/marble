@@ -137,7 +137,7 @@ const KEYS: Array<{
   },
 ];
 
-export function MarketingInstrument({
+export const MarketingInstrument = ({
   spec = "EP-001 / RT-MARBLE",
   model = "OSS · MIT · v0.0.1",
   brand = "MARBLE",
@@ -145,7 +145,7 @@ export function MarketingInstrument({
   counterLabel = "CELLS RUN · LIVE",
   counterSuffix = "cells",
   className,
-}: MarketingInstrumentProps) {
+}: MarketingInstrumentProps) => {
   return (
     <MarketingPanel
       brand={brand}
@@ -314,4 +314,4 @@ export function MarketingInstrument({
       </div>
     </MarketingPanel>
   );
-}
+};

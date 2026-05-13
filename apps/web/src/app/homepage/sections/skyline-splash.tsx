@@ -30,11 +30,11 @@ type SkylineSplashSectionProps = {
   totalPrograms?: number;
 };
 
-export function SkylineSplashSection({
+export const SkylineSplashSection = ({
   buildings = MARKETING_SKYLINE_DEMO,
   totalCells,
   totalPrograms,
-}: SkylineSplashSectionProps = {}) {
+}: SkylineSplashSectionProps = {}) => {
   const programCount = totalPrograms ?? buildings.length;
   return (
     <div className="relative bg-taupe-900">
@@ -134,4 +134,4 @@ export function SkylineSplashSection({
       />
     </div>
   );
-}
+};

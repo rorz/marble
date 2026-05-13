@@ -10,27 +10,27 @@ import type {
   TableInfo,
 } from "./types";
 
-export function normalizeBroadcastCell(row: BroadcastRecord): Cell {
+export const normalizeBroadcastCell = (row: BroadcastRecord): Cell => {
   return toCamelKeys(row) as Cell;
-}
+};
 
-export function normalizeBroadcastColumn(
+export const normalizeBroadcastColumn = (
   row: BroadcastRecord,
   programs: Program[],
-): Column {
+): Column => {
   return hydrateColumnRecord(toCamelKeys(row) as ColumnRecord, programs);
-}
+};
 
-export function normalizeBroadcastRow(row: BroadcastRecord): Row {
+export const normalizeBroadcastRow = (row: BroadcastRecord): Row => {
   return toCamelKeys(row) as Row;
-}
+};
 
-export function normalizeBroadcastTablePatch(
+export const normalizeBroadcastTablePatch = (
   row: BroadcastRecord,
 ): Partial<TableInfo> & {
   id: string;
-} {
+} => {
   return toCamelKeys(row) as Partial<TableInfo> & {
     id: string;
   };
-}
+};

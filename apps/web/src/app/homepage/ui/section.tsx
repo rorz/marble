@@ -27,13 +27,13 @@ type SectionProps = PropsWithChildren<{
   id?: string;
 }>;
 
-export function Section({
+export const Section = ({
   tone = "mid",
   padding = "lg",
   className,
   id,
   children,
-}: SectionProps) {
+}: SectionProps) => {
   return (
     <section
       className={cx(PADDING[padding], TONES[tone], className)}
@@ -42,7 +42,7 @@ export function Section({
       {children}
     </section>
   );
-}
+};
 
 const HEADINGS = {
   display: "text-6xl md:text-8xl",
@@ -71,7 +71,7 @@ type SectionHeaderProps = {
   className?: string;
 };
 
-export function SectionHeader({
+export const SectionHeader = ({
   eyebrow,
   eyebrowTone = "inherit",
   heading,
@@ -79,7 +79,7 @@ export function SectionHeader({
   size = "xl",
   align = "start",
   className,
-}: SectionHeaderProps) {
+}: SectionHeaderProps) => {
   return (
     <header
       className={cx(
@@ -111,7 +111,7 @@ export function SectionHeader({
       ) : null}
     </header>
   );
-}
+};
 
 type SectionInnerProps = PropsWithChildren<{
   className?: string;
@@ -125,14 +125,14 @@ const WIDTHS = {
   wide: "max-w-7xl",
 } as const;
 
-export function SectionInner({
+export const SectionInner = ({
   width = "normal",
   className,
   children,
-}: SectionInnerProps) {
+}: SectionInnerProps) => {
   return (
     <div className={cx("mx-auto w-full", WIDTHS[width], className)}>
       {children}
     </div>
   );
-}
+};

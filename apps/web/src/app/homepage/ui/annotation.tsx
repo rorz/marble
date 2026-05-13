@@ -48,7 +48,7 @@ type MarketingAnnotationProps = {
   className?: string;
 };
 
-export function MarketingAnnotation({
+export const MarketingAnnotation = ({
   children,
   tone = "mid",
   size = "md",
@@ -56,7 +56,7 @@ export function MarketingAnnotation({
   italic = true,
   tail = null,
   className,
-}: MarketingAnnotationProps) {
+}: MarketingAnnotationProps) => {
   const toneClass = TONES[tone];
   return (
     <span
@@ -84,9 +84,9 @@ export function MarketingAnnotation({
       <span className="relative">{children}</span>
     </span>
   );
-}
+};
 
-function Tail({ tail, toneClass }: { tail: Tail; toneClass: string }) {
+const Tail = ({ tail, toneClass }: { tail: Tail; toneClass: string }) => {
   if (!tail) return null;
   const baseSize = "size-14";
   if (tail.side === "bottom") {
@@ -115,13 +115,13 @@ function Tail({ tail, toneClass }: { tail: Tail; toneClass: string }) {
       }}
     />
   );
-}
+};
 
 /**
  * Inline word-level emphasis — leans the word and on-hover snaps it back.
  * Mirrors the existing hero "and for!" treatment so it can be reused.
  */
-export function MarketingInlineWink({
+export const MarketingInlineWink = ({
   children,
   direction = "left",
   tone = "current",
@@ -131,7 +131,7 @@ export function MarketingInlineWink({
   direction?: "left" | "right";
   tone?: "current" | "taupe" | "orange";
   className?: string;
-}) {
+}) => {
   return (
     <span
       className={cx(
@@ -145,4 +145,4 @@ export function MarketingInlineWink({
       {children}
     </span>
   );
-}
+};

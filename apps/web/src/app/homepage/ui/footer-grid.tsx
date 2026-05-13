@@ -10,10 +10,10 @@ type MarketingFooterGridProps = {
   className?: string;
 };
 
-export function MarketingFooterGrid({
+export const MarketingFooterGrid = ({
   children,
   className,
-}: MarketingFooterGridProps) {
+}: MarketingFooterGridProps) => {
   return (
     <div
       className={cx(
@@ -24,7 +24,7 @@ export function MarketingFooterGrid({
       {children}
     </div>
   );
-}
+};
 
 type MarketingFooterColumnProps = {
   heading: ReactNode;
@@ -36,11 +36,11 @@ type MarketingFooterColumnProps = {
   className?: string;
 };
 
-export function MarketingFooterColumn({
+export const MarketingFooterColumn = ({
   heading,
   links,
   className,
-}: MarketingFooterColumnProps) {
+}: MarketingFooterColumnProps) => {
   return (
     <div className={cx("flex flex-col gap-4", className)}>
       <span className="font-mono text-eyebrow opacity-60">{heading}</span>
@@ -60,4 +60,4 @@ export function MarketingFooterColumn({
       </ul>
     </div>
   );
-}
+};

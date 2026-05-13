@@ -97,35 +97,35 @@ const probeStyles = {
   }
 >;
 
-function nowMs() {
+const nowMs = () => {
   return performance.now();
-}
+};
 
-function formatMs(value: number) {
+const formatMs = (value: number) => {
   return `${Math.round(value)}ms`;
-}
+};
 
-function tagTopic(id: string) {
+const tagTopic = (id: string) => {
   return `testing:tags:${id}`;
-}
+};
 
-function getPostgresTag(payload: PostgresTagPayload) {
+const getPostgresTag = (payload: PostgresTagPayload) => {
   if (payload.eventType === "DELETE") {
     return payload.old;
   }
 
   return payload.new;
-}
+};
 
-function getBroadcastTag(payload: BroadcastTagPayload) {
+const getBroadcastTag = (payload: BroadcastTagPayload) => {
   if (payload.payload.operation === "DELETE") {
     return payload.payload.old_record;
   }
 
   return payload.payload.record;
-}
+};
 
-export function DbPerfView() {
+export const DbPerfView = () => {
   const supabase = useMemo(() => createClient(), []);
   const postgresProbe = useTagProbe({
     kind: "postgres",
@@ -216,15 +216,15 @@ export function DbPerfView() {
       </div>
     </div>
   );
-}
+};
 
-function useTagProbe({
+const useTagProbe = ({
   kind,
   supabase,
 }: Readonly<{
   kind: ProbeKind;
   supabase: BrowserSupabaseClient;
-}>): ProbeState {
+}>): ProbeState => {
   const insertStartedAtRef = useRef<null | number>(null);
   const pageStartedAtRef = useRef(nowMs());
   const pendingUpdatesRef = useRef<PendingUpdate[]>([]);
@@ -544,13 +544,13 @@ function useTagProbe({
     ready,
     telemetry,
   };
-}
+};
 
-function ProbeDbState({
+const ProbeDbState = ({
   probe,
 }: Readonly<{
   probe: ProbeState;
-}>) {
+}>) => {
   const styles = probeStyles[probe.kind];
 
   return (
@@ -582,13 +582,13 @@ function ProbeDbState({
       ) : null}
     </div>
   );
-}
+};
 
-function MixedTelemetry({
+const MixedTelemetry = ({
   entries,
 }: Readonly<{
   entries: MixedTelemetryEntry[];
-}>) {
+}>) => {
   if (entries.length === 0) {
     return null;
   }
@@ -626,4 +626,4 @@ function MixedTelemetry({
       })}
     </ol>
   );
-}
+};

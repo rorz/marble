@@ -14,7 +14,7 @@ import {
   upsertEvent,
 } from "./transforms";
 
-export function EventFeedBoard({
+export const EventFeedBoard = ({
   initialEvents,
   limit,
   profiles,
@@ -24,7 +24,7 @@ export function EventFeedBoard({
   limit: number;
   profiles: ProfileRow[];
   userId: string;
-}) {
+}) => {
   const [events, setEvents] = useState(initialEvents);
   const [selectedEventId, setSelectedEventId] = useState<null | string>(
     initialEvents[0]?.id ?? null,
@@ -195,4 +195,4 @@ export function EventFeedBoard({
       </div>
     </div>
   );
-}
+};

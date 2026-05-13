@@ -30,7 +30,7 @@ const DEFAULT_PROGRAM_MAIN_FILE = `export default async function ({ input, cell,
 }
 `;
 
-function createDefaultProgramFiles(name: string): EditableProgramFile[] {
+const createDefaultProgramFiles = (name: string): EditableProgramFile[] => {
   return [
     {
       content: `{
@@ -46,9 +46,9 @@ function createDefaultProgramFiles(name: string): EditableProgramFile[] {
       filetype: "TypeScript",
     },
   ];
-}
+};
 
-export async function createDefaultProgram(sdk: MarbleClient) {
+export const createDefaultProgram = async (sdk: MarbleClient) => {
   const files = createDefaultProgramFiles(DEFAULT_PROGRAM_NAME);
   const program = await sdk.programs.create({
     initialVersion: {
@@ -75,4 +75,4 @@ export async function createDefaultProgram(sdk: MarbleClient) {
     programId: program.id,
     versionId: initialVersion.id,
   };
-}
+};

@@ -16,7 +16,7 @@ import {
 import { TrashIcon } from "@phosphor-icons/react";
 import type { SecretRecord } from "../actions";
 
-export function SecretEditor({
+export const SecretEditor = ({
   creating,
   draftName,
   draftValue,
@@ -38,7 +38,7 @@ export function SecretEditor({
   onValueChange: (value: string) => void;
   pending: boolean;
   selectedSecret: SecretRecord | null;
-}) {
+}) => {
   return (
     <MarbleCard
       className="min-h-[32rem]"
@@ -124,4 +124,4 @@ export function SecretEditor({
       </MarbleCardFooter>
     </MarbleCard>
   );
-}
+};

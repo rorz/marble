@@ -1,6 +1,6 @@
 import { type BrandGlyphProps, GlyphBase } from "./glyph";
 
-export function OpenAIGlyph(props: BrandGlyphProps) {
+export const OpenAIGlyph = (props: BrandGlyphProps) => {
   // Hexagonal-knot approximation — concentric hexagon with center dot.
   return (
     <GlyphBase {...props}>
@@ -14,9 +14,9 @@ export function OpenAIGlyph(props: BrandGlyphProps) {
       />
     </GlyphBase>
   );
-}
+};
 
-export function AnthropicGlyph(props: BrandGlyphProps) {
+export const AnthropicGlyph = (props: BrandGlyphProps) => {
   // Stylized wing/spire mark — two intersecting triangles.
   return (
     <GlyphBase {...props}>
@@ -27,9 +27,9 @@ export function AnthropicGlyph(props: BrandGlyphProps) {
       <path d="M9 14h6" />
     </GlyphBase>
   );
-}
+};
 
-export function GoogleGlyph(props: BrandGlyphProps) {
+export const GoogleGlyph = (props: BrandGlyphProps) => {
   // G-shape — three-quarter ring with a horizontal stub.
   return (
     <GlyphBase {...props}>
@@ -38,9 +38,9 @@ export function GoogleGlyph(props: BrandGlyphProps) {
       <path d="M19 12v3" />
     </GlyphBase>
   );
-}
+};
 
-export function MistralGlyph(props: BrandGlyphProps) {
+export const MistralGlyph = (props: BrandGlyphProps) => {
   // Three stacked color-band stripes — Mistral's signature gradient.
   return (
     <GlyphBase {...props}>
@@ -72,9 +72,9 @@ export function MistralGlyph(props: BrandGlyphProps) {
       />
     </GlyphBase>
   );
-}
+};
 
-export function GroqGlyph(props: BrandGlyphProps) {
+export const GroqGlyph = (props: BrandGlyphProps) => {
   // Q with a cut — angular fast-inference vibe.
   return (
     <GlyphBase {...props}>
@@ -87,9 +87,9 @@ export function GroqGlyph(props: BrandGlyphProps) {
       <path d="M9 12h6" />
     </GlyphBase>
   );
-}
+};
 
-export function OllamaGlyph(props: BrandGlyphProps) {
+export const OllamaGlyph = (props: BrandGlyphProps) => {
   // Llama silhouette — simplified to head + ears + neck.
   return (
     <GlyphBase {...props}>
@@ -101,9 +101,9 @@ export function OllamaGlyph(props: BrandGlyphProps) {
       />
     </GlyphBase>
   );
-}
+};
 
-export function OpenRouterGlyph(props: BrandGlyphProps) {
+export const OpenRouterGlyph = (props: BrandGlyphProps) => {
   // Router fan-out — one node splits to three.
   return (
     <GlyphBase {...props}>
@@ -134,4 +134,4 @@ export function OpenRouterGlyph(props: BrandGlyphProps) {
       />
     </GlyphBase>
   );
-}
+};

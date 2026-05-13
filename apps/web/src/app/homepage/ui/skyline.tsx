@@ -30,13 +30,13 @@ type MarketingSkylineProps = {
   className?: string;
 };
 
-export function MarketingSkyline({
+export const MarketingSkyline = ({
   buildings,
   tilt = 8,
   horizon = true,
   overlay,
   className,
-}: MarketingSkylineProps) {
+}: MarketingSkylineProps) => {
   return (
     <div className={cx("relative isolate w-full", className)}>
       {/* The buildings — tilted back via perspective. */}
@@ -78,7 +78,7 @@ export function MarketingSkyline({
       ) : null}
     </div>
   );
-}
+};
 
 /**
  * A reasonable default fleet of towers used in showcases / defaults.

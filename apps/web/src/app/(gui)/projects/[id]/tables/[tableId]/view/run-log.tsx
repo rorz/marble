@@ -11,7 +11,7 @@ import {
   MarbleSheetTitle,
 } from "@marble/ui";
 
-function getRunLogLineClassName(line: string) {
+const getRunLogLineClassName = (line: string) => {
   if (line.includes("✗")) {
     return "text-red-400";
   }
@@ -25,9 +25,9 @@ function getRunLogLineClassName(line: string) {
   }
 
   return "text-zinc-500";
-}
+};
 
-export function RunLogSheet({
+export const RunLogSheet = ({
   lines,
   onClear,
   onOpenChange,
@@ -37,7 +37,7 @@ export function RunLogSheet({
   onClear: () => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
-}) {
+}) => {
   return (
     <MarbleSheet
       modal={false}
@@ -85,6 +85,6 @@ export function RunLogSheet({
       </MarbleSheetContent>
     </MarbleSheet>
   );
-}
+};
 
 // ── Custom Column Header ────────────────────────────────

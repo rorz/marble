@@ -39,10 +39,10 @@ const isProfileMutation = createBroadcastMutationGuard<ProfileMutation>({
   "profile:upsert": true,
 });
 
-async function createProfileKey(
+const createProfileKey = async (
   sdk: MarbleClient,
   profile: ManagedProfileRecord,
-) {
+) => {
   const created = await sdk.keys.create({
     ownerProfileId: profile.id,
   });
@@ -53,9 +53,9 @@ async function createProfileKey(
     profileName: profile.name,
     token: created.token,
   };
-}
+};
 
-async function revokeProfileKey(sdk: MarbleClient, keyId: string) {
+const revokeProfileKey = async (sdk: MarbleClient, keyId: string) => {
   const revoked = await sdk.keys.revoke({
     id: keyId,
   });
@@ -64,16 +64,16 @@ async function revokeProfileKey(sdk: MarbleClient, keyId: string) {
     id: keyId,
     revokedAt: revoked.deletedAt ?? new Date().toISOString(),
   };
-}
+};
 
-function upsertProfileKey(keys: ProfileKeyRecord[], key: ProfileKeyRecord) {
+const upsertProfileKey = (keys: ProfileKeyRecord[], key: ProfileKeyRecord) => {
   return sortRows(
     upsertRow(keys, key, compareByCreatedAtCamelDesc),
     compareByCreatedAtCamelDesc,
   );
-}
+};
 
-export function ProfilesPageView({
+export const ProfilesPageView = ({
   agent,
   human,
   userId,
@@ -81,7 +81,7 @@ export function ProfilesPageView({
   agent: ManagedProfileRecord;
   human: ManagedProfileRecord;
   userId: string;
-}) {
+}) => {
   const sdk = useMarbleWebSessionSdk();
   const [pair, setPair] = useState<{
     agent: ManagedProfileRecord;
@@ -254,4 +254,4 @@ export function ProfilesPageView({
       ) : null}
     </div>
   );
-}
+};

@@ -35,14 +35,14 @@ const NAME_SIZES = {
   sm: "text-base md:text-lg",
 } as const;
 
-export function MarketingLogoMark({
+export const MarketingLogoMark = ({
   name,
   caption,
   glyph,
   tone = "cream",
   size = "md",
   className,
-}: MarketingLogoMarkProps) {
+}: MarketingLogoMarkProps) => {
   return (
     <div
       className={cx(
@@ -73,7 +73,7 @@ export function MarketingLogoMark({
       </div>
     </div>
   );
-}
+};
 
 type MarketingLogoStripProps = {
   label?: ReactNode;
@@ -82,12 +82,12 @@ type MarketingLogoStripProps = {
   align?: "start" | "center";
 };
 
-export function MarketingLogoStrip({
+export const MarketingLogoStrip = ({
   label,
   children,
   className,
   align = "start",
-}: MarketingLogoStripProps) {
+}: MarketingLogoStripProps) => {
   return (
     <div
       className={cx(
@@ -102,4 +102,4 @@ export function MarketingLogoStrip({
       <div className="flex flex-wrap gap-3 md:gap-4">{children}</div>
     </div>
   );
-}
+};

@@ -2,7 +2,7 @@ import { MarblePane } from "@marble/ui";
 import { listProjectIndexData } from "../../../lib/project-data";
 import { ProjectsPageView } from "./view";
 
-export default async function ProjectsPage() {
+const ProjectsPage = async () => {
   const { ownerProfileIds, projects, userId } = await listProjectIndexData();
 
   return (
@@ -21,4 +21,5 @@ export default async function ProjectsPage() {
       />
     </MarblePane>
   );
-}
+};
+export default ProjectsPage;

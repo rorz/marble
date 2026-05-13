@@ -24,7 +24,7 @@ const PROFILELESS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
 const MARBLE_SERVER_TIMING_HEADER = "x-marble-server-timing";
 const SERVER_TIMING_HEADER = "Server-Timing";
 
-function stripPathPrefix(pathname: string, prefix: string) {
+const stripPathPrefix = (pathname: string, prefix: string) => {
   if (pathname === prefix) {
     return "/";
   }
@@ -34,27 +34,30 @@ function stripPathPrefix(pathname: string, prefix: string) {
   }
 
   return pathname;
-}
+};
 
-function isPublicForwardedPath(pathname: string, publicPaths: string[] = []) {
+const isPublicForwardedPath = (
+  pathname: string,
+  publicPaths: string[] = [],
+) => {
   return publicPaths.includes(pathname);
-}
+};
 
-function isProfilelessForwardedPath(
+const isProfilelessForwardedPath = (
   pathname: string,
   profilelessPaths: string[] = [],
-) {
+) => {
   return profilelessPaths.includes(pathname);
-}
+};
 
-function shouldDebugTiming(request: Request) {
+const shouldDebugTiming = (request: Request) => {
   return request.headers.get("x-marble-debug-timing") === "1";
-}
+};
 
-export async function forwardMarbleApiRequest(
+export const forwardMarbleApiRequest = async (
   req: Request,
   options: ForwardMarbleApiRequestOptions,
-) {
+) => {
   const startedAt = performance.now();
   const requestId =
     req.headers.get("x-marble-request-id")?.trim() || crypto.randomUUID();
@@ -263,4 +266,4 @@ export async function forwardMarbleApiRequest(
   }
 
   return response;
-}
+};

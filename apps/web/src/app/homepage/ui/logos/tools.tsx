@@ -1,6 +1,6 @@
 import { type BrandGlyphProps, GlyphBase } from "./glyph";
 
-export function ClaudeGlyph(props: BrandGlyphProps) {
+export const ClaudeGlyph = (props: BrandGlyphProps) => {
   // Stylized sun-burst flare — Claude's warm Anthropic vibe.
   return (
     <GlyphBase {...props}>
@@ -20,9 +20,9 @@ export function ClaudeGlyph(props: BrandGlyphProps) {
       <path d="M16.3 7.7l2.1-2.1" />
     </GlyphBase>
   );
-}
+};
 
-export function CodexGlyph(props: BrandGlyphProps) {
+export const CodexGlyph = (props: BrandGlyphProps) => {
   // Curly brace bracket pair with a dot — OpenAI's coding CLI vibe.
   return (
     <GlyphBase {...props}>
@@ -36,9 +36,9 @@ export function CodexGlyph(props: BrandGlyphProps) {
       />
     </GlyphBase>
   );
-}
+};
 
-export function CursorGlyph(props: BrandGlyphProps) {
+export const CursorGlyph = (props: BrandGlyphProps) => {
   // Cursor pointer triangle.
   return (
     <GlyphBase {...props}>
@@ -48,9 +48,9 @@ export function CursorGlyph(props: BrandGlyphProps) {
       />
     </GlyphBase>
   );
-}
+};
 
-export function ContinueGlyph(props: BrandGlyphProps) {
+export const ContinueGlyph = (props: BrandGlyphProps) => {
   // → arrow into a target dot.
   return (
     <GlyphBase {...props}>
@@ -64,9 +64,9 @@ export function ContinueGlyph(props: BrandGlyphProps) {
       />
     </GlyphBase>
   );
-}
+};
 
-export function OpenCodeGlyph(props: BrandGlyphProps) {
+export const OpenCodeGlyph = (props: BrandGlyphProps) => {
   // Hex-framed braces — open-source coding feel.
   return (
     <GlyphBase {...props}>
@@ -75,9 +75,9 @@ export function OpenCodeGlyph(props: BrandGlyphProps) {
       <path d="M14 9l2 3-2 3" />
     </GlyphBase>
   );
-}
+};
 
-export function AiderGlyph(props: BrandGlyphProps) {
+export const AiderGlyph = (props: BrandGlyphProps) => {
   // + cross in a square — assistive pair-programming mark.
   return (
     <GlyphBase {...props}>
@@ -92,9 +92,9 @@ export function AiderGlyph(props: BrandGlyphProps) {
       <path d="M8 12h8" />
     </GlyphBase>
   );
-}
+};
 
-export function WindsurfGlyph(props: BrandGlyphProps) {
+export const WindsurfGlyph = (props: BrandGlyphProps) => {
   // ≈ stacked waves.
   return (
     <GlyphBase {...props}>
@@ -102,9 +102,9 @@ export function WindsurfGlyph(props: BrandGlyphProps) {
       <path d="M3 15c2-2 4-2 6 0s4 2 6 0 4-2 6 0" />
     </GlyphBase>
   );
-}
+};
 
-export function McpGlyph(props: BrandGlyphProps) {
+export const McpGlyph = (props: BrandGlyphProps) => {
   // Three-node connection — generic protocol mark.
   return (
     <GlyphBase {...props}>
@@ -130,4 +130,4 @@ export function McpGlyph(props: BrandGlyphProps) {
       <path d="M6.6 13l10.4 4" />
     </GlyphBase>
   );
-}
+};

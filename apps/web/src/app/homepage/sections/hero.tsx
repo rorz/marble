@@ -15,7 +15,7 @@ import { Section } from "../ui/section";
  * rather than hand-rolled chrome, so future hero tweaks live in the
  * same primitive vocabulary as the rest of the page.
  */
-export function HeroSection() {
+export const HeroSection = () => {
   return (
     <Section
       className="relative flex min-h-[85vh] flex-col items-start justify-end gap-8 overflow-hidden pb-0"
@@ -100,4 +100,4 @@ export function HeroSection() {
       </div>
     </Section>
   );
-}
+};

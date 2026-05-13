@@ -67,7 +67,7 @@ const AGENT_KEYS: Array<{
   },
 ];
 
-function renderAgentGlyph(brand: BrandId | "yours") {
+const renderAgentGlyph = (brand: BrandId | "yours") => {
   if (brand === "yours") {
     return (
       <StarIcon
@@ -85,9 +85,9 @@ function renderAgentGlyph(brand: BrandId | "yours") {
       size={26}
     />
   );
-}
+};
 
-export function AgentFirstSection() {
+export const AgentFirstSection = () => {
   return (
     <Section
       id="agent-first"
@@ -219,4 +219,4 @@ export function AgentFirstSection() {
       </SectionInner>
     </Section>
   );
-}
+};

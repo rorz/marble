@@ -11,7 +11,7 @@ import {
 import { isRunningCellState } from "./cell";
 import type { CellState, GridContext } from "./types";
 
-export function RowNumberCell(props: CustomCellRendererProps) {
+export const RowNumberCell = (props: CustomCellRendererProps) => {
   const rowId = props.data?._rowId as string | undefined;
 
   return (
@@ -22,9 +22,9 @@ export function RowNumberCell(props: CustomCellRendererProps) {
       {props.valueFormatted ?? props.value}
     </div>
   );
-}
+};
 
-function CellRunningIndicator() {
+const CellRunningIndicator = () => {
   return (
     <div
       className="pointer-events-none absolute top-0 bottom-0 z-0 overflow-hidden bg-zinc-100/80 inset-shadow-sm"
@@ -69,9 +69,9 @@ function CellRunningIndicator() {
       <div className="absolute inset-x-0 bottom-0 h-px bg-zinc-200/65" />
     </div>
   );
-}
+};
 
-export function CellWithRunButton(props: CustomCellRendererProps) {
+export const CellWithRunButton = (props: CustomCellRendererProps) => {
   const columnId = props.colDef?.field;
   const rowId = props.data?._rowId as string | undefined;
   const ctx = props.context as GridContext;
@@ -153,4 +153,4 @@ export function CellWithRunButton(props: CustomCellRendererProps) {
       )}
     </div>
   );
-}
+};
