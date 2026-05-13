@@ -33,6 +33,7 @@ const CHECKS = [
   "migrations",
   "realtime",
   "seed",
+  "enforce-arrow-function",
   "max-file-lines",
   "knip",
 ] as const;
