@@ -7,13 +7,13 @@ export type CreateRowInput = Pick<CreateParams<"row">, "idx" | "tableId">;
 
 export type ListRowsInput = Pick<Row, "tableId">;
 
-export type GetRowInput = Pick<Row, "id">;
+type GetRowInput = Pick<Row, "id">;
 
-export type DeleteRowInput = Pick<Row, "id">;
+type DeleteRowInput = Pick<Row, "id">;
 
 export type UpdateRowInput = Partial<Pick<UpdateParams<"row">, "idx">>;
 
-export type UpdateRowParams = Pick<Row, "id"> & {
+type UpdateRowParams = Pick<Row, "id"> & {
   values: UpdateRowInput;
 };
 

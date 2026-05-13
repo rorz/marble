@@ -8,7 +8,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { call } from "@orpc/server";
-import { marbleRouter } from "../src/router/entities";
+import { marbleRouter } from "../src/router";
 import { createValidationContext, INVALID_UUID } from "./_setup";
 
 describe("events.listForCurrentUser validation", () => {

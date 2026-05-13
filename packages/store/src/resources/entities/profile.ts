@@ -9,9 +9,9 @@ type UpdateProfileInput = Partial<
   Pick<UpdateParams<"profile">, "externalName" | "icon" | "name">
 >;
 
-export type GetProfileInput = Pick<Profile, "id">;
+type GetProfileInput = Pick<Profile, "id">;
 
-export type UpdateProfileParams = Pick<Profile, "id"> & {
+type UpdateProfileParams = Pick<Profile, "id"> & {
   values: UpdateProfileInput;
 };
 

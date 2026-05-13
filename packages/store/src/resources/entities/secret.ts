@@ -14,15 +14,15 @@ export type CreateSecretInput = Pick<Secret, "name"> &
 
 export type ListSecretsInput = Partial<Pick<Secret, "category" | "name">>;
 
-export type GetSecretInput = Pick<Secret, "id">;
+type GetSecretInput = Pick<Secret, "id">;
 
-export type DeleteSecretInput = Pick<Secret, "id">;
+type DeleteSecretInput = Pick<Secret, "id">;
 
 export type UpdateSecretInput = Partial<Pick<Secret, "name">> & {
   value?: string;
 };
 
-export type UpdateSecretParams = Pick<Secret, "id"> & {
+type UpdateSecretParams = Pick<Secret, "id"> & {
   values: UpdateSecretInput;
 };
 

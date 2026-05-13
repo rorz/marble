@@ -1,8 +1,8 @@
 import { MarbleStore } from "@marble/store";
+import type { SupabaseClient } from "@marble/supabase";
 import { createRouterClient } from "@orpc/server";
-import type { SupabaseClient } from "../../../src";
 import type { ApiContext, ApiTimingEntry } from "./context";
-import { marbleRouter } from "./router/entities";
+import { marbleRouter } from "./router";
 
 type SupabaseClientApiContextInput = {
   profileId: string;

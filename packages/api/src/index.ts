@@ -12,7 +12,7 @@ import {
   createOpenApiDocsContext,
   type MarbleApiConfig,
 } from "./context";
-import { marbleRouter } from "./router/entities";
+import { marbleRouter } from "./router";
 
 export type {
   ApiContext,

@@ -1,9 +1,7 @@
 import { toCamelKeys } from "@marble/lib/object";
-import type { Database } from "@marble/supabase";
-import type { ResourceDeps } from "../../db";
-import type { Entity } from "../../types";
-import { listOwnedProfileIds } from "../list-owned-profile-ids";
-import { requireServiceSupabase } from "../require-deps";
+import type { Database } from "../../../../src";
+import type { ResourceDeps } from "../db";
+import type { Entity } from "../types";
 import { ProgramVersionCollection } from "./program-version";
 
 type ProgramRow = Database["public"]["Tables"]["program"]["Row"];
@@ -30,16 +28,13 @@ export type CreateProgramInput = Pick<Program, "name"> & {
   };
 };
 
-export type UpdateProgramInput = Partial<Pick<Program, "name">>;
-
-export type UpdateProgramParams = Pick<Program, "id"> & {
-  values: UpdateProgramInput;
-};
-
 export type ProgramCollectionApi = {
   readonly create: (input: CreateProgramInput) => Promise<CreatedProgram>;
   readonly listForEditor: () => Promise<ProgramEditorData>;
-  readonly update: (input: UpdateProgramParams) => Promise<Program>;
+  readonly update: (
+    id: string,
+    input: Partial<Pick<Program, "name">>,
+  ) => Promise<Program>;
 };
 
 function toProgramFile(file: ProgramFileRow): ProgramFile {
@@ -54,14 +49,43 @@ function toProgram(program: ProgramRow): Program {
   return toCamelKeys(program) as Program;
 }
 
+function requireUserId(deps: ResourceDeps) {
+  if (!deps.context.userId) {
+    throw new Error("Program operations require a user session.");
+  }
+
+  return deps.context.userId;
+}
+
+function requireServiceSupabase(deps: ResourceDeps) {
+  if (!deps.serviceSupabase) {
+    throw new Error("Program operations require a service Supabase client.");
+  }
+
+  return deps.serviceSupabase;
+}
+
 export class ProgramCollection implements ProgramCollectionApi {
   public constructor(private readonly deps: ResourceDeps) {}
 
-  private readonly listVisibleProfileIds = () =>
-    listOwnedProfileIds(this.deps, "Program");
+  private readonly listVisibleProfileIds = async () => {
+    const { data, error } = await requireServiceSupabase(this.deps)
+      .from("profile")
+      .select("id")
+      .eq("owner_user_id", requireUserId(this.deps))
+      .order("created_at", {
+        ascending: true,
+      });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return (data ?? []).map((profile) => profile.id);
+  };
 
   private readonly getProgram = async (id: string) => {
-    const { data, error } = await requireServiceSupabase(this.deps, "Program")
+    const { data, error } = await requireServiceSupabase(this.deps)
       .from("program")
       .select("*")
       .eq("id", id)
@@ -74,7 +98,7 @@ export class ProgramCollection implements ProgramCollectionApi {
   };
 
   public readonly create = async (input: CreateProgramInput) => {
-    const supabase = requireServiceSupabase(this.deps, "Program");
+    const supabase = requireServiceSupabase(this.deps);
     const profileIds = await this.listVisibleProfileIds();
     const ownerProfileId = profileIds[0];
 
@@ -118,7 +142,7 @@ export class ProgramCollection implements ProgramCollectionApi {
   };
 
   public readonly listForEditor = async () => {
-    const supabase = requireServiceSupabase(this.deps, "Program");
+    const supabase = requireServiceSupabase(this.deps);
     const profileIds = await this.listVisibleProfileIds();
     const [firstPartyResult, ownedResult] = await Promise.all([
       supabase.from("program").select("*").eq("first_party", true),
@@ -127,7 +151,7 @@ export class ProgramCollection implements ProgramCollectionApi {
             data: [],
             error: null,
           })
-        : requireServiceSupabase(this.deps, "Program")
+        : requireServiceSupabase(this.deps)
             .from("program")
             .select("*")
             .in("owner_profile_id", profileIds),
@@ -198,8 +222,11 @@ export class ProgramCollection implements ProgramCollectionApi {
     };
   };
 
-  public readonly update = async ({ id, values }: UpdateProgramParams) => {
-    const supabase = requireServiceSupabase(this.deps, "Program");
+  public readonly update = async (
+    id: string,
+    input: Partial<Pick<Program, "name">>,
+  ) => {
+    const supabase = requireServiceSupabase(this.deps);
     const profileIds = await this.listVisibleProfileIds();
     const existing = await this.getProgram(id);
 
@@ -210,7 +237,7 @@ export class ProgramCollection implements ProgramCollectionApi {
     const { error } = await supabase
       .from("program")
       .update({
-        name: values.name,
+        name: input.name,
       })
       .eq("id", id);
 

@@ -12,7 +12,7 @@ import { requireServiceSupabase, requireUserId } from "../require-deps";
 
 export type ProgramVersion = Entity<"program_version">;
 
-export type TestProgramVersionInput = ProgramVersionTestInput & {
+type TestProgramVersionInput = ProgramVersionTestInput & {
   programVersionId: string;
 };
 
@@ -24,7 +24,7 @@ type ProgramVersionWriteInput = {
   version?: number;
 };
 
-export type UpdateProgramVersionParams = {
+type UpdateProgramVersionParams = {
   id: string;
   values: ProgramVersionWriteInput;
 };

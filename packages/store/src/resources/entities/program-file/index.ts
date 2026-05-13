@@ -20,15 +20,15 @@ export type UpdateProgramFileInput = Partial<
   Pick<UpdateParams<"program_file">, "content" | "filename" | "filetype">
 >;
 
-export type GetProgramFileInput = Pick<ProgramFile, "id">;
+type GetProgramFileInput = Pick<ProgramFile, "id">;
 
-export type DeleteProgramFileInput = Pick<ProgramFile, "id">;
+type DeleteProgramFileInput = Pick<ProgramFile, "id">;
 
-export type UpdateProgramFileParams = Pick<ProgramFile, "id"> & {
+type UpdateProgramFileParams = Pick<ProgramFile, "id"> & {
   values: UpdateProgramFileInput;
 };
 
-export type SyncProgramFilesForVersionInput = {
+type SyncProgramFilesForVersionInput = {
   files: Omit<CreateProgramFileInput, "versionId">[];
   versionId: string;
 };

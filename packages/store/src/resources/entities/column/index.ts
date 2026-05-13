@@ -30,11 +30,11 @@ export type UpdateColumnInput = Partial<
   >
 >;
 
-export type GetColumnInput = Pick<Column, "id">;
+type GetColumnInput = Pick<Column, "id">;
 
-export type DeleteColumnInput = Pick<Column, "id">;
+type DeleteColumnInput = Pick<Column, "id">;
 
-export type UpdateColumnParams = Pick<Column, "id"> & {
+type UpdateColumnParams = Pick<Column, "id"> & {
   values: UpdateColumnInput;
 };
 
