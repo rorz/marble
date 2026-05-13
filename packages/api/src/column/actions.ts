@@ -81,10 +81,10 @@ export const columnRouter = {
     context.store.columns.create(normalizeColumnWriteInput(input)),
   ),
   delete: os.columns.delete.handler(({ context, input }) =>
-    context.store.columns.delete(input.id),
+    context.store.columns.delete(input),
   ),
   get: os.columns.get.handler(({ context, input }) =>
-    context.store.columns.get(input.id),
+    context.store.columns.get(input),
   ),
   list: os.columns.list.handler(({ context, input }) =>
     context.store.columns.list(input),
@@ -93,9 +93,9 @@ export const columnRouter = {
     context.store.columns.listReferenceable(),
   ),
   update: os.columns.update.handler(({ context, input }) =>
-    context.store.columns.update(
-      input.id,
-      normalizeColumnWriteInput(input.values),
-    ),
+    context.store.columns.update({
+      id: input.id,
+      values: normalizeColumnWriteInput(input.values),
+    }),
   ),
 } satisfies RouterResourcePart<"columns">;

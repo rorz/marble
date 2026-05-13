@@ -10,12 +10,21 @@ import { toCamelKeys } from "../types";
 
 export type ProgramVersion = Entity<"program_version">;
 
+export type TestProgramVersionInput = ProgramVersionTestInput & {
+  programVersionId: string;
+};
+
 type ProgramVersionWriteInput = {
   inputSchema?: unknown;
   outputConfig?: unknown;
   publish?: boolean;
   secretConfig?: unknown;
   version?: number;
+};
+
+export type UpdateProgramVersionParams = {
+  id: string;
+  values: ProgramVersionWriteInput;
 };
 
 function requireServiceSupabase(deps: ResourceDeps) {
@@ -219,10 +228,10 @@ export class ProgramVersionCollection {
     return version;
   };
 
-  public readonly test = async (
-    programVersionId: string,
-    input: ProgramVersionTestInput,
-  ): Promise<ProgramVersionTestResult> => {
+  public readonly test = async ({
+    programVersionId,
+    ...input
+  }: TestProgramVersionInput): Promise<ProgramVersionTestResult> => {
     if (!this.deps.actions.executeProgramVersionTest) {
       throw new Error(
         "Program version test requires an executeProgramVersionTest action.",
@@ -274,10 +283,10 @@ export class ProgramVersionCollection {
     return toProgramVersionTestResult(payload);
   };
 
-  public readonly update = async (
-    id: string,
-    input: ProgramVersionWriteInput,
-  ) => {
+  public readonly update = async ({
+    id,
+    values: input,
+  }: UpdateProgramVersionParams) => {
     const existing = await getProgramVersion(this.deps, id);
 
     await requireWritableProgram(this.deps, existing.programId);
@@ -286,7 +295,7 @@ export class ProgramVersionCollection {
       throw new Error(`Program version '${id}' is published and read-only.`);
     }
 
-    const values = {
+    const dbValues = {
       ...(input.inputSchema === undefined
         ? {}
         : {
@@ -316,25 +325,25 @@ export class ProgramVersionCollection {
             }),
     };
 
-    if (Object.keys(values).length > 0) {
+    if (Object.keys(dbValues).length > 0) {
       const { error } = await requireServiceSupabase(this.deps)
         .from("program_version")
         .update({
           input_schema:
-            "inputSchema" in values
-              ? parseInputSchema(values.inputSchema)
+            "inputSchema" in dbValues
+              ? parseInputSchema(dbValues.inputSchema)
               : undefined,
           output_config:
-            "outputConfig" in values
-              ? parseOutputConfig(values.outputConfig)
+            "outputConfig" in dbValues
+              ? parseOutputConfig(dbValues.outputConfig)
               : undefined,
           published_at:
-            "publishedAt" in values ? values.publishedAt : undefined,
+            "publishedAt" in dbValues ? dbValues.publishedAt : undefined,
           secret_config:
-            "secretConfig" in values
-              ? parseSecretConfig(values.secretConfig)
+            "secretConfig" in dbValues
+              ? parseSecretConfig(dbValues.secretConfig)
               : undefined,
-          version: "version" in values ? values.version : undefined,
+          version: "version" in dbValues ? dbValues.version : undefined,
         })
         .eq("id", id);
 

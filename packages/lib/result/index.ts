@@ -29,9 +29,11 @@ export function getErrorMessage(
   }
 
   if (error && typeof error === "object") {
-    const message = (error as {
-      message?: unknown;
-    }).message;
+    const message = (
+      error as {
+        message?: unknown;
+      }
+    ).message;
 
     if (typeof message === "string" && message.length > 0) {
       return message;

@@ -7,6 +7,12 @@ type UpdateProfileInput = Partial<
   Pick<UpdateParams<"profile">, "externalName" | "icon" | "name">
 >;
 
+export type GetProfileInput = Pick<Profile, "id">;
+
+export type UpdateProfileParams = Pick<Profile, "id"> & {
+  values: UpdateProfileInput;
+};
+
 function requireUserId(deps: ResourceDeps) {
   if (!deps.context.userId) {
     throw new Error("Profile operations require a user session.");
@@ -26,7 +32,7 @@ function requireServiceSupabase(deps: ResourceDeps) {
 export class ProfileCollection {
   public constructor(private readonly deps: ResourceDeps) {}
 
-  public readonly get = (id: string) =>
+  public readonly get = ({ id }: GetProfileInput) =>
     this.deps.db.get("profile", id, {
       ownerUserId: requireUserId(this.deps),
     });
@@ -65,13 +71,13 @@ export class ProfileCollection {
     return (data ?? []).map((profile) => profile.id);
   };
 
-  public readonly update = async (id: string, input: UpdateProfileInput) => {
+  public readonly update = async ({ id, values }: UpdateProfileParams) => {
     const { error } = await requireServiceSupabase(this.deps)
       .from("profile")
       .update({
-        external_name: input.externalName,
-        icon: input.icon,
-        name: input.name,
+        external_name: values.externalName,
+        icon: values.icon,
+        name: values.name,
       })
       .eq("id", id)
       .eq("owner_user_id", requireUserId(this.deps));
@@ -80,6 +86,8 @@ export class ProfileCollection {
       throw new Error(error.message);
     }
 
-    return this.get(id);
+    return this.get({
+      id,
+    });
   };
 }

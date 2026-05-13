@@ -27,6 +27,7 @@ Rules:
 
 - Prefer parent-owned actions when an operation changes a parent-owned aggregate. Row insertion belongs at `tables.insertRows`, not `rows.create`, because the table owns row order and cell materialization.
 - Prefer object inputs for every public operation. Do not add positional signatures such as `tables.insertRows(quantity, idx)`. Use `{ id, idx, quantity }`.
+- **The store layer is object-only too.** Every public store collection method takes a single `input` object — including per-entity reads (`get({ id })`), deletes (`delete({ id })`), and updates (`update({ id, values })`). There is no positional `(id, payload)` form. The contract input schema is the call signature, and the router handler should pass `input` through unchanged.
 - The contract shape is the public operation. The API handler should mostly map contract input to store action. The store owns persistence semantics.
 - Handles may provide ergonomic sugar, but they should not become the canonical contract. A table handle may call `table.insertRows({ idx, quantity })`; internally it should inject the table ID into the canonical `{ id, idx, quantity }` input.
 - Use named actions when behavior has domain meaning. Prefer `cells.setManualValue()` over `cells.update()`.

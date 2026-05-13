@@ -30,10 +30,10 @@ export const programFileRouter = {
     context.store.programFiles.create(input),
   ),
   delete: os.programFiles.delete.handler(({ context, input }) =>
-    context.store.programFiles.delete(input.id),
+    context.store.programFiles.delete(input),
   ),
   get: os.programFiles.get.handler(({ context, input }) =>
-    context.store.programFiles.get(input.id),
+    context.store.programFiles.get(input),
   ),
   list: os.programFiles.list.handler(({ context, input }) =>
     context.store.programFiles.list(input),
@@ -41,13 +41,10 @@ export const programFileRouter = {
   syncForVersion: os.programFiles.syncForVersion.handler(
     ({ context, input }) => {
       assertValidProgramManifest(input.files);
-      return context.store.programFiles.syncForVersion(
-        input.versionId,
-        input.files,
-      );
+      return context.store.programFiles.syncForVersion(input);
     },
   ),
   update: os.programFiles.update.handler(({ context, input }) =>
-    context.store.programFiles.update(input.id, input.values),
+    context.store.programFiles.update(input),
   ),
 } satisfies RouterResourcePart<"programFiles">;

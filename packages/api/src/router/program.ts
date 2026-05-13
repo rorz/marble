@@ -9,6 +9,6 @@ export const programRouter = {
     context.store.programs.listForEditor(),
   ),
   update: os.programs.update.handler(({ context, input }) =>
-    context.store.programs.update(input.id, input.values),
+    context.store.programs.update(input),
   ),
 } satisfies RouterResourcePart<"programs">;

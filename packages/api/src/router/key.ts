@@ -9,6 +9,6 @@ export const keyRouter = {
     context.store.keys.list(input),
   ),
   revoke: os.keys.revoke.handler(({ context, input }) =>
-    context.store.keys.revoke(input.id),
+    context.store.keys.revoke(input),
   ),
 } satisfies RouterResourcePart<"keys">;

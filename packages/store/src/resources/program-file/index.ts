@@ -23,6 +23,19 @@ export type UpdateProgramFileInput = Partial<
   Pick<UpdateParams<"program_file">, "content" | "filename" | "filetype">
 >;
 
+export type GetProgramFileInput = Pick<ProgramFile, "id">;
+
+export type DeleteProgramFileInput = Pick<ProgramFile, "id">;
+
+export type UpdateProgramFileParams = Pick<ProgramFile, "id"> & {
+  values: UpdateProgramFileInput;
+};
+
+export type SyncProgramFilesForVersionInput = {
+  files: Omit<CreateProgramFileInput, "versionId">[];
+  versionId: string;
+};
+
 async function getFile(deps: ResourceDeps, id: string) {
   const { data, error } = await requireServiceSupabase(deps)
     .from("program_file")
@@ -116,7 +129,7 @@ export class ProgramFileCollection {
     return toCamelKeys<"program_file">(data as DbRow<"program_file">);
   };
 
-  public readonly delete = async (id: string) => {
+  public readonly delete = async ({ id }: DeleteProgramFileInput) => {
     const file = await getFile(this.deps, id);
 
     await requireWritableVersion(this.deps, file.versionId);
@@ -133,7 +146,7 @@ export class ProgramFileCollection {
     return file;
   };
 
-  public readonly get = async (id: string) => {
+  public readonly get = async ({ id }: GetProgramFileInput) => {
     const file = await getFile(this.deps, id);
 
     await requireReadableVersion(this.deps, file.versionId);
@@ -180,10 +193,10 @@ export class ProgramFileCollection {
     );
   };
 
-  public readonly syncForVersion = async (
-    versionId: string,
-    files: Omit<CreateProgramFileInput, "versionId">[],
-  ) => {
+  public readonly syncForVersion = async ({
+    files,
+    versionId,
+  }: SyncProgramFilesForVersionInput) => {
     assertUniqueFilenames(files);
 
     const existingFiles = await this.list({
@@ -215,14 +228,21 @@ export class ProgramFileCollection {
           return existing;
         }
 
-        return this.update(existing.id, file);
+        return this.update({
+          id: existing.id,
+          values: file,
+        });
       }),
     );
 
     await Promise.all(
       existingFiles
         .filter((file) => !incomingFilenames.has(file.filename))
-        .map((file) => this.delete(file.id)),
+        .map((file) =>
+          this.delete({
+            id: file.id,
+          }),
+        ),
     );
 
     return this.list({
@@ -230,18 +250,15 @@ export class ProgramFileCollection {
     });
   };
 
-  public readonly update = async (
-    id: string,
-    input: UpdateProgramFileInput,
-  ) => {
+  public readonly update = async ({ id, values }: UpdateProgramFileParams) => {
     const file = await getFile(this.deps, id);
 
     await requireWritableVersion(this.deps, file.versionId);
 
-    if (input.filename && input.filename !== file.filename) {
+    if (values.filename && values.filename !== file.filename) {
       await assertFilenameAvailable(this.deps, {
         exceptId: id,
-        filename: input.filename,
+        filename: values.filename,
         versionId: file.versionId,
       });
     }
@@ -249,9 +266,9 @@ export class ProgramFileCollection {
     const { data, error } = await requireServiceSupabase(this.deps)
       .from("program_file")
       .update({
-        content: input.content,
-        filename: input.filename,
-        filetype: input.filetype,
+        content: values.content,
+        filename: values.filename,
+        filetype: values.filetype,
       })
       .eq("id", id)
       .select("*")

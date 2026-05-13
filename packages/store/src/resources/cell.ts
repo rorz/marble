@@ -9,11 +9,19 @@ export type ListCellsInput =
   | (Pick<Cell, "columnId"> & Partial<Pick<Cell, "rowId">>)
   | (Pick<Cell, "rowId"> & Partial<Pick<Cell, "columnId">>);
 
+export type GetCellInput = Pick<Cell, "id">;
+
+export type RunCellInput = Pick<Cell, "id"> & CellRunInput;
+
+export type SetManualValueInput = Pick<Cell, "id"> & {
+  value: string | null;
+};
+
 export type CellCollectionApi = {
-  readonly get: (id: string) => Promise<Cell>;
+  readonly get: (input: GetCellInput) => Promise<Cell>;
   readonly list: (input: ListCellsInput) => Promise<Cell[]>;
-  readonly run: (id: string, input?: CellRunInput) => Promise<CellRunResult>;
-  readonly setManualValue: (id: string, value: string | null) => Promise<Cell>;
+  readonly run: (input: RunCellInput) => Promise<CellRunResult>;
+  readonly setManualValue: (input: SetManualValueInput) => Promise<Cell>;
 };
 
 function requireServiceSupabase(deps: ResourceDeps) {
@@ -47,12 +55,12 @@ function toCellRunResult(
 export class CellCollection implements CellCollectionApi {
   public constructor(private readonly deps: ResourceDeps) {}
 
-  public readonly get = (id: string) => this.deps.db.get("cell", id);
+  public readonly get = ({ id }: GetCellInput) => this.deps.db.get("cell", id);
 
   public readonly list = (input: ListCellsInput) =>
     this.deps.db.list("cell", input);
 
-  public readonly run = async (id: string, input: CellRunInput = {}) => {
+  public readonly run = async ({ id, ...input }: RunCellInput) => {
     if (!this.deps.actions.executeProgramRun) {
       throw new Error("Cell run requires an executeProgramRun action.");
     }
@@ -144,7 +152,7 @@ export class CellCollection implements CellCollectionApi {
     return toCellRunResult(id, run.id, payload);
   };
 
-  public readonly setManualValue = (id: string, value: string | null) =>
+  public readonly setManualValue = ({ id, value }: SetManualValueInput) =>
     this.deps.db.update("cell", id, {
       manualInput: value,
     });

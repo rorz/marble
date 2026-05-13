@@ -75,12 +75,12 @@ export const programVersionRouter = {
     ),
   ),
   test: os.programVersions.test.handler(({ context, input }) =>
-    context.store.programVersions.test(input.programVersionId, input),
+    context.store.programVersions.test(input),
   ),
   update: os.programVersions.update.handler(({ context, input }) =>
-    context.store.programVersions.update(
-      input.id,
-      normalizeProgramVersionWriteInput(input.values),
-    ),
+    context.store.programVersions.update({
+      id: input.id,
+      values: normalizeProgramVersionWriteInput(input.values),
+    }),
   ),
 } satisfies RouterResourcePart<"programVersions">;

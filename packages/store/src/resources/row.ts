@@ -7,14 +7,22 @@ export type CreateRowInput = Pick<CreateParams<"row">, "idx" | "tableId">;
 
 export type ListRowsInput = Pick<Row, "tableId">;
 
+export type GetRowInput = Pick<Row, "id">;
+
+export type DeleteRowInput = Pick<Row, "id">;
+
 export type UpdateRowInput = Partial<Pick<UpdateParams<"row">, "idx">>;
+
+export type UpdateRowParams = Pick<Row, "id"> & {
+  values: UpdateRowInput;
+};
 
 export type RowCollectionApi = {
   readonly create: (input: CreateRowInput) => Promise<Row>;
-  readonly delete: (id: string) => Promise<Row>;
-  readonly get: (id: string) => Promise<Row>;
+  readonly delete: (input: DeleteRowInput) => Promise<Row>;
+  readonly get: (input: GetRowInput) => Promise<Row>;
   readonly list: (input: ListRowsInput) => Promise<Row[]>;
-  readonly update: (id: string, input: UpdateRowInput) => Promise<Row>;
+  readonly update: (input: UpdateRowParams) => Promise<Row>;
 };
 
 export class RowCollection implements RowCollectionApi {
@@ -23,8 +31,10 @@ export class RowCollection implements RowCollectionApi {
   public readonly create = (input: CreateRowInput) =>
     this.deps.db.insert("row", input);
 
-  public readonly delete = async (id: string) => {
-    const row = await this.get(id);
+  public readonly delete = async ({ id }: DeleteRowInput) => {
+    const row = await this.get({
+      id,
+    });
     const cells = await this.deps.db.list("cell", {
       rowId: id,
     });
@@ -58,11 +68,11 @@ export class RowCollection implements RowCollectionApi {
     return row;
   };
 
-  public readonly get = (id: string) => this.deps.db.get("row", id);
+  public readonly get = ({ id }: GetRowInput) => this.deps.db.get("row", id);
 
   public readonly list = (input: ListRowsInput) =>
     this.deps.db.list("row", input);
 
-  public readonly update = (id: string, input: UpdateRowInput) =>
-    this.deps.db.update("row", id, input);
+  public readonly update = ({ id, values }: UpdateRowParams) =>
+    this.deps.db.update("row", id, values);
 }

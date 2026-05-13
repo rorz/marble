@@ -30,10 +30,18 @@ export type UpdateColumnInput = Partial<
   >
 >;
 
+export type GetColumnInput = Pick<Column, "id">;
+
+export type DeleteColumnInput = Pick<Column, "id">;
+
+export type UpdateColumnParams = Pick<Column, "id"> & {
+  values: UpdateColumnInput;
+};
+
 export type ColumnCollectionApi = {
   readonly create: (input: CreateColumnInput) => Promise<Column>;
-  readonly delete: (id: string) => Promise<Column>;
-  readonly get: (id: string) => Promise<Column>;
+  readonly delete: (input: DeleteColumnInput) => Promise<Column>;
+  readonly get: (input: GetColumnInput) => Promise<Column>;
   readonly list: (input: ListColumnsInput) => Promise<Column[]>;
   readonly listReferenceable: () => Promise<
     Array<
@@ -46,7 +54,7 @@ export type ColumnCollectionApi = {
       }
     >
   >;
-  readonly update: (id: string, input: UpdateColumnInput) => Promise<Column>;
+  readonly update: (input: UpdateColumnParams) => Promise<Column>;
 };
 
 function getOutputSchema(outputConfig: unknown) {
@@ -124,8 +132,10 @@ export class ColumnCollection implements ColumnCollectionApi {
     return column;
   };
 
-  public readonly delete = async (id: string) => {
-    const column = await this.get(id);
+  public readonly delete = async ({ id }: DeleteColumnInput) => {
+    const column = await this.get({
+      id,
+    });
     const cells = await this.deps.db.list("cell", {
       columnId: id,
     });
@@ -160,7 +170,8 @@ export class ColumnCollection implements ColumnCollectionApi {
     return column;
   };
 
-  public readonly get = (id: string) => this.deps.db.get("column", id);
+  public readonly get = ({ id }: GetColumnInput) =>
+    this.deps.db.get("column", id);
 
   public readonly list = (input: ListColumnsInput) =>
     this.deps.db.list("column", input);
@@ -229,30 +240,30 @@ export class ColumnCollection implements ColumnCollectionApi {
     });
   };
 
-  public readonly update = async (id: string, input: UpdateColumnInput) => {
+  public readonly update = async ({ id, values }: UpdateColumnParams) => {
     const programVersion =
-      input.programVersionId === undefined
+      values.programVersionId === undefined
         ? null
-        : await this.deps.db.get("program_version", input.programVersionId);
+        : await this.deps.db.get("program_version", values.programVersionId);
     const column = await this.deps.db.update("column", id, {
-      ...input,
-      ...(input.outputSchema === undefined && programVersion === null
+      ...values,
+      ...(values.outputSchema === undefined && programVersion === null
         ? {}
         : {
             outputSchema: asJson(
-              input.outputSchema ??
+              values.outputSchema ??
                 getOutputSchema(programVersion?.outputConfig),
             ),
           }),
-      ...(input.runCondition === undefined
+      ...(values.runCondition === undefined
         ? {}
         : {
-            runCondition: asJson(input.runCondition),
+            runCondition: asJson(values.runCondition),
           }),
     });
 
-    if (input.inputTemplate !== undefined) {
-      await replaceColumnDependencies(this.deps, id, input.inputTemplate);
+    if (values.inputTemplate !== undefined) {
+      await replaceColumnDependencies(this.deps, id, values.inputTemplate);
     }
 
     return column;

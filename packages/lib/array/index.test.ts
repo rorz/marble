@@ -165,9 +165,14 @@ describe("sortBy", () => {
   });
 
   test("returns an empty array unchanged", () => {
-    expect(sortBy([] as Array<{
-      id: string;
-    }>, byIdAsc)).toEqual([]);
+    expect(
+      sortBy(
+        [] as Array<{
+          id: string;
+        }>,
+        byIdAsc,
+      ),
+    ).toEqual([]);
   });
 });
 

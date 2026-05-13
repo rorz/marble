@@ -1,5 +1,5 @@
-import type { Database, SupabaseClient } from "@marble/supabase";
 import { withTiming } from "@marble/lib/timing";
+import type { Database, SupabaseClient } from "@marble/supabase";
 import type {
   CreateParams,
   DbInsert,
@@ -94,7 +94,9 @@ const throwSupabaseError = (
 
 type SingleRowResult<T extends TableWithIdName> = {
   data: DbRow<T> | null;
-  error: { message: string } | null;
+  error: {
+    message: string;
+  } | null;
 };
 
 const noopRecordTiming = () => {};

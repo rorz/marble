@@ -142,7 +142,7 @@ export class KeyCollection {
     return keys.map(toApiKey);
   };
 
-  public readonly revoke = async (id: string) => {
+  public readonly revoke = async ({ id }: { id: string }) => {
     const supabase = requireServiceSupabase(this.deps);
     const { data: key, error: getError } = await supabase
       .from("key")

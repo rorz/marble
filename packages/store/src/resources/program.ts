@@ -28,13 +28,16 @@ export type CreateProgramInput = Pick<Program, "name"> & {
   };
 };
 
+export type UpdateProgramInput = Partial<Pick<Program, "name">>;
+
+export type UpdateProgramParams = Pick<Program, "id"> & {
+  values: UpdateProgramInput;
+};
+
 export type ProgramCollectionApi = {
   readonly create: (input: CreateProgramInput) => Promise<CreatedProgram>;
   readonly listForEditor: () => Promise<ProgramEditorData>;
-  readonly update: (
-    id: string,
-    input: Partial<Pick<Program, "name">>,
-  ) => Promise<Program>;
+  readonly update: (input: UpdateProgramParams) => Promise<Program>;
 };
 
 function toProgramFile(file: ProgramFileRow): ProgramFile {
@@ -222,10 +225,7 @@ export class ProgramCollection implements ProgramCollectionApi {
     };
   };
 
-  public readonly update = async (
-    id: string,
-    input: Partial<Pick<Program, "name">>,
-  ) => {
+  public readonly update = async ({ id, values }: UpdateProgramParams) => {
     const supabase = requireServiceSupabase(this.deps);
     const profileIds = await this.listVisibleProfileIds();
     const existing = await this.getProgram(id);
@@ -237,7 +237,7 @@ export class ProgramCollection implements ProgramCollectionApi {
     const { error } = await supabase
       .from("program")
       .update({
-        name: input.name,
+        name: values.name,
       })
       .eq("id", id);
 

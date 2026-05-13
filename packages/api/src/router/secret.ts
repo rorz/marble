@@ -6,15 +6,15 @@ export const secretRouter = {
     context.store.secrets.create(input),
   ),
   delete: os.secrets.delete.handler(({ context, input }) =>
-    context.store.secrets.delete(input.id),
+    context.store.secrets.delete(input),
   ),
   get: os.secrets.get.handler(({ context, input }) =>
-    context.store.secrets.get(input.id),
+    context.store.secrets.get(input),
   ),
   list: os.secrets.list.handler(({ context, input }) =>
     context.store.secrets.list(input),
   ),
   update: os.secrets.update.handler(({ context, input }) =>
-    context.store.secrets.update(input.id, input.values),
+    context.store.secrets.update(input),
   ),
 } satisfies RouterResourcePart<"secrets">;

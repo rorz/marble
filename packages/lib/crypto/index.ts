@@ -96,7 +96,10 @@ export function parseBearerToken(
 
   const token = credentials.trim();
 
-  if (options.tokenPrefix !== undefined && !token.startsWith(options.tokenPrefix)) {
+  if (
+    options.tokenPrefix !== undefined &&
+    !token.startsWith(options.tokenPrefix)
+  ) {
     return null;
   }
 
