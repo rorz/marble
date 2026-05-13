@@ -13,12 +13,16 @@
   "devDependencies": {
     "@types/react": "catalog:base",
     "@types/react-dom": "catalog:base",
+    "next": "catalog:base",
     "typescript": "catalog:base"
   },
   "exports": {
     ".": "./src/index.ts"
   },
   "name": "@marble/ui",
+  "peerDependencies": {
+    "next": "catalog:base"
+  },
   "private": true,
   "scripts": {
     "typecheck": "tsc --noEmit"

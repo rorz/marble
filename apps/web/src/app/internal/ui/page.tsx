@@ -51,6 +51,8 @@ import {
   MarblePaneEditableCrumb,
   MarbleProfileAttribution,
   MarbleReviewNavigator,
+  MarbleRouteProgress,
+  MarbleRouteProgressBeacon,
   MarbleSearchSelect,
   type MarbleSearchSelectOption,
   MarbleSelect,
@@ -69,6 +71,7 @@ import {
   MarbleWorkbenchTab,
   MarbleWorkbenchTabs,
   marbleToast,
+  useReportRouteProgress,
 } from "@marble/ui";
 import {
   ArrowRightIcon,
@@ -87,6 +90,7 @@ import {
   UserCircleIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react/ssr";
+import Link from "next/link";
 import { type ReactNode, useState } from "react";
 
 const DEMO_AVATAR_URL = `data:image/svg+xml;utf8,${encodeURIComponent(
@@ -288,6 +292,35 @@ function DemoPanel({
         {children}
       </MarbleCardContent>
     </MarbleCard>
+  );
+}
+
+function RouteProgressDemo() {
+  const [pending, setPending] = useState(false);
+  useReportRouteProgress(pending);
+  return (
+    <div className="space-y-3">
+      <MarbleRouteProgress />
+      <div className="flex flex-wrap items-center gap-3">
+        <MarbleButton
+          onClick={() => {
+            setPending(true);
+            window.setTimeout(() => setPending(false), 1600);
+          }}
+          size="sm"
+          variant="orange"
+        >
+          Trigger pending state
+        </MarbleButton>
+        <Link
+          className="inline-flex items-center gap-1.5 text-eyebrow text-taupe-500 underline-offset-2 hover:text-taupe-700 hover:underline"
+          href="/internal/ui?route-progress-probe=1"
+        >
+          <MarbleRouteProgressBeacon />
+          <span>Or click here for a real route navigation</span>
+        </Link>
+      </div>
+    </div>
   );
 }
 
@@ -1849,6 +1882,13 @@ export default function UiPage() {
                   </div>
                 </div>
               </div>
+            </DemoPanel>
+
+            <DemoPanel
+              description="Top-anchored 2px progress bar that surfaces pending route transitions. Wrap programmatic nav in useTransition() and call useReportRouteProgress(isPending), or place MarbleRouteProgressBeacon inside a next/link Link to register clicks."
+              title="Route progress"
+            >
+              <RouteProgressDemo />
             </DemoPanel>
           </div>
         </Section>

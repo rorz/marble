@@ -1,3 +1,4 @@
+import { MarbleRouteProgress } from "@marble/ui";
 import { cookies } from "next/headers";
 import { requireUserIdentity } from "../../lib/auth";
 import {
@@ -42,19 +43,22 @@ export default async function GuiLayout({
   );
 
   return (
-    <GuiShell
-      initialAgentSidebarMode={initialAgentSidebarMode}
-      initialAgentSidebarWidth={initialAgentSidebarWidth}
-      initialSidebarData={initialSidebarData}
-      initialSidebarMode={initialSidebarMode}
-      initialSidebarTreeState={initialSidebarTreeState}
-      initialSidebarWidth={initialSidebarWidth}
-      userAvatarUrl={user.avatarUrl}
-      userDisplayName={user.displayName}
-      userEmail={user.email}
-      userId={user.id}
-    >
-      {children}
-    </GuiShell>
+    <>
+      <MarbleRouteProgress />
+      <GuiShell
+        initialAgentSidebarMode={initialAgentSidebarMode}
+        initialAgentSidebarWidth={initialAgentSidebarWidth}
+        initialSidebarData={initialSidebarData}
+        initialSidebarMode={initialSidebarMode}
+        initialSidebarTreeState={initialSidebarTreeState}
+        initialSidebarWidth={initialSidebarWidth}
+        userAvatarUrl={user.avatarUrl}
+        userDisplayName={user.displayName}
+        userEmail={user.email}
+        userId={user.id}
+      >
+        {children}
+      </GuiShell>
+    </>
   );
 }

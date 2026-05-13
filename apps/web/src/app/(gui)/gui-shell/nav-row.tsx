@@ -1,9 +1,13 @@
-import { cx } from "@marble/ui";
+import {
+  cx,
+  MarbleRouteProgressBeacon,
+  useReportRouteProgress,
+} from "@marble/ui";
 import { CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useTransition } from "react";
 
 import { getChangeTargetProps } from "../change-spotlight";
 
@@ -35,6 +39,8 @@ export function SidebarNavRow({
   title?: string;
 }) {
   const router = useRouter();
+  const [isChevronNavPending, startChevronNav] = useTransition();
+  useReportRouteProgress(isChevronNavPending);
   const showDisclosure = expandable && !iconOnly;
   const showIconSlot = Boolean(icon);
 
@@ -71,9 +77,9 @@ export function SidebarNavRow({
             onToggle?.();
           }
         }}
-        prefetch={false}
         title={title}
       >
+        <MarbleRouteProgressBeacon />
         {showIconSlot ? (
           <div className="flex size-5 shrink-0 items-center justify-center">
             {icon}
@@ -98,7 +104,9 @@ export function SidebarNavRow({
             onToggle?.();
 
             if (!active && nextExpanded) {
-              router.push(href);
+              startChevronNav(() => {
+                router.push(href);
+              });
             }
           }}
           type="button"

@@ -144,6 +144,7 @@ Every primitive in `@marble/ui`. Each entry is a one-line "use when" so you can 
 - **`MarblePane`** — every page-level pane. Crumbs, actions, disclosure menu, and frame are all primitive concerns. Width is a `width` prop with a four-step scale — `Narrow` (`max-w-2xl`, focused reading column with extra top breathing room), `Wide` (`max-w-5xl`, two-column dashboards), `ExtraWide` (`max-w-6xl`, list-heavy admin views), `Full` (no cap, edge-to-edge). **Never** override the max-width via `className="max-w-*"` — extend the prop scale instead.
 - **`MarbleWorkbenchSection` / `MarbleWorkbenchTabs` / `MarbleWorkbenchTab` / `MarbleWorkbenchResizeHandle`** — editor / dock chrome.
 - **`MarbleReviewNavigator`** — compact review tray for stepping through grouped changes.
+- **`MarbleRouteProgress`** / **`MarbleRouteProgressBeacon`** / **`useReportRouteProgress`** — top-anchored 2px orange progress bar that surfaces pending route transitions, GitHub-style. Mount `<MarbleRouteProgress />` once near the layout root. Inside each `next/link` `Link`, render `<MarbleRouteProgressBeacon />` so clicks register pending state via `useLinkStatus()`. For programmatic nav, wrap `router.push(...)` in `useTransition()` and pass the pending flag to `useReportRouteProgress(isPending)`. An 80ms show-debounce suppresses flicker on instant prefetched nav; settle phase snaps to 100% then fades. **Never** add a third-party progress bar (nprogress etc.) — this primitive owns route progress.
 
 ### Menus & Popovers
 

@@ -144,6 +144,12 @@ export {
   type MarbleReviewNavigatorProps,
 } from "./components/review-navigator";
 export {
+  MarbleRouteProgress,
+  MarbleRouteProgressBeacon,
+  type MarbleRouteProgressProps,
+  useReportRouteProgress,
+} from "./components/route-progress";
+export {
   MarbleSearchSelect,
   type MarbleSearchSelectOption,
   type MarbleSearchSelectProps,
