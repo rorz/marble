@@ -53,6 +53,13 @@ export type SidebarTreeNode = {
   kind: "pipe" | "program" | "project" | "source" | "table";
   label: string;
   ownerProfileId?: string;
+  // Structural references for nodes whose label is derived from sibling state
+  // (e.g. a pipe's label is a function of its referenced source + table labels).
+  // Present only when `kind` requires it. Used by `recomputeDerivedLabels` to
+  // refresh labels in one generic pass after every mutation — keeps mutation
+  // handlers free of cross-kind "if you change X also touch Y" exceptions.
+  sourceId?: string;
+  tableId?: string;
   updatedAt: string;
 };
 
@@ -113,6 +120,8 @@ const createSidebarNode = (spec: {
   kind: SidebarTreeNode["kind"];
   label: string;
   ownerProfileId?: string;
+  sourceId?: string;
+  tableId?: string;
   updatedAt: string;
 }): SidebarTreeNode => {
   const node: SidebarTreeNode = {
@@ -126,6 +135,14 @@ const createSidebarNode = (spec: {
 
   if (spec.ownerProfileId !== undefined) {
     node.ownerProfileId = spec.ownerProfileId;
+  }
+
+  if (spec.sourceId !== undefined) {
+    node.sourceId = spec.sourceId;
+  }
+
+  if (spec.tableId !== undefined) {
+    node.tableId = spec.tableId;
   }
 
   return node;
@@ -194,6 +211,8 @@ export const buildPipeNode = (
       sourceLabel: labels?.sourceLabel,
       tableLabel: labels?.tableLabel,
     }),
+    sourceId: pipe.sourceId,
+    tableId: pipe.tableId,
     updatedAt: pipe.updatedAt,
   });
 };

@@ -1,4 +1,5 @@
 import { castCamelKeys } from "@marble/lib/object";
+import { buildPipeTitle } from "./pipe-display";
 import {
   createBroadcastMutationGuard,
   type DeleteMutation,
@@ -18,6 +19,7 @@ import {
   type SidebarSourceRow,
   type SidebarTableRow,
   type SidebarTreeData,
+  type SidebarTreeNode,
   upsertSidebarChild,
   upsertSidebarNode,
 } from "./sidebar-tree";
@@ -65,16 +67,52 @@ const resolveProjectIdForPipe = (
   return null;
 };
 
+const findSidebarChildById = (
+  projects: SidebarTreeNode[],
+  childId: string,
+): null | SidebarTreeNode => {
+  for (const project of projects) {
+    const match = project.children.find((child) => child.id === childId);
+
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
+};
+
+const isStaleUpsert = (
+  existing: null | SidebarTreeNode | undefined,
+  incomingUpdatedAt: string,
+): boolean => {
+  if (!existing) {
+    return false;
+  }
+
+  return (
+    new Date(existing.updatedAt).getTime() >
+    new Date(incomingUpdatedAt).getTime()
+  );
+};
+
 const upsertProjectChildMutation = <
   Row extends {
     id: string;
     projectId: string;
+    updatedAt: string;
   },
 >(
   current: SidebarTreeData,
   row: Row,
   buildNode: (row: Row) => ReturnType<typeof buildTableNode>,
 ): SidebarTreeData => {
+  if (
+    isStaleUpsert(findSidebarChildById(current.projects, row.id), row.updatedAt)
+  ) {
+    return current;
+  }
+
   const projects = removeSidebarChildFromAll(current.projects, row.id);
 
   if (!projects.some((project) => project.id === row.projectId)) {
@@ -90,7 +128,7 @@ const upsertProjectChildMutation = <
   };
 };
 
-export const applySidebarMutation = (
+const applyMutationToTree = (
   current: SidebarTreeData,
   mutation: SidebarMutation,
 ): SidebarTreeData => {
@@ -112,6 +150,12 @@ export const applySidebarMutation = (
           ...current,
           programs: removeSidebarNode(current.programs, program.id),
         };
+      }
+
+      const existing = current.programs.find((node) => node.id === program.id);
+
+      if (isStaleUpsert(existing, program.updatedAt)) {
+        return current;
       }
 
       return {
@@ -142,6 +186,10 @@ export const applySidebarMutation = (
       const existing = current.projects.find(
         (currentProject) => currentProject.id === project.id,
       );
+
+      if (isStaleUpsert(existing, project.updatedAt)) {
+        return current;
+      }
 
       return {
         ...current,
@@ -176,6 +224,16 @@ export const applySidebarMutation = (
 
     case "pipe:upsert": {
       const pipe = castCamelKeys<SidebarPipeRow>(mutation.row);
+
+      if (
+        isStaleUpsert(
+          findSidebarChildById(current.projects, pipe.id),
+          pipe.updatedAt,
+        )
+      ) {
+        return current;
+      }
+
       const projects = removeSidebarChildFromAll(current.projects, pipe.id);
       const nextCurrent = {
         ...current,
@@ -207,4 +265,67 @@ export const applySidebarMutation = (
       };
     }
   }
+};
+
+// Generic re-derivation pass. Walks each project's children; for every node
+// whose `label` is a function of sibling state (currently: pipes, whose label
+// is built from their referenced source + table labels), recomputes the label
+// from current sibling state and replaces the node if it drifted. Returns the
+// same reference when nothing changed so React reference-equality stays cheap.
+// Call after every mutation that could alter a sibling whose label feeds a
+// derived node — running it unconditionally is fine; it's idempotent and O(n).
+const recomputeDerivedLabels = (tree: SidebarTreeData): SidebarTreeData => {
+  let anyProjectChanged = false;
+  const projects = tree.projects.map((project) => {
+    let anyChildChanged = false;
+    const labelById = new Map<string, string>();
+    for (const child of project.children) {
+      labelById.set(child.id, child.label);
+    }
+    const children = project.children.map((child) => {
+      if (child.kind !== "pipe") {
+        return child;
+      }
+      const sourceLabel = child.sourceId
+        ? (labelById.get(child.sourceId) ?? null)
+        : null;
+      const tableLabel = child.tableId
+        ? (labelById.get(child.tableId) ?? null)
+        : null;
+      const nextLabel = buildPipeTitle({
+        sourceLabel,
+        tableLabel,
+      });
+      if (nextLabel === child.label) {
+        return child;
+      }
+      anyChildChanged = true;
+      return {
+        ...child,
+        label: nextLabel,
+      };
+    });
+    if (!anyChildChanged) {
+      return project;
+    }
+    anyProjectChanged = true;
+    return {
+      ...project,
+      children,
+    };
+  });
+  if (!anyProjectChanged) {
+    return tree;
+  }
+  return {
+    ...tree,
+    projects,
+  };
+};
+
+export const applySidebarMutation = (
+  current: SidebarTreeData,
+  mutation: SidebarMutation,
+): SidebarTreeData => {
+  return recomputeDerivedLabels(applyMutationToTree(current, mutation));
 };

@@ -39,6 +39,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -64,8 +65,10 @@ import {
   useMarbleWebSessionSdk,
 } from "../../../lib/marble-sdk-client";
 import { createDefaultProgram } from "../../../lib/program-client";
+import { useBroadcastResync } from "../../../lib/realtime/broadcast-resync";
 import { usePrivateBroadcast } from "../../../lib/realtime/private-broadcast";
 import { getErrorMessage } from "../../../lib/realtime-crud";
+import { buildSidebarTreeData } from "../../../lib/sidebar-snapshot";
 import {
   applySidebarMutation,
   isSidebarMutation,
@@ -146,7 +149,6 @@ export const GuiShell = ({
   const [sidebarMode, setSidebarMode] =
     useState<SidebarMode>(initialSidebarMode);
   const [sidebarWidth, setSidebarWidth] = useState(initialSidebarWidth);
-  const [sidebarData, setSidebarData] = useState(initialSidebarData);
   const [sidebarTreeState, setSidebarTreeState] = useState<SidebarTreeState>(
     initialSidebarTreeState,
   );
@@ -170,6 +172,23 @@ export const GuiShell = ({
     ],
   );
   const apiSdk = useMarbleWebSessionSdk();
+  const fetchSidebarSnapshot = useCallback(async () => {
+    const snapshot = await apiSdk.sidebar.getData({});
+    return buildSidebarTreeData(snapshot);
+  }, [
+    apiSdk,
+  ]);
+  const {
+    applyBroadcast: applySidebarBroadcast,
+    resync: resyncSidebar,
+    state: sidebarData,
+  } = useBroadcastResync({
+    applyMutation: applySidebarMutation,
+    fetchSnapshot: fetchSidebarSnapshot,
+    initialState: initialSidebarData,
+    isMutation: isSidebarMutation,
+    label: "GUI sidebar",
+  });
   const {
     error: signOutError,
     pending: signOutPending,
@@ -1429,24 +1448,18 @@ export const GuiShell = ({
     commandPaletteSupportSheet,
   ]);
 
-  const applySidebarBroadcast = (mutation: unknown) => {
-    if (!isSidebarMutation(mutation)) {
-      return;
-    }
-
-    setSidebarData((current) => applySidebarMutation(current, mutation));
-  };
-
   usePrivateBroadcast({
     event: "sidebar_mutation",
     label: "GUI sidebar",
     onMessage: applySidebarBroadcast,
+    onSubscribed: resyncSidebar,
     topic: guiSidebarUserTopic(userId),
   });
   usePrivateBroadcast({
     event: "sidebar_mutation",
     label: "GUI sidebar",
     onMessage: applySidebarBroadcast,
+    onSubscribed: resyncSidebar,
     topic: GUI_SIDEBAR_FIRST_PARTY_PROGRAMS_TOPIC,
   });
 

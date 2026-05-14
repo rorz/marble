@@ -17,6 +17,7 @@ type PrivateBroadcastOptions<Payload> = {
   onError?: (failure: BroadcastFailure) => void;
   onMessage: (payload: Payload) => void;
   onStatus?: (status: string) => void;
+  onSubscribed?: () => void;
   topic: string;
 };
 
@@ -28,6 +29,7 @@ export const usePrivateBroadcast = <Payload = unknown>({
   onError,
   onMessage,
   onStatus,
+  onSubscribed,
   topic,
 }: PrivateBroadcastOptions<Payload>) => {
   const fallbackClientRef = useRef<null | SupabaseBrowserClient>(null);
@@ -37,11 +39,13 @@ export const usePrivateBroadcast = <Payload = unknown>({
     onError,
     onMessage,
     onStatus,
+    onSubscribed,
   });
   callbacksRef.current = {
     onError,
     onMessage,
     onStatus,
+    onSubscribed,
   };
 
   useEffect(() => {
@@ -89,6 +93,10 @@ export const usePrivateBroadcast = <Payload = unknown>({
             }
 
             callbacksRef.current.onStatus?.(status);
+
+            if (status === "SUBSCRIBED") {
+              callbacksRef.current.onSubscribed?.();
+            }
 
             if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || error) {
               reportError({
