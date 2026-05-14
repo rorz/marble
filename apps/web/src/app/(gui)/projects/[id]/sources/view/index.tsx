@@ -3,6 +3,7 @@
 // harness-ignore: max-file-lines -- single dense state machine: source detail orchestrator with 30+ useState/useMemo refs sharing handlers across source/event/pipe/schema/mapping concerns; lifting would obscure dataflow
 
 import { castCamelKeys } from "@marble/lib/object";
+import { normalizeDisplayLabel } from "@marble/lib/string";
 import {
   MarbleAlert,
   MarbleBadge,
@@ -526,7 +527,7 @@ export const ProjectSourceDetailPageView = ({
     }
 
     const currentName = sourceTitle(selectedSource);
-    const nextName = sourceNameDraft.trim() || "Untitled Source";
+    const nextName = normalizeDisplayLabel(sourceNameDraft, "Untitled Source");
 
     if (nextName === currentName) {
       setSourceEditingSurface(null);

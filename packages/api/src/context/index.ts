@@ -1,3 +1,4 @@
+import { trimTrailingSlash } from "@marble/lib/string";
 import { MarbleStore, type ResourceContext } from "@marble/store";
 import { createClient } from "@marble/supabase";
 import { createExecutorActions } from "../executor";
@@ -100,7 +101,7 @@ export const createMarbleApiRuntime = (
       ? {
           executor: {
             transport: config.executor.transport,
-            url: config.executor.url.replace(/\/$/, ""),
+            url: trimTrailingSlash(config.executor.url),
           },
         }
       : {}),

@@ -2,6 +2,7 @@
 
 // harness-ignore: max-file-lines -- single dense state machine: ProgramsPageView orchestrates the entire program editor with shared refs across library/editor/version/draft/secret/manifest/file-tree/workbench concerns; lifting would obscure dataflow
 
+import { normalizeDisplayLabel } from "@marble/lib/string";
 import {
   cx,
   MarbleAlert,
@@ -893,7 +894,7 @@ export const ProgramsPageView = ({
   );
 
   const persistProgramName = useCallback(async () => {
-    const nextName = progName.trim() || "Untitled Program";
+    const nextName = normalizeDisplayLabel(progName, "Untitled Program");
 
     if (!selectedProgram) {
       setProgName(nextName);
@@ -1468,7 +1469,7 @@ export const ProgramsPageView = ({
       return;
     }
 
-    const nextName = progName.trim() || "Untitled Program";
+    const nextName = normalizeDisplayLabel(progName, "Untitled Program");
 
     if (!nextName) {
       addLog("✗ Program name is required before publishing.");

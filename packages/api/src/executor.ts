@@ -1,3 +1,4 @@
+import { trimTrailingSlash } from "@marble/lib/string";
 import type { ResourceActions } from "@marble/store";
 import { ORPCError } from "@orpc/server";
 import type { ApiActor, MarbleApiRuntime } from "./context";
@@ -29,7 +30,7 @@ const requireExecutor = (runtime: MarbleApiRuntime) => {
 
 const executorEndpointUrl = (baseUrl: string, path: string, search = "") => {
   const endpoint = new URL(baseUrl);
-  endpoint.pathname = `${endpoint.pathname.replace(/\/$/, "")}${path}`;
+  endpoint.pathname = `${trimTrailingSlash(endpoint.pathname)}${path}`;
   endpoint.search = search;
   return endpoint;
 };

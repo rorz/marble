@@ -69,10 +69,12 @@ Our development stack:
 
 Before creating a new file, folder, module boundary, or architectural name, inspect the target package's existing shape first. Do not invent structure from generic taste.
 
+**Modular DRY is the project's stance.** Before you write a new helper, check whether `@marble/lib` already exposes it. `packages/lib` is the **first port of call** for every pure, framework-agnostic primitive in this monorepo — `array`, `assert`, `compare`, `crypto`, `json`, `object`, `result`, `string`, `timing`. If a primitive almost-but-not-quite covers your need, extend the lib primitive with a parameter instead of inlining a near-duplicate beside it. The same goes for `packages/ui` for design-system primitives and `packages/contracts` for shared schemas — reach for the existing home first, raise the bar on it second, and only branch when the reuse case genuinely doesn't exist. See [`packages/lib/AGENTS.md`](./packages/lib/AGENTS.md) for the lib-specific rules and surface.
+
 1. Run a shallow structure check such as `find <package>/src -maxdepth 2 -type f | sort` before adding files to a package you are changing materially.
 2. Do not create a new folder unless the same folder convention already exists in that package, the user explicitly asked for it, or you can point to a project document that requires it for this exact change.
 3. Prefer established homes:
-   - Generic utilities belong in `packages/lib`.
+   - **Generic, framework-agnostic primitives are the first port of call for `packages/lib`** — see [`packages/lib/AGENTS.md`](./packages/lib/AGENTS.md). If you catch yourself reaching for `error instanceof Error ? error.message : String(error)`, `replace(/\/$/, "")`, `.trim() || "Untitled X"`, `JSON.stringify(value, null, 2)`, or `performance.now()` + `Math.round`, stop and check `@marble/lib` first.
    - Store/domain persistence belongs in `packages/store/src/resources`.
    - API handlers belong in `packages/api/src/router`.
    - Package-private API resource implementations that make routers too large belong in `packages/api/src/<resource>/actions.ts`, with `packages/api/src/<resource>/index.ts` as the import boundary.

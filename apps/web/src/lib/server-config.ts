@@ -1,5 +1,6 @@
 import "server-only";
 import type { MarbleApiConfig as MarbleApiV2Config } from "@marble/api";
+import { trimTrailingSlash } from "@marble/lib/string";
 import { env } from "@/env";
 
 type MarbleApiConfig = MarbleApiV2Config;
@@ -30,5 +31,5 @@ export const getMarbleApiConfig = (): MarbleApiConfig => {
 };
 
 export const getMarbleIngestorBaseUrl = () => {
-  return env.MARBLE_INGESTOR_URL.replace(/\/$/, "");
+  return trimTrailingSlash(env.MARBLE_INGESTOR_URL);
 };

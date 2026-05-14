@@ -21,6 +21,20 @@ type PrivateBroadcastOptions<Payload> = {
   topic: string;
 };
 
+const debugEnabled =
+  typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+
+const debug = (
+  label: string | undefined,
+  topic: string,
+  ...args: unknown[]
+) => {
+  if (!debugEnabled) {
+    return;
+  }
+  console.debug(`[private-broadcast:${label ?? topic}]`, ...args);
+};
+
 export const usePrivateBroadcast = <Payload = unknown>({
   client,
   enabled = true,
@@ -66,11 +80,20 @@ export const usePrivateBroadcast = <Payload = unknown>({
 
     const subscribe = async () => {
       try {
+        debug(label, topic, "subscribe.start");
+
         await supabase.realtime.setAuth();
 
         if (cancelled) {
+          debug(label, topic, "subscribe.cancelled-after-setAuth");
           return;
         }
+
+        const accessToken = supabase.realtime.accessTokenValue;
+        debug(label, topic, "subscribe.setAuth-resolved", {
+          hasAccessToken: Boolean(accessToken),
+          tokenLength: accessToken?.length ?? 0,
+        });
 
         channel = supabase
           .channel(topic, {
@@ -84,6 +107,7 @@ export const usePrivateBroadcast = <Payload = unknown>({
               event,
             },
             (message) => {
+              debug(label, topic, "broadcast.received", message.payload);
               callbacksRef.current.onMessage(message.payload as Payload);
             },
           )
@@ -92,6 +116,10 @@ export const usePrivateBroadcast = <Payload = unknown>({
               return;
             }
 
+            debug(label, topic, "subscribe.status", {
+              error,
+              status,
+            });
             callbacksRef.current.onStatus?.(status);
 
             if (status === "SUBSCRIBED") {
@@ -121,7 +149,10 @@ export const usePrivateBroadcast = <Payload = unknown>({
 
     return () => {
       cancelled = true;
-      if (channel) void supabase.removeChannel(channel);
+      if (channel) {
+        debug(label, topic, "subscribe.teardown");
+        void supabase.removeChannel(channel);
+      }
     };
   }, [
     enabled,

@@ -1,3 +1,4 @@
+import { normalizeDisplayLabel } from "@marble/lib/string";
 import {
   type MarbleConfirmModalState,
   type MarbleRouter,
@@ -76,7 +77,7 @@ export const useProjectActions = (options: UseProjectActionsOptions) => {
   };
 
   const commitName = async () => {
-    const nextName = nameDraft.trim() || "Untitled Project";
+    const nextName = normalizeDisplayLabel(nameDraft, "Untitled Project");
     const previousProject = projectRef.current;
 
     if (nextName === previousProject.name) {

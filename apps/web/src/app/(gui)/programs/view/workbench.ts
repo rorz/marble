@@ -1,3 +1,4 @@
+import { normalizeDisplayLabel } from "@marble/lib/string";
 import {
   type EditableProgramFile,
   type PendingChange,
@@ -63,7 +64,10 @@ export const buildPendingChanges = ({
   secretConfigStr: string;
 }): PendingChange[] => {
   const changes: PendingChange[] = [];
-  const nextProgramName = programName.trim() || "Untitled Program";
+  const nextProgramName = normalizeDisplayLabel(
+    programName,
+    "Untitled Program",
+  );
 
   if (!isDraftProgram && nextProgramName !== savedProgramName) {
     changes.push({

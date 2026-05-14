@@ -2,6 +2,7 @@
 
 // harness-ignore: max-file-lines -- realtime perf scratch surface; intentionally kept as one file
 
+import { getErrorMessage } from "@marble/lib/result";
 import { MarbleClient } from "@marble/sdk";
 import type { Database, Json } from "@marble/supabase";
 import {
@@ -251,10 +252,6 @@ const orderTimingEntriesForDisplay = (entries: TimingEntry[]) => {
 
     return left.id - right.id;
   });
-};
-
-const getErrorMessage = (cause: unknown) => {
-  return cause instanceof Error ? cause.message : String(cause);
 };
 
 const sourceToSnapshot = (source: SdkSource): SourceSnapshot => {

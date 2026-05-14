@@ -1,5 +1,6 @@
 "use client";
 // harness-ignore: max-file-lines -- single dense state machine: TablePageView wraps the entire table grid with shared refs across grid/cell/column/run/sidebar/broadcast concerns; lifting would obscure dataflow
+import { normalizeDisplayLabel } from "@marble/lib/string";
 import {
   cx,
   MarbleAlert,
@@ -1094,7 +1095,7 @@ const TablePageView = ({
   ]);
 
   const commitName = useCallback(async () => {
-    const nextName = nameDraft.trim() || "Untitled Table";
+    const nextName = normalizeDisplayLabel(nameDraft, "Untitled Table");
     const previousTable = tableRef.current;
 
     if (nextName === previousTable.name) {

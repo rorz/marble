@@ -100,6 +100,7 @@
       "dependencies": {
         "@marble/contracts": "workspace:*",
         "@marble/keys": "workspace:*",
+        "@marble/lib": "workspace:*",
         "@marble/store": "workspace:*",
         "@marble/supabase": "workspace:*",
         "@orpc/openapi": "catalog:base",
