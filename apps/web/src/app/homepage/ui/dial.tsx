@@ -33,6 +33,38 @@ type MarketingDialProps = {
   className?: string;
 };
 
+const KnobTicks = () => {
+  // 24 tick marks distributed around the perimeter — a classic TE knob.
+  const ticks = Array.from({
+    length: 24,
+  });
+  return (
+    <div
+      aria-hidden
+      className="absolute inset-0"
+    >
+      {ticks.map((_, index) => {
+        const angle = (index / ticks.length) * 360;
+        const isMajor = index % 6 === 0;
+        return (
+          <span
+            className={cx(
+              "-translate-x-1/2 absolute top-0 left-1/2 block",
+              isMajor ? "h-2 w-px bg-current/60" : "h-1.5 w-px bg-current/30",
+            )}
+            // biome-ignore lint/suspicious/noArrayIndexKey: pure decoration
+            key={index}
+            style={{
+              transform: `rotate(${angle}deg) translateY(2px)`,
+              transformOrigin: "center 50%",
+            }}
+          />
+        );
+      })}
+    </div>
+  );
+};
+
 export const MarketingDial = ({
   label,
   caption,
@@ -109,38 +141,6 @@ export const MarketingDial = ({
           {caption}
         </span>
       ) : null}
-    </div>
-  );
-};
-
-const KnobTicks = () => {
-  // 24 tick marks distributed around the perimeter — a classic TE knob.
-  const ticks = Array.from({
-    length: 24,
-  });
-  return (
-    <div
-      aria-hidden
-      className="absolute inset-0"
-    >
-      {ticks.map((_, index) => {
-        const angle = (index / ticks.length) * 360;
-        const isMajor = index % 6 === 0;
-        return (
-          <span
-            className={cx(
-              "-translate-x-1/2 absolute top-0 left-1/2 block",
-              isMajor ? "h-2 w-px bg-current/60" : "h-1.5 w-px bg-current/30",
-            )}
-            // biome-ignore lint/suspicious/noArrayIndexKey: pure decoration
-            key={index}
-            style={{
-              transform: `rotate(${angle}deg) translateY(2px)`,
-              transformOrigin: "center 50%",
-            }}
-          />
-        );
-      })}
     </div>
   );
 };

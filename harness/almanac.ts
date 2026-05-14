@@ -30,6 +30,7 @@ const extractContractOperations = (): Map<string, Set<string>> => {
   for (const [resource, contract] of Object.entries(marbleContract)) {
     result.set(
       resource,
+      // harness-ignore: no-forward-reference -- `contract` here is the loop BindingElement, not the module-level const; the checker lacks scope analysis
       new Set(Object.keys(contract as Record<string, unknown>)),
     );
   }
@@ -54,6 +55,8 @@ interface DriftReport {
   /** Almanac sections without an `Allowed operations:` block. Info. */
   unknownSections: string[];
 }
+
+const contract = extractContractOperations();
 
 const diff = (
   contract: Map<string, Set<string>>,
@@ -203,7 +206,6 @@ const report = (
 };
 
 const { resources: almanac, unknownSections } = parseAlmanac(readAlmanac());
-const contract = extractContractOperations();
 const driftReport = diff(contract, almanac, unknownSections);
 const { failed } = report(driftReport);
 

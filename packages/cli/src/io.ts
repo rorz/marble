@@ -28,6 +28,16 @@ type ReadInputOptions = {
  * straight through to the SDK; the contract's Zod schema decides whether the
  * operation accepts an empty input.
  */
+const readStdin = async () => {
+  const chunks: Buffer[] = [];
+
+  for await (const chunk of process.stdin) {
+    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+  }
+
+  return Buffer.concat(chunks).toString("utf8");
+};
+
 export const readInput = async (
   options: ReadInputOptions,
 ): Promise<JsonValue | undefined> => {
@@ -55,16 +65,6 @@ export const readInput = async (
   }
 
   return parseJsonOrUndefined(options.arg) as JsonValue | undefined;
-};
-
-const readStdin = async () => {
-  const chunks: Buffer[] = [];
-
-  for await (const chunk of process.stdin) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
-  }
-
-  return Buffer.concat(chunks).toString("utf8");
 };
 
 export const printJson = (value: unknown) => {

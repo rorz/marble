@@ -67,6 +67,50 @@ const WIDTH_CLASS = {
  * the same ground line. Place several in a flex row to compose a
  * skyline.
  */
+const Window = ({
+  state,
+  delay,
+}: {
+  state: SkyscraperWindowState;
+  delay: number;
+}) => {
+  const style: CSSProperties =
+    state === "running"
+      ? {
+          animationDelay: `${delay}ms`,
+        }
+      : {};
+  return (
+    <span
+      className={cx(
+        "block aspect-[7/9] rounded-[1px] transition-colors",
+        WINDOW_STATES[state],
+      )}
+      style={style}
+    />
+  );
+};
+
+const defaultPattern = (
+  name: string,
+  rows: number,
+): SkyscraperWindowState[] => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  const total = rows * 2;
+  const out: SkyscraperWindowState[] = [];
+  for (let i = 0; i < total; i++) {
+    const r = ((hash + i * 2654435761) >>> 0) % 100;
+    if (r < 8) out.push("off");
+    else if (r < 14) out.push("off");
+    else if (r < 40) out.push("success");
+    else out.push("running");
+  }
+  return out;
+};
+
 export const MarketingSkyscraper = ({
   name,
   code,
@@ -163,53 +207,4 @@ export const MarketingSkyscraper = ({
       </div>
     </div>
   );
-};
-
-const Window = ({
-  state,
-  delay,
-}: {
-  state: SkyscraperWindowState;
-  delay: number;
-}) => {
-  const style: CSSProperties =
-    state === "running"
-      ? {
-          animationDelay: `${delay}ms`,
-        }
-      : {};
-  return (
-    <span
-      className={cx(
-        "block aspect-[7/9] rounded-[1px] transition-colors",
-        WINDOW_STATES[state],
-      )}
-      style={style}
-    />
-  );
-};
-
-/**
- * Deterministic pseudo-random window pattern keyed off the tower name.
- * Most windows lit (the platform is mostly busy), with a sprinkle of
- * success-greens and a few dim/off ones for visual texture.
- */
-const defaultPattern = (
-  name: string,
-  rows: number,
-): SkyscraperWindowState[] => {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  }
-  const total = rows * 2;
-  const out: SkyscraperWindowState[] = [];
-  for (let i = 0; i < total; i++) {
-    const r = ((hash + i * 2654435761) >>> 0) % 100;
-    if (r < 8) out.push("off");
-    else if (r < 14) out.push("off");
-    else if (r < 40) out.push("success");
-    else out.push("running");
-  }
-  return out;
 };

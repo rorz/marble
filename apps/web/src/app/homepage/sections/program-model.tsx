@@ -17,6 +17,90 @@ import {
 import { Section, SectionHeader, SectionInner } from "../ui/section";
 import { MarketingTile } from "../ui/tile";
 
+const Cell = ({
+  children,
+  heading,
+  accent,
+}: {
+  children: ReactNode;
+  heading?: boolean;
+  accent?: boolean;
+}) => {
+  return (
+    <div
+      className={cx(
+        "px-4 py-3",
+        heading
+          ? "font-semibold text-eyebrow text-taupe-800"
+          : "text-taupe-700",
+        accent && "bg-orange-100",
+      )}
+    >
+      {children}
+    </div>
+  );
+};
+
+const FakeTable = () => {
+  const rows = [
+    [
+      "Acme",
+      "$3.2M",
+      "running",
+    ],
+    [
+      "Brava",
+      "$1.1M",
+      "running",
+    ],
+    [
+      "Coral",
+      "$8.4M",
+      "running",
+    ],
+    [
+      "Dune",
+      "$0.4M",
+      "queued",
+    ],
+    [
+      "Eko",
+      "$5.7M",
+      "running",
+    ],
+  ];
+
+  return (
+    <div className="overflow-hidden rounded-xs border-2 border-taupe-100/20 bg-taupe-100 font-mono text-sm text-taupe-700">
+      <div className="grid grid-cols-[1.4fr_1fr_1.3fr] divide-x-2 divide-taupe-700/70 border-b-2 border-taupe-700/70 bg-taupe-200">
+        <Cell heading>company</Cell>
+        <Cell heading>revenue</Cell>
+        <Cell
+          accent
+          heading
+        >
+          lead_score
+        </Cell>
+      </div>
+      {rows.map((row) => (
+        <div
+          className="grid grid-cols-[1.4fr_1fr_1.3fr] divide-x-2 divide-taupe-700/30 border-b-2 border-taupe-700/30 last:border-b-0"
+          key={row[0]}
+        >
+          <Cell>{row[0]}</Cell>
+          <Cell>{row[1]}</Cell>
+          <Cell accent>
+            <span className="inline-flex items-center gap-2">
+              <span className="size-2 animate-pulse rounded-full bg-orange-500" />
+              {row[2]}
+            </span>
+          </Cell>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export const ProgramModelSection = () => {
   return (
     <Section
@@ -182,93 +266,5 @@ export default program({
         </MarketingCardGrid>
       </SectionInner>
     </Section>
-  );
-};
-
-/**
- * Loose CSS-only fake of Marble's table — purely decorative. The third
- * column is highlighted to map to the adjacent program snippet.
- */
-const FakeTable = () => {
-  const rows = [
-    [
-      "Acme",
-      "$3.2M",
-      "running",
-    ],
-    [
-      "Brava",
-      "$1.1M",
-      "running",
-    ],
-    [
-      "Coral",
-      "$8.4M",
-      "running",
-    ],
-    [
-      "Dune",
-      "$0.4M",
-      "queued",
-    ],
-    [
-      "Eko",
-      "$5.7M",
-      "running",
-    ],
-  ];
-
-  return (
-    <div className="overflow-hidden rounded-xs border-2 border-taupe-100/20 bg-taupe-100 font-mono text-sm text-taupe-700">
-      <div className="grid grid-cols-[1.4fr_1fr_1.3fr] divide-x-2 divide-taupe-700/70 border-b-2 border-taupe-700/70 bg-taupe-200">
-        <Cell heading>company</Cell>
-        <Cell heading>revenue</Cell>
-        <Cell
-          accent
-          heading
-        >
-          lead_score
-        </Cell>
-      </div>
-      {rows.map((row) => (
-        <div
-          className="grid grid-cols-[1.4fr_1fr_1.3fr] divide-x-2 divide-taupe-700/30 border-b-2 border-taupe-700/30 last:border-b-0"
-          key={row[0]}
-        >
-          <Cell>{row[0]}</Cell>
-          <Cell>{row[1]}</Cell>
-          <Cell accent>
-            <span className="inline-flex items-center gap-2">
-              <span className="size-2 animate-pulse rounded-full bg-orange-500" />
-              {row[2]}
-            </span>
-          </Cell>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const Cell = ({
-  children,
-  heading,
-  accent,
-}: {
-  children: ReactNode;
-  heading?: boolean;
-  accent?: boolean;
-}) => {
-  return (
-    <div
-      className={cx(
-        "px-4 py-3",
-        heading
-          ? "font-semibold text-eyebrow text-taupe-800"
-          : "text-taupe-700",
-        accent && "bg-orange-100",
-      )}
-    >
-      {children}
-    </div>
   );
 };

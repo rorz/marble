@@ -36,6 +36,33 @@ type MarketingCodeBlockProps = {
   children: ReactNode;
 };
 
+const PromptedChildren = ({
+  prompt,
+  children,
+}: {
+  prompt: string;
+  children: ReactNode;
+}) => {
+  if (typeof children !== "string") {
+    return <code>{children}</code>;
+  }
+  const lines = children.split("\n");
+  return (
+    <code className="block">
+      {lines.map((line, index) => (
+        <span
+          className="block"
+          // biome-ignore lint/suspicious/noArrayIndexKey: stable pre-split lines
+          key={index}
+        >
+          <span className="select-none pr-3 text-orange-400">{prompt}</span>
+          <span>{line}</span>
+        </span>
+      ))}
+    </code>
+  );
+};
+
 export const MarketingCodeBlock = ({
   title,
   prompt,
@@ -83,33 +110,6 @@ export const MarketingCodeBlock = ({
         )}
       </pre>
     </div>
-  );
-};
-
-const PromptedChildren = ({
-  prompt,
-  children,
-}: {
-  prompt: string;
-  children: ReactNode;
-}) => {
-  if (typeof children !== "string") {
-    return <code>{children}</code>;
-  }
-  const lines = children.split("\n");
-  return (
-    <code className="block">
-      {lines.map((line, index) => (
-        <span
-          className="block"
-          // biome-ignore lint/suspicious/noArrayIndexKey: stable pre-split lines
-          key={index}
-        >
-          <span className="select-none pr-3 text-orange-400">{prompt}</span>
-          <span>{line}</span>
-        </span>
-      ))}
-    </code>
   );
 };
 

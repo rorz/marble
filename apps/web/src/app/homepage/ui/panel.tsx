@@ -38,6 +38,55 @@ type MarketingPanelProps = PropsWithChildren<{
   className?: string;
 }>;
 
+const PanelScrew = ({ className }: { className?: string }) => {
+  return (
+    <span
+      aria-hidden
+      className={cx(
+        "pointer-events-none absolute flex size-3 items-center justify-center rounded-full border border-current/30 bg-current/10",
+        className,
+      )}
+    >
+      <span className="block h-px w-2 rotate-45 bg-current/40" />
+    </span>
+  );
+};
+
+const PanelScrews = () => {
+  return (
+    <>
+      <PanelScrew className="top-2 left-2" />
+      <PanelScrew className="top-2 right-2" />
+      <PanelScrew className="bottom-2 left-2" />
+      <PanelScrew className="bottom-2 right-2" />
+    </>
+  );
+};
+
+const PanelCross = ({ className }: { className?: string }) => {
+  return (
+    <span
+      aria-hidden
+      className={cx(
+        "pointer-events-none absolute flex size-3 items-center justify-center text-current/30",
+        className,
+      )}
+    >
+      <span className="absolute h-px w-3 bg-current" />
+      <span className="absolute h-3 w-px bg-current" />
+    </span>
+  );
+};
+
+const PanelRegistration = () => {
+  return (
+    <>
+      <PanelCross className="top-6 left-1/2 -translate-x-1/2" />
+      <PanelCross className="right-6 bottom-1/3" />
+    </>
+  );
+};
+
 export const MarketingPanel = ({
   tone = "dark",
   spec,
@@ -89,55 +138,6 @@ export const MarketingPanel = ({
       ) : null}
       <div className="relative">{children}</div>
     </div>
-  );
-};
-
-const PanelScrews = () => {
-  return (
-    <>
-      <PanelScrew className="top-2 left-2" />
-      <PanelScrew className="top-2 right-2" />
-      <PanelScrew className="bottom-2 left-2" />
-      <PanelScrew className="bottom-2 right-2" />
-    </>
-  );
-};
-
-const PanelScrew = ({ className }: { className?: string }) => {
-  return (
-    <span
-      aria-hidden
-      className={cx(
-        "pointer-events-none absolute flex size-3 items-center justify-center rounded-full border border-current/30 bg-current/10",
-        className,
-      )}
-    >
-      <span className="block h-px w-2 rotate-45 bg-current/40" />
-    </span>
-  );
-};
-
-const PanelRegistration = () => {
-  return (
-    <>
-      <PanelCross className="top-6 left-1/2 -translate-x-1/2" />
-      <PanelCross className="right-6 bottom-1/3" />
-    </>
-  );
-};
-
-const PanelCross = ({ className }: { className?: string }) => {
-  return (
-    <span
-      aria-hidden
-      className={cx(
-        "pointer-events-none absolute flex size-3 items-center justify-center text-current/30",
-        className,
-      )}
-    >
-      <span className="absolute h-px w-3 bg-current" />
-      <span className="absolute h-3 w-px bg-current" />
-    </span>
   );
 };
 

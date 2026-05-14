@@ -13,6 +13,28 @@ type MarbleAccountMarkProps = {
   displayName?: string;
 };
 
+const initialsFromDisplayName = (displayName: string): string => {
+  const trimmed = displayName.trim();
+
+  if (trimmed.length === 0) {
+    return "?";
+  }
+
+  const parts = trimmed.split(/\s+/).filter((part) => part.length > 0);
+  const firstPart = parts.at(0);
+  const lastPart = parts.at(-1);
+
+  if (!firstPart || !lastPart) {
+    return "?";
+  }
+
+  if (parts.length === 1) {
+    return firstPart.slice(0, 2);
+  }
+
+  return `${firstPart.charAt(0)}${lastPart.charAt(0)}`;
+};
+
 export const MarbleAccountMark = ({
   avatarUrl,
   className,
@@ -169,26 +191,4 @@ export const MarbleAccountPopover = ({
       </div>
     </MarbleContextPopover>
   );
-};
-
-const initialsFromDisplayName = (displayName: string): string => {
-  const trimmed = displayName.trim();
-
-  if (trimmed.length === 0) {
-    return "?";
-  }
-
-  const parts = trimmed.split(/\s+/).filter((part) => part.length > 0);
-  const firstPart = parts.at(0);
-  const lastPart = parts.at(-1);
-
-  if (!firstPart || !lastPart) {
-    return "?";
-  }
-
-  if (parts.length === 1) {
-    return firstPart.slice(0, 2);
-  }
-
-  return `${firstPart.charAt(0)}${lastPart.charAt(0)}`;
 };

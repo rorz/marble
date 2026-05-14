@@ -312,309 +312,207 @@ const sourceEventTopic = (sourceId: string) => {
   return `source-events:${sourceId}`;
 };
 
-export const DbPerf2View = () => {
-  const supabase = useMemo(() => createClient(), []);
-  const pageStartedAtRef = useRef(nowMs());
-  const timingIdRef = useRef(0);
-  const [draftValue, setDraftValue] = useState("hello from db-perf-2");
-  const [error, setError] = useState<string | null>(null);
-  const [source, setSource] = useState<SourceSnapshot | null>(null);
-  const [setupPending, setSetupPending] = useState(true);
-  const [timings, setTimings] = useState<TimingEntry[]>([]);
-
-  const appendTiming = useCallback(
-    (entry: Omit<TimingEntry, "elapsedMs" | "id" | "key">) => {
-      const currentTime = nowMs();
-      timingIdRef.current += 1;
-
-      setTimings((current) =>
-        [
-          ...current,
-          {
-            ...entry,
-            elapsedMs: currentTime - pageStartedAtRef.current,
-            id: timingIdRef.current,
-            key: crypto.randomUUID(),
-          },
-        ].slice(-64),
-      );
-    },
-    [],
+const Metric = ({
+  label,
+  value,
+}: Readonly<{
+  label: string;
+  value: string;
+}>) => {
+  return (
+    <div className="min-w-0">
+      <div className="font-medium text-eyebrow-xs text-taupe-500">{label}</div>
+      <div className="truncate font-mono text-sm text-taupe-950">{value}</div>
+    </div>
   );
+};
 
-  const sdk = useMemo(
-    () =>
-      new MarbleClient({
-        driver: {
-          client: supabase,
-          type: "supabase",
-        },
-      }),
-    [
-      supabase,
-    ],
-  );
+const TimingList = ({
+  entries,
+}: Readonly<{
+  entries: TimingEntry[];
+}>) => {
+  const orderedEntries = orderTimingEntriesForDisplay(entries);
 
-  const measureSetup = useCallback(
-    async <T,>(label: string, task: () => Promise<T>) => {
-      const startedAt = nowMs();
-
-      try {
-        const result = await task();
-        appendTiming({
-          durationMs: nowMs() - startedAt,
-          kind: "setup",
-          label,
-          laneId: "setup",
-          status: "ok",
-        });
-        return result;
-      } catch (cause) {
-        appendTiming({
-          detail: getErrorMessage(cause),
-          durationMs: nowMs() - startedAt,
-          kind: "setup",
-          label,
-          laneId: "setup",
-          status: "error",
-        });
-        throw cause;
-      }
-    },
-    [
-      appendTiming,
-    ],
-  );
-
-  const setupSource = useCallback(async () => {
-    setError(null);
-    setSetupPending(true);
-
-    try {
-      const existingProject = await measureSetup(
-        "setup projects.getMostRecentProject",
-        () => sdk.projects.getMostRecentProject({}),
-      );
-      const project =
-        existingProject ??
-        (await measureSetup("setup projects.create", () =>
-          sdk.projects.create({
-            name: "DB perf 2",
-          }),
-        ));
-      const nextSource = await measureSetup("setup sources.create", () =>
-        sdk.sources.create({
-          name: `DB perf 2 ${crypto.randomUUID().slice(0, 8)}`,
-          payloadSchema: sourcePayloadSchema,
-          projectId: (project as SdkProject).id,
-        }),
-      );
-
-      setSource(sourceToSnapshot(nextSource));
-    } catch (cause) {
-      setError(getErrorMessage(cause));
-      setSource(null);
-    } finally {
-      setSetupPending(false);
-    }
-  }, [
-    measureSetup,
-    sdk,
-  ]);
-
-  useEffect(() => {
-    void setupSource();
-  }, [
-    setupSource,
-  ]);
-
-  const broadcastSubscription = useBroadcastSubscription({
-    sourceId: source?.id ?? null,
-    supabase,
-  });
-  const sdkPostgresLane = useCaptureLane({
-    appendTiming,
-    broadcastSubscription,
-    lane: lanes[0],
-    sourceId: source?.id ?? null,
-    supabase,
-  });
-  const sdkBroadcastLane = useCaptureLane({
-    appendTiming,
-    broadcastSubscription,
-    lane: lanes[1],
-    sourceId: source?.id ?? null,
-    supabase,
-  });
-  const supabasePostgresLane = useCaptureLane({
-    appendTiming,
-    broadcastSubscription,
-    lane: lanes[2],
-    sourceId: source?.id ?? null,
-    supabase,
-  });
-  const supabaseBroadcastLane = useCaptureLane({
-    appendTiming,
-    broadcastSubscription,
-    lane: lanes[3],
-    sourceId: source?.id ?? null,
-    supabase,
-  });
-  const laneStates = useMemo(
-    () => [
-      sdkPostgresLane,
-      sdkBroadcastLane,
-      supabasePostgresLane,
-      supabaseBroadcastLane,
-    ],
-    [
-      sdkBroadcastLane,
-      sdkPostgresLane,
-      supabaseBroadcastLane,
-      supabasePostgresLane,
-    ],
-  );
-
-  const runAllPending = setupPending || laneStates.some((lane) => lane.pending);
-  const runAllDisabled =
-    setupPending ||
-    !source ||
-    laneStates.some((lane) => !lane.ready || lane.pending);
-
-  const runAll = useCallback(async () => {
-    if (runAllDisabled) {
-      return;
-    }
-
-    const startedAt = nowMs();
-    await Promise.all(
-      laneStates.map((lane) => lane.run(draftValue, startedAt)),
+  if (entries.length === 0) {
+    return (
+      <p className="border-t border-taupe-200 pt-3 text-sm text-taupe-500">
+        No timings yet.
+      </p>
     );
-  }, [
-    draftValue,
-    laneStates,
-    runAllDisabled,
-  ]);
-
-  const reset = useCallback(async () => {
-    if (runAllPending) {
-      return;
-    }
-
-    if (source) {
-      try {
-        await measureSetup("reset sources.delete", () =>
-          sdk.sources.delete({
-            id: source.id,
-          }),
-        );
-      } catch (cause) {
-        setError(getErrorMessage(cause));
-      }
-    }
-
-    await setupSource();
-  }, [
-    measureSetup,
-    runAllPending,
-    sdk,
-    setupSource,
-    source,
-  ]);
+  }
 
   return (
-    <div className="flex min-h-full flex-col bg-taupe-50 p-4 text-taupe-950">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
-        <MarbleCard>
-          <MarbleCardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="space-y-2">
-              <MarbleBadge tone="info">db-perf-2</MarbleBadge>
-              <div>
-                <MarbleCardTitle>Source event realtime timings</MarbleCardTitle>
-                <MarbleCardDescription>
-                  SDK and Supabase creates, each observed through Postgres
-                  changes and database broadcast.
-                </MarbleCardDescription>
-              </div>
-              <p className="font-mono text-[11px] text-taupe-500">
-                {source
-                  ? `source ${shortId(source.id)} / project ${shortId(
-                      source.projectId,
-                    )}`
-                  : "source pending"}
-              </p>
-            </div>
-            <MarbleBadge
-              tone={error ? "error" : runAllDisabled ? "warning" : "success"}
+    <ol className="divide-y divide-taupe-200 border-t border-taupe-200 font-mono text-[11px]">
+      {orderedEntries.map((entry) => (
+        <li
+          className={cx(
+            "grid grid-cols-[minmax(0,1fr)_4.75rem] gap-2 py-2",
+            entry.kind === "wall" ? "bg-taupe-100/70 px-2" : "",
+          )}
+          key={entry.key}
+        >
+          <div className="min-w-0">
+            <div
+              className={cx(
+                "truncate",
+                entry.kind === "wall" ? "font-semibold" : "",
+                entry.status === "error" ? "text-red-700" : "text-taupe-800",
+              )}
             >
-              {error ? "Error" : runAllDisabled ? "Preparing" : "Ready"}
-            </MarbleBadge>
-          </MarbleCardHeader>
-          <MarbleCardContent className="space-y-3">
-            {error ? (
-              <p
-                className="rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
-                role="alert"
-              >
-                {error}
-              </p>
-            ) : null}
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end">
-              <MarbleInput
-                aria-label="Source event message"
-                disabled={runAllPending}
-                onChange={(event) => {
-                  setDraftValue(event.target.value);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== "Enter") {
-                    return;
-                  }
-
-                  event.preventDefault();
-                  void runAll();
-                }}
-                placeholder="Payload message"
-                value={draftValue}
-              />
-              <MarbleButton
-                disabled={runAllDisabled}
-                iconLeft={PlayIcon}
-                onClick={() => {
-                  void runAll();
-                }}
-                type="button"
-                variant="orange"
-              >
-                Run 2x2
-              </MarbleButton>
-              <MarbleButton
-                disabled={runAllPending}
-                iconLeft={TrashIcon}
-                onClick={() => {
-                  void reset();
-                }}
-                type="button"
-              >
-                Reset Source
-              </MarbleButton>
+              {entry.label}
             </div>
-          </MarbleCardContent>
-        </MarbleCard>
+            {entry.detail ? (
+              <div
+                className={cx(
+                  "break-words text-taupe-500",
+                  entry.status === "error" ? "text-red-600" : "",
+                )}
+              >
+                {entry.detail}
+              </div>
+            ) : null}
+            {entry.runId ? (
+              <div className="text-taupe-400">run {shortId(entry.runId)}</div>
+            ) : null}
+          </div>
+          <div
+            className={cx(
+              "text-right tabular-nums",
+              entry.kind === "wall" ? "font-semibold" : "",
+              entry.status === "error" ? "text-red-700" : "text-taupe-950",
+            )}
+          >
+            <div>{formatMs(entry.durationMs)}</div>
+            {entry.kind === "wall" ? (
+              <div className="font-medium text-eyebrow-xs text-taupe-500">
+                wall
+              </div>
+            ) : null}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+};
 
-        <div className="grid gap-4 xl:grid-cols-4 md:grid-cols-2">
-          {lanes.map((lane, index) => (
-            <LanePanel
-              key={lane.id}
-              lane={lane}
-              state={laneStates[index]}
-            />
-          ))}
+const LanePanel = ({
+  lane,
+  state,
+}: Readonly<{
+  lane: LaneConfig;
+  state: LaneState;
+}>) => {
+  const styles = laneStyles[lane.captureKind];
+  const latestWall = getLatestWallEntry(state.timings);
+
+  return (
+    <MarbleCard className="min-h-[27rem]">
+      <MarbleCardHeader className="gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <MarbleCardTitle className="text-sm">{lane.label}</MarbleCardTitle>
+            <p
+              className={cx(
+                "flex items-center gap-1 font-medium text-[11px]",
+                styles.textClassName,
+              )}
+            >
+              <span
+                className={cx("size-1.5 rounded-full", styles.dotClassName)}
+              />
+              {lane.createKind === "sdk" ? "new sdk" : "supabase js"} /{" "}
+              {lane.captureKind}
+            </p>
+          </div>
+          <MarbleBadge
+            tone={state.error ? "error" : state.ready ? "success" : "warning"}
+          >
+            {state.error ? "Error" : state.status}
+          </MarbleBadge>
+        </div>
+      </MarbleCardHeader>
+      <MarbleCardContent className="space-y-4">
+        {state.error ? (
+          <p
+            className="rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
+            role="alert"
+          >
+            {state.error}
+          </p>
+        ) : null}
+
+        <div className="grid grid-cols-3 gap-3 border-t border-taupe-200 pt-4">
+          <Metric
+            label="Last event"
+            value={state.latestEvent ? shortId(state.latestEvent.id) : "none"}
+          />
+          <Metric
+            label="Last update"
+            value={latestWall ? formatMs(latestWall.durationMs) : "none"}
+          />
+          <Metric
+            label="Timings"
+            value={String(state.timings.length)}
+          />
         </div>
 
-        <TimingPanel entries={timings} />
-      </div>
-    </div>
+        <div className="space-y-2">
+          <div className="font-medium text-eyebrow-xs text-taupe-500">
+            Payload
+          </div>
+          <pre className="min-h-32 overflow-auto rounded-sm border border-taupe-200 bg-white p-3 font-mono text-[11px] text-taupe-800 leading-5">
+            {state.latestEvent
+              ? formatJson(state.latestEvent.rawPayload)
+              : "No event captured yet."}
+          </pre>
+        </div>
+
+        <TimingList entries={state.timings} />
+      </MarbleCardContent>
+    </MarbleCard>
+  );
+};
+
+const TimingPanel = ({
+  entries,
+}: Readonly<{
+  entries: TimingEntry[];
+}>) => {
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return (
+    <MarbleCard>
+      <MarbleCardHeader>
+        <MarbleCardTitle>Combined timeline</MarbleCardTitle>
+      </MarbleCardHeader>
+      <MarbleCardContent>
+        <ol className="space-y-1 font-mono text-[11px] text-taupe-600">
+          {entries.map((entry) => (
+            <li
+              className="grid grid-cols-[4rem_9rem_minmax(0,1fr)_4.5rem] gap-2"
+              key={entry.key}
+            >
+              <span className="tabular-nums">+{formatMs(entry.elapsedMs)}</span>
+              <span className="truncate font-medium">{entry.laneId}</span>
+              <span
+                className={cx(
+                  "truncate",
+                  entry.status === "error" ? "text-red-700" : "",
+                )}
+              >
+                {entry.label}
+              </span>
+              <span className="text-right tabular-nums">
+                {formatMs(entry.durationMs)}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </MarbleCardContent>
+    </MarbleCard>
   );
 };
 
@@ -1077,206 +975,308 @@ const useCaptureLane = ({
   };
 };
 
-const LanePanel = ({
-  lane,
-  state,
-}: Readonly<{
-  lane: LaneConfig;
-  state: LaneState;
-}>) => {
-  const styles = laneStyles[lane.captureKind];
-  const latestWall = getLatestWallEntry(state.timings);
+export const DbPerf2View = () => {
+  const supabase = useMemo(() => createClient(), []);
+  const pageStartedAtRef = useRef(nowMs());
+  const timingIdRef = useRef(0);
+  const [draftValue, setDraftValue] = useState("hello from db-perf-2");
+  const [error, setError] = useState<string | null>(null);
+  const [source, setSource] = useState<SourceSnapshot | null>(null);
+  const [setupPending, setSetupPending] = useState(true);
+  const [timings, setTimings] = useState<TimingEntry[]>([]);
 
-  return (
-    <MarbleCard className="min-h-[27rem]">
-      <MarbleCardHeader className="gap-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 space-y-1">
-            <MarbleCardTitle className="text-sm">{lane.label}</MarbleCardTitle>
-            <p
-              className={cx(
-                "flex items-center gap-1 font-medium text-[11px]",
-                styles.textClassName,
-              )}
-            >
-              <span
-                className={cx("size-1.5 rounded-full", styles.dotClassName)}
-              />
-              {lane.createKind === "sdk" ? "new sdk" : "supabase js"} /{" "}
-              {lane.captureKind}
-            </p>
-          </div>
-          <MarbleBadge
-            tone={state.error ? "error" : state.ready ? "success" : "warning"}
-          >
-            {state.error ? "Error" : state.status}
-          </MarbleBadge>
-        </div>
-      </MarbleCardHeader>
-      <MarbleCardContent className="space-y-4">
-        {state.error ? (
-          <p
-            className="rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
-            role="alert"
-          >
-            {state.error}
-          </p>
-        ) : null}
+  const appendTiming = useCallback(
+    (entry: Omit<TimingEntry, "elapsedMs" | "id" | "key">) => {
+      const currentTime = nowMs();
+      timingIdRef.current += 1;
 
-        <div className="grid grid-cols-3 gap-3 border-t border-taupe-200 pt-4">
-          <Metric
-            label="Last event"
-            value={state.latestEvent ? shortId(state.latestEvent.id) : "none"}
-          />
-          <Metric
-            label="Last update"
-            value={latestWall ? formatMs(latestWall.durationMs) : "none"}
-          />
-          <Metric
-            label="Timings"
-            value={String(state.timings.length)}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <div className="font-medium text-eyebrow-xs text-taupe-500">
-            Payload
-          </div>
-          <pre className="min-h-32 overflow-auto rounded-sm border border-taupe-200 bg-white p-3 font-mono text-[11px] text-taupe-800 leading-5">
-            {state.latestEvent
-              ? formatJson(state.latestEvent.rawPayload)
-              : "No event captured yet."}
-          </pre>
-        </div>
-
-        <TimingList entries={state.timings} />
-      </MarbleCardContent>
-    </MarbleCard>
+      setTimings((current) =>
+        [
+          ...current,
+          {
+            ...entry,
+            elapsedMs: currentTime - pageStartedAtRef.current,
+            id: timingIdRef.current,
+            key: crypto.randomUUID(),
+          },
+        ].slice(-64),
+      );
+    },
+    [],
   );
-};
 
-const Metric = ({
-  label,
-  value,
-}: Readonly<{
-  label: string;
-  value: string;
-}>) => {
-  return (
-    <div className="min-w-0">
-      <div className="font-medium text-eyebrow-xs text-taupe-500">{label}</div>
-      <div className="truncate font-mono text-sm text-taupe-950">{value}</div>
-    </div>
+  const sdk = useMemo(
+    () =>
+      new MarbleClient({
+        driver: {
+          client: supabase,
+          type: "supabase",
+        },
+      }),
+    [
+      supabase,
+    ],
   );
-};
 
-const TimingList = ({
-  entries,
-}: Readonly<{
-  entries: TimingEntry[];
-}>) => {
-  const orderedEntries = orderTimingEntriesForDisplay(entries);
+  const measureSetup = useCallback(
+    async <T,>(label: string, task: () => Promise<T>) => {
+      const startedAt = nowMs();
 
-  if (entries.length === 0) {
-    return (
-      <p className="border-t border-taupe-200 pt-3 text-sm text-taupe-500">
-        No timings yet.
-      </p>
+      try {
+        const result = await task();
+        appendTiming({
+          durationMs: nowMs() - startedAt,
+          kind: "setup",
+          label,
+          laneId: "setup",
+          status: "ok",
+        });
+        return result;
+      } catch (cause) {
+        appendTiming({
+          detail: getErrorMessage(cause),
+          durationMs: nowMs() - startedAt,
+          kind: "setup",
+          label,
+          laneId: "setup",
+          status: "error",
+        });
+        throw cause;
+      }
+    },
+    [
+      appendTiming,
+    ],
+  );
+
+  const setupSource = useCallback(async () => {
+    setError(null);
+    setSetupPending(true);
+
+    try {
+      const existingProject = await measureSetup(
+        "setup projects.getMostRecentProject",
+        () => sdk.projects.getMostRecentProject({}),
+      );
+      const project =
+        existingProject ??
+        (await measureSetup("setup projects.create", () =>
+          sdk.projects.create({
+            name: "DB perf 2",
+          }),
+        ));
+      const nextSource = await measureSetup("setup sources.create", () =>
+        sdk.sources.create({
+          name: `DB perf 2 ${crypto.randomUUID().slice(0, 8)}`,
+          payloadSchema: sourcePayloadSchema,
+          projectId: (project as SdkProject).id,
+        }),
+      );
+
+      setSource(sourceToSnapshot(nextSource));
+    } catch (cause) {
+      setError(getErrorMessage(cause));
+      setSource(null);
+    } finally {
+      setSetupPending(false);
+    }
+  }, [
+    measureSetup,
+    sdk,
+  ]);
+
+  useEffect(() => {
+    void setupSource();
+  }, [
+    setupSource,
+  ]);
+
+  const broadcastSubscription = useBroadcastSubscription({
+    sourceId: source?.id ?? null,
+    supabase,
+  });
+  const sdkPostgresLane = useCaptureLane({
+    appendTiming,
+    broadcastSubscription,
+    lane: lanes[0],
+    sourceId: source?.id ?? null,
+    supabase,
+  });
+  const sdkBroadcastLane = useCaptureLane({
+    appendTiming,
+    broadcastSubscription,
+    lane: lanes[1],
+    sourceId: source?.id ?? null,
+    supabase,
+  });
+  const supabasePostgresLane = useCaptureLane({
+    appendTiming,
+    broadcastSubscription,
+    lane: lanes[2],
+    sourceId: source?.id ?? null,
+    supabase,
+  });
+  const supabaseBroadcastLane = useCaptureLane({
+    appendTiming,
+    broadcastSubscription,
+    lane: lanes[3],
+    sourceId: source?.id ?? null,
+    supabase,
+  });
+  const laneStates = useMemo(
+    () => [
+      sdkPostgresLane,
+      sdkBroadcastLane,
+      supabasePostgresLane,
+      supabaseBroadcastLane,
+    ],
+    [
+      sdkBroadcastLane,
+      sdkPostgresLane,
+      supabaseBroadcastLane,
+      supabasePostgresLane,
+    ],
+  );
+
+  const runAllPending = setupPending || laneStates.some((lane) => lane.pending);
+  const runAllDisabled =
+    setupPending ||
+    !source ||
+    laneStates.some((lane) => !lane.ready || lane.pending);
+
+  const runAll = useCallback(async () => {
+    if (runAllDisabled) {
+      return;
+    }
+
+    const startedAt = nowMs();
+    await Promise.all(
+      laneStates.map((lane) => lane.run(draftValue, startedAt)),
     );
-  }
+  }, [
+    draftValue,
+    laneStates,
+    runAllDisabled,
+  ]);
+
+  const reset = useCallback(async () => {
+    if (runAllPending) {
+      return;
+    }
+
+    if (source) {
+      try {
+        await measureSetup("reset sources.delete", () =>
+          sdk.sources.delete({
+            id: source.id,
+          }),
+        );
+      } catch (cause) {
+        setError(getErrorMessage(cause));
+      }
+    }
+
+    await setupSource();
+  }, [
+    measureSetup,
+    runAllPending,
+    sdk,
+    setupSource,
+    source,
+  ]);
 
   return (
-    <ol className="divide-y divide-taupe-200 border-t border-taupe-200 font-mono text-[11px]">
-      {orderedEntries.map((entry) => (
-        <li
-          className={cx(
-            "grid grid-cols-[minmax(0,1fr)_4.75rem] gap-2 py-2",
-            entry.kind === "wall" ? "bg-taupe-100/70 px-2" : "",
-          )}
-          key={entry.key}
-        >
-          <div className="min-w-0">
-            <div
-              className={cx(
-                "truncate",
-                entry.kind === "wall" ? "font-semibold" : "",
-                entry.status === "error" ? "text-red-700" : "text-taupe-800",
-              )}
-            >
-              {entry.label}
+    <div className="flex min-h-full flex-col bg-taupe-50 p-4 text-taupe-950">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
+        <MarbleCard>
+          <MarbleCardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <MarbleBadge tone="info">db-perf-2</MarbleBadge>
+              <div>
+                <MarbleCardTitle>Source event realtime timings</MarbleCardTitle>
+                <MarbleCardDescription>
+                  SDK and Supabase creates, each observed through Postgres
+                  changes and database broadcast.
+                </MarbleCardDescription>
+              </div>
+              <p className="font-mono text-[11px] text-taupe-500">
+                {source
+                  ? `source ${shortId(source.id)} / project ${shortId(
+                      source.projectId,
+                    )}`
+                  : "source pending"}
+              </p>
             </div>
-            {entry.detail ? (
-              <div
-                className={cx(
-                  "break-words text-taupe-500",
-                  entry.status === "error" ? "text-red-600" : "",
-                )}
-              >
-                {entry.detail}
-              </div>
-            ) : null}
-            {entry.runId ? (
-              <div className="text-taupe-400">run {shortId(entry.runId)}</div>
-            ) : null}
-          </div>
-          <div
-            className={cx(
-              "text-right tabular-nums",
-              entry.kind === "wall" ? "font-semibold" : "",
-              entry.status === "error" ? "text-red-700" : "text-taupe-950",
-            )}
-          >
-            <div>{formatMs(entry.durationMs)}</div>
-            {entry.kind === "wall" ? (
-              <div className="font-medium text-eyebrow-xs text-taupe-500">
-                wall
-              </div>
-            ) : null}
-          </div>
-        </li>
-      ))}
-    </ol>
-  );
-};
-
-const TimingPanel = ({
-  entries,
-}: Readonly<{
-  entries: TimingEntry[];
-}>) => {
-  if (entries.length === 0) {
-    return null;
-  }
-
-  return (
-    <MarbleCard>
-      <MarbleCardHeader>
-        <MarbleCardTitle>Combined timeline</MarbleCardTitle>
-      </MarbleCardHeader>
-      <MarbleCardContent>
-        <ol className="space-y-1 font-mono text-[11px] text-taupe-600">
-          {entries.map((entry) => (
-            <li
-              className="grid grid-cols-[4rem_9rem_minmax(0,1fr)_4.5rem] gap-2"
-              key={entry.key}
+            <MarbleBadge
+              tone={error ? "error" : runAllDisabled ? "warning" : "success"}
             >
-              <span className="tabular-nums">+{formatMs(entry.elapsedMs)}</span>
-              <span className="truncate font-medium">{entry.laneId}</span>
-              <span
-                className={cx(
-                  "truncate",
-                  entry.status === "error" ? "text-red-700" : "",
-                )}
+              {error ? "Error" : runAllDisabled ? "Preparing" : "Ready"}
+            </MarbleBadge>
+          </MarbleCardHeader>
+          <MarbleCardContent className="space-y-3">
+            {error ? (
+              <p
+                className="rounded-sm border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
+                role="alert"
               >
-                {entry.label}
-              </span>
-              <span className="text-right tabular-nums">
-                {formatMs(entry.durationMs)}
-              </span>
-            </li>
+                {error}
+              </p>
+            ) : null}
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end">
+              <MarbleInput
+                aria-label="Source event message"
+                disabled={runAllPending}
+                onChange={(event) => {
+                  setDraftValue(event.target.value);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter") {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  void runAll();
+                }}
+                placeholder="Payload message"
+                value={draftValue}
+              />
+              <MarbleButton
+                disabled={runAllDisabled}
+                iconLeft={PlayIcon}
+                onClick={() => {
+                  void runAll();
+                }}
+                type="button"
+                variant="orange"
+              >
+                Run 2x2
+              </MarbleButton>
+              <MarbleButton
+                disabled={runAllPending}
+                iconLeft={TrashIcon}
+                onClick={() => {
+                  void reset();
+                }}
+                type="button"
+              >
+                Reset Source
+              </MarbleButton>
+            </div>
+          </MarbleCardContent>
+        </MarbleCard>
+
+        <div className="grid gap-4 xl:grid-cols-4 md:grid-cols-2">
+          {lanes.map((lane, index) => (
+            <LanePanel
+              key={lane.id}
+              lane={lane}
+              state={laneStates[index]}
+            />
           ))}
-        </ol>
-      </MarbleCardContent>
-    </MarbleCard>
+        </div>
+
+        <TimingPanel entries={timings} />
+      </div>
+    </div>
   );
 };

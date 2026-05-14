@@ -123,6 +123,14 @@ const PAD_PROGRAM_NAMES = [
   "dedupe",
 ] as const;
 
+const hashName = (name: string): number => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+};
+
 export const getMarketingSkyline = async (
   metrics: MarketingMetrics,
 ): Promise<MarketingSkyscraperProps[]> => {
@@ -157,12 +165,4 @@ export const getMarketingSkyline = async (
       width,
     };
   });
-};
-
-const hashName = (name: string): number => {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) {
-    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  }
-  return hash;
 };

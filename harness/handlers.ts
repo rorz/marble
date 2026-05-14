@@ -126,6 +126,8 @@ const collectRouterFiles = async (): Promise<RouterFile[]> => {
   return result;
 };
 
+const indexSource = readFileSync(resolve(REPO_ROOT, ROUTER_INDEX), "utf8");
+
 const parseMountedResources = (indexSource: string): Set<string> => {
   const mounted = new Set<string>();
   const objectMatch =
@@ -140,8 +142,6 @@ const parseMountedResources = (indexSource: string): Set<string> => {
   }
   return mounted;
 };
-
-const indexSource = readFileSync(resolve(REPO_ROOT, ROUTER_INDEX), "utf8");
 
 const { resources: almanac } = parseAlmanac(readAlmanac());
 const routerFiles = await collectRouterFiles();

@@ -48,6 +48,37 @@ type MarketingAnnotationProps = {
   className?: string;
 };
 
+const Tail = ({ tail, toneClass }: { tail: Tail; toneClass: string }) => {
+  if (!tail) return null;
+  const baseSize = "size-14";
+  if (tail.side === "bottom") {
+    return (
+      <span
+        className={cx(
+          "absolute -bottom-2 left-8 size-12 rounded-sm",
+          toneClass,
+        )}
+        style={{
+          transform: `rotate(${tail.rotate ?? -12}deg)`,
+        }}
+      />
+    );
+  }
+  return (
+    <span
+      className={cx(
+        "absolute top-1/2 -translate-y-1/2 rounded-sm",
+        baseSize,
+        toneClass,
+        tail.side === "left" ? "-left-6" : "-right-6",
+      )}
+      style={{
+        transform: `rotate(${tail.rotate ?? -12}deg)`,
+      }}
+    />
+  );
+};
+
 export const MarketingAnnotation = ({
   children,
   tone = "mid",
@@ -83,37 +114,6 @@ export const MarketingAnnotation = ({
       ) : null}
       <span className="relative">{children}</span>
     </span>
-  );
-};
-
-const Tail = ({ tail, toneClass }: { tail: Tail; toneClass: string }) => {
-  if (!tail) return null;
-  const baseSize = "size-14";
-  if (tail.side === "bottom") {
-    return (
-      <span
-        className={cx(
-          "absolute -bottom-2 left-8 size-12 rounded-sm",
-          toneClass,
-        )}
-        style={{
-          transform: `rotate(${tail.rotate ?? -12}deg)`,
-        }}
-      />
-    );
-  }
-  return (
-    <span
-      className={cx(
-        "absolute top-1/2 -translate-y-1/2 rounded-sm",
-        baseSize,
-        toneClass,
-        tail.side === "left" ? "-left-6" : "-right-6",
-      )}
-      style={{
-        transform: `rotate(${tail.rotate ?? -12}deg)`,
-      }}
-    />
   );
 };
 

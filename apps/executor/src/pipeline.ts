@@ -40,6 +40,7 @@ const triggerDependentRuns = async (
     const runIds =
       await c.var.store.programRuns.createPendingForCellIds(candidateCellIds);
 
+    // harness-ignore: no-forward-reference -- mutual recursion with executeStoredRunsInternal
     await executeStoredRunsInternal(c, runIds, visitedCellIds);
   } catch (error) {
     console.error(

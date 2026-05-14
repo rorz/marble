@@ -248,6 +248,7 @@ const scan = async (): Promise<Finding[]> => {
         const excerpt = lineAt(source, match.index);
         const previous = prevLine(source, match.index);
         if (!hasIgnore(excerpt, rule.id) && !hasIgnore(previous, rule.id)) {
+          // harness-ignore: no-forward-reference -- local `findings` array inside scan shadows the module-level const; checker lacks scope analysis
           findings.push({
             col,
             excerpt: excerpt.trim(),
@@ -261,8 +262,11 @@ const scan = async (): Promise<Finding[]> => {
     }
   }
 
+  // harness-ignore: no-forward-reference -- local `findings` array inside scan shadows the module-level const; checker lacks scope analysis
   return findings;
 };
+
+const findings = await scan();
 
 const report = (findings: readonly Finding[]): void => {
   if (findings.length === 0) {
@@ -307,6 +311,5 @@ const report = (findings: readonly Finding[]): void => {
   console.error(`${findings.length} finding(s) across ${byRule.size} rule(s).`);
 };
 
-const findings = await scan();
 report(findings);
 process.exit(findings.length === 0 ? 0 : 1);

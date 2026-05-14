@@ -1,7 +1,9 @@
 import {
   type Camelize,
   type Snakeize,
+  // harness-ignore: no-forward-reference -- import specifier source names shadow the local overload declarations; this is an import, not a value reference
   toCamelKeys as toCamelObjectKeys,
+  // harness-ignore: no-forward-reference -- same: import specifier source name shadows the local overload declaration
   toSnakeKeys as toSnakeObjectKeys,
 } from "@marble/lib/object";
 import type {

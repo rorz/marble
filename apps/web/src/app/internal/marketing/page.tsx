@@ -246,6 +246,37 @@ const Demo = ({
   );
 };
 
+const AnimationSwatch = ({
+  cls,
+  label,
+  swatch,
+  text,
+}: {
+  cls: string;
+  label: string;
+  swatch?: boolean;
+  text?: boolean;
+}) => {
+  return (
+    <div className="flex flex-col gap-2 rounded-xs border-2 border-taupe-300 bg-taupe-50 p-4">
+      <span className="font-mono text-eyebrow-xs text-taupe-700">{label}</span>
+      <div className="flex h-12 items-center justify-center rounded-xs border border-taupe-200 bg-taupe-100">
+        {swatch ? (
+          <span className={`block size-4 rounded-full bg-orange-500 ${cls}`} />
+        ) : null}
+        {text ? (
+          <span className={`font-mono text-base text-orange-500 ${cls}`}>
+            0420
+          </span>
+        ) : null}
+      </div>
+      <code className="break-all font-mono text-[10px] text-taupe-500">
+        {cls}
+      </code>
+    </div>
+  );
+};
+
 const MarketingShowcasePage = () => {
   return (
     <main className="min-h-screen bg-taupe-100">
@@ -1261,34 +1292,3 @@ bun run dev`}
   );
 };
 export default MarketingShowcasePage;
-
-const AnimationSwatch = ({
-  cls,
-  label,
-  swatch,
-  text,
-}: {
-  cls: string;
-  label: string;
-  swatch?: boolean;
-  text?: boolean;
-}) => {
-  return (
-    <div className="flex flex-col gap-2 rounded-xs border-2 border-taupe-300 bg-taupe-50 p-4">
-      <span className="font-mono text-eyebrow-xs text-taupe-700">{label}</span>
-      <div className="flex h-12 items-center justify-center rounded-xs border border-taupe-200 bg-taupe-100">
-        {swatch ? (
-          <span className={`block size-4 rounded-full bg-orange-500 ${cls}`} />
-        ) : null}
-        {text ? (
-          <span className={`font-mono text-base text-orange-500 ${cls}`}>
-            0420
-          </span>
-        ) : null}
-      </div>
-      <code className="break-all font-mono text-[10px] text-taupe-500">
-        {cls}
-      </code>
-    </div>
-  );
-};

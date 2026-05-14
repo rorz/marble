@@ -28,6 +28,31 @@ export const getCurrentUser = async () => {
   } satisfies CurrentUser;
 };
 
+const deriveDisplayName = (params: {
+  email: string | null;
+  fullName: string | null;
+  id: string;
+  name: string | null;
+}): string => {
+  if (params.fullName) {
+    return params.fullName;
+  }
+
+  if (params.name) {
+    return params.name;
+  }
+
+  if (params.email) {
+    const local = params.email.split("@").at(0)?.trim();
+
+    if (local && local.length > 0) {
+      return local;
+    }
+  }
+
+  return params.id.slice(0, 8);
+};
+
 const getCurrentUserIdentity = async () => {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
@@ -97,29 +122,4 @@ export const requireUserIdentity = async () => {
   }
 
   return user;
-};
-
-const deriveDisplayName = (params: {
-  email: string | null;
-  fullName: string | null;
-  id: string;
-  name: string | null;
-}): string => {
-  if (params.fullName) {
-    return params.fullName;
-  }
-
-  if (params.name) {
-    return params.name;
-  }
-
-  if (params.email) {
-    const local = params.email.split("@").at(0)?.trim();
-
-    if (local && local.length > 0) {
-      return local;
-    }
-  }
-
-  return params.id.slice(0, 8);
 };
