@@ -34,6 +34,7 @@ const CHECKS = [
   "realtime",
   "seed",
   "enforce-arrow-function",
+  "no-forward-reference",
   "max-file-lines",
   "knip",
 ] as const;
