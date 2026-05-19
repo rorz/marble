@@ -65,10 +65,10 @@ Projects are top-level user-owned workspaces.
 
 Allowed operations:
 
-- `create` - Create a project for the current profile.
-- `list` - List projects for the current profile. Exact-name filtering is allowed.
-- `get` - Read one project by ID within the current profile boundary.
-- `getMostRecentProject` - Example read-only RPC action returning the newest project for the current profile, or null when no project exists.
+- `create` - Create a project attributed to the current profile.
+- `list` - List projects owned by the current user across all of their profiles. Exact-name filtering is allowed.
+- `get` - Read one project by ID within the current user boundary.
+- `getMostRecentProject` - Example read-only RPC action returning the newest project for the current user, or null when no project exists.
 - `update` - Rename a project or update its folder path.
 - `delete` - Delete a project boundary.
 

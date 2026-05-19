@@ -1,4 +1,4 @@
-import { type MarbleContract, marbleContract } from "@marble/contracts";
+import { marbleCliContract } from "@marble/contracts";
 import { isContractProcedure } from "@orpc/contract";
 import { Command } from "commander";
 import { z } from "zod";
@@ -13,10 +13,11 @@ import { registerProgramDir } from "./program-dir";
  *   marble <resource> <operation> --input-file <path>
  *   marble <resource> <operation> -            # read JSON from stdin
  *
- * Resource and operation names mirror `marbleContract` from `@marble/contracts`
- * exactly. Every subcommand is auto-generated from that contract — there are
- * no hand-written per-resource definitions. If an operation exists on the
- * contract, it exists on the CLI; if it doesn't, the CLI can't invoke it.
+ * Resource and operation names mirror `marbleCliContract` from
+ * `@marble/contracts` exactly. Every subcommand is auto-generated from that
+ * contract — there are no hand-written per-resource definitions. If an
+ * operation exists on the CLI contract, it exists on the CLI; if it doesn't,
+ * the CLI can't invoke it.
  *
  * The only exceptions are:
  *
@@ -27,13 +28,14 @@ import { registerProgramDir } from "./program-dir";
  */
 
 type CommandHandler = (input: unknown) => Promise<unknown>;
+type MarbleCliContract = typeof marbleCliContract;
 
 /**
  * Shape of `MarbleClient` for dynamic dispatch from CLI argv.
  *
- * Outer keys are tied to `MarbleContract` resource names, so renaming or
- * removing a resource will surface here. Inner keys stay string-indexed
- * because operations are looked up by raw argv strings — operation
+ * Outer keys are tied to CLI contract resource names, so renaming or removing a
+ * CLI resource will surface here. Inner keys stay string-indexed because
+ * operations are looked up by raw argv strings — operation
  * existence is checked at runtime by `dispatch`.
  *
  * The cast to this shape requires `as unknown as` (not a single `as`)
@@ -45,8 +47,10 @@ type CommandHandler = (input: unknown) => Promise<unknown>;
  * call time — so the widening is safe in practice.
  */
 type MarbleClientShape = {
-  readonly [R in keyof MarbleContract]: Record<string, CommandHandler>;
+  readonly [R in keyof MarbleCliContract]: Record<string, CommandHandler>;
 };
+
+type MarbleCliResource = keyof MarbleCliContract & string;
 
 type ContractProcedureMeta = {
   description?: string;
@@ -61,6 +65,14 @@ type ContractProcedureMeta = {
     tags?: readonly string[];
   };
 };
+
+const listCliResourceEntries = () =>
+  Object.entries(marbleCliContract) as Array<
+    [
+      MarbleCliResource,
+      Record<string, unknown>,
+    ]
+  >;
 
 const getProcedureMeta = (procedure: unknown): ContractProcedureMeta | null => {
   if (!isContractProcedure(procedure)) {
@@ -77,9 +89,9 @@ const getProcedureMeta = (procedure: unknown): ContractProcedureMeta | null => {
 };
 
 const describeOperation = (resource: string, operation: string) => {
-  const procedure = (marbleContract as Record<string, Record<string, unknown>>)[
-    resource
-  ]?.[operation];
+  const procedure = (
+    marbleCliContract as Record<string, Record<string, unknown>>
+  )[resource]?.[operation];
   const meta = getProcedureMeta(procedure);
 
   if (!meta) {
@@ -105,12 +117,7 @@ const describeOperation = (resource: string, operation: string) => {
 };
 
 const listOperations = (resource?: string) => {
-  const entries = Object.entries(marbleContract) as Array<
-    [
-      string,
-      Record<string, unknown>,
-    ]
-  >;
+  const entries = listCliResourceEntries();
   const filtered = resource
     ? entries.filter(([name]) => name === resource)
     : entries;
@@ -154,13 +161,13 @@ const summariseForHelp = (procedure: unknown) => {
 
 const dispatch = (resource: string, operation: string, input: unknown) => {
   const client = getMarbleClient() as unknown as MarbleClientShape;
-  const handler = client[resource as keyof MarbleContract]?.[operation];
+  const handler = client[resource as keyof MarbleCliContract]?.[operation];
 
   if (typeof handler !== "function") {
     throw new Error(`Operation '${resource}.${operation}' is not callable.`);
   }
 
-  // Operations with empty input schemas (e.g. `sidebar.getData`) still need
+  // Operations with empty input schemas still need
   // an object payload from the oRPC client, so we default missing input to
   // `{}` instead of `undefined`. Operations with required input will surface
   // their own Zod validation error if `{}` doesn't satisfy them.
@@ -168,12 +175,7 @@ const dispatch = (resource: string, operation: string, input: unknown) => {
 };
 
 const registerResources = (root: Command) => {
-  for (const [resource, operations] of Object.entries(marbleContract) as Array<
-    [
-      string,
-      Record<string, unknown>,
-    ]
-  >) {
+  for (const [resource, operations] of listCliResourceEntries()) {
     const resourceCommand = new Command(resource).description(
       `${resource} contract operations`,
     );

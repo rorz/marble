@@ -71,4 +71,8 @@ export const marbleContract = {
   tables: createORPCResourceContract(tableOperations),
 };
 
+const { sidebar: _sidebarContract, ...marbleCliContract } = marbleContract;
+
+export { marbleCliContract };
+
 export type MarbleContract = typeof marbleContract;

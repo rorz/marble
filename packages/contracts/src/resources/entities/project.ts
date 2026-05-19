@@ -62,7 +62,7 @@ export const projectOperations = defineResourceOperations({
     output: ProjectSchema.nullable(),
     route: {
       description:
-        "Returns the newest project for the current profile, or null when no project exists.",
+        "Returns the newest project for the current user, or null when no project exists.",
       method: "GET",
       operationId: "projects.getMostRecentProject",
       path: "/projects/most-recent",
