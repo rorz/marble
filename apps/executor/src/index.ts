@@ -1,5 +1,6 @@
 import { getSandbox } from "@cloudflare/sandbox";
 import { type JsonValue, ProgramOutputConfig } from "@marble/contracts";
+import { getErrorMessage } from "@marble/lib/result";
 import type { MarbleStore } from "@marble/store";
 import { type Context, Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
@@ -150,7 +151,7 @@ const liveRunHandler = async (c: Context<ExecutorEnv>) => {
 
     throw httpError(
       500,
-      error instanceof Error ? error.message : "Run execution failed.",
+      getErrorMessage(error, "Run execution failed."),
       error,
     );
   }
@@ -180,7 +181,7 @@ const liveBatchRunHandler = async (c: Context<ExecutorEnv>) => {
 
     throw httpError(
       500,
-      error instanceof Error ? error.message : "Batch execution failed.",
+      getErrorMessage(error, "Batch execution failed."),
       error,
     );
   }
@@ -207,7 +208,7 @@ const testHandler = async (c: Context<ExecutorEnv>) => {
 
     throw httpError(
       500,
-      error instanceof Error ? error.message : "Program version lookup failed.",
+      getErrorMessage(error, "Program version lookup failed."),
       error,
     );
   }

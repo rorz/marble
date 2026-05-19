@@ -12,8 +12,6 @@ export {
 
 import { byDateDesc } from "@marble/lib/compare";
 
-export { getErrorMessage } from "@marble/lib/result";
-
 export const compareByCreatedAtCamelDesc = byDateDesc<{
   createdAt: string;
 }>((row) => row.createdAt);

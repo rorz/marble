@@ -1,6 +1,7 @@
 "use client";
 
 import { toCamelKeys } from "@marble/lib/object";
+import { getErrorMessage } from "@marble/lib/result";
 import type { MarbleClient } from "@marble/sdk";
 import {
   MarbleAlert,
@@ -17,7 +18,6 @@ import {
 import { usePrivateBroadcast } from "../../../../lib/realtime/private-broadcast";
 import {
   compareByCreatedAtCamelDesc,
-  getErrorMessage,
   sortRows,
   upsertRow,
 } from "../../../../lib/realtime-crud";
@@ -26,7 +26,7 @@ import type {
   ManagedProfileRecord,
   ProfileKeyRecord,
   ProfileRecord,
-} from "../shared";
+} from "../types";
 import { ProfileCard } from "./card";
 import { NewKeyModal } from "./new-key-modal";
 

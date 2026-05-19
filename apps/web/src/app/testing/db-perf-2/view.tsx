@@ -2,6 +2,7 @@
 
 // harness-ignore: max-file-lines -- realtime perf scratch surface; intentionally kept as one file
 
+import { stringifyPretty } from "@marble/lib/json";
 import { getErrorMessage } from "@marble/lib/result";
 import { MarbleClient } from "@marble/sdk";
 import type { Database, Json } from "@marble/supabase";
@@ -223,7 +224,7 @@ const getPayloadRunId = (value: Json) => {
 };
 
 const formatJson = (value: Json) => {
-  return JSON.stringify(value, null, 2);
+  return stringifyPretty(value);
 };
 
 const getLatestWallEntry = (entries: TimingEntry[]) => {

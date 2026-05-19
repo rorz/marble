@@ -1,3 +1,4 @@
+import { stringifyPretty } from "@marble/lib/json";
 import dynamic from "next/dynamic";
 
 export const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
@@ -7,13 +8,9 @@ export const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   month: "short",
 });
 
-export const DEFAULT_SOURCE_SCHEMA_TEXT = JSON.stringify(
-  {
-    type: "object",
-  },
-  null,
-  2,
-);
+export const DEFAULT_SOURCE_SCHEMA_TEXT = stringifyPretty({
+  type: "object",
+});
 
 export const MonacoEditor = dynamic(() => import("@monaco-editor/react"), {
   loading: () => (

@@ -1,3 +1,5 @@
+import { getErrorMessage } from "@marble/lib/result";
+import { formatServerTimingEntry, withTiming } from "@marble/lib/timing";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { ORPCError, onError } from "@orpc/server";
@@ -47,7 +49,7 @@ const errorResponse = (error: unknown) => {
 
   return Response.json(
     {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     },
     {
       status: 500,
@@ -80,8 +82,16 @@ const SERVER_TIMING_HEADER = "Server-Timing";
 
 const timingHeader = (timings: ApiTimingEntry[]) =>
   timings
-    .map((timing) => `${timing.name};dur=${Math.round(timing.durationMs)}`)
+    .map((timing) => formatServerTimingEntry(timing.name, timing.durationMs))
     .join(", ");
+
+const appendTimingEntry =
+  (timings: ApiTimingEntry[]) => (name: string, durationMs: number) => {
+    timings.push({
+      durationMs,
+      name,
+    });
+  };
 
 const appendHeaderValue = (currentValue: string | null, nextValue: string) =>
   [
@@ -182,23 +192,19 @@ export const createMarbleApi = (config: MarbleApiConfig) => {
     let context: ApiContext | null = null;
     const debugTiming = shouldDebugTiming(c.req.raw);
     const timings: ApiTimingEntry[] = [];
+    const recordTiming = appendTimingEntry(timings);
 
     try {
-      const contextStartedAt = performance.now();
-      context = await createHostedApiContext(c.req.raw, runtime);
-      timings.push({
-        durationMs: performance.now() - contextStartedAt,
-        name: "api_context",
-      });
-      const handlerStartedAt = performance.now();
-      result = await rpcHandler.handle(c.req.raw, {
-        context,
-        prefix: "/rpc",
-      });
-      timings.push({
-        durationMs: performance.now() - handlerStartedAt,
-        name: "orpc_handle",
-      });
+      const requestContext = await withTiming(recordTiming, "api_context", () =>
+        createHostedApiContext(c.req.raw, runtime),
+      );
+      context = requestContext;
+      result = await withTiming(recordTiming, "orpc_handle", () =>
+        rpcHandler.handle(c.req.raw, {
+          context: requestContext,
+          prefix: "/rpc",
+        }),
+      );
     } catch (error) {
       const response = errorResponse(error);
       appendServerTiming(response, timings, debugTiming);
@@ -225,24 +231,23 @@ export const createMarbleApi = (config: MarbleApiConfig) => {
     let context: ApiContext | null = null;
     const debugTiming = shouldDebugTiming(c.req.raw);
     const timings: ApiTimingEntry[] = [];
+    const recordTiming = appendTimingEntry(timings);
 
     try {
-      const contextStartedAt = performance.now();
-      context = isOpenApiDocsPath(c.req.raw)
-        ? createOpenApiDocsContext(c.req.raw, runtime)
-        : await createHostedApiContext(c.req.raw, runtime);
-      timings.push({
-        durationMs: performance.now() - contextStartedAt,
-        name: "api_context",
-      });
-      const handlerStartedAt = performance.now();
-      result = await openApiHandler.handle(c.req.raw, {
-        context,
-      });
-      timings.push({
-        durationMs: performance.now() - handlerStartedAt,
-        name: "openapi_handle",
-      });
+      const requestContext = await withTiming(
+        recordTiming,
+        "api_context",
+        () =>
+          isOpenApiDocsPath(c.req.raw)
+            ? createOpenApiDocsContext(c.req.raw, runtime)
+            : createHostedApiContext(c.req.raw, runtime),
+      );
+      context = requestContext;
+      result = await withTiming(recordTiming, "openapi_handle", () =>
+        openApiHandler.handle(c.req.raw, {
+          context: requestContext,
+        }),
+      );
     } catch (error) {
       const response = errorResponse(error);
       appendServerTiming(response, timings, debugTiming);

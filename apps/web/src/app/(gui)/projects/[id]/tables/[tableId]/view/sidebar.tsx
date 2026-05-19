@@ -2,6 +2,7 @@
 
 // harness-ignore: max-file-lines -- single dense component: ColumnSidebar manages column type/output/secrets/binding editor state via 20+ useState hooks sharing handlers; lifting would obscure dataflow
 
+import { stringifyPretty } from "@marble/lib/json";
 import {
   cx,
   MarbleAlert,
@@ -127,7 +128,7 @@ export const ColumnSidebar = ({
   const [outputSchemaJson, setOutputSchemaJson] = useState(() => {
     const config = getProgramOutputConfig(editingColumn?.programVersion);
     if (!config) return "{}";
-    return JSON.stringify(config, null, 2);
+    return stringifyPretty(config);
   });
   const [outputSchemaDirty, setOutputSchemaDirty] = useState(false);
   const [savingOutputSchema, setSavingOutputSchema] = useState(false);

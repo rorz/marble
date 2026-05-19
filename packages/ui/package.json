@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@marble/lib": "workspace:*",
     "@phosphor-icons/react": "catalog:base",
     "@radix-ui/react-dialog": "catalog:base",
     "class-variance-authority": "catalog:base",

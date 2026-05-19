@@ -34,6 +34,7 @@
       "name": "@marble/ingestor",
       "version": "1.0.0",
       "dependencies": {
+        "@marble/lib": "workspace:*",
         "@marble/store": "workspace:*",
         "@marble/supabase": "workspace:*",
         "hono": "catalog:base",
@@ -205,6 +206,7 @@
       "name": "@marble/ui",
       "version": "1.0.0",
       "dependencies": {
+        "@marble/lib": "workspace:*",
         "@phosphor-icons/react": "catalog:base",
         "@radix-ui/react-dialog": "catalog:base",
         "class-variance-authority": "catalog:base",

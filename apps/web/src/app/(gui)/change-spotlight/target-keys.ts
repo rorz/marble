@@ -1,3 +1,4 @@
+import { byString, composeCompare } from "@marble/lib/compare";
 import { useEffect } from "react";
 import { CHANGE_SPOTLIGHT_ATTRIBUTE } from "./constants";
 import type {
@@ -200,9 +201,12 @@ export const formatReviewSummary = (targetKeys: string[]) => {
   };
 
   const parts = Array.from(kindCounts.entries())
-    .sort(([leftKind, leftCount], [rightKind, rightCount]) => {
-      return rightCount - leftCount || leftKind.localeCompare(rightKind);
-    })
+    .sort(
+      composeCompare(
+        ([, leftCount], [, rightCount]) => rightCount - leftCount,
+        byString(([kind]) => kind),
+      ),
+    )
     .map(([kind, count]) => pluralize(labels[kind], count));
 
   if (parts.length === 0) {

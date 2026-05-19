@@ -2,6 +2,7 @@
 
 // harness-ignore: max-file-lines -- single dense state machine: GuiShell wraps the entire (gui) route tree with shared refs across sidebar/agent-sidebar/tree-state/command-palette/broadcast concerns; lifting would obscure dataflow
 
+import { getErrorMessage } from "@marble/lib/result";
 import {
   cx,
   MarbleAccountPopover,
@@ -45,7 +46,6 @@ import {
   useRef,
   useState,
 } from "react";
-
 import {
   applySidebarTreeState,
   COLLAPSED_AGENT_SIDEBAR_WIDTH,
@@ -67,7 +67,6 @@ import {
 import { createDefaultProgram } from "../../../lib/program-client";
 import { useBroadcastResync } from "../../../lib/realtime/broadcast-resync";
 import { usePrivateBroadcast } from "../../../lib/realtime/private-broadcast";
-import { getErrorMessage } from "../../../lib/realtime-crud";
 import { buildSidebarTreeData } from "../../../lib/sidebar-snapshot";
 import {
   applySidebarMutation,

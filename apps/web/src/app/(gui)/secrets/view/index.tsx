@@ -1,5 +1,7 @@
 "use client";
 
+import { byString, composeCompare } from "@marble/lib/compare";
+import { getErrorMessage } from "@marble/lib/result";
 import {
   MarbleConfirmModal,
   type MarbleConfirmModalState,
@@ -15,9 +17,12 @@ const sortSecrets = (secrets: SecretRecord[]) => {
   return [
     ...secrets,
   ].sort(
-    (left, right) =>
-      left.name.localeCompare(right.name) ||
-      new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+    composeCompare(
+      byString((secret) => secret.name),
+      (left, right) =>
+        new Date(right.updatedAt).getTime() -
+        new Date(left.updatedAt).getTime(),
+    ),
   );
 };
 
@@ -156,7 +161,7 @@ export const SecretsPageView = ({
       setDraftValue("");
       marbleToast.success("Secret updated");
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : String(error));
+      setFormError(getErrorMessage(error));
     } finally {
       setPending(false);
     }
@@ -194,7 +199,7 @@ export const SecretsPageView = ({
       setCreating(remainingSecrets.length === 0);
       marbleToast.success("Secret deleted");
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : String(error));
+      setFormError(getErrorMessage(error));
     } finally {
       setPending(false);
     }

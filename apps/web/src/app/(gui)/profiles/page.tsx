@@ -1,7 +1,7 @@
 import { MarbleAlert, MarblePane } from "@marble/ui";
 import { requireUser } from "../../../lib/auth";
 import { createServerMarbleSdk } from "../../../lib/marble-sdk-server";
-import type { ManagedProfileRecord, ProfileKeyRecord } from "./shared";
+import type { ManagedProfileRecord, ProfileKeyRecord } from "./types";
 import { ProfilesPageView } from "./view";
 
 const ProfilesPage = async () => {

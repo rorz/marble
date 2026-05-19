@@ -1,6 +1,6 @@
 import "server-only";
 import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
-import { formatServerTimingEntry } from "@marble/lib/timing";
+import { formatServerTimingEntry, measure } from "@marble/lib/timing";
 import { NextResponse } from "next/server";
 import { getCurrentSupabaseAccessToken, getCurrentUser } from "./auth";
 import {
@@ -19,6 +19,23 @@ type ForwardMarbleApiRequestOptions = {
   publicPaths?: string[];
   stripPathPrefix: string;
 };
+
+type ForwardedAuthContext = {
+  accessToken?: string;
+  keyId?: string;
+  profileId?: string;
+  userId?: string;
+};
+
+type ForwardedAuthResolution =
+  | {
+      authContext: ForwardedAuthContext | null;
+      response?: never;
+    }
+  | {
+      authContext?: never;
+      response: NextResponse;
+    };
 
 const PROFILELESS_PROFILE_ID = "00000000-0000-0000-0000-000000000000";
 const MARBLE_SERVER_TIMING_HEADER = "x-marble-server-timing";
@@ -58,22 +75,16 @@ export const forwardMarbleApiRequest = async (
   req: Request,
   options: ForwardMarbleApiRequestOptions,
 ) => {
-  const startedAt = performance.now();
   const requestId =
     req.headers.get("x-marble-request-id")?.trim() || crypto.randomUUID();
   const debugTiming = shouldDebugTiming(req);
   const timings: string[] = [];
-  const recordTiming = (name: string, started: number) => {
-    timings.push(formatServerTimingEntry(name, performance.now() - started));
+  const recordTiming = (name: string, durationMs: number) => {
+    timings.push(formatServerTimingEntry(name, durationMs));
   };
   const apiKeyToken = getApiKeyTokenFromHeaders(req.headers);
   const requestedProfileId = req.headers.get("x-marble-profile-id")?.trim();
-  let authContext: {
-    accessToken?: string;
-    keyId?: string;
-    profileId?: string;
-    userId?: string;
-  } | null = null;
+  let authContext: ForwardedAuthContext | null = null;
   const url = new URL(req.url);
   url.pathname = stripPathPrefix(url.pathname, options.stripPathPrefix);
   const publicPath = isPublicForwardedPath(url.pathname, options.publicPaths);
@@ -81,159 +92,219 @@ export const forwardMarbleApiRequest = async (
     url.pathname,
     options.profilelessPaths,
   );
-  const authStartedAt = performance.now();
 
-  if (publicPath) {
-    timings.push(formatServerTimingEntry("auth", 0));
-  } else if (apiKeyToken) {
-    if (options.forwardUserSupabaseAuth) {
-      authContext = null;
-    } else {
-      const keyAuth = await resolveApiKeyAuth(
-        createServiceRoleClient(),
-        apiKeyToken,
-      );
+  const { durationMs: totalDurationMs, result: forwardingResult } =
+    await measure(
+      async (): Promise<{
+        finalize: boolean;
+        response: Response;
+      }> => {
+        if (publicPath) {
+          recordTiming("auth", 0);
+        } else {
+          const { durationMs: authDurationMs, result: authResolution } =
+            await measure(async (): Promise<ForwardedAuthResolution> => {
+              if (apiKeyToken) {
+                if (options.forwardUserSupabaseAuth) {
+                  return {
+                    authContext: null,
+                  };
+                }
 
-      if (!keyAuth) {
-        const response = NextResponse.json(
-          {
-            error: "Unauthorized",
-          },
-          {
-            status: 401,
-          },
-        );
-        response.headers.set("x-marble-request-id", requestId);
-        return response;
-      }
+                const keyAuth = await resolveApiKeyAuth(
+                  createServiceRoleClient(),
+                  apiKeyToken,
+                );
 
-      authContext = {
-        keyId: keyAuth.id,
-        profileId: keyAuth.owner_profile_id,
-      };
-    }
-  } else {
-    if (profilelessPath) {
-      const sessionStartedAt = performance.now();
-      const [accessToken, user] = options.forwardUserSupabaseAuth
-        ? await Promise.all([
-            getCurrentSupabaseAccessToken(),
-            getCurrentUser(),
-          ])
-        : [
-            undefined,
-            null,
-          ];
-      recordTiming("session", sessionStartedAt);
+                if (!keyAuth) {
+                  const response = NextResponse.json(
+                    {
+                      error: "Unauthorized",
+                    },
+                    {
+                      status: 401,
+                    },
+                  );
+                  response.headers.set("x-marble-request-id", requestId);
+                  return {
+                    response,
+                  };
+                }
 
-      if (options.forwardUserSupabaseAuth && (!accessToken || !user)) {
-        return NextResponse.json(
-          {
-            error: "Unauthorized",
-          },
-          {
-            status: 401,
-          },
-        );
-      }
+                return {
+                  authContext: {
+                    keyId: keyAuth.id,
+                    profileId: keyAuth.owner_profile_id,
+                  },
+                };
+              }
 
-      authContext = {
-        accessToken: accessToken ?? undefined,
-        profileId: PROFILELESS_PROFILE_ID,
-        userId: user?.id,
-      };
-    } else {
-      const userStartedAt = performance.now();
-      const user = await getCurrentUser();
-      recordTiming("user", userStartedAt);
+              if (profilelessPath) {
+                const { durationMs: sessionDurationMs, result: session } =
+                  await measure(async () => {
+                    if (options.forwardUserSupabaseAuth) {
+                      return Promise.all([
+                        getCurrentSupabaseAccessToken(),
+                        getCurrentUser(),
+                      ]);
+                    }
 
-      if (!user) {
-        return NextResponse.json(
-          {
-            error: "Unauthorized",
-          },
-          {
-            status: 401,
-          },
-        );
-      }
+                    return [
+                      null,
+                      null,
+                    ] satisfies [
+                      string | null,
+                      Awaited<ReturnType<typeof getCurrentUser>>,
+                    ];
+                  });
+                recordTiming("session", sessionDurationMs);
+                const [accessToken, user] = session;
 
-      const profileStartedAt = performance.now();
-      const profileId = await maybeResolveOwnedProfileId(
-        user.id,
-        requestedProfileId,
-      );
-      recordTiming("profile", profileStartedAt);
-      const sessionStartedAt = performance.now();
-      const accessToken = options.forwardUserSupabaseAuth
-        ? await getCurrentSupabaseAccessToken()
-        : undefined;
-      recordTiming("session", sessionStartedAt);
+                if (
+                  options.forwardUserSupabaseAuth &&
+                  (!accessToken || !user)
+                ) {
+                  return {
+                    response: NextResponse.json(
+                      {
+                        error: "Unauthorized",
+                      },
+                      {
+                        status: 401,
+                      },
+                    ),
+                  };
+                }
 
-      if (options.forwardUserSupabaseAuth && !accessToken) {
-        return NextResponse.json(
-          {
-            error: "Unauthorized",
-          },
-          {
-            status: 401,
-          },
-        );
-      }
+                return {
+                  authContext: {
+                    accessToken: accessToken ?? undefined,
+                    profileId: PROFILELESS_PROFILE_ID,
+                    userId: user?.id,
+                  },
+                };
+              }
 
-      authContext = {
-        accessToken: accessToken ?? undefined,
-        profileId,
-        userId: user.id,
-      };
-    }
+              const { durationMs: userDurationMs, result: user } =
+                await measure(() => getCurrentUser());
+              recordTiming("user", userDurationMs);
+
+              if (!user) {
+                return {
+                  response: NextResponse.json(
+                    {
+                      error: "Unauthorized",
+                    },
+                    {
+                      status: 401,
+                    },
+                  ),
+                };
+              }
+
+              const { durationMs: profileDurationMs, result: profileId } =
+                await measure(() =>
+                  maybeResolveOwnedProfileId(user.id, requestedProfileId),
+                );
+              recordTiming("profile", profileDurationMs);
+              const { durationMs: sessionDurationMs, result: accessToken } =
+                await measure(() =>
+                  options.forwardUserSupabaseAuth
+                    ? getCurrentSupabaseAccessToken()
+                    : undefined,
+                );
+              recordTiming("session", sessionDurationMs);
+
+              if (options.forwardUserSupabaseAuth && !accessToken) {
+                return {
+                  response: NextResponse.json(
+                    {
+                      error: "Unauthorized",
+                    },
+                    {
+                      status: 401,
+                    },
+                  ),
+                };
+              }
+
+              return {
+                authContext: {
+                  accessToken: accessToken ?? undefined,
+                  profileId,
+                  userId: user.id,
+                },
+              };
+            });
+
+          if (authResolution.response) {
+            return {
+              finalize: false,
+              response: authResolution.response,
+            };
+          }
+
+          authContext = authResolution.authContext;
+          recordTiming("auth", authDurationMs);
+        }
+
+        const forwardedReq = new Request(url, req);
+        forwardedReq.headers.set("x-marble-request-id", requestId);
+        forwardedReq.headers.delete("x-marble-profile-id");
+        forwardedReq.headers.delete("x-marble-auth-profile-id");
+        forwardedReq.headers.delete("x-marble-auth-user-id");
+        forwardedReq.headers.delete("x-marble-auth-key-id");
+
+        if (authContext) {
+          forwardedReq.headers.delete("Authorization");
+          forwardedReq.headers.delete("authorization");
+          forwardedReq.headers.delete("x-api-key");
+
+          if (authContext.keyId) {
+            forwardedReq.headers.set("x-marble-auth-key-id", authContext.keyId);
+          }
+
+          if (authContext.profileId) {
+            forwardedReq.headers.set(
+              "x-marble-auth-profile-id",
+              authContext.profileId,
+            );
+          }
+
+          if (authContext.userId) {
+            forwardedReq.headers.set("x-marble-actor-source", "WEB_APP");
+            forwardedReq.headers.set(
+              "x-marble-auth-user-id",
+              authContext.userId,
+            );
+          }
+
+          if (authContext.accessToken) {
+            forwardedReq.headers.set(
+              "Authorization",
+              `Bearer ${authContext.accessToken}`,
+            );
+          }
+        }
+
+        const { durationMs: apiDurationMs, result: apiResponse } =
+          await measure(() => options.api.fetch(forwardedReq));
+        recordTiming("api", apiDurationMs);
+
+        return {
+          finalize: true,
+          response: new Response(apiResponse.body, apiResponse),
+        };
+      },
+    );
+
+  const response = forwardingResult.response;
+
+  if (!forwardingResult.finalize) {
+    return response;
   }
-  if (!publicPath) {
-    recordTiming("auth", authStartedAt);
-  }
 
-  const forwardedReq = new Request(url, req);
-  forwardedReq.headers.set("x-marble-request-id", requestId);
-  forwardedReq.headers.delete("x-marble-profile-id");
-  forwardedReq.headers.delete("x-marble-auth-profile-id");
-  forwardedReq.headers.delete("x-marble-auth-user-id");
-  forwardedReq.headers.delete("x-marble-auth-key-id");
-
-  if (authContext) {
-    forwardedReq.headers.delete("Authorization");
-    forwardedReq.headers.delete("authorization");
-    forwardedReq.headers.delete("x-api-key");
-
-    if (authContext.keyId) {
-      forwardedReq.headers.set("x-marble-auth-key-id", authContext.keyId);
-    }
-
-    if (authContext.profileId) {
-      forwardedReq.headers.set(
-        "x-marble-auth-profile-id",
-        authContext.profileId,
-      );
-    }
-
-    if (authContext.userId) {
-      forwardedReq.headers.set("x-marble-actor-source", "WEB_APP");
-      forwardedReq.headers.set("x-marble-auth-user-id", authContext.userId);
-    }
-
-    if (authContext.accessToken) {
-      forwardedReq.headers.set(
-        "Authorization",
-        `Bearer ${authContext.accessToken}`,
-      );
-    }
-  }
-
-  const apiStartedAt = performance.now();
-  const apiResponse = await options.api.fetch(forwardedReq);
-  recordTiming("api", apiStartedAt);
-  recordTiming("total", startedAt);
-
-  const response = new Response(apiResponse.body, apiResponse);
+  recordTiming("total", totalDurationMs);
 
   if (debugTiming) {
     const forwardedServerTiming =
@@ -253,11 +324,7 @@ export const forwardMarbleApiRequest = async (
 
   if (debugTiming) {
     console.log("[marble-api-forward] timing", {
-      authType: apiKeyToken
-        ? "api-key"
-        : authContext?.keyId
-          ? "api-key"
-          : "user-session",
+      authType: apiKeyToken ? "api-key" : "user-session",
       path: url.pathname,
       profileless: profilelessPath,
       requestId,

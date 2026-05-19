@@ -2,6 +2,8 @@
 
 // harness-ignore: max-file-lines -- single dense state machine: ProgramsPageView orchestrates the entire program editor with shared refs across library/editor/version/draft/secret/manifest/file-tree/workbench concerns; lifting would obscure dataflow
 
+import { stringifyPretty } from "@marble/lib/json";
+import { getErrorMessage } from "@marble/lib/result";
 import { normalizeDisplayLabel } from "@marble/lib/string";
 import {
   cx,
@@ -301,25 +303,17 @@ export const ProgramsPageView = ({
       file.content,
     ]),
   );
-  const latestInputSchemaStr = JSON.stringify(
+  const latestInputSchemaStr = stringifyPretty(
     latestPublishedVersion?.inputSchema ?? {},
-    null,
-    2,
   );
-  const workingInputSchemaStr = JSON.stringify(
+  const workingInputSchemaStr = stringifyPretty(
     workingVersion?.inputSchema ?? {},
-    null,
-    2,
   );
-  const latestOutputConfigStr = JSON.stringify(
+  const latestOutputConfigStr = stringifyPretty(
     latestPublishedVersion?.outputConfig ?? {},
-    null,
-    2,
   );
-  const workingOutputConfigStr = JSON.stringify(
+  const workingOutputConfigStr = stringifyPretty(
     workingVersion?.outputConfig ?? {},
-    null,
-    2,
   );
   const latestSecretConfigStr = getProgramSecretConfigComparisonValue(
     latestPublishedVersion?.secretConfig,
@@ -337,10 +331,10 @@ export const ProgramsPageView = ({
   const normalizedInputSchemaStr = normalizeJsonEditorValue(inputSchemaStr);
   const normalizedOutputConfigStr = normalizeJsonEditorValue(outputConfigStr);
   const visibleInputSchemaStr = viewingHistoricalVersion
-    ? JSON.stringify(selectedHistoricalVersion?.inputSchema ?? {}, null, 2)
+    ? stringifyPretty(selectedHistoricalVersion?.inputSchema ?? {})
     : inputSchemaStr;
   const visibleOutputConfigStr = viewingHistoricalVersion
-    ? JSON.stringify(selectedHistoricalVersion?.outputConfig ?? {}, null, 2)
+    ? stringifyPretty(selectedHistoricalVersion?.outputConfig ?? {})
     : outputConfigStr;
   const nextVersionNumber = latestPublishedVersion
     ? (latestPublishedVersion.version ?? 0) + 1
@@ -548,8 +542,8 @@ export const ProgramsPageView = ({
             ]
           : [],
       );
-      setInputSchemaStr(JSON.stringify(workingVersion.inputSchema, null, 2));
-      setOutputConfigStr(JSON.stringify(workingVersion.outputConfig, null, 2));
+      setInputSchemaStr(stringifyPretty(workingVersion.inputSchema));
+      setOutputConfigStr(stringifyPretty(workingVersion.outputConfig));
       return;
     }
 
@@ -683,7 +677,7 @@ export const ProgramsPageView = ({
           [selectedProgram.id]: previousBindings,
         }));
         marbleToast.error("Secret binding failed", {
-          description: error instanceof Error ? error.message : String(error),
+          description: getErrorMessage(error),
         });
       } finally {
         setSavingProgramSecrets(false);
@@ -922,7 +916,7 @@ export const ProgramsPageView = ({
     } catch (error) {
       updateSelectedProgramName(selectedProgram.name);
       setProgName(selectedProgram.name);
-      setRenameError(error instanceof Error ? error.message : String(error));
+      setRenameError(getErrorMessage(error));
       throw error;
     }
   }, [
@@ -967,8 +961,8 @@ export const ProgramsPageView = ({
             ]
           : [],
       );
-      setInputSchemaStr(JSON.stringify(persistedDraft.inputSchema, null, 2));
-      setOutputConfigStr(JSON.stringify(persistedDraft.outputConfig, null, 2));
+      setInputSchemaStr(stringifyPretty(persistedDraft.inputSchema));
+      setOutputConfigStr(stringifyPretty(persistedDraft.outputConfig));
       setSelectedVersionView("current");
       setResult(null);
 
@@ -977,7 +971,7 @@ export const ProgramsPageView = ({
         description: `Forked from v${selectedHistoricalVersion.version}. Existing columns stay pinned to their current published version.`,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
 
       addLog(`✗ Draft creation failed: ${message}`);
       marbleToast.error("Draft creation failed", {
@@ -1247,9 +1241,7 @@ export const ProgramsPageView = ({
         );
       }
     } catch (error) {
-      addLog(
-        `✗ File import failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      addLog(`✗ File import failed: ${getErrorMessage(error)}`);
     } finally {
       setImportingFiles(false);
       setWorkspaceDragDepth(0);
@@ -1529,9 +1521,7 @@ export const ProgramsPageView = ({
       );
       await refreshPrograms();
     } catch (error) {
-      addLog(
-        `✗ Publish failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      addLog(`✗ Publish failed: ${getErrorMessage(error)}`);
     } finally {
       setSaving(false);
     }
@@ -1585,7 +1575,7 @@ export const ProgramsPageView = ({
             : `✗ Failed: ${nextResult.error}`,
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = getErrorMessage(error);
 
       setResult({
         error: message,
@@ -1606,7 +1596,7 @@ export const ProgramsPageView = ({
       const { programId } = await createDefaultProgram(sdk);
       router.push(`/programs/${programId}`);
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : String(error));
+      setCreateError(getErrorMessage(error));
       setCreatePending(false);
     }
   }, [
@@ -2969,7 +2959,7 @@ export const ProgramsPageView = ({
                         </div>
                         {result.ok ? (
                           <div className="max-h-48 overflow-auto break-words px-3 py-2 font-mono text-[11px] leading-5 text-taupe-800">
-                            {JSON.stringify(result.output, null, 2)}
+                            {stringifyPretty(result.output)}
                           </div>
                         ) : missingSecretConfigurationDetail ? (
                           <div className="space-y-3 px-3 py-3">

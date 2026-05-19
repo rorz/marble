@@ -3,6 +3,7 @@
 // harness-ignore: max-file-lines -- single dense state machine: source detail orchestrator with 30+ useState/useMemo refs sharing handlers across source/event/pipe/schema/mapping concerns; lifting would obscure dataflow
 
 import { castCamelKeys } from "@marble/lib/object";
+import { getErrorMessage } from "@marble/lib/result";
 import { normalizeDisplayLabel } from "@marble/lib/string";
 import {
   MarbleAlert,
@@ -578,9 +579,7 @@ export const ProjectSourceDetailPageView = ({
         ),
       );
       setSourceNameDraft(currentName);
-      setSourceRenameError(
-        error instanceof Error ? error.message : String(error),
-      );
+      setSourceRenameError(getErrorMessage(error));
     }
   };
 
@@ -614,7 +613,7 @@ export const ProjectSourceDetailPageView = ({
       );
       marbleToast.success("Source updated");
     } catch (error) {
-      setSourceError(error instanceof Error ? error.message : String(error));
+      setSourceError(getErrorMessage(error));
     } finally {
       setSourcePending(false);
     }
@@ -638,7 +637,7 @@ export const ProjectSourceDetailPageView = ({
       setSourceSchemaDraft(formatJson(inferredSchema));
       marbleToast.success("Schema inferred from selected event");
     } catch (error) {
-      setSourceError(error instanceof Error ? error.message : String(error));
+      setSourceError(getErrorMessage(error));
     } finally {
       setSourceSchemaInferPending(false);
     }
@@ -679,7 +678,7 @@ export const ProjectSourceDetailPageView = ({
       router.push(`/projects/${projectId}`);
       marbleToast.success("Source deleted");
     } catch (error) {
-      setSourceError(error instanceof Error ? error.message : String(error));
+      setSourceError(getErrorMessage(error));
     } finally {
       setSourcePending(false);
     }
@@ -736,7 +735,7 @@ export const ProjectSourceDetailPageView = ({
       );
       marbleToast.success("Pipe updated");
     } catch (error) {
-      setPipeError(error instanceof Error ? error.message : String(error));
+      setPipeError(getErrorMessage(error));
     } finally {
       setPipePending(false);
     }
@@ -774,7 +773,7 @@ export const ProjectSourceDetailPageView = ({
       router.push(`/projects/${projectId}`);
       marbleToast.success("Pipe deleted");
     } catch (error) {
-      setPipeError(error instanceof Error ? error.message : String(error));
+      setPipeError(getErrorMessage(error));
     } finally {
       setPipePending(false);
     }

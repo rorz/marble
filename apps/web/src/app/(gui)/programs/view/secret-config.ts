@@ -4,6 +4,7 @@ import {
   type ProgramSecretConfig,
   parseProgramSecretConfig,
 } from "@marble/contracts";
+import { getErrorMessage } from "@marble/lib/result";
 import type {
   EditableProgramSecretDeclaration,
   MissingSecretConfigurationDetail,
@@ -63,7 +64,7 @@ export const getEditableProgramSecretConfigState = (
   } catch (error) {
     return {
       declarations: [] as ProgramManifestSecretDeclaration[],
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     };
   }
 };

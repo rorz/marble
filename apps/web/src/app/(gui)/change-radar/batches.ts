@@ -1,3 +1,4 @@
+import { byString, composeCompare } from "@marble/lib/compare";
 import type {
   MarbleActivityRadarSegment,
   MarbleProfileAttributionProfile,
@@ -145,8 +146,10 @@ const buildBatchDetailItems = (
       total: value.count,
     }))
     .sort(
-      (left, right) =>
-        right.total - left.total || left.label.localeCompare(right.label),
+      composeCompare(
+        (left, right) => right.total - left.total,
+        byString((entry) => entry.label),
+      ),
     )
     .slice(0, 2)
     .map(({ diffs, label, targetKeys: resourceItemTargetKeys }) => ({

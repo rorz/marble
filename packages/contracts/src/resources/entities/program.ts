@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineResourceOperations } from "../../helpers";
+import { defineResourceOperations } from "../../orpc";
 import { baseEntitySchema, jsonValueSchema } from "../base";
 import { ProgramFileSchema } from "./program-file";
 import { ProgramVersionSchema } from "./program-version";

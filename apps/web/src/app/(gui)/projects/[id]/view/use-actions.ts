@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@marble/lib/result";
 import { normalizeDisplayLabel } from "@marble/lib/string";
 import {
   type MarbleConfirmModalState,
@@ -9,7 +10,6 @@ import type { useMarbleSdk } from "../../../../../lib/marble-sdk-client";
 import {
   compareByCreatedAtCamelDesc,
   compareByUpdatedAtCamelDesc,
-  getErrorMessage,
   upsertRow,
 } from "../../../../../lib/realtime-crud";
 import type { ProjectState } from "./types";

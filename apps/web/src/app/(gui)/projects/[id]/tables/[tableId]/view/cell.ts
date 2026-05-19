@@ -1,7 +1,5 @@
 import type { Cell, Column } from "./types";
 
-export { getErrorMessage } from "@marble/lib/result";
-
 type CellState =
   | {
       ok: true;

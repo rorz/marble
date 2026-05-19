@@ -1,3 +1,5 @@
+import { stringifyPretty } from "@marble/lib/json";
+import { getErrorMessage } from "@marble/lib/result";
 import { z } from "zod";
 import { isPlainObject } from "./pipe-mapping";
 import type { SourceSchemaValidation } from "./types";
@@ -7,7 +9,7 @@ export const isRecord = (value: unknown): value is Record<string, unknown> => {
 };
 
 export const formatJson = (value: unknown) => {
-  return JSON.stringify(value, null, 2);
+  return stringifyPretty(value);
 };
 
 export const validateSourceSchemaText = (
@@ -19,8 +21,7 @@ export const validateSourceSchemaText = (
     parsed = JSON.parse(value);
   } catch (error) {
     return {
-      message:
-        error instanceof Error ? error.message : "Payload schema must be JSON.",
+      message: getErrorMessage(error, "Payload schema must be JSON."),
       ok: false,
     };
   }

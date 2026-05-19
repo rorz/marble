@@ -2,6 +2,7 @@
 
 // harness-ignore: max-file-lines -- realtime perf scratch surface; intentionally kept as one file
 
+import { getErrorMessage } from "@marble/lib/result";
 import type { Database } from "@marble/supabase";
 import {
   cx,
@@ -369,9 +370,7 @@ const useTagProbe = ({
           });
       } catch (cause) {
         if (!cancelled) {
-          setError(
-            cause instanceof Error ? cause.message : "Broadcast auth failed.",
-          );
+          setError(getErrorMessage(cause, "Broadcast auth failed."));
           appendTelemetry("auth failed");
         }
       }

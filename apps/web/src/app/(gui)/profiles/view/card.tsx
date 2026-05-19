@@ -15,7 +15,7 @@ import type {
   ManagedProfileRecord,
   ProfileKeyRecord,
   ProfileRecord,
-} from "../shared";
+} from "../types";
 
 const CREATED_AT_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",

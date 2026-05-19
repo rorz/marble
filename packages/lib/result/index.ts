@@ -8,7 +8,7 @@
  * across the web app, CLI, and API forwarding code.
  */
 
-import { safeStringify } from "../json";
+import { safeStringify, stringifyPretty } from "../json";
 
 const DEFAULT_MESSAGE = "Request failed.";
 
@@ -65,7 +65,7 @@ export const formatRpcError = (error: unknown): string => {
 
     if (typeof candidate.toJSON === "function") {
       try {
-        return JSON.stringify(candidate.toJSON(), null, 2);
+        return stringifyPretty(candidate.toJSON());
       } catch {
         // fall through to the other formatters
       }
@@ -75,16 +75,12 @@ export const formatRpcError = (error: unknown): string => {
       typeof candidate.code === "string" &&
       typeof candidate.message === "string"
     ) {
-      return JSON.stringify(
-        {
-          code: candidate.code,
-          data: candidate.data,
-          message: candidate.message,
-          status: candidate.status,
-        },
-        null,
-        2,
-      );
+      return stringifyPretty({
+        code: candidate.code,
+        data: candidate.data,
+        message: candidate.message,
+        status: candidate.status,
+      });
     }
 
     if (error instanceof Error) {

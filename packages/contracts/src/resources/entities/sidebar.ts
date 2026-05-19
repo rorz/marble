@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineResourceOperations } from "../../helpers";
+import { defineResourceOperations } from "../../orpc";
 import { baseEntitySchema, timestampSchema } from "../base";
 import { ProfileSchema } from "./profile";
 

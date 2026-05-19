@@ -1,4 +1,5 @@
 import { parseProgramManifestFileContent } from "@marble/contracts";
+import { getErrorMessage } from "@marble/lib/result";
 import type { EditableProgramFile } from "./types";
 
 export const getProgramPackageManifestState = (
@@ -20,7 +21,7 @@ export const getProgramPackageManifestState = (
     };
   } catch (error) {
     return {
-      error: error instanceof Error ? error.message : String(error),
+      error: getErrorMessage(error),
     };
   }
 };

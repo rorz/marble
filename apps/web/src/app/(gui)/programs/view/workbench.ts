@@ -169,28 +169,22 @@ export const buildPendingChanges = ({
 };
 
 export const getDefaultDraftInputSchema = () => {
-  return JSON.stringify(
-    {
-      properties: {
-        param1: {
-          type: "string",
-        },
+  return stringifyPretty({
+    properties: {
+      param1: {
+        type: "string",
       },
-      type: "object",
     },
-    null,
-    2,
-  );
+    type: "object",
+  });
 };
 
 export const getDefaultDraftOutputConfig = () => {
-  return JSON.stringify(
-    {
-      schema: {
-        type: "object",
-      },
+  return stringifyPretty({
+    schema: {
+      type: "object",
     },
-    null,
-    2,
-  );
+  });
 };
+
+import { stringifyPretty } from "@marble/lib/json";

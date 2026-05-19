@@ -1,7 +1,7 @@
 import { JSONPath } from "jsonpath-plus";
 import sift from "sift";
 import { z } from "zod";
-import { defineResourceOperations } from "../../helpers";
+import { defineResourceOperations } from "../../orpc";
 import { baseEntitySchema, type JsonValue, jsonValueSchema } from "../base";
 import { JsonSchema, type ProgramOutputConfig } from "./program-version";
 

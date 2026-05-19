@@ -1,3 +1,4 @@
+import { stringifyPretty } from "@marble/lib/json";
 import type { MarbleClient } from "@marble/sdk";
 import type {
   ProgramVersionMutation,
@@ -7,7 +8,7 @@ import type {
 
 export const normalizeJsonEditorValue = (value: string) => {
   try {
-    return JSON.stringify(JSON.parse(value), null, 2);
+    return stringifyPretty(JSON.parse(value));
   } catch {
     return null;
   }

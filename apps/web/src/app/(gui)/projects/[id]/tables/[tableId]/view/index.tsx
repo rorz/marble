@@ -1,5 +1,6 @@
 "use client";
 // harness-ignore: max-file-lines -- single dense state machine: TablePageView wraps the entire table grid with shared refs across grid/cell/column/run/sidebar/broadcast concerns; lifting would obscure dataflow
+import { getErrorMessage } from "@marble/lib/result";
 import { normalizeDisplayLabel } from "@marble/lib/string";
 import {
   cx,
@@ -58,7 +59,6 @@ import {
   describeRunOutput,
   displayCellValue,
   getCellState,
-  getErrorMessage,
   isManualInputColumn,
   isRunningCellState,
   isTerminalCellState,
@@ -735,14 +735,9 @@ const TablePageView = ({
           )}`,
         );
       } catch (err) {
-        applyClientErrorToCell(
-          cell.id,
-          err instanceof Error ? err.message : String(err),
-          manualInput,
-        );
-        addLog(
-          `✗ "${col.name}" → ${err instanceof Error ? err.message : String(err)}`,
-        );
+        const message = getErrorMessage(err);
+        applyClientErrorToCell(cell.id, message, manualInput);
+        addLog(`✗ "${col.name}" → ${message}`);
       } finally {
         setRunning(false);
       }
@@ -796,13 +791,9 @@ const TablePageView = ({
           )}`,
         );
       } catch (err) {
-        applyClientErrorToCell(
-          cell.id,
-          err instanceof Error ? err.message : String(err),
-        );
-        addLog(
-          `✗ "${col.name}" → ${err instanceof Error ? err.message : String(err)}`,
-        );
+        const message = getErrorMessage(err);
+        applyClientErrorToCell(cell.id, message);
+        addLog(`✗ "${col.name}" → ${message}`);
       } finally {
         setRunning(false);
       }

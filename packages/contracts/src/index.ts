@@ -1,4 +1,4 @@
-import { createORPCResourceContract } from "./helpers";
+import { createORPCResourceContract } from "./orpc";
 import { cellOperations } from "./resources/entities/cell";
 import { columnOperations } from "./resources/entities/column";
 import { eventOperations } from "./resources/entities/event";

@@ -1,6 +1,7 @@
 "use client";
 
 import { toCamelKeys } from "@marble/lib/object";
+import { getErrorMessage } from "@marble/lib/result";
 import {
   MarbleAlert,
   MarbleButton,
@@ -19,7 +20,6 @@ import type { ProjectSummary } from "../../../lib/project-data";
 import { usePrivateBroadcast } from "../../../lib/realtime/private-broadcast";
 import {
   compareByUpdatedAtCamelDesc,
-  getErrorMessage,
   removeRow,
   sortRows,
   upsertRow,

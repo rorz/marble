@@ -1,4 +1,5 @@
 import { removeById } from "@marble/lib/array";
+import { byString, composeCompare } from "@marble/lib/compare";
 import { normalizeDisplayLabel } from "@marble/lib/string";
 import { buildPipeTitle } from "./pipe-display";
 
@@ -80,12 +81,11 @@ const PROJECT_RESOURCE_ORDER: Record<
   table: 2,
 };
 
-const compareNodes = (left: SidebarTreeNode, right: SidebarTreeNode) => {
-  return (
-    new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime() ||
-    left.label.localeCompare(right.label)
-  );
-};
+const compareNodes = composeCompare<SidebarTreeNode>(
+  (left, right) =>
+    new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+  byString((node) => node.label),
+);
 
 export const sortSidebarNodes = (nodes: SidebarTreeNode[]) => {
   return [
@@ -97,14 +97,16 @@ const compareProjectChildren = (
   left: SidebarTreeNode,
   right: SidebarTreeNode,
 ) => {
-  const resourceOrderDifference =
-    (PROJECT_RESOURCE_ORDER[left.kind as keyof typeof PROJECT_RESOURCE_ORDER] ??
-      Number.MAX_SAFE_INTEGER) -
-    (PROJECT_RESOURCE_ORDER[
-      right.kind as keyof typeof PROJECT_RESOURCE_ORDER
-    ] ?? Number.MAX_SAFE_INTEGER);
-
-  return resourceOrderDifference || compareNodes(left, right);
+  return composeCompare<SidebarTreeNode>(
+    (currentLeft, currentRight) =>
+      (PROJECT_RESOURCE_ORDER[
+        currentLeft.kind as keyof typeof PROJECT_RESOURCE_ORDER
+      ] ?? Number.MAX_SAFE_INTEGER) -
+      (PROJECT_RESOURCE_ORDER[
+        currentRight.kind as keyof typeof PROJECT_RESOURCE_ORDER
+      ] ?? Number.MAX_SAFE_INTEGER),
+    compareNodes,
+  )(left, right);
 };
 
 const sortProjectChildren = (nodes: SidebarTreeNode[]) => {

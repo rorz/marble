@@ -1,3 +1,4 @@
+import { stringifyPretty } from "@marble/lib/json";
 import { cva, type VariantProps } from "class-variance-authority";
 import type { HTMLAttributes, ReactNode } from "react";
 import { cx } from "../utils/cx";
@@ -59,7 +60,7 @@ const stringifyValue = (value: unknown): string => {
   }
 
   try {
-    return JSON.stringify(value, null, 2);
+    return stringifyPretty(value);
   } catch {
     return String(value);
   }

@@ -1,5 +1,6 @@
 "use server";
 
+import { stringifyPretty } from "@marble/lib/json";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { requireUser } from "../../../../../lib/auth";
@@ -80,7 +81,7 @@ export const inferSourceSchemaFromEventAction = async (
       "Do not include markdown.",
       "",
       "Selected event payload:",
-      JSON.stringify(sourceEvent.rawPayload, null, 2),
+      stringifyPretty(sourceEvent.rawPayload),
     ].join("\n"),
     schema: inferredSourceSchemaResultSchema,
   });

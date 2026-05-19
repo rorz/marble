@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defineResourceOperations } from "../../helpers";
+import { defineResourceOperations } from "../../orpc";
 import { baseEntitySchema, jsonValueSchema, timestampSchema } from "../base";
 
 const tags = [

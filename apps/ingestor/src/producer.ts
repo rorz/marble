@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@marble/lib/result";
 import type { Context } from "hono";
 import { workerStore } from "./store";
 
@@ -63,7 +64,7 @@ export const handleWebhook = async (
   } catch (error) {
     return c.json(
       {
-        error: error instanceof Error ? error.message : "Webhook auth failed",
+        error: getErrorMessage(error, "Webhook auth failed"),
       },
       {
         status: 500,
