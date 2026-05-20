@@ -143,6 +143,7 @@ Every primitive in `@marble/ui`. Each entry is a one-line "use when" so you can 
 ### Navigation
 
 - **`MarblePane`** — every page-level pane. Crumbs, actions, disclosure menu, and frame are all primitive concerns. Width is a `width` prop with a four-step scale — `Narrow` (`max-w-2xl`, focused reading column with extra top breathing room), `Wide` (`max-w-5xl`, two-column dashboards), `ExtraWide` (`max-w-6xl`, list-heavy admin views), `Full` (no cap, edge-to-edge). **Never** override the max-width via `className="max-w-*"` — extend the prop scale instead.
+- **`MarbleTabs` / `MarbleTabsList` / `MarbleTabsTrigger` / `MarbleTabsContent`** — route-level tab composition with count badges and a hover / focus / active underline indicator. Use this for shadcn-style product tab sets. Keep `MarbleWorkbenchTabs` for editor / dock chrome.
 - **`MarbleWorkbenchSection` / `MarbleWorkbenchTabs` / `MarbleWorkbenchTab` / `MarbleWorkbenchResizeHandle`** — editor / dock chrome.
 - **`MarbleReviewNavigator`** — compact review tray for stepping through grouped changes.
 - **`MarbleLink`** — the canonical client-side link primitive. A drop-in for `next/link`'s `Link` (it accepts the same props) that auto-registers `<MarbleRouteProgressBeacon />` so every click surfaces in the top progress bar. **Never** use raw `<a href="/internal/path">` for in-app navigation (causes a full document reload and skips the bar). **Never** import `Link` from `next/link` directly inside `(gui)/**` product code — use `MarbleLink`. Marketing surfaces and fragment-only links (`href="#section"`) are exempt.
@@ -151,6 +152,7 @@ Every primitive in `@marble/ui`. Each entry is a one-line "use when" so you can 
 ### Menus & Popovers
 
 - **`MarbleContextPopover`** — every disclosure / dot-trigger / button-trigger menu. Anchored to a trigger element. Sections, items, danger tone, disabled items, optional header — all primitive concerns. For free-form bodies (forms, custom controls), pass `content` instead of `items` / `sections`; positioning, click-outside, and escape choreography still come from the primitive. **Never** hand-roll a `useState(open)` + portal dropdown for a trigger-anchored menu.
+- **`MarbleMenuButton`** — labeled action menu button for grouped commands such as export format pickers. Composes `MarbleButton` + `MarbleContextPopover`, adds the disclosure chevron, and preserves the menu-button ARIA/keyboard behavior from the popover primitive.
 - **`MarbleAccountPopover` / `MarbleAccountMark`** — signed-in user identity chrome. `MarbleAccountMark` renders an `<img>` when an `avatarUrl` is provided, otherwise a two-letter initials chip derived from `displayName` (falls back to `?` when the name is empty). `MarbleAccountPopover` wraps the mark with a name + description header card and a `MarbleContextPopover` body for identity actions (account settings, sign out). Used by the GUI shell sidebar brand row.
 - **`MarbleBrandMark`** — decorative Marble glyph (orange-cornered taupe disc). Brand chrome only; carries no identity or workspace data. Use for first-party Marble surface tiles (e.g. the Programs library dock) where the brand should be visually marked.
 - **`MarbleActivityRadar` / `MarbleActivityRadarPanel` / `MarbleActivityRadarTrigger`** — agent changesets inbox.
@@ -271,6 +273,7 @@ When you find yourself reaching for the pattern on the left, use the primitive o
 | Inline rename / hover-to-edit text | `MarbleEditableText` (or `MarblePaneEditableCrumb` in crumbs) |
 | Page-level pane with crumbs + actions | `MarblePane` |
 | Constraining a pane's max content width | `MarblePane width="Narrow" \| "Wide" \| "ExtraWide" \| "Full"` (never `className="max-w-*"`) |
+| Route-level tab set | `MarbleTabs` + `MarbleTabsList` + `MarbleTabsTrigger` + `MarbleTabsContent` |
 | Editor section / dock panel | `MarbleWorkbenchSection` |
 | Editor tab strip | `MarbleWorkbenchTabs` + `MarbleWorkbenchTab` |
 | Browser-native alert / confirm / prompt | (none — use `MarbleConfirmModal` or a `marbleToast` for non-destructive feedback) |
@@ -297,6 +300,7 @@ Each of these patterns was hand-rolled across the codebase in the past. Each has
 - ❌ Click-to-navigate `<Link className="border bg-white hover:bg-zinc-50 ...">` cards → use `<MarbleCard href="..." />`. Click-handler cards that need hover affordance use `<MarbleCard interactive onClick={...} />`.
 - ❌ Per-route `MarbleCardHeader className="border-b ..."` overrides → use `<MarbleCardHeader divided>`.
 - ❌ Per-route `<MarblePane className="max-w-Nxl">` overrides → use `width="Narrow" | "Wide" | "ExtraWide" | "Full"`. If you genuinely need a width the scale doesn't cover, extend the scale on the primitive.
+- ❌ Per-route hand-rolled tab bars with local active / hover underline state → use `MarbleTabs` + `MarbleTabsList` + `MarbleTabsTrigger` + `MarbleTabsContent`.
 - ❌ Per-route `<div className="flex size-9 ... rounded-xs border ...">{icon}</div>` wrappers inside `MarbleListRow icon` → use `iconTone="neutral" | "orange"`.
 - ❌ `<MarbleButton><span className="inline-flex items-center gap-X"><Icon/>label</span></MarbleButton>` → use `iconLeft={Icon}` / `iconRight={Icon}`.
 - ❌ `useState(isOpen)` + manual portal for a trigger-anchored dropdown → use `MarbleContextPopover`.

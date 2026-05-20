@@ -1,9 +1,6 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import type { CSSProperties } from "react";
 
-const marbleCardNoiseTexture =
-  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E\")";
-
 export const marbleCardVariants = cva(
   "relative isolate flex flex-col overflow-hidden rounded-xs border",
   {
@@ -57,30 +54,6 @@ export const marbleCardSurfaceStyles: Record<MarbleCardTone, CSSProperties> = {
   },
 };
 
-export const marbleCardNoiseStyles: Record<MarbleCardTone, CSSProperties> = {
-  default: {
-    backgroundImage: marbleCardNoiseTexture,
-    backgroundRepeat: "repeat",
-    backgroundSize: "160px 160px",
-    mixBlendMode: "multiply",
-    opacity: 0.14,
-  },
-  orange: {
-    backgroundImage: marbleCardNoiseTexture,
-    backgroundRepeat: "repeat",
-    backgroundSize: "160px 160px",
-    mixBlendMode: "multiply",
-    opacity: 0.13,
-  },
-  subtle: {
-    backgroundImage: marbleCardNoiseTexture,
-    backgroundRepeat: "repeat",
-    backgroundSize: "160px 160px",
-    mixBlendMode: "multiply",
-    opacity: 0.16,
-  },
-};
-
 export const marbleCardInteractiveBaseClassName =
   "cursor-pointer transition-[colors,box-shadow,transform] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 active:translate-y-px";
 
@@ -121,7 +94,7 @@ export const marbleCardSectionVariants = cva(
 );
 
 export const marbleCardFooterVariants = cva(
-  "mt-auto flex items-center justify-end gap-3 border-t border-taupe-200 px-5 pt-4 pb-5",
+  "mt-auto flex items-center justify-end gap-3 border-t border-taupe-200 px-2 py-2 bg-taupe-50",
 );
 
 export const marbleCardTitleVariants = cva(

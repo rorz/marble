@@ -1,0 +1,25 @@
+{
+  "dependencies": {
+    "@earendil-works/pi-ai": "catalog:base",
+    "@earendil-works/pi-coding-agent": "catalog:base",
+    "@marble/api": "workspace:*",
+    "@marble/contracts": "workspace:*",
+    "@marble/supabase": "workspace:*",
+    "@marble/wizard": "workspace:*",
+    "server-only": "catalog:base",
+    "zod": "catalog:base"
+  },
+  "devDependencies": {
+    "typescript": "catalog:base"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "name": "@marble/agent",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "1.0.0"
+}

@@ -110,6 +110,10 @@ export {
   type MarbleListRowProps,
 } from "./components/list-row";
 export {
+  MarbleMenuButton,
+  type MarbleMenuButtonProps,
+} from "./components/menu-button";
+export {
   MarbleModal,
   MarbleModalClose,
   type MarbleModalCloseProps,
@@ -188,6 +192,16 @@ export {
   MarbleStat,
   type MarbleStatProps,
 } from "./components/stat";
+export {
+  MarbleTabs,
+  MarbleTabsContent,
+  type MarbleTabsContentProps,
+  MarbleTabsList,
+  type MarbleTabsListProps,
+  type MarbleTabsProps,
+  MarbleTabsTrigger,
+  type MarbleTabsTriggerProps,
+} from "./components/tabs";
 export {
   MarbleTextarea,
   type MarbleTextareaProps,

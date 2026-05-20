@@ -1,9 +1,18 @@
 {
   "dependencies": {},
+  "devDependencies": {
+    "typescript": "catalog:base"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "name": "@marble/wizard",
   "private": true,
   "scripts": {
     "install:local": "mkdir -p ~/.agents/skills && rm -rf ~/.agents/skills/marble-wizard && mkdir -p ~/.agents/skills/marble-wizard && cp -R src/. ~/.agents/skills/marble-wizard/ && bun run symlink",
-    "symlink": "mkdir -p ~/.claude/skills ~/.codex/skills && rm -rf ~/.claude/skills/marble-wizard ~/.codex/skills/marble-wizard && ln -s ~/.agents/skills/marble-wizard ~/.claude/skills/marble-wizard && ln -s ~/.agents/skills/marble-wizard ~/.codex/skills/marble-wizard"
-  }
+    "symlink": "mkdir -p ~/.claude/skills ~/.codex/skills && rm -rf ~/.claude/skills/marble-wizard ~/.codex/skills/marble-wizard && ln -s ~/.agents/skills/marble-wizard ~/.claude/skills/marble-wizard && ln -s ~/.agents/skills/marble-wizard ~/.codex/skills/marble-wizard",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "1.0.0"
 }

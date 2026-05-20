@@ -9,11 +9,11 @@ import {
   MarbleConfirmModal,
   type MarbleConfirmModalState,
   MarbleInput,
+  MarbleMenuButton,
   MarblePane,
   MarblePaneEditableCrumb,
   useMarbleRouter,
 } from "@marble/ui";
-import { PlayIcon } from "@phosphor-icons/react/ssr";
 import {
   AllCommunityModule,
   type CellContextMenuEvent,
@@ -1524,10 +1524,20 @@ const TablePageView = ({
                   {DATE_FORMATTER.format(new Date(selectedTable.updatedAt))}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
-                <MarbleButton iconRight={PlayIcon}>Run all</MarbleButton>
-                <MarbleButton>Export</MarbleButton>
-              </div>
+              <MarbleMenuButton
+                ariaLabel="Open table export menu"
+                items={[
+                  {
+                    label: "CSV",
+                    onSelect: () => {
+                      window.location.assign(
+                        `/projects/${selectedTable.projectId}/tables/${selectedTable.id}/export`,
+                      );
+                    },
+                  },
+                ]}
+                label="Export"
+              />
             </div>
           </div>
 

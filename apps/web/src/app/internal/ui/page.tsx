@@ -41,6 +41,7 @@ import {
   MarbleJsonPreview,
   MarbleLink,
   MarbleListRow,
+  MarbleMenuButton,
   MarbleModal,
   MarbleModalClose,
   MarbleModalContent,
@@ -66,6 +67,10 @@ import {
   MarbleSheetTitle,
   MarbleSpinner,
   MarbleStat,
+  MarbleTabs,
+  MarbleTabsContent,
+  MarbleTabsList,
+  MarbleTabsTrigger,
   MarbleTextarea,
   MarbleWorkbenchResizeHandle,
   MarbleWorkbenchSection,
@@ -1512,6 +1517,55 @@ const UiPage = () => {
         >
           <div className="space-y-4">
             <DemoPanel
+              description="Composable route tabs with active, hover, and focus underline motion plus count badges on triggers."
+              title="Tabs"
+            >
+              <MarbleTabs defaultValue="mine">
+                <MarbleTabsList>
+                  <MarbleTabsTrigger
+                    badge={2}
+                    value="mine"
+                  >
+                    My programs
+                  </MarbleTabsTrigger>
+                  <MarbleTabsTrigger
+                    badge={8}
+                    value="system"
+                  >
+                    System programs
+                  </MarbleTabsTrigger>
+                  <MarbleTabsTrigger value="marketplace">
+                    Program marketplace
+                  </MarbleTabsTrigger>
+                </MarbleTabsList>
+                <MarbleTabsContent value="mine">
+                  <div className="min-h-28 rounded-sm bg-taupe-50 p-4 text-sm text-taupe-700">
+                    <p className="font-medium text-zinc-950">My programs</p>
+                    <p className="mt-1">
+                      User-created cards mount below the shared tab bar.
+                    </p>
+                  </div>
+                </MarbleTabsContent>
+                <MarbleTabsContent value="system">
+                  <div className="min-h-28 rounded-sm bg-taupe-50 p-4 text-sm text-taupe-700">
+                    <p className="font-medium text-zinc-950">System programs</p>
+                    <p className="mt-1">
+                      Read-only templates can expose their own fork action.
+                    </p>
+                  </div>
+                </MarbleTabsContent>
+                <MarbleTabsContent value="marketplace">
+                  <div className="min-h-28 rounded-sm bg-taupe-50 p-4 text-sm text-taupe-700">
+                    <p className="font-medium text-zinc-950">Marketplace</p>
+                    <p className="mt-1">
+                      Placeholder surfaces use the same navigation shell.
+                    </p>
+                  </div>
+                </MarbleTabsContent>
+              </MarbleTabs>
+            </DemoPanel>
+
+            <DemoPanel
               description="Compact, small, active, orange, and aside variants — plus the iconTone shortcut that wraps icons in the standard bordered tile."
               title="List rows"
             >
@@ -1993,6 +2047,25 @@ const UiPage = () => {
               title="Context popovers"
             >
               <div className="space-y-4">
+                <div className="rounded-xs border border-taupe-200 bg-white p-4">
+                  <div className="mb-3 font-medium text-eyebrow-lg text-taupe-500">
+                    Menu button
+                  </div>
+                  <MarbleMenuButton
+                    ariaLabel="Open export menu"
+                    items={[
+                      {
+                        description: "Download the current table as CSV.",
+                        id: "export-csv",
+                        label: "CSV",
+                        onSelect: () => handleMenuSelect("Export CSV"),
+                      },
+                    ]}
+                    label="Export"
+                    size="sm"
+                  />
+                </div>
+
                 <div className="rounded-xs border border-taupe-200 bg-white p-4">
                   <div className="mb-3 font-medium text-eyebrow-lg text-taupe-500">
                     Default trigger

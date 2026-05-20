@@ -48,16 +48,26 @@ const createDefaultProgramFiles = (name: string): EditableProgramFile[] => {
   ];
 };
 
-export const createDefaultProgram = async (sdk: MarbleClient) => {
-  const files = createDefaultProgramFiles(DEFAULT_PROGRAM_NAME);
+export const createProgramFromVersion = async (
+  sdk: MarbleClient,
+  input: {
+    files: EditableProgramFile[];
+    forkedFromVersionId?: null | string;
+    inputSchema: unknown;
+    name: string;
+    outputConfig: unknown;
+    secretConfig: unknown;
+  },
+) => {
   const program = await sdk.programs.create({
+    forkedFromVersionId: input.forkedFromVersionId ?? null,
     initialVersion: {
-      inputSchema: DEFAULT_PROGRAM_INPUT_SCHEMA,
-      outputConfig: DEFAULT_PROGRAM_OUTPUT_CONFIG,
+      inputSchema: input.inputSchema,
+      outputConfig: input.outputConfig,
       publish: false,
-      secretConfig: [],
+      secretConfig: input.secretConfig,
     },
-    name: DEFAULT_PROGRAM_NAME,
+    name: input.name,
   });
 
   const initialVersion = program.initialVersion;
@@ -67,7 +77,7 @@ export const createDefaultProgram = async (sdk: MarbleClient) => {
   }
 
   await sdk.programFiles.syncForVersion({
-    files,
+    files: input.files,
     versionId: initialVersion.id,
   });
 
@@ -75,4 +85,15 @@ export const createDefaultProgram = async (sdk: MarbleClient) => {
     programId: program.id,
     versionId: initialVersion.id,
   };
+};
+
+export const createDefaultProgram = async (sdk: MarbleClient) => {
+  const files = createDefaultProgramFiles(DEFAULT_PROGRAM_NAME);
+  return createProgramFromVersion(sdk, {
+    files,
+    inputSchema: DEFAULT_PROGRAM_INPUT_SCHEMA,
+    name: DEFAULT_PROGRAM_NAME,
+    outputConfig: DEFAULT_PROGRAM_OUTPUT_CONFIG,
+    secretConfig: [],
+  });
 };

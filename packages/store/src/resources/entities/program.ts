@@ -22,6 +22,7 @@ export type CreatedProgram = Program & {
   initialVersion?: ProgramVersion;
 };
 export type CreateProgramInput = Pick<Program, "name"> & {
+  forkedFromVersionId?: null | string;
   initialVersion?: {
     inputSchema: unknown;
     outputConfig: unknown;
@@ -86,7 +87,7 @@ export class ProgramCollection implements ProgramCollectionApi {
       .from("program")
       .insert({
         first_party: false,
-        forked_from_version_id: null,
+        forked_from_version_id: input.forkedFromVersionId ?? null,
         name: input.name,
         owner_profile_id: ownerProfileId,
       })

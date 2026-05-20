@@ -12,7 +12,7 @@ const marbleBadgeVariants = cva(
     variants: {
       caps: {
         false: "tracking-wide text-[11px]",
-        true: "text-eyebrow-xs",
+        true: "text-eyebrow-xs uppercase",
       },
       tone: {
         error: "border-red-100 bg-red-100/50 text-red-500",

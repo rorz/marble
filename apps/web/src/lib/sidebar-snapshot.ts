@@ -27,9 +27,14 @@ type SidebarSnapshot = {
 export const buildSidebarTreeData = (
   snapshot: SidebarSnapshot,
 ): SidebarTreeData => {
+  const ownerProfileIdSet = new Set(snapshot.ownerProfileIds);
   const projectIdSet = new Set(snapshot.projects.map((project) => project.id));
   const tables = snapshot.tables.filter((table) =>
     projectIdSet.has(table.projectId),
+  );
+  const userPrograms = snapshot.programs.filter(
+    (program) =>
+      !program.firstParty && ownerProfileIdSet.has(program.ownerProfileId),
   );
   const sources = snapshot.sources.filter((source) =>
     projectIdSet.has(source.projectId),
@@ -79,7 +84,7 @@ export const buildSidebarTreeData = (
   return {
     ownerProfileIds: snapshot.ownerProfileIds,
     profiles: snapshot.profiles,
-    programs: sortSidebarNodes(snapshot.programs.map(buildProgramNode)),
+    programs: sortSidebarNodes(userPrograms.map(buildProgramNode)),
     projects: sortSidebarNodes(
       snapshot.projects.map((project) =>
         buildProjectNode(project, [

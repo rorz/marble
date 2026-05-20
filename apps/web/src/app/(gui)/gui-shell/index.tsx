@@ -15,6 +15,10 @@ import {
   MarbleCommandSeparator,
   MarbleSheet,
   MarbleSheetContent,
+  MarbleTabs,
+  MarbleTabsContent,
+  MarbleTabsList,
+  MarbleTabsTrigger,
   marbleToast,
   useMarbleRouter,
 } from "@marble/ui";
@@ -77,6 +81,7 @@ import type {
   SidebarTreeNode,
 } from "../../../lib/sidebar-tree";
 import { useSignOut } from "../../sign-out-button";
+import { AgentChat } from "../agent-chat";
 import { ChangeRadar } from "../change-radar";
 import {
   ChangeSpotlight,
@@ -1767,12 +1772,18 @@ export const GuiShell = ({
             className="flex size-full min-h-0 h-screen flex-col overflow-hidden"
             id="gui-agent-sidebar"
           >
-            <ChangeRadar
-              className="min-h-0 flex-1 rounded-none border-0 bg-transparent shadow-none"
-              headerActions={
+            <MarbleTabs
+              className="flex min-h-0 flex-1 flex-col"
+              defaultValue="chat"
+            >
+              <div className="flex items-center gap-2 px-2 pt-2 pb-1">
+                <MarbleTabsList className="flex-1">
+                  <MarbleTabsTrigger value="chat">Chat</MarbleTabsTrigger>
+                  <MarbleTabsTrigger value="changes">Changes</MarbleTabsTrigger>
+                </MarbleTabsList>
                 <button
                   aria-label={agentSidebarToggleLabel}
-                  className="flex size-8 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200/80 hover:text-taupe-900"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200/80 hover:text-taupe-900"
                   onClick={toggleAgentSidebar}
                   title={agentSidebarToggleLabel}
                   type="button"
@@ -1782,9 +1793,23 @@ export const GuiShell = ({
                     weight="bold"
                   />
                 </button>
-              }
-              sidebarData={sidebarData}
-            />
+              </div>
+              <MarbleTabsContent
+                className="min-h-0 flex-1 overflow-hidden"
+                value="chat"
+              >
+                <AgentChat />
+              </MarbleTabsContent>
+              <MarbleTabsContent
+                className="min-h-0 flex-1 overflow-hidden"
+                value="changes"
+              >
+                <ChangeRadar
+                  className="min-h-0 size-full rounded-none border-0 bg-transparent shadow-none"
+                  sidebarData={sidebarData}
+                />
+              </MarbleTabsContent>
+            </MarbleTabs>
           </aside>
         )}
 

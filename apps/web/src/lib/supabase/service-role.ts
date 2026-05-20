@@ -16,9 +16,36 @@ export const createServiceRoleClient = (headers?: Record<string, string>) => {
   });
 };
 
+type OwnedProfileType = "Agent" | "Human";
+
+const resolveOwnedProfileIdByType = async (
+  userId: string,
+  type: OwnedProfileType,
+) => {
+  const { data, error } = await createServiceRoleClient()
+    .from("profile")
+    .select("id")
+    .eq("owner_user_id", userId)
+    .eq("type", type)
+    .order("created_at", {
+      ascending: true,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.id;
+};
+
 export const maybeResolveOwnedProfileId = async (
   userId: string,
   profileId?: string | null,
+  options: {
+    defaultType?: OwnedProfileType;
+  } = {},
 ) => {
   if (profileId) {
     const { data, error } = await createServiceRoleClient()
@@ -35,20 +62,8 @@ export const maybeResolveOwnedProfileId = async (
     return data?.id;
   }
 
-  const { data, error } = await createServiceRoleClient()
-    .from("profile")
-    .select("id")
-    .eq("owner_user_id", userId)
-    .eq("type", "Human")
-    .order("created_at", {
-      ascending: true,
-    })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw error;
-  }
-
-  return data?.id;
+  return resolveOwnedProfileIdByType(userId, options.defaultType ?? "Human");
 };
+
+export const resolveAgentProfileId = async (userId: string) =>
+  resolveOwnedProfileIdByType(userId, "Agent");

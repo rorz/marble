@@ -17,8 +17,16 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   },
   server: {
+    ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
+    MARBLE_AGENT_PROVIDER: z.enum([
+      "anthropic",
+      "google",
+      "openai",
+    ]),
     MARBLE_EXECUTOR_URL: z.url(),
     MARBLE_INGESTOR_URL: z.url(),
+    OPENAI_API_KEY: z.string().min(1).optional(),
     SUPABASE_JWT_SECRET: z.string().min(1),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1), // TODO: Change to secret key
   },

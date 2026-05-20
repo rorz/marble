@@ -143,7 +143,7 @@ const applyMutationToTree = (
       const program = castCamelKeys<SidebarProgramRow>(mutation.row);
 
       if (
-        !program.firstParty &&
+        program.firstParty ||
         !current.ownerProfileIds.includes(program.ownerProfileId)
       ) {
         return {

@@ -199,6 +199,7 @@ export const programOperations = defineResourceOperations({
     input: ProgramSchema.pick({
       name: true,
     }).extend({
+      forkedFromVersionId: ProgramSchema.shape.forkedFromVersionId.optional(),
       initialVersion: InitialProgramVersionSchema.optional(),
     }),
     output: ProgramSchema.extend({

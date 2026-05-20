@@ -76,3 +76,24 @@ const { sidebar: _sidebarContract, ...marbleCliContract } = marbleContract;
 export { marbleCliContract };
 
 export type MarbleContract = typeof marbleContract;
+
+export const marbleOperations = {
+  cells: cellOperations,
+  columns: columnOperations,
+  events: eventOperations,
+  keys: keyOperations,
+  pipes: pipeOperations,
+  profiles: profileOperations,
+  programFiles: programFileOperations,
+  programs: programOperations,
+  programVersions: programVersionOperations,
+  projects: projectOperations,
+  rows: rowOperations,
+  secretBindings: secretBindingOperations,
+  secrets: secretOperations,
+  sourceEvents: sourceEventOperations,
+  sources: sourceOperations,
+  tables: tableOperations,
+} as const;
+
+export type MarbleOperations = typeof marbleOperations;

@@ -1,10 +1,6 @@
 import { stringifyPretty } from "@marble/lib/json";
 import type { MarbleClient } from "@marble/sdk";
-import type {
-  ProgramVersionMutation,
-  ProgramVersionWithFiles,
-  SecretBindingInput,
-} from "./types";
+import type { ProgramVersionMutation, ProgramVersionWithFiles } from "./types";
 
 export const normalizeJsonEditorValue = (value: string) => {
   try {
@@ -30,16 +26,5 @@ export const renameProgram = (
     values: {
       name,
     },
-  });
-};
-
-export const updateProgramSecretBindings = (
-  sdk: MarbleClient,
-  programId: string,
-  bindings: SecretBindingInput[],
-) => {
-  return sdk.secretBindings.setProgram({
-    bindings,
-    programId,
   });
 };

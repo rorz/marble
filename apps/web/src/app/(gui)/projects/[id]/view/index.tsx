@@ -9,6 +9,7 @@ import {
   MarblePaneEditableCrumb,
   useMarbleRouter,
 } from "@marble/ui";
+import { FlowArrowIcon, ListBulletsIcon } from "@phosphor-icons/react/dist/ssr";
 import { useRef, useState } from "react";
 import { useMarbleSdk } from "../../../../../lib/marble-sdk-client";
 import {
@@ -21,6 +22,7 @@ import {
   getChangeTargetProps,
 } from "../../../change-spotlight";
 import { useProjectBroadcast } from "./broadcast";
+import { ProjectFlowDiagram } from "./diagram";
 import { ProjectPipesSection } from "./pipes";
 import { ProjectSourcesSection } from "./sources";
 import { ProjectTablesSection } from "./tables";
@@ -55,6 +57,7 @@ export const ProjectPageView = ({
   const [creatingTable, setCreatingTable] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
   const [error, setError] = useState<null | string>(null);
+  const [viewMode, setViewMode] = useState<"flow" | "list">("flow");
   const [confirmState, setConfirmState] =
     useState<MarbleConfirmModalState | null>(null);
 
@@ -123,9 +126,26 @@ export const ProjectPageView = ({
     setSources,
     sources,
   });
+  const viewToggleLabel =
+    viewMode === "flow" ? "Show list view" : "Show flow view";
+  const ViewToggleIcon = viewMode === "flow" ? ListBulletsIcon : FlowArrowIcon;
+  const switchViewMode = () => {
+    setViewMode((current) => (current === "flow" ? "list" : "flow"));
+  };
 
   return (
     <MarblePane
+      actions={[
+        {
+          "aria-label": viewToggleLabel,
+          children: <span className="sr-only">{viewToggleLabel}</span>,
+          iconLeft: ViewToggleIcon,
+          id: "project-view-mode",
+          onClick: switchViewMode,
+          title: viewToggleLabel,
+          variant: "light",
+        },
+      ]}
       crumbs={[
         {
           href: "/projects",
@@ -157,7 +177,7 @@ export const ProjectPageView = ({
       ]}
       disclosureAriaLabel="Open project actions"
     >
-      <div className="space-y-6">
+      <div className="flex min-h-0 flex-1 flex-col gap-6">
         <div
           className="space-y-3"
           {...getChangeTargetProps(changeTargetKey.project(project.id))}
@@ -176,39 +196,65 @@ export const ProjectPageView = ({
 
         {error ? <MarbleAlert tone="error">{error}</MarbleAlert> : null}
 
-        <ProjectSourcesSection
-          creating={creatingSource}
-          onCreate={() => void actions.handleCreateSource()}
-          onRequestDelete={actions.requestDeleteSource}
-          onSelect={(sourceId) =>
-            router.push(actions.buildSourceDetailHref(sourceId))
-          }
-          sourceEventCountBySourceId={sourceEventCountBySourceId}
-          sources={sources}
-        />
+        {viewMode === "flow" ? (
+          <ProjectFlowDiagram
+            creatingPipe={creatingPipe}
+            creatingSource={creatingSource}
+            creatingTable={creatingTable}
+            onCreatePipe={() => void actions.handleCreatePipe()}
+            onCreateSource={() => void actions.handleCreateSource()}
+            onCreateTable={() => void actions.handleCreateTable()}
+            onSelectPipe={(pipeId) =>
+              router.push(actions.buildPipeDetailHref(pipeId))
+            }
+            onSelectSource={(sourceId) =>
+              router.push(actions.buildSourceDetailHref(sourceId))
+            }
+            onSelectTable={(tableId) =>
+              router.push(`/projects/${project.id}/tables/${tableId}`)
+            }
+            pipes={pipes}
+            project={project}
+            sourceEventCountBySourceId={sourceEventCountBySourceId}
+            sources={sources}
+          />
+        ) : (
+          <>
+            <ProjectSourcesSection
+              creating={creatingSource}
+              onCreate={() => void actions.handleCreateSource()}
+              onRequestDelete={actions.requestDeleteSource}
+              onSelect={(sourceId) =>
+                router.push(actions.buildSourceDetailHref(sourceId))
+              }
+              sourceEventCountBySourceId={sourceEventCountBySourceId}
+              sources={sources}
+            />
 
-        <ProjectPipesSection
-          creating={creatingPipe}
-          inputColumnLabelById={inputColumnLabelById}
-          onCreate={() => void actions.handleCreatePipe()}
-          onRequestDelete={actions.requestDeletePipe}
-          onSelect={(pipeId) =>
-            router.push(actions.buildPipeDetailHref(pipeId))
-          }
-          pipes={pipes}
-          sourceNameById={sourceNameById}
-          tableLabelById={tableLabelById}
-        />
+            <ProjectPipesSection
+              creating={creatingPipe}
+              inputColumnLabelById={inputColumnLabelById}
+              onCreate={() => void actions.handleCreatePipe()}
+              onRequestDelete={actions.requestDeletePipe}
+              onSelect={(pipeId) =>
+                router.push(actions.buildPipeDetailHref(pipeId))
+              }
+              pipes={pipes}
+              sourceNameById={sourceNameById}
+              tableLabelById={tableLabelById}
+            />
 
-        <ProjectTablesSection
-          creating={creatingTable}
-          onCreate={() => void actions.handleCreateTable()}
-          onRequestDelete={actions.requestDeleteTable}
-          onSelect={(tableId) =>
-            router.push(`/projects/${project.id}/tables/${tableId}`)
-          }
-          project={project}
-        />
+            <ProjectTablesSection
+              creating={creatingTable}
+              onCreate={() => void actions.handleCreateTable()}
+              onRequestDelete={actions.requestDeleteTable}
+              onSelect={(tableId) =>
+                router.push(`/projects/${project.id}/tables/${tableId}`)
+              }
+              project={project}
+            />
+          </>
+        )}
       </div>
 
       <MarbleConfirmModal

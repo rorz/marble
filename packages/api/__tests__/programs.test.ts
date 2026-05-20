@@ -32,6 +32,21 @@ describe("programs.create validation", () => {
       ),
     ).rejects.toThrow();
   });
+
+  test("rejects non-uuid forkedFromVersionId", async () => {
+    await expect(
+      call(
+        marbleRouter.programs.create,
+        {
+          forkedFromVersionId: INVALID_UUID,
+          name: "Forked program",
+        },
+        {
+          context: createValidationContext(),
+        },
+      ),
+    ).rejects.toThrow();
+  });
 });
 
 describe("programs.update validation", () => {

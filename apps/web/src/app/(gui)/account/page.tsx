@@ -12,7 +12,7 @@ const AccountPage = async () => {
 
   return (
     <MarblePane
-      description="The Supabase identity backing this Marble session."
+      description="View and modify the details associated with your account."
       title="Account"
       width="Narrow"
     >

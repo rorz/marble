@@ -21,7 +21,6 @@ const ProjectSourcePage = async (props: {
     <ProjectSourceDetailPageView
       initialData={data}
       initialSourceId={sourceId}
-      mode="source"
     />
   );
 };

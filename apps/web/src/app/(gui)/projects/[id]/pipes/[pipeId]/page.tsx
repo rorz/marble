@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "../../../../../../lib/auth";
 import { getProjectSourceWorkspaceData } from "../../../../../../lib/source-data";
-import { ProjectSourceDetailPageView } from "../../sources/view";
+import { ProjectPipeDetailPageView } from "../view";
 
 const ProjectPipePage = async (props: {
   params: Promise<{
@@ -18,10 +18,9 @@ const ProjectPipePage = async (props: {
   }
 
   return (
-    <ProjectSourceDetailPageView
+    <ProjectPipeDetailPageView
       initialData={data}
       initialPipeId={pipeId}
-      mode="pipe"
     />
   );
 };
