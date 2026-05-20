@@ -6,7 +6,7 @@
       "name": "marble",
       "devDependencies": {
         "@biomejs/biome": "^2.4.13",
-        "knip": "catalog:base",
+        "knip": "^6.12.2",
         "turbo": "^2.9.6",
         "typescript": "^6.0.3",
       },
@@ -273,7 +273,6 @@
       "dotenv": "^16",
       "hono": "^4",
       "jsonpath-plus": "10.4.0",
-      "knip": "^6.12.2",
       "monaco-editor": "0.55.1",
       "nanoid": "^5.1.7",
       "next": "16.2.4",
