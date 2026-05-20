@@ -2,7 +2,6 @@
 
 import {
   MarbleAlert,
-  MarbleButton,
   MarbleConfirmModal,
   type MarbleConfirmModalState,
   MarbleEditableText,
@@ -148,6 +147,15 @@ export const ProjectPageView = ({
           ),
         },
       ]}
+      disclosureActions={[
+        {
+          disabled: deletingProject,
+          label: deletingProject ? "Deleting..." : "Delete project",
+          onSelect: actions.handleDeleteProject,
+          tone: "danger",
+        },
+      ]}
+      disclosureAriaLabel="Open project actions"
     >
       <div className="space-y-6">
         <div
@@ -201,16 +209,6 @@ export const ProjectPageView = ({
           }
           project={project}
         />
-
-        <div className="flex justify-end">
-          <MarbleButton
-            disabled={deletingProject}
-            onClick={actions.handleDeleteProject}
-            variant="red"
-          >
-            {deletingProject ? "Deleting" : "Delete project"}
-          </MarbleButton>
-        </div>
       </div>
 
       <MarbleConfirmModal

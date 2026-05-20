@@ -133,7 +133,8 @@ const TablePageView = ({
     null | "crumb" | "title"
   >(null);
   const [nameDraft, setNameDraft] = useState(initialTablePageData.table.name);
-  const [renameError, setRenameError] = useState<null | string>(null);
+  const [tableError, setTableError] = useState<null | string>(null);
+  const [deletingTable, setDeletingTable] = useState(false);
   const [inspectedCell, setInspectedCell] = useState<InspectedCell | null>(
     null,
   );
@@ -1098,7 +1099,7 @@ const TablePageView = ({
     const requestId = renameRequestRef.current + 1;
     renameRequestRef.current = requestId;
     renameInFlightRef.current = true;
-    setRenameError(null);
+    setTableError(null);
     setEditingSurface(null);
     setNameDraft(nextName);
     mergeTable({
@@ -1131,7 +1132,7 @@ const TablePageView = ({
 
       mergeTable(previousTable);
       setNameDraft(previousTable.name);
-      setRenameError(getErrorMessage(error));
+      setTableError(getErrorMessage(error));
     } finally {
       if (renameRequestRef.current === requestId) {
         renameInFlightRef.current = false;
@@ -1150,6 +1151,40 @@ const TablePageView = ({
 
     setEditingSurface(surface);
   }, []);
+
+  const performDeleteTable = useCallback(async () => {
+    const currentTable = tableRef.current;
+    setDeletingTable(true);
+    setTableError(null);
+
+    try {
+      await sdk.tables.delete({
+        id: currentTable.id,
+      });
+      router.push(`/projects/${currentTable.projectId}`);
+    } catch (error) {
+      setTableError(getErrorMessage(error));
+      setDeletingTable(false);
+    }
+  }, [
+    router,
+    sdk,
+  ]);
+
+  const requestDeleteTable = useCallback(() => {
+    const currentTable = tableRef.current;
+
+    setConfirmState({
+      confirmLabel: "Delete table",
+      message: `Delete table "${currentTable.name}"? Its rows, cells, and any pipes that target it will also be deleted.`,
+      onConfirm: () => {
+        void performDeleteTable();
+      },
+      title: "Delete table",
+    });
+  }, [
+    performDeleteTable,
+  ]);
 
   const matchChangeTarget = useCallback(
     (descriptor: ChangeTargetDescriptor) => {
@@ -1363,6 +1398,15 @@ const TablePageView = ({
           ),
         },
       ]}
+      disclosureActions={[
+        {
+          disabled: deletingTable,
+          label: deletingTable ? "Deleting..." : "Delete table",
+          onSelect: requestDeleteTable,
+          tone: "danger",
+        },
+      ]}
+      disclosureAriaLabel="Open table actions"
       frame="none"
     >
       <div className="relative flex w-full h-full min-h-0 flex overflow-hidden bg-zinc-50 font-sans text-zinc-900">
@@ -1395,12 +1439,12 @@ const TablePageView = ({
             </div>
           </div>
 
-          {renameError ? (
+          {tableError ? (
             <MarbleAlert
               className="mb-3"
               tone="error"
             >
-              {renameError}
+              {tableError}
             </MarbleAlert>
           ) : null}
 
