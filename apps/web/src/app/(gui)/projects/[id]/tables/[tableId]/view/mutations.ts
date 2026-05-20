@@ -90,6 +90,7 @@ export const updateColumn = (
   sdk: MarbleClient,
   input: {
     columnId: string;
+    idx?: number;
     inputTemplate?: string;
     name?: string;
     programVersionId?: string;
@@ -99,6 +100,11 @@ export const updateColumn = (
   return sdk.columns.update({
     id: input.columnId,
     values: {
+      ...(input.idx === undefined
+        ? {}
+        : {
+            idx: input.idx,
+          }),
       ...(input.inputTemplate === undefined
         ? {}
         : {

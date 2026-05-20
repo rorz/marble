@@ -19,6 +19,7 @@ import {
   type CellContextMenuEvent,
   type CellValueChangedEvent,
   type ColDef,
+  type ColumnMovedEvent,
   ModuleRegistry,
 } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
@@ -203,6 +204,9 @@ const TablePageView = ({
   }, []);
 
   const upsertLocalColumn = useCallback((nextColumn: Column) => {
+    if (nextColumn.idx >= 10000) {
+      return;
+    }
     setColumns((prev) => {
       const existingIndex = prev.findIndex(
         (column) => column.id === nextColumn.id,
@@ -690,6 +694,84 @@ const TablePageView = ({
       ].slice(0, 100),
     );
   }, []);
+
+  const onColumnMoved = useCallback(
+    async (event: ColumnMovedEvent) => {
+      if (!event.finished) {
+        return;
+      }
+
+      const gridApi = gridRef.current?.api;
+      if (!gridApi) return;
+
+      const columnState = gridApi.getColumnState();
+      const orderedColIds = columnState
+        .map((col) => col.colId)
+        .filter((colId) => columnsRef.current.some((c) => c.id === colId));
+
+      const newIdxMap = new Map<string, number>(
+        orderedColIds.map((id, index) => [
+          id,
+          index,
+        ]),
+      );
+
+      const updates: Array<{
+        id: string;
+        idx: number;
+      }> = [];
+      const updatedColumns = columnsRef.current.map((col) => {
+        const nextIdx = newIdxMap.get(col.id);
+        if (nextIdx !== undefined && nextIdx !== col.idx) {
+          updates.push({
+            id: col.id,
+            idx: nextIdx,
+          });
+          return {
+            ...col,
+            idx: nextIdx,
+          };
+        }
+        return col;
+      });
+
+      if (updates.length === 0) {
+        return;
+      }
+
+      setColumns(updatedColumns);
+      columnsRef.current = updatedColumns;
+
+      try {
+        await Promise.all(
+          updates.map((update) =>
+            sdk.columns.update({
+              id: update.id,
+              values: {
+                idx: 10000 + update.idx,
+              },
+            }),
+          ),
+        );
+
+        await Promise.all(
+          updates.map((update) =>
+            sdk.columns.update({
+              id: update.id,
+              values: {
+                idx: update.idx,
+              },
+            }),
+          ),
+        );
+      } catch (error) {
+        console.error("Failed to persist column reordering:", error);
+      }
+    },
+    [
+      sdk,
+    ],
+  );
 
   const onCellValueChanged = useCallback(
     async (event: CellValueChangedEvent) => {
@@ -1516,6 +1598,7 @@ const TablePageView = ({
                     });
                   }}
                   onCellValueChanged={onCellValueChanged}
+                  onColumnMoved={onColumnMoved}
                   preventDefaultOnContextMenu
                   ref={gridRef}
                   rowData={rowData}
