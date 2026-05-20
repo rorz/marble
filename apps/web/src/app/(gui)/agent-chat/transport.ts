@@ -71,7 +71,7 @@ export const readAgentResponse = async ({
         {
           id: randomId(),
           kind: "warning",
-          message: `No response from the agent for ${Math.round(IDLE_WATCHDOG_MS / 1000)}s. The model or a tool may be hanging. You can keep waiting or start a new thread.`,
+          message: `No response from the agent for ${Math.round(IDLE_WATCHDOG_MS / 1000)}s. The model or a tool may be hanging. You can keep waiting or cancel the run.`,
         },
       ]);
     }

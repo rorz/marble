@@ -3,6 +3,13 @@ import type { ChatEntry, ToolChatEntry } from "./types";
 export const randomId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
+type ErrorEntry = Extract<
+  ChatEntry,
+  {
+    kind: "error";
+  }
+>;
+
 const isAssistantWithTools = (
   entry: ChatEntry | undefined,
 ): entry is Extract<
@@ -11,6 +18,18 @@ const isAssistantWithTools = (
     kind: "assistant";
   }
 > => entry?.kind === "assistant" && Boolean(entry.tools?.length);
+
+export const appendErrorEntry = (
+  entries: ChatEntry[],
+  error: Omit<ErrorEntry, "id" | "kind">,
+): ChatEntry[] => [
+  ...entries,
+  {
+    ...error,
+    id: randomId(),
+    kind: "error",
+  },
+];
 
 export const closePendingToolEntries = (
   entries: ChatEntry[],
@@ -216,9 +235,7 @@ export const updateToolEntry = (
   };
 };
 
-export const closeStreamingAssistantEntries = (
-  entries: ChatEntry[],
-): ChatEntry[] =>
+const closeStreamingAssistantEntries = (entries: ChatEntry[]): ChatEntry[] =>
   entries.map((entry) =>
     entry.kind === "assistant" && entry.streaming
       ? {
@@ -227,3 +244,12 @@ export const closeStreamingAssistantEntries = (
         }
       : entry,
   );
+
+export const closeActiveRunEntries = (
+  entries: ChatEntry[],
+  options: {
+    error?: string;
+    status: "complete" | "error";
+  },
+): ChatEntry[] =>
+  closePendingToolEntries(closeStreamingAssistantEntries(entries), options);

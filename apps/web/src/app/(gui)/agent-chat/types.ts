@@ -34,6 +34,23 @@ export type ChatEntry =
       message: string;
     };
 
+export type ChatThreadSummary = {
+  createdAt: number;
+  id: string;
+  title: string;
+  updatedAt: number;
+};
+
+export type ChatThread = ChatThreadSummary & {
+  entries: ChatEntry[];
+};
+
+export type ClientAction = {
+  href: string;
+  replace?: boolean;
+  type: "browser_navigate";
+};
+
 export type ToolChatEntry = {
   error?: string;
   id: string;
@@ -51,6 +68,7 @@ export type StreamEvent = {
     delta?: string;
     type?: string;
   };
+  clientAction?: ClientAction;
   code?: string;
   elapsedMs?: number;
   isError?: boolean;
@@ -100,7 +118,9 @@ export type ParseOutcome =
     };
 
 export const IDLE_WATCHDOG_MS = 30000;
-export const STORAGE_KEY = "marble-agent-chat-thread";
+export const ACTIVE_THREAD_STORAGE_KEY = "marble-agent-chat-active-thread";
+export const LEGACY_STORAGE_KEY = "marble-agent-chat-thread";
+export const THREADS_STORAGE_KEY = "marble-agent-chat-threads";
 
 export const ERROR_CODE_DESCRIPTIONS: Record<string, string> = {
   PROMPT_FAILED: "The LLM call failed mid-stream.",

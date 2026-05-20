@@ -12,22 +12,15 @@ const DEEP_AGENT_PATTERNS: Array<{
 }> = [
   {
     pattern:
-      /\b(workflow|flow|automation|pipeline|webhook|apollo|enrich|enrichment|integration|sign-?ups?|website)\b/i,
-    reason: "Complex workflow or integration request.",
-  },
-  {
-    pattern: /\b(connect|connected|pipe|mapping|link)\b/i,
-    reason: "Cross-resource connection request.",
+      /\b(plan|architect|design|workflow|flow|automation|pipeline|webhook|apollo|enrich|enrichment|integration|sign-?ups?|website)\b/i,
+    reason: "Planning, workflow, or integration request.",
   },
   {
     pattern:
-      /\b(wrong project|new project|you haven't|not what|nothing'?s connected|already said)\b/i,
-    reason: "Correction follow-up needs stronger context handling.",
+      /\b(delete all|delete every|remove all|remove every|wipe|reset everything)\b/i,
+    reason: "Broad destructive request.",
   },
 ];
-
-const mutationPattern = /\b(add|build|connect|create|make|set up|update)\b/i;
-const sequencePattern = /\b(and then|then|using|via|with .* and)\b/i;
 
 const resolveHardDeepDecision = (
   input: AgentChatRequest,
@@ -42,14 +35,6 @@ const resolveHardDeepDecision = (
         route: "agent",
       };
     }
-  }
-
-  if (mutationPattern.test(message) && sequencePattern.test(message)) {
-    return {
-      modelTier: "deep",
-      reason: "Multi-step mutation request.",
-      route: "agent",
-    };
   }
 
   return null;

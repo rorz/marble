@@ -3,7 +3,7 @@ import type { HTMLAttributes } from "react";
 import { cx } from "../utils/cx";
 
 const marbleBadgeVariants = cva(
-  "place-self-start inline-flex items-center rounded-xs border px-1.5 py-0.5 font-semibold",
+  "place-self-start inline-flex items-center rounded-xs border px-1.5 py-0.5 font-semibold text-xs",
   {
     defaultVariants: {
       caps: false,
@@ -11,7 +11,7 @@ const marbleBadgeVariants = cva(
     },
     variants: {
       caps: {
-        false: "tracking-wide text-[11px]",
+        false: "tracking-wide",
         true: "text-eyebrow-xs uppercase",
       },
       tone: {

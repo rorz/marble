@@ -114,7 +114,7 @@ const AssistantEntryView = ({
       ) : null}
       {entry.content ||
       (entry.streaming && (!entry.tools || entry.tools.length === 0)) ? (
-        <div className="whitespace-pre-wrap rounded-sm bg-white px-3 py-2 text-sm text-taupe-900 inset-shadow-2xs inset-shadow-white/45 ring-1 ring-taupe-200">
+        <div className="whitespace-pre-wrap rounded-sm px-3 py-2 text-sm text-taupe-900">
           {entry.content || (entry.streaming ? "Waiting for response..." : "")}
         </div>
       ) : null}
@@ -126,7 +126,7 @@ export const ChatEntryView = ({ entry }: { entry: ChatEntry }) => {
   if (entry.kind === "user") {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] whitespace-pre-wrap rounded-sm bg-taupe-900 px-3 py-2 text-sm text-white">
+        <div className="max-w-[85%] whitespace-pre-wrap rounded-xl bg-taupe-200 font-medium px-2.5 py-2 text-sm text-taupe-900">
           {entry.content}
         </div>
       </div>

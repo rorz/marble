@@ -1,7 +1,7 @@
 "use client";
 
 import { MarbleButton, MarbleSpinner, MarbleTextarea } from "@marble/ui";
-import { PaperPlaneRightIcon, PlusIcon } from "@phosphor-icons/react";
+import { PaperPlaneRightIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
 import {
   type FormEvent,
   type KeyboardEvent,
@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { ChatEntryView } from "./entry-view";
+import { HistoryMenu } from "./history-menu";
 import type { AgentChatPageContext } from "./types";
 import { useSession } from "./use-session";
 
@@ -22,14 +23,19 @@ type AgentChatProps = {
 export const AgentChat = ({ headerActions, pageContext }: AgentChatProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const {
+    activeThreadId,
+    cancelCurrentRun,
     draft,
     elapsedMs,
     entries,
+    handleDeleteThread,
     handleNewThread,
+    handleSelectThread,
     sendMessage,
     setDraft,
-    statusMessage,
+    status,
     streaming,
+    threadSummaries,
   } = useSession({
     pageContext,
   });
@@ -66,6 +72,13 @@ export const AgentChat = ({ headerActions, pageContext }: AgentChatProps) => {
           </span>
         </div>
         <div className="flex items-center gap-1">
+          <HistoryMenu
+            activeThreadId={activeThreadId}
+            disabled={streaming}
+            onDeleteThread={handleDeleteThread}
+            onSelectThread={handleSelectThread}
+            threads={threadSummaries}
+          />
           <button
             aria-label="New thread"
             className="flex size-8 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200/80 hover:text-taupe-900"
@@ -103,7 +116,7 @@ export const AgentChat = ({ headerActions, pageContext }: AgentChatProps) => {
         ))}
 
         {streaming &&
-        (statusMessage ||
+        (status ||
           !entries.some(
             (entry) =>
               entry.kind === "assistant" &&
@@ -112,19 +125,40 @@ export const AgentChat = ({ headerActions, pageContext }: AgentChatProps) => {
           )) ? (
           <div className="flex items-center gap-2 rounded-sm border border-taupe-200 bg-white/70 px-3 py-2 text-taupe-600 text-xs inset-shadow-2xs inset-shadow-white/45">
             <MarbleSpinner size="sm" />
-            <span className="flex-1">
-              {statusMessage ??
-                (elapsedMs === 0
-                  ? "Connecting to Marble Agent..."
-                  : elapsedMs < 5_000
-                    ? "Marble Agent is thinking..."
-                    : `Still working... ${Math.round(elapsedMs / 1000)}s`)}
-            </span>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div>
+                {status?.message ??
+                  (elapsedMs === 0
+                    ? "Connecting to Marble Agent..."
+                    : elapsedMs < 5_000
+                      ? "Marble Agent is thinking..."
+                      : `Still working... ${Math.round(elapsedMs / 1000)}s`)}
+              </div>
+              {status?.notes.length ? (
+                <div className="space-y-0.5 text-taupe-500">
+                  {status.notes.map((note) => (
+                    <div key={note}>{note}</div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             {elapsedMs > 15_000 ? (
               <span className="text-eyebrow-xs text-taupe-400 uppercase">
                 long-running call
               </span>
             ) : null}
+            <button
+              aria-label="Cancel current run"
+              className="flex size-7 shrink-0 items-center justify-center rounded-sm text-taupe-400 transition-colors hover:bg-taupe-100 hover:text-taupe-900"
+              onClick={cancelCurrentRun}
+              title="Cancel current run"
+              type="button"
+            >
+              <XIcon
+                size={14}
+                weight="bold"
+              />
+            </button>
           </div>
         ) : null}
       </div>

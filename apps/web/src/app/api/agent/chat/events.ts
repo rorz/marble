@@ -1,5 +1,6 @@
 import type {
   AgentSessionEvent,
+  ClientAction,
   createMarbleAgentSession,
   MarbleAgentProvider,
 } from "@marble/agent";
@@ -37,6 +38,7 @@ type ToolResultContent = {
 };
 
 type ToolResultDetails = {
+  clientAction?: unknown;
   error?: unknown;
   result?: unknown;
 };
@@ -80,6 +82,7 @@ export type AgentChatWireEvent =
       type: "tool_execution_start";
     }
   | {
+      clientAction?: ClientAction;
       isError: boolean;
       message?: string;
       result?: unknown;
@@ -161,6 +164,24 @@ const extractToolResultText = (
   return text && text.length > 0 ? text : undefined;
 };
 
+const parseClientAction = (value: unknown): ClientAction | undefined => {
+  if (!value || typeof value !== "object") return undefined;
+  const action = value as Partial<ClientAction>;
+  if (
+    action.type === "browser_navigate" &&
+    typeof action.href === "string" &&
+    (action.replace === undefined || typeof action.replace === "boolean")
+  ) {
+    return {
+      href: action.href,
+      replace: action.replace,
+      type: "browser_navigate",
+    };
+  }
+
+  return undefined;
+};
+
 const normalizeToolResultMessage = (
   message: unknown,
 ): AgentChatWireEvent | undefined => {
@@ -183,6 +204,7 @@ const normalizeToolResultMessage = (
     : undefined;
 
   return {
+    clientAction: parseClientAction(result.details?.clientAction),
     isError,
     message: errorMessage,
     result: result.details?.result ?? result.details ?? result,
@@ -243,6 +265,7 @@ export const normalizeAgentEvent = (
           : undefined;
 
     return {
+      clientAction: parseClientAction(result.details?.clientAction),
       isError: event.isError || errorMessage !== undefined,
       message: errorMessage,
       result: result.details?.result ?? result.details ?? result,

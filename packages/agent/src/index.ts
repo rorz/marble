@@ -23,6 +23,8 @@ export {
 } from "./conduit";
 export type { MarbleAgentModelTier, MarbleAgentProvider } from "./models";
 export { resolveAgentModel } from "./models";
+export { buildSystemPrompt } from "./prompt";
+export type { ClientAction } from "./tools";
 
 export type MarbleAgentSessionConfig = {
   apiKey: string;

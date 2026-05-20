@@ -1,5 +1,5 @@
 import "server-only";
-import { createMarbleAgentSession } from "@marble/agent";
+import { buildSystemPrompt, createMarbleAgentSession } from "@marble/agent";
 import { stringifyJsonSafe } from "@marble/lib/json";
 import { formatRpcError, getErrorMessage } from "@marble/lib/result";
 import { env } from "@/env";
@@ -11,9 +11,27 @@ import {
 } from "@/lib/supabase/service-role";
 import { resolveConduitDecision } from "./conduit";
 import { type AgentChatWireEvent, normalizeAgentEvent } from "./events";
-import { buildAgentPrompt } from "./prompt";
+import { buildAgentPrompt, buildConduitPrompt } from "./prompt";
 import { providerApiKey } from "./provider";
-import { requestSchema } from "./request";
+import { type AgentChatRequest, requestSchema } from "./request";
+
+const DEBUG_PROMPT_COMMAND = "/debug prompt";
+
+const buildDebugPromptDump = (input: AgentChatRequest) =>
+  [
+    "DEBUG PROMPT DUMP",
+    "",
+    "The Marble Wizard skill is included inside the system prompt below.",
+    "",
+    "=== SYSTEM PROMPT ===",
+    buildSystemPrompt(),
+    "",
+    "=== AGENT REQUEST PROMPT ===",
+    buildAgentPrompt(input),
+    "",
+    "=== CONDUIT PROMPT ===",
+    buildConduitPrompt(input),
+  ].join("\n");
 
 export const POST = async (req: Request) => {
   const user = await getCurrentUser();
@@ -27,6 +45,28 @@ export const POST = async (req: Request) => {
   if (!parsed.success) {
     return new Response("Bad Request", {
       status: 400,
+    });
+  }
+
+  if (parsed.data.message.trim() === DEBUG_PROMPT_COMMAND) {
+    const content =
+      process.env.NODE_ENV === "production"
+        ? "Prompt debug is disabled in production."
+        : buildDebugPromptDump(parsed.data);
+    const payload = stringifyJsonSafe({
+      content,
+      type: "message_end",
+    } satisfies AgentChatWireEvent);
+    const complete = stringifyJsonSafe({
+      type: "marble_session_complete",
+    } satisfies AgentChatWireEvent);
+
+    return new Response(`data: ${payload}\n\ndata: ${complete}\n\n`, {
+      headers: {
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "Content-Type": "text/event-stream",
+      },
     });
   }
 
@@ -172,7 +212,7 @@ export const POST = async (req: Request) => {
         }
       });
 
-      const PROMPT_TIMEOUT_MS = 60_000;
+      const PROMPT_TIMEOUT_MS = 6 * 60_000;
       const HEARTBEAT_MS = 5_000;
       const promptStartedAt = Date.now();
       const heartbeat = setInterval(() => {

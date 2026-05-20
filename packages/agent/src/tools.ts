@@ -45,7 +45,20 @@ type ToolBuildReport = {
   tools: ReturnType<typeof defineTool>[];
 };
 
+export type ClientAction = {
+  href: string;
+  replace?: boolean;
+  type: "browser_navigate";
+};
+
+type ToolDetails = {
+  clientAction?: ClientAction;
+  error?: string;
+  result?: unknown;
+};
+
 const MAX_RESULT_PREVIEW = 2000;
+const BROWSER_NAVIGATE_TOOL_NAME = "browser_navigate";
 
 const camelToSnake = (input: string): string =>
   input.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
@@ -57,6 +70,79 @@ const summarizeResult = (result: unknown): string => {
   const pretty = safeStringify(result);
   if (pretty.length <= MAX_RESULT_PREVIEW) return pretty;
   return `${pretty.slice(0, MAX_RESULT_PREVIEW)}\n... (truncated; full result in tool details)`;
+};
+
+const browserNavigateInput = z.object({
+  href: z
+    .string()
+    .min(1)
+    .describe("Internal Marble path to navigate to, such as /projects."),
+  replace: z
+    .boolean()
+    .optional()
+    .describe("Use history replace instead of push."),
+});
+
+const normalizeBrowserHref = (href: string): string => {
+  const trimmed = href.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
+    throw new Error("browser_navigate only accepts internal paths.");
+  }
+
+  return trimmed;
+};
+
+const buildBrowserNavigateTool = (): ReturnType<typeof defineTool> => {
+  const prepared = prepareToolSchema(z.toJSONSchema(browserNavigateInput));
+
+  return defineTool({
+    description:
+      "Navigate the user's current Marble browser to an internal app path. Use after creating or finding a resource when the user should see it.",
+    execute: async (_toolCallId, params) => {
+      const input = browserNavigateInput.parse(
+        prepared.wrapped
+          ? (
+              params as {
+                input: unknown;
+              }
+            ).input
+          : params,
+      );
+      const href = normalizeBrowserHref(input.href);
+      const clientAction: ClientAction = {
+        href,
+        replace: input.replace,
+        type: "browser_navigate",
+      };
+
+      return {
+        content: [
+          {
+            text: `Browser navigation queued to ${href}.`,
+            type: "text" as const,
+          },
+        ],
+        details: {
+          clientAction,
+          result: {
+            href,
+            replace: input.replace ?? false,
+          },
+        } satisfies ToolDetails,
+      };
+    },
+    label: "Navigate Browser",
+    name: BROWSER_NAVIGATE_TOOL_NAME,
+    parameters: prepared.schema as Parameters<
+      typeof defineTool
+    >[0]["parameters"],
+    promptGuidelines: [
+      "Use browser_navigate only for internal Marble paths, never for external web browsing.",
+      "After creating a resource, navigate to the most useful detail page when its path is known.",
+    ],
+    promptSnippet:
+      "browser_navigate: move the user's current Marble app page to an internal path.",
+  });
 };
 
 const buildToolForOperation = (
@@ -108,10 +194,7 @@ const buildToolForOperation = (
             details: {
               error: undefined,
               result,
-            } as {
-              error?: string;
-              result?: unknown;
-            },
+            } satisfies ToolDetails,
           };
         } catch (error) {
           throw new Error(`${toolName} failed: ${formatRpcError(error)}`, {
@@ -140,7 +223,9 @@ const buildToolForOperation = (
 
 export const buildMarbleTools = (client: RouterClient): ToolBuildReport => {
   const dispatch = client as unknown as DispatchTable;
-  const tools: ReturnType<typeof defineTool>[] = [];
+  const tools: ReturnType<typeof defineTool>[] = [
+    buildBrowserNavigateTool(),
+  ];
   const skipped: SkippedTool[] = [];
   for (const [resourceName, ops] of Object.entries(marbleOperations)) {
     for (const [opName, operation] of Object.entries(
