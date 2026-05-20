@@ -18,17 +18,9 @@ export type ChatEntry =
       id: string;
       kind: "assistant";
       streaming: boolean;
+      tools?: ToolChatEntry[];
     }
-  | {
-      error?: string;
-      id: string;
-      kind: "tool";
-      label: string;
-      params: unknown;
-      result?: unknown;
-      status: "complete" | "error" | "pending";
-      toolName: string;
-    }
+  | ToolChatEntry
   | {
       code?: ErrorCode | string;
       details?: unknown;
@@ -42,6 +34,18 @@ export type ChatEntry =
       message: string;
     };
 
+export type ToolChatEntry = {
+  error?: string;
+  id: string;
+  kind: "tool";
+  label: string;
+  params: unknown;
+  result?: unknown;
+  status: "complete" | "error" | "pending";
+  toolCallId?: string;
+  toolName: string;
+};
+
 export type StreamEvent = {
   assistantMessageEvent?: {
     delta?: string;
@@ -52,9 +56,12 @@ export type StreamEvent = {
   isError?: boolean;
   label?: string;
   message?: string;
+  modelTier?: "deep" | "fast";
   content?: string;
   parameters?: unknown;
+  reason?: string;
   result?: unknown;
+  route?: "agent" | "direct";
   suppress?: boolean;
   toolCallId?: string;
   toolName?: string;

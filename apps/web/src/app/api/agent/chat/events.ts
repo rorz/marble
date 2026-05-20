@@ -52,6 +52,12 @@ export type AgentChatWireEvent =
       type: "marble_session_starting";
     }
   | {
+      modelTier?: "deep" | "fast";
+      reason?: string;
+      route: "agent" | "direct";
+      type: "marble_conduit_decision";
+    }
+  | {
       type: "marble_session_built" | "marble_session_complete";
     }
   | {

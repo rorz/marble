@@ -3,17 +3,28 @@
 import { MarbleJsonPreview, MarbleSpinner } from "@marble/ui";
 import { WarningIcon, WrenchIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import { type ChatEntry, ERROR_CODE_DESCRIPTIONS } from "./types";
+import {
+  type ChatEntry,
+  ERROR_CODE_DESCRIPTIONS,
+  type ToolChatEntry,
+} from "./types";
 
-const SystemCardView = ({
+const formatToolLabel = (label: string) => {
+  if (!label.includes("_")) return label;
+  const raw = label.toLowerCase().replace(/^marble_/, "");
+  return raw
+    .split("_")
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+};
+
+const ToolEntryView = ({
   entry,
+  nested = false,
 }: {
-  entry: Extract<
-    ChatEntry,
-    {
-      kind: "tool";
-    }
-  >;
+  entry: ToolChatEntry;
+  nested?: boolean;
 }) => {
   const [expanded, setExpanded] = useState(false);
 
@@ -21,11 +32,13 @@ const SystemCardView = ({
     entry.status === "error"
       ? "border-red-300 bg-red-50/60"
       : entry.status === "complete"
-        ? "border-taupe-200 bg-white"
+        ? "border-taupe-200 bg-white/80"
         : "border-taupe-200 bg-taupe-50/60";
 
   return (
-    <div className={`rounded-sm border ${toneClass} px-3 py-2`}>
+    <div
+      className={`rounded-sm border ${toneClass} ${nested ? "px-2 py-1.5" : "px-3 py-2"}`}
+    >
       <button
         className="flex w-full items-center gap-2 text-left"
         onClick={() => setExpanded((v) => !v)}
@@ -42,8 +55,8 @@ const SystemCardView = ({
           size={14}
           weight="bold"
         />
-        <span className="flex-1 truncate text-eyebrow-xs text-taupe-700 uppercase">
-          {entry.label}
+        <span className="flex-1 truncate font-medium text-taupe-700 text-xs">
+          {formatToolLabel(entry.label)}
         </span>
         {entry.status === "pending" ? <MarbleSpinner size="sm" /> : null}
         <span className="text-taupe-400 text-xs">
@@ -76,6 +89,39 @@ const SystemCardView = ({
   );
 };
 
+const AssistantEntryView = ({
+  entry,
+}: {
+  entry: Extract<
+    ChatEntry,
+    {
+      kind: "assistant";
+    }
+  >;
+}) => (
+  <div className="flex justify-start">
+    <div className="max-w-[95%] space-y-2">
+      {entry.tools && entry.tools.length > 0 ? (
+        <div className="ml-2 space-y-1.5 border-taupe-200 border-l pl-2">
+          {entry.tools.map((tool) => (
+            <ToolEntryView
+              entry={tool}
+              key={tool.id}
+              nested
+            />
+          ))}
+        </div>
+      ) : null}
+      {entry.content ||
+      (entry.streaming && (!entry.tools || entry.tools.length === 0)) ? (
+        <div className="whitespace-pre-wrap rounded-sm bg-white px-3 py-2 text-sm text-taupe-900 inset-shadow-2xs inset-shadow-white/45 ring-1 ring-taupe-200">
+          {entry.content || (entry.streaming ? "Waiting for response..." : "")}
+        </div>
+      ) : null}
+    </div>
+  </div>
+);
+
 export const ChatEntryView = ({ entry }: { entry: ChatEntry }) => {
   if (entry.kind === "user") {
     return (
@@ -88,13 +134,7 @@ export const ChatEntryView = ({ entry }: { entry: ChatEntry }) => {
   }
 
   if (entry.kind === "assistant") {
-    return (
-      <div className="flex justify-start">
-        <div className="max-w-[95%] whitespace-pre-wrap rounded-sm bg-white px-3 py-2 text-sm text-taupe-900 inset-shadow-2xs inset-shadow-white/45 ring-1 ring-taupe-200">
-          {entry.content || (entry.streaming ? "…" : "")}
-        </div>
-      </div>
-    );
+    return <AssistantEntryView entry={entry} />;
   }
 
   if (entry.kind === "error") {
@@ -144,5 +184,5 @@ export const ChatEntryView = ({ entry }: { entry: ChatEntry }) => {
     );
   }
 
-  return <SystemCardView entry={entry} />;
+  return <ToolEntryView entry={entry} />;
 };

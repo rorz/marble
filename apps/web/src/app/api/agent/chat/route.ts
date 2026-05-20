@@ -1,11 +1,7 @@
 import "server-only";
-import {
-  createMarbleAgentSession,
-  type MarbleAgentProvider,
-} from "@marble/agent";
+import { createMarbleAgentSession } from "@marble/agent";
 import { stringifyJsonSafe } from "@marble/lib/json";
 import { formatRpcError, getErrorMessage } from "@marble/lib/result";
-import { z } from "zod";
 import { env } from "@/env";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -13,112 +9,11 @@ import {
   createServiceRoleClient,
   resolveAgentProfileId,
 } from "@/lib/supabase/service-role";
+import { resolveConduitDecision } from "./conduit";
 import { type AgentChatWireEvent, normalizeAgentEvent } from "./events";
-
-const requestSchema = z.object({
-  context: z
-    .object({
-      currentResource: z
-        .object({
-          href: z.string(),
-          id: z.string(),
-          kind: z.enum([
-            "pipe",
-            "program",
-            "project",
-            "source",
-            "table",
-          ]),
-          label: z.string(),
-          parent: z
-            .object({
-              href: z.string(),
-              id: z.string(),
-              kind: z.literal("project"),
-              label: z.string(),
-            })
-            .optional(),
-        })
-        .optional(),
-      pathname: z.string(),
-      search: z.string(),
-    })
-    .optional(),
-  history: z
-    .array(
-      z.object({
-        content: z.string(),
-        role: z.enum([
-          "assistant",
-          "user",
-        ]),
-      }),
-    )
-    .max(12)
-    .optional(),
-  message: z.string().min(1),
-});
-
-const providerApiKey = (provider: MarbleAgentProvider): string | undefined => {
-  switch (provider) {
-    case "anthropic":
-      return env.ANTHROPIC_API_KEY;
-    case "google":
-      return env.GOOGLE_GENERATIVE_AI_API_KEY;
-    case "openai":
-      return env.OPENAI_API_KEY;
-  }
-};
-
-const formatHistory = (
-  history: z.infer<typeof requestSchema>["history"],
-): string | null => {
-  if (!history || history.length === 0) return null;
-
-  return [
-    "Recent chat context:",
-    ...history.map(
-      (entry) =>
-        `${entry.role === "user" ? "User" : "Assistant"}: ${entry.content}`,
-    ),
-  ].join("\n");
-};
-
-const formatPageContext = (
-  context: z.infer<typeof requestSchema>["context"],
-): string | null => {
-  if (!context) return null;
-
-  const lines = [
-    "Current Marble page context:",
-    `- Path: ${context.pathname}${context.search ? `?${context.search}` : ""}`,
-  ];
-
-  if (context.currentResource) {
-    lines.push(
-      `- Current resource: ${context.currentResource.kind} "${context.currentResource.label}" (${context.currentResource.id})`,
-    );
-
-    if (context.currentResource.parent) {
-      lines.push(
-        `- Parent project: "${context.currentResource.parent.label}" (${context.currentResource.parent.id})`,
-      );
-    }
-  }
-
-  return lines.join("\n");
-};
-
-const buildPrompt = (input: z.infer<typeof requestSchema>): string =>
-  [
-    "Use the context below to resolve references like this/current/here. Verify IDs with tools before mutating data. Do not invent missing instructions, and never infer destructive intent from frustration. Style: answer in one short sentence by default, do not advertise capabilities, and do not use Markdown formatting.",
-    formatHistory(input.history),
-    formatPageContext(input.context),
-    "Current user message:",
-    input.message,
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join("\n\n");
+import { buildAgentPrompt } from "./prompt";
+import { providerApiKey } from "./provider";
+import { requestSchema } from "./request";
 
 export const POST = async (req: Request) => {
   const user = await getCurrentUser();
@@ -145,16 +40,6 @@ export const POST = async (req: Request) => {
       },
     );
   }
-
-  const profileId = await resolveAgentProfileId(user.id);
-  if (!profileId) {
-    return new Response("Agent profile not found for user", {
-      status: 500,
-    });
-  }
-
-  const supabase = await createClient();
-  const serviceSupabase = createServiceRoleClient();
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
@@ -193,10 +78,60 @@ export const POST = async (req: Request) => {
         type: "marble_session_starting",
       });
 
+      const conduitDecision = await resolveConduitDecision({
+        apiKey,
+        input: parsed.data,
+        provider,
+      });
+      console.info("[/api/agent/chat] conduit decision", {
+        modelTier:
+          conduitDecision.route === "agent"
+            ? conduitDecision.modelTier
+            : undefined,
+        reason: conduitDecision.reason,
+        route: conduitDecision.route,
+      });
+      send({
+        modelTier:
+          conduitDecision.route === "agent"
+            ? conduitDecision.modelTier
+            : undefined,
+        reason: conduitDecision.reason,
+        route: conduitDecision.route,
+        type: "marble_conduit_decision",
+      });
+
+      if (conduitDecision.route === "direct") {
+        send({
+          content: conduitDecision.response,
+          type: "message_end",
+        });
+        send({
+          type: "marble_session_complete",
+        });
+        close();
+        return;
+      }
+
+      const profileId = await resolveAgentProfileId(user.id);
+      if (!profileId) {
+        send({
+          code: "SESSION_INIT_FAILED",
+          message: "Agent profile not found for user",
+          type: "marble_session_error",
+        });
+        close();
+        return;
+      }
+
+      const supabase = await createClient();
+      const serviceSupabase = createServiceRoleClient();
+
       let agentSession: Awaited<ReturnType<typeof createMarbleAgentSession>>;
       try {
         agentSession = await createMarbleAgentSession({
           apiKey,
+          modelTier: conduitDecision.modelTier,
           profileId,
           provider,
           serviceSupabase,
@@ -263,7 +198,7 @@ export const POST = async (req: Request) => {
 
       try {
         await Promise.race([
-          session.prompt(buildPrompt(parsed.data)),
+          session.prompt(buildAgentPrompt(parsed.data)),
           new Promise<never>((_, reject) => {
             setTimeout(() => {
               reject(

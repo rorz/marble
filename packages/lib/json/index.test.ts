@@ -50,6 +50,10 @@ describe("stringifyPretty", () => {
     expect(stringifyPretty(42)).toBe("42");
     expect(stringifyPretty(null)).toBe("null");
   });
+
+  test("keeps undefined values printable", () => {
+    expect(stringifyPretty(undefined)).toBe("null");
+  });
 });
 
 describe("safeStringify", () => {

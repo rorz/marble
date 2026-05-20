@@ -36,7 +36,7 @@ export const MarbleTextarea = ({
   ...props
 }: MarbleTextareaProps) => {
   return (
-    <div className={cx("relative flex", wrapperClassName)}>
+    <div className={cx("relative flex w-full", wrapperClassName)}>
       <textarea
         className={cx(
           marbleTextareaVariants({

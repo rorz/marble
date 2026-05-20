@@ -29,7 +29,7 @@ export const parseJsonOrUndefined = (input: string): unknown => {
 
 /** Pretty-print a value as JSON with 2-space indentation. */
 export const stringifyPretty = (value: unknown): string => {
-  return JSON.stringify(value, null, 2);
+  return JSON.stringify(value, null, 2) ?? "null";
 };
 
 /**
