@@ -22,6 +22,8 @@ const GRID_THEME_COLORS = {
 } as const;
 
 export const GRID_CELL_BACKGROUNDS = {
+  // orange-50 — active column highlight
+  activeColumn: "#fff7ed",
   // zinc-100 — empty editable cell prompt
   editableEmpty: "#f4f4f5",
   // white — editable cell with a value

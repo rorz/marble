@@ -602,6 +602,9 @@ const TablePageView = ({
   );
 
   const colDefs = useMemo<ColDef[]>(() => {
+    const activeColumnId =
+      sidebarMode.kind === "edit" ? sidebarMode.columnId : null;
+
     return [
       {
         cellRenderer: RowNumberCell,
@@ -621,21 +624,27 @@ const TablePageView = ({
       },
       ...sortedColumns.map((col) => {
         const editable = isManualInputColumn(col);
+        const isActiveColumn = activeColumnId === col.id;
+
         return {
           cellRenderer: CellWithRunButton,
           cellStyle: (params) => {
             const hasValue = params.value && String(params.value).trim() !== "";
-            const background = editable
+            const baseBackground = editable
               ? hasValue
                 ? GRID_CELL_BACKGROUNDS.editableFilled
                 : GRID_CELL_BACKGROUNDS.editableEmpty
               : GRID_CELL_BACKGROUNDS.readonly;
+            const background = isActiveColumn
+              ? GRID_CELL_BACKGROUNDS.activeColumn
+              : baseBackground;
             return {
               "--marble-table-cell-background": background,
               "--marble-table-cell-content-padding-left": `${TABLE_CELL_LED_CLEARANCE_PX}px`,
               "--marble-table-cell-led-gutter-width": `${TABLE_CELL_LED_GUTTER_PX - 4}px`,
               "--marble-table-cell-padding-inline": `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
-              background: editable ? background : "transparent",
+              background:
+                editable || isActiveColumn ? background : "transparent",
               fontFamily: "var(--font-geist-mono)",
               paddingLeft: `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
               paddingRight: `${TABLE_CELL_HORIZONTAL_PADDING_PX}px`,
@@ -661,6 +670,7 @@ const TablePageView = ({
     ];
   }, [
     sortedColumns,
+    sidebarMode,
   ]);
 
   const rowData = useMemo(() => {
