@@ -76,7 +76,11 @@ type AgentChatProps = {
 };
 
 export const AgentChat = ({ headerActions }: AgentChatProps) => {
-  const [entries, setEntries] = useState<ChatEntry[]>(() => loadEntries());
+  // `entries` is hydrated from localStorage post-mount to avoid an SSR/CSR
+  // mismatch (server has no storage; client does). `hydrated` gates the save
+  // effect so it does not wipe localStorage with `[]` before the load runs.
+  const [entries, setEntries] = useState<ChatEntry[]>([]);
+  const [hydrated, setHydrated] = useState(false);
   const [draft, setDraft] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -88,9 +92,16 @@ export const AgentChat = ({ headerActions }: AgentChatProps) => {
   const sessionResolvedRef = useRef<boolean>(false);
 
   useEffect(() => {
+    setEntries(loadEntries());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
     saveEntries(entries);
   }, [
     entries,
+    hydrated,
   ]);
 
   useEffect(() => {
