@@ -4,6 +4,7 @@
     "@earendil-works/pi-coding-agent": "catalog:base",
     "@marble/api": "workspace:*",
     "@marble/contracts": "workspace:*",
+    "@marble/lib": "workspace:*",
     "@marble/supabase": "workspace:*",
     "@marble/wizard": "workspace:*",
     "server-only": "catalog:base",

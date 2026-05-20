@@ -20,6 +20,8 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { createSupabaseClientRouterClient } from "@marble/api/supabase-client";
 import { marbleOperations } from "@marble/contracts";
+import { safeStringify } from "@marble/lib/json";
+import { formatRpcError } from "@marble/lib/result";
 import type { SupabaseClient } from "@marble/supabase";
 import { wizardSkillContent, wizardSkillPath } from "@marble/wizard";
 import { z } from "zod";
@@ -29,11 +31,11 @@ export type MarbleAgentProvider = "anthropic" | "google" | "openai";
 const resolveAgentModel = (provider: MarbleAgentProvider) => {
   switch (provider) {
     case "anthropic":
-      return getModel("anthropic", "claude-opus-4-5");
+      return getModel("anthropic", "claude-opus-4-7");
     case "google":
-      return getModel("google", "gemini-2.5-pro");
+      return getModel("google", "gemini-3.1-pro-preview");
     case "openai":
-      return getModel("openai", "gpt-5");
+      return getModel("openai", "gpt-5.5-pro");
   }
 };
 
@@ -118,18 +120,96 @@ const toToolName = (resourceName: string, opName: string): string =>
 const MAX_RESULT_PREVIEW = 2000;
 
 const summarizeResult = (result: unknown): string => {
-  const pretty = JSON.stringify(result, null, 2);
+  const pretty = safeStringify(result);
   if (pretty.length <= MAX_RESULT_PREVIEW) return pretty;
   return `${pretty.slice(0, MAX_RESULT_PREVIEW)}\n... (truncated; full result in tool details)`;
 };
+
+const JSON_VALUE_SCHEMA = {
+  description: "Any JSON-serializable value.",
+};
+
+const SCHEMA_INTERNAL_KEYS = new Set([
+  "$defs",
+  "$schema",
+  "definitions",
+]);
 
 type PreparedSchema = {
   schema: Record<string, unknown>;
   wrapped: boolean;
 };
 
+const isSchemaRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const decodeJsonPointerSegment = (segment: string): string =>
+  segment.replace(/~1/g, "/").replace(/~0/g, "~");
+
+const resolveLocalSchemaRef = (
+  root: unknown,
+  ref: string,
+): unknown | undefined => {
+  if (!ref.startsWith("#/")) return undefined;
+
+  let current = root;
+  for (const segment of ref.slice(2).split("/").map(decodeJsonPointerSegment)) {
+    if (!isSchemaRecord(current)) return undefined;
+    current = current[segment];
+  }
+
+  return current;
+};
+
+const sanitizeToolSchemaValue = (
+  value: unknown,
+  root: unknown,
+  seenRefs: ReadonlySet<string>,
+): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeToolSchemaValue(item, root, seenRefs));
+  }
+
+  if (!isSchemaRecord(value)) {
+    return value;
+  }
+
+  if (typeof value.$ref === "string") {
+    if (seenRefs.has(value.$ref)) {
+      return JSON_VALUE_SCHEMA;
+    }
+
+    const target = resolveLocalSchemaRef(root, value.$ref);
+    if (target === undefined) {
+      return JSON_VALUE_SCHEMA;
+    }
+
+    return sanitizeToolSchemaValue(
+      target,
+      root,
+      new Set([
+        ...seenRefs,
+        value.$ref,
+      ]),
+    );
+  }
+
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, childValue] of Object.entries(value)) {
+    if (SCHEMA_INTERNAL_KEYS.has(key)) continue;
+    sanitized[key] = sanitizeToolSchemaValue(childValue, root, seenRefs);
+  }
+
+  return sanitized;
+};
+
+const sanitizeToolSchema = (raw: unknown): unknown =>
+  sanitizeToolSchemaValue(raw, raw, new Set());
+
 const prepareToolSchema = (raw: unknown): PreparedSchema => {
-  if (typeof raw !== "object" || raw === null) {
+  const sanitized = sanitizeToolSchema(raw);
+
+  if (typeof sanitized !== "object" || sanitized === null) {
     return {
       schema: {
         additionalProperties: false,
@@ -146,7 +226,7 @@ const prepareToolSchema = (raw: unknown): PreparedSchema => {
       wrapped: true,
     };
   }
-  const candidate = raw as Record<string, unknown>;
+  const candidate = sanitized as Record<string, unknown>;
   if (candidate.type === "object") {
     return {
       schema: candidate,
@@ -217,7 +297,12 @@ const buildToolForOperation = (
                 }
               ).input
             : params;
-          const result = await dispatch[resourceName][opName](callInput);
+          const operationHandler = dispatch[resourceName]?.[opName];
+          if (!operationHandler) {
+            throw new Error(`No handler found for ${resourceName}.${opName}.`);
+          }
+
+          const result = await operationHandler(callInput);
           return {
             content: [
               {
@@ -234,24 +319,9 @@ const buildToolForOperation = (
             },
           };
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          return {
-            content: [
-              {
-                text: `${toolName} failed: ${message}`,
-                type: "text" as const,
-              },
-            ],
-            details: {
-              error: message,
-              result: undefined,
-            } as {
-              error?: string;
-              result?: unknown;
-            },
-            isError: true,
-          };
+          throw new Error(`${toolName} failed: ${formatRpcError(error)}`, {
+            cause: error,
+          });
         }
       },
       label: operation.route.summary,
@@ -278,26 +348,6 @@ type ToolBuildReport = {
   tools: ReturnType<typeof defineTool>[];
 };
 
-const ESSENTIAL_TOOL_NAMES = new Set([
-  "marble_cells_get",
-  "marble_cells_set_manual_value",
-  "marble_columns_create",
-  "marble_columns_list",
-  "marble_programs_create",
-  "marble_programs_list_for_editor",
-  "marble_programs_update",
-  "marble_projects_get",
-  "marble_projects_get_most_recent_project",
-  "marble_projects_list",
-  "marble_rows_get",
-  "marble_rows_list",
-  "marble_rows_update",
-  "marble_tables_create",
-  "marble_tables_get",
-  "marble_tables_insert_rows",
-  "marble_tables_list",
-]);
-
 const buildMarbleTools = (client: RouterClient): ToolBuildReport => {
   const dispatch = client as unknown as DispatchTable;
   const tools: ReturnType<typeof defineTool>[] = [];
@@ -306,14 +356,6 @@ const buildMarbleTools = (client: RouterClient): ToolBuildReport => {
     for (const [opName, operation] of Object.entries(
       ops as Record<string, ContractOperation>,
     )) {
-      const toolName = toToolName(resourceName, opName);
-      if (!ESSENTIAL_TOOL_NAMES.has(toolName)) {
-        skipped.push({
-          reason: "Not in v1 essential whitelist (out-of-scope for now)",
-          toolName,
-        });
-        continue;
-      }
       const outcome = buildToolForOperation(
         dispatch,
         resourceName,

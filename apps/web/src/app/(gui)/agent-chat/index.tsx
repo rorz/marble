@@ -18,6 +18,7 @@ import {
 
 import { ChatEntryView } from "./entry-view";
 import {
+  type AgentChatPageContext,
   type ChatEntry,
   IDLE_WATCHDOG_MS,
   type ParseOutcome,
@@ -31,7 +32,12 @@ const loadEntries = (): ChatEntry[] => {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as ChatEntry[];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (entry) =>
+        entry.kind !== "warning" ||
+        !entry.message.includes("tools unavailable in this session"),
+    );
   } catch {
     return [];
   }
@@ -46,6 +52,55 @@ const saveEntries = (entries: ChatEntry[]) => {
 
 const randomId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+const closePendingToolEntries = (
+  entries: ChatEntry[],
+  options: {
+    error?: string;
+    status: "complete" | "error";
+  },
+): ChatEntry[] =>
+  entries.map((entry) =>
+    entry.kind === "tool" && entry.status === "pending"
+      ? {
+          ...entry,
+          error: options.error,
+          status: options.status,
+        }
+      : entry,
+  );
+
+const commitFinalAssistantMessage = (
+  entries: ChatEntry[],
+  finalContent: string,
+): ChatEntry[] => {
+  const lastEntry = entries.at(-1);
+  if (
+    lastEntry?.kind === "assistant" &&
+    (lastEntry.content === finalContent ||
+      finalContent.startsWith(lastEntry.content))
+  ) {
+    return entries.map((entry) =>
+      entry.id === lastEntry.id && entry.kind === "assistant"
+        ? {
+            ...entry,
+            content: finalContent,
+            streaming: false,
+          }
+        : entry,
+    );
+  }
+
+  return [
+    ...entries,
+    {
+      content: finalContent,
+      id: randomId(),
+      kind: "assistant",
+      streaming: false,
+    },
+  ];
+};
 
 const parseStreamEvent = (block: string): ParseOutcome => {
   if (!block.trim())
@@ -73,9 +128,28 @@ const parseStreamEvent = (block: string): ParseOutcome => {
 
 type AgentChatProps = {
   headerActions?: ReactNode;
+  pageContext?: AgentChatPageContext;
 };
 
-export const AgentChat = ({ headerActions }: AgentChatProps) => {
+const buildConversationHistory = (entries: ChatEntry[]) =>
+  entries
+    .filter(
+      (
+        entry,
+      ): entry is Extract<
+        ChatEntry,
+        {
+          kind: "assistant" | "user";
+        }
+      > => entry.kind === "assistant" || entry.kind === "user",
+    )
+    .slice(-12)
+    .map((entry) => ({
+      content: entry.content,
+      role: entry.kind,
+    }));
+
+export const AgentChat = ({ headerActions, pageContext }: AgentChatProps) => {
   // `entries` is hydrated from localStorage post-mount to avoid an SSR/CSR
   // mismatch (server has no storage; client does). `hydrated` gates the save
   // effect so it does not wipe localStorage with `[]` before the load runs.
@@ -161,21 +235,41 @@ export const AgentChat = ({ headerActions }: AgentChatProps) => {
       if (event.type === "message_end") {
         const activeId = activeAssistantIdRef.current;
         activeAssistantIdRef.current = null;
-        return prev.map((entry) =>
-          entry.id === activeId && entry.kind === "assistant"
-            ? {
-                ...entry,
-                streaming: false,
-              }
-            : entry,
-        );
+        if (event.suppress) {
+          return activeId
+            ? prev.filter((entry) => entry.id !== activeId)
+            : prev;
+        }
+        const finalContent =
+          typeof event.content === "string" && event.content.length > 0
+            ? event.content
+            : undefined;
+        if (!activeId) {
+          return finalContent
+            ? commitFinalAssistantMessage(prev, finalContent)
+            : prev;
+        }
+        return prev.map((entry) => {
+          if (entry.id !== activeId || entry.kind !== "assistant") {
+            return entry;
+          }
+
+          return {
+            ...entry,
+            content: finalContent ?? entry.content,
+            streaming: false,
+          };
+        });
       }
 
       if (event.type === "tool_execution_start" && event.toolCallId) {
+        const activeId = activeAssistantIdRef.current;
+        activeAssistantIdRef.current = null;
+        if (activeToolMapRef.current.has(event.toolCallId)) return prev;
         const newId = randomId();
         activeToolMapRef.current.set(event.toolCallId, newId);
         return [
-          ...prev,
+          ...(activeId ? prev.filter((entry) => entry.id !== activeId) : prev),
           {
             id: newId,
             kind: "tool",
@@ -190,7 +284,25 @@ export const AgentChat = ({ headerActions }: AgentChatProps) => {
       if (event.type === "tool_execution_end" && event.toolCallId) {
         const toolEntryId = activeToolMapRef.current.get(event.toolCallId);
         activeToolMapRef.current.delete(event.toolCallId);
-        if (!toolEntryId) return prev;
+        if (!toolEntryId) {
+          return [
+            ...prev,
+            {
+              error: event.isError
+                ? typeof event.message === "string"
+                  ? event.message
+                  : "Tool failed"
+                : undefined,
+              id: randomId(),
+              kind: "tool",
+              label: event.toolName ?? "Tool call",
+              params: undefined,
+              result: event.result,
+              status: event.isError ? "error" : "complete",
+              toolName: event.toolName ?? "unknown",
+            },
+          ];
+        }
         return prev.map((entry) =>
           entry.id === toolEntryId && entry.kind === "tool"
             ? {
@@ -242,21 +354,11 @@ export const AgentChat = ({ headerActions }: AgentChatProps) => {
         ];
       }
 
-      if (event.type === "marble_session_warnings") {
-        if (!event.skipped || event.skipped.length === 0) return prev;
-        return [
-          ...prev,
-          {
-            id: randomId(),
-            kind: "warning",
-            message: `${event.skipped.length} tool${event.skipped.length === 1 ? "" : "s"} unavailable in this session.`,
-            skipped: event.skipped,
-          },
-        ];
-      }
-
       if (event.type === "marble_session_complete") {
-        return prev;
+        activeToolMapRef.current.clear();
+        return closePendingToolEntries(prev, {
+          status: "complete",
+        });
       }
 
       return prev;
@@ -267,6 +369,7 @@ export const AgentChat = ({ headerActions }: AgentChatProps) => {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || streaming) return;
+      const history = buildConversationHistory(entries);
 
       setEntries((prev) => [
         ...prev,
@@ -290,6 +393,8 @@ export const AgentChat = ({ headerActions }: AgentChatProps) => {
       try {
         const response = await fetch("/api/agent/chat", {
           body: JSON.stringify({
+            context: pageContext,
+            history,
             message: trimmed,
           }),
           headers: {
@@ -387,7 +492,10 @@ export const AgentChat = ({ headerActions }: AgentChatProps) => {
       } finally {
         if (!sessionResolvedRef.current && !controller.signal.aborted) {
           setEntries((prev) => [
-            ...prev,
+            ...closePendingToolEntries(prev, {
+              error: "The server stream closed before this tool returned.",
+              status: "error",
+            }),
             {
               code: "STREAM_ABRUPT_END",
               id: randomId(),
@@ -407,6 +515,8 @@ export const AgentChat = ({ headerActions }: AgentChatProps) => {
     },
     [
       handleEvent,
+      entries,
+      pageContext,
       streaming,
     ],
   );

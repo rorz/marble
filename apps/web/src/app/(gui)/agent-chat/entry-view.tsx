@@ -139,21 +139,6 @@ export const ChatEntryView = ({ entry }: { entry: ChatEntry }) => {
         />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="whitespace-pre-wrap break-words">{entry.message}</div>
-          {entry.skipped && entry.skipped.length > 0 ? (
-            <details className="text-amber-800">
-              <summary className="cursor-pointer text-eyebrow-xs uppercase">
-                {entry.skipped.length} unavailable
-              </summary>
-              <ul className="mt-1 space-y-0.5 font-mono">
-                {entry.skipped.map((tool) => (
-                  <li key={tool.toolName}>
-                    <span className="font-semibold">{tool.toolName}</span>:{" "}
-                    {tool.reason}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
         </div>
       </div>
     );

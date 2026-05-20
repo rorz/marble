@@ -38,8 +38,33 @@ export const stringifyPretty = (value: unknown): string => {
  */
 export const safeStringify = (value: unknown): string => {
   try {
-    return JSON.stringify(value);
+    return JSON.stringify(value) ?? String(value);
   } catch {
     return String(value);
   }
+};
+
+/**
+ * Stringify a value as valid JSON even when it contains cycles or BigInts.
+ * Cycles become "[Circular]" and BigInts become decimal strings.
+ */
+export const stringifyJsonSafe = (value: unknown): string => {
+  const seen = new WeakSet<object>();
+
+  const json = JSON.stringify(value, (_key, nestedValue) => {
+    if (typeof nestedValue === "bigint") {
+      return nestedValue.toString();
+    }
+
+    if (typeof nestedValue === "object" && nestedValue !== null) {
+      if (seen.has(nestedValue)) {
+        return "[Circular]";
+      }
+      seen.add(nestedValue);
+    }
+
+    return nestedValue;
+  });
+
+  return json ?? "null";
 };

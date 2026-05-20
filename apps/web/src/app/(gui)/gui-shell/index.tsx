@@ -89,7 +89,7 @@ import {
   parseChangeTargetKey,
   useChangeSpotlightPreviewTargetKeys,
 } from "../change-spotlight";
-
+import { buildAgentPageContext } from "./agent-context";
 import {
   GUI_SIDEBAR_FIRST_PARTY_PROGRAMS_TOPIC,
   guiSidebarUserTopic,
@@ -221,6 +221,21 @@ export const GuiShell = ({
   }>(null);
   const topLevelPath = `/${pathname.split("/").at(1)}`;
   const selectedProgramId = searchParams.get("programId");
+  const agentPageContext = useMemo(
+    () =>
+      buildAgentPageContext({
+        pathname,
+        search: searchParams.toString(),
+        selectedProgramId,
+        sidebarData,
+      }),
+    [
+      pathname,
+      searchParams,
+      selectedProgramId,
+      sidebarData,
+    ],
+  );
   const previewTargetKeySet = useMemo(
     () => new Set(previewTargetKeys),
     [
@@ -1798,7 +1813,7 @@ export const GuiShell = ({
                 className="min-h-0 flex-1 overflow-hidden"
                 value="chat"
               >
-                <AgentChat />
+                <AgentChat pageContext={agentPageContext} />
               </MarbleTabsContent>
               <MarbleTabsContent
                 className="min-h-0 flex-1 overflow-hidden"

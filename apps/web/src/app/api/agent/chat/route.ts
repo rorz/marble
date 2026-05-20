@@ -3,6 +3,8 @@ import {
   createMarbleAgentSession,
   type MarbleAgentProvider,
 } from "@marble/agent";
+import { stringifyJsonSafe } from "@marble/lib/json";
+import { formatRpcError, getErrorMessage } from "@marble/lib/result";
 import { z } from "zod";
 import { env } from "@/env";
 import { getCurrentUser } from "@/lib/auth";
@@ -11,8 +13,49 @@ import {
   createServiceRoleClient,
   resolveAgentProfileId,
 } from "@/lib/supabase/service-role";
+import { type AgentChatWireEvent, normalizeAgentEvent } from "./events";
 
 const requestSchema = z.object({
+  context: z
+    .object({
+      currentResource: z
+        .object({
+          href: z.string(),
+          id: z.string(),
+          kind: z.enum([
+            "pipe",
+            "program",
+            "project",
+            "source",
+            "table",
+          ]),
+          label: z.string(),
+          parent: z
+            .object({
+              href: z.string(),
+              id: z.string(),
+              kind: z.literal("project"),
+              label: z.string(),
+            })
+            .optional(),
+        })
+        .optional(),
+      pathname: z.string(),
+      search: z.string(),
+    })
+    .optional(),
+  history: z
+    .array(
+      z.object({
+        content: z.string(),
+        role: z.enum([
+          "assistant",
+          "user",
+        ]),
+      }),
+    )
+    .max(12)
+    .optional(),
   message: z.string().min(1),
 });
 
@@ -26,6 +69,56 @@ const providerApiKey = (provider: MarbleAgentProvider): string | undefined => {
       return env.OPENAI_API_KEY;
   }
 };
+
+const formatHistory = (
+  history: z.infer<typeof requestSchema>["history"],
+): string | null => {
+  if (!history || history.length === 0) return null;
+
+  return [
+    "Recent chat context:",
+    ...history.map(
+      (entry) =>
+        `${entry.role === "user" ? "User" : "Assistant"}: ${entry.content}`,
+    ),
+  ].join("\n");
+};
+
+const formatPageContext = (
+  context: z.infer<typeof requestSchema>["context"],
+): string | null => {
+  if (!context) return null;
+
+  const lines = [
+    "Current Marble page context:",
+    `- Path: ${context.pathname}${context.search ? `?${context.search}` : ""}`,
+  ];
+
+  if (context.currentResource) {
+    lines.push(
+      `- Current resource: ${context.currentResource.kind} "${context.currentResource.label}" (${context.currentResource.id})`,
+    );
+
+    if (context.currentResource.parent) {
+      lines.push(
+        `- Parent project: "${context.currentResource.parent.label}" (${context.currentResource.parent.id})`,
+      );
+    }
+  }
+
+  return lines.join("\n");
+};
+
+const buildPrompt = (input: z.infer<typeof requestSchema>): string =>
+  [
+    "Use the context below to resolve references like this/current/here. Verify IDs with tools before mutating data. Do not invent missing instructions, and never infer destructive intent from frustration. Style: answer in one short sentence by default, do not advertise capabilities, and do not use Markdown formatting.",
+    formatHistory(input.history),
+    formatPageContext(input.context),
+    "Current user message:",
+    input.message,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join("\n\n");
 
 export const POST = async (req: Request) => {
   const user = await getCurrentUser();
@@ -70,14 +163,18 @@ export const POST = async (req: Request) => {
     },
     async start(controller) {
       let closed = false;
-      const send = (payload: unknown) => {
+      const send = (payload: AgentChatWireEvent) => {
         if (closed) return;
         try {
           controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(payload)}\n\n`),
+            encoder.encode(`data: ${stringifyJsonSafe(payload)}\n\n`),
           );
-        } catch {
+        } catch (error) {
+          console.error("[/api/agent/chat] stream write failed", error);
           closed = true;
+          try {
+            controller.error(error);
+          } catch {}
         }
       };
       const close = () => {
@@ -88,7 +185,7 @@ export const POST = async (req: Request) => {
         } catch {}
       };
       const errorMessage = (error: unknown) =>
-        error instanceof Error ? error.message : String(error);
+        getErrorMessage(error, formatRpcError(error));
 
       console.info("[/api/agent/chat] stream start");
       send({
@@ -129,19 +226,14 @@ export const POST = async (req: Request) => {
           `[/api/agent/chat] ${skipped.length} tool(s) skipped during build:`,
           skipped,
         );
-        send({
-          skipped,
-          type: "marble_session_warnings",
-        });
       }
 
       let unsubscribed = false;
       const unsubscribe = session.subscribe((event) => {
         if (unsubscribed) return;
-        try {
-          send(event);
-        } catch (sendError) {
-          console.error("[/api/agent/chat] send failed", sendError);
+        const normalized = normalizeAgentEvent(event, session);
+        if (normalized) {
+          send(normalized);
         }
       });
 
@@ -171,7 +263,7 @@ export const POST = async (req: Request) => {
 
       try {
         await Promise.race([
-          session.prompt(parsed.data.message),
+          session.prompt(buildPrompt(parsed.data)),
           new Promise<never>((_, reject) => {
             setTimeout(() => {
               reject(

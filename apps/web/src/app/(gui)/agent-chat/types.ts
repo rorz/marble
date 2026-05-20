@@ -7,11 +7,6 @@ type ErrorCode =
   | "STREAM_PARSE_FAILED"
   | "TRANSPORT_FAILED";
 
-type SkippedTool = {
-  reason: string;
-  toolName: string;
-};
-
 export type ChatEntry =
   | {
       content: string;
@@ -45,7 +40,6 @@ export type ChatEntry =
       id: string;
       kind: "warning";
       message: string;
-      skipped?: SkippedTool[];
     };
 
 export type StreamEvent = {
@@ -58,12 +52,30 @@ export type StreamEvent = {
   isError?: boolean;
   label?: string;
   message?: string;
+  content?: string;
   parameters?: unknown;
   result?: unknown;
-  skipped?: SkippedTool[];
+  suppress?: boolean;
   toolCallId?: string;
   toolName?: string;
   type: string;
+};
+
+export type AgentChatPageContext = {
+  currentResource?: {
+    href: string;
+    id: string;
+    kind: "pipe" | "program" | "project" | "source" | "table";
+    label: string;
+    parent?: {
+      href: string;
+      id: string;
+      kind: "project";
+      label: string;
+    };
+  };
+  pathname: string;
+  search: string;
 };
 
 export type ParseOutcome =

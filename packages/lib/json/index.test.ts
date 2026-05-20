@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { parseJsonOrUndefined, safeStringify, stringifyPretty } from "./index";
+import {
+  parseJsonOrUndefined,
+  safeStringify,
+  stringifyJsonSafe,
+  stringifyPretty,
+} from "./index";
 
 describe("parseJsonOrUndefined", () => {
   test("parses valid JSON", () => {
@@ -66,5 +71,47 @@ describe("safeStringify", () => {
 
   test("falls back on BigInt", () => {
     expect(safeStringify(BigInt(1))).toBe(String(BigInt(1)));
+  });
+
+  test("falls back on undefined", () => {
+    expect(safeStringify(undefined)).toBe(String(undefined));
+  });
+});
+
+describe("stringifyJsonSafe", () => {
+  test("stringifies normal values", () => {
+    expect(
+      stringifyJsonSafe({
+        a: 1,
+      }),
+    ).toBe('{"a":1}');
+  });
+
+  test("keeps output parseable when values contain cycles", () => {
+    const cycle: Record<string, unknown> = {
+      name: "cycle",
+    };
+    cycle.self = cycle;
+
+    expect(JSON.parse(stringifyJsonSafe(cycle))).toEqual({
+      name: "cycle",
+      self: "[Circular]",
+    });
+  });
+
+  test("keeps output parseable when values contain BigInt", () => {
+    expect(
+      JSON.parse(
+        stringifyJsonSafe({
+          id: BigInt(1),
+        }),
+      ),
+    ).toEqual({
+      id: "1",
+    });
+  });
+
+  test("uses null for undefined top-level values", () => {
+    expect(stringifyJsonSafe(undefined)).toBe("null");
   });
 });
