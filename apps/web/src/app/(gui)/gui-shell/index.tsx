@@ -81,7 +81,7 @@ import type {
   SidebarTreeNode,
 } from "../../../lib/sidebar-tree";
 import { useSignOut } from "../../sign-out-button";
-import { AgentChat } from "../agent-chat";
+import { AgentChat, AgentChatCue, AgentChatProvider } from "../agent-chat";
 import { ChangeRadar } from "../change-radar";
 import {
   ChangeSpotlight,
@@ -146,6 +146,9 @@ export const GuiShell = ({
 }) => {
   const [agentSidebarMode, setAgentSidebarMode] = useState<SidebarMode>(
     initialAgentSidebarMode,
+  );
+  const [agentSidebarTab, setAgentSidebarTab] = useState<"changes" | "chat">(
+    "chat",
   );
   const [agentSidebarWidth, setAgentSidebarWidth] = useState(
     initialAgentSidebarWidth,
@@ -1191,9 +1194,7 @@ export const GuiShell = ({
     setSidebarMode(nextMode);
   };
 
-  const toggleAgentSidebar = () => {
-    const nextMode = nextSidebarMode[agentSidebarMode];
-
+  const persistAgentSidebarMode = (nextMode: SidebarMode) => {
     void fetch("/api/gui/sidebar-mode", {
       body: JSON.stringify({
         agentSidebarMode: nextMode,
@@ -1203,7 +1204,30 @@ export const GuiShell = ({
       },
       method: "POST",
     });
+  };
+
+  const handleAgentSidebarTabChange = (value: string) => {
+    if (value === "chat" || value === "changes") {
+      setAgentSidebarTab(value);
+    }
+  };
+
+  const toggleAgentSidebar = () => {
+    const nextMode = nextSidebarMode[agentSidebarMode];
+
+    persistAgentSidebarMode(nextMode);
     setAgentSidebarMode(nextMode);
+  };
+
+  const openAgentChat = () => {
+    setAgentSidebarTab("chat");
+
+    if (agentSidebarMode !== "collapsed") {
+      return;
+    }
+
+    persistAgentSidebarMode("expanded");
+    setAgentSidebarMode("expanded");
   };
 
   const persistSidebarWidth = (nextWidth: number) => {
@@ -1587,350 +1611,368 @@ export const GuiShell = ({
     });
 
   return (
-    <div
-      className={cx(
-        "relative grid h-screen grid-cols-1 grid-rows-1 bg-taupe-100 md:[grid-template-columns:var(--gui-sidebar-columns)]",
-        isAnySidebarResizing
-          ? ""
-          : "transition-[grid-template-columns] duration-200 ease-out",
-      )}
-      style={
-        {
-          "--gui-sidebar-columns": layoutGridColumns,
-        } as CSSProperties
-      }
-    >
-      <div className="relative min-h-0">
-        <aside
-          className={cx(
-            "flex size-full min-h-0 h-screen flex-col overflow-y-scroll pt-6 transition-[padding] duration-200 ease-out",
-            sidebar.asideClassName,
-          )}
-          id="gui-navigation-sidebar"
-        >
-          <div className="flex w-full flex-col gap-2">
-            <div
-              className={cx("flex w-full items-center", sidebar.brandClassName)}
-            >
-              <MarbleAccountPopover
-                avatarUrl={userAvatarUrl ?? undefined}
-                className={cx(sidebar.iconOnly ? null : "flex-1")}
-                compact={sidebar.iconOnly}
-                description={userEmail ?? undefined}
-                displayName={userDisplayName}
-                name={userDisplayName}
-                sections={accountMenuSections}
-              />
-
-              {sidebar.iconOnly ? null : (
-                <button
-                  aria-label={sidebar.toggleLabel}
-                  className="flex size-8 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200 hover:text-taupe-800"
-                  onClick={toggleSidebar}
-                  title={sidebar.toggleLabel}
-                  type="button"
-                >
-                  <ToggleIcon
-                    size={16}
-                    weight="bold"
-                  />
-                </button>
-              )}
-            </div>
-
-            {!sidebar.iconOnly && signOutError ? (
-              <p className="px-2 text-red-600 text-xs">{signOutError}</p>
-            ) : null}
-          </div>
-
-          <nav
-            aria-label="Primary"
-            className={cx(
-              "flex min-h-0 w-full flex-1 flex-col gap-4 overflow-y-auto pb-6",
-              sidebar.navClassName,
-            )}
-          >
-            {navigationGroups.map((group) => (
-              <div
-                className="flex w-full flex-col gap-1"
-                key={group.name}
-              >
-                {sidebar.iconOnly ? null : (
-                  <span className="mb-1 px-2 font-medium text-sm tracking-tight">
-                    {group.name}
-                  </span>
-                )}
-                {group.routes.map((route) => {
-                  const isActive = topLevelPath === route.path;
-                  const sectionKey = `section:${route.id}`;
-                  const treeKey = route.id as TreeCollectionKey;
-                  const nodes = route.isTree ? sidebarData[treeKey] : [];
-                  const isOpen = effectiveOpenKeys.has(sectionKey);
-
-                  const previewTone =
-                    route.id === "projects" ||
-                    route.id === "programs" ||
-                    route.id === "profiles"
-                      ? getSectionPreviewTone(route.id)
-                      : null;
-
-                  return (
-                    <div
-                      className="flex w-full flex-col gap-1"
-                      key={route.name}
-                    >
-                      <SidebarNavRow
-                        active={isActive}
-                        expandable={route.isTree && !sidebar.iconOnly}
-                        expanded={isOpen}
-                        href={route.path}
-                        icon={route.icon}
-                        iconOnly={sidebar.iconOnly}
-                        label={route.name}
-                        onToggle={() => toggleOpen(sectionKey)}
-                        previewTone={previewTone}
-                        targetKey={
-                          route.id === "profiles"
-                            ? changeTargetKey.profiles()
-                            : undefined
-                        }
-                        title={sidebar.iconOnly ? route.name : undefined}
-                      />
-
-                      {route.isTree && !sidebar.iconOnly && isOpen ? (
-                        <div className="ml-2 flex flex-col gap-1 border-l border-taupe-200/80 pl-2">
-                          {renderTree(nodes)}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-
-            <div className="mt-auto mb-12 flex w-full flex-col gap-1">
-              {utilityRoutes.map((route) => (
-                <SidebarNavRow
-                  active={topLevelPath === route.path}
-                  href={route.path}
-                  icon={route.icon}
-                  iconOnly={sidebar.iconOnly}
-                  key={route.name}
-                  label={route.name}
-                  onSelect={
-                    route.name === "Help" ? openHelpCommandPalette : undefined
-                  }
-                  title={sidebar.iconOnly ? route.name : undefined}
-                />
-              ))}
-            </div>
-          </nav>
-        </aside>
-
-        {sidebarMode === "collapsed" ? (
-          <button
-            aria-label={sidebar.toggleLabel}
-            className="absolute top-[4rem] -right-2 z-20 flex size-7 translate-x-1/2 items-center justify-center rounded-full border border-taupe-300/80 bg-white/95 text-taupe-500 shadow-[0_8px_18px_rgba(84,57,26,0.14)] transition-[background-color,color,box-shadow,transform] hover:bg-white hover:text-taupe-900 hover:shadow-[0_12px_24px_rgba(84,57,26,0.18)]"
-            onClick={toggleSidebar}
-            title={sidebar.toggleLabel}
-            type="button"
-          >
-            <ToggleIcon
-              size={14}
-              weight="bold"
-            />
-          </button>
-        ) : null}
-
-        {sidebarMode === "collapsed" ? null : (
-          <hr
-            aria-controls="gui-navigation-sidebar"
-            aria-label="Resize navigation sidebar"
-            aria-orientation="vertical"
-            aria-valuemax={MAX_SIDEBAR_WIDTH}
-            aria-valuemin={MIN_SIDEBAR_WIDTH}
-            aria-valuenow={sidebarWidth}
-            className={cx(
-              "absolute top-0 right-0 z-10 h-full w-3 translate-x-1/2 cursor-col-resize touch-none border-0 bg-linear-to-r from-transparent via-transparent to-transparent transition-colors",
-              isResizing
-                ? "via-taupe-400"
-                : "hover:via-taupe-300 focus-visible:via-taupe-300",
-            )}
-            onKeyDown={handleResizeKeyDown}
-            onPointerCancel={finishResize}
-            onPointerDown={handleResizeStart}
-            onPointerMove={handleResizeMove}
-            onPointerUp={finishResize}
-            ref={resizeHandleRef}
-            tabIndex={0}
-            title="Resize navigation sidebar"
-          />
-        )}
-      </div>
-
-      <main className="bg-transparent p-2 pb-8">
-        <div className="size-full overflow-hidden rounded-md border border-taupe-200 bg-taupe-50 shadow-md">
-          {children}
-        </div>
-      </main>
-
+    <AgentChatProvider pageContext={agentPageContext}>
       <div
         className={cx(
-          "relative min-h-0",
-          agentSidebarMode === "collapsed"
-            ? null
-            : "h-screen border-l border-taupe-200/90 bg-linear-to-b from-taupe-100/95 to-white/95",
+          "relative grid h-screen grid-cols-1 grid-rows-1 bg-taupe-100 md:[grid-template-columns:var(--gui-sidebar-columns)]",
+          isAnySidebarResizing
+            ? ""
+            : "transition-[grid-template-columns] duration-200 ease-out",
         )}
+        style={
+          {
+            "--gui-sidebar-columns": layoutGridColumns,
+          } as CSSProperties
+        }
       >
-        {agentSidebarMode === "collapsed" ? null : (
+        <div className="relative min-h-0">
           <aside
-            className="flex size-full min-h-0 h-screen flex-col overflow-hidden"
-            id="gui-agent-sidebar"
-          >
-            <MarbleTabs
-              className="flex min-h-0 flex-1 flex-col"
-              defaultValue="chat"
-            >
-              <div className="flex items-center gap-2 px-2 pt-2 pb-1">
-                <MarbleTabsList className="flex-1">
-                  <MarbleTabsTrigger value="chat">Chat</MarbleTabsTrigger>
-                  <MarbleTabsTrigger value="changes">Changes</MarbleTabsTrigger>
-                </MarbleTabsList>
-                <button
-                  aria-label={agentSidebarToggleLabel}
-                  className="flex size-8 shrink-0 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200/80 hover:text-taupe-900"
-                  onClick={toggleAgentSidebar}
-                  title={agentSidebarToggleLabel}
-                  type="button"
-                >
-                  <XIcon
-                    size={16}
-                    weight="bold"
-                  />
-                </button>
-              </div>
-              <MarbleTabsContent
-                className="min-h-0 flex-1 overflow-hidden"
-                value="chat"
-              >
-                <AgentChat pageContext={agentPageContext} />
-              </MarbleTabsContent>
-              <MarbleTabsContent
-                className="min-h-0 flex-1 overflow-hidden"
-                value="changes"
-              >
-                <ChangeRadar
-                  className="min-h-0 size-full rounded-none border-0 bg-transparent shadow-none"
-                  sidebarData={sidebarData}
-                />
-              </MarbleTabsContent>
-            </MarbleTabs>
-          </aside>
-        )}
-
-        {agentSidebarMode === "collapsed" ? null : (
-          <hr
-            aria-controls="gui-agent-sidebar"
-            aria-label="Resize agent sidebar"
-            aria-orientation="vertical"
-            aria-valuemax={MAX_AGENT_SIDEBAR_WIDTH}
-            aria-valuemin={MIN_AGENT_SIDEBAR_WIDTH}
-            aria-valuenow={agentSidebarWidth}
             className={cx(
-              "absolute top-0 left-0 z-10 h-full w-3 -translate-x-1/2 cursor-col-resize touch-none border-0 bg-linear-to-r from-transparent via-transparent to-transparent transition-colors",
-              isAgentSidebarResizing
-                ? "via-taupe-400"
-                : "hover:via-taupe-300 focus-visible:via-taupe-300",
+              "flex size-full min-h-0 h-screen flex-col overflow-y-scroll pt-6 transition-[padding] duration-200 ease-out",
+              sidebar.asideClassName,
             )}
-            onKeyDown={handleAgentSidebarResizeKeyDown}
-            onPointerCancel={finishAgentSidebarResize}
-            onPointerDown={handleAgentSidebarResizeStart}
-            onPointerMove={handleAgentSidebarResizeMove}
-            onPointerUp={finishAgentSidebarResize}
-            ref={agentResizeHandleRef}
-            tabIndex={0}
-            title="Resize agent sidebar"
-          />
-        )}
-      </div>
-
-      {agentSidebarMode === "collapsed" ? (
-        <div className="pointer-events-none absolute right-2 bottom-2 z-20">
-          <ChangeRadar
-            className="pointer-events-auto shrink-0 opacity-80 transition-opacity hover:opacity-100"
-            mode="trigger"
-            onToggleSidebar={toggleAgentSidebar}
-            sidebarData={sidebarData}
-          />
-        </div>
-      ) : null}
-
-      <ChangeSpotlight />
-
-      <MarbleCommandDialog
-        label="Global command palette"
-        loop
-        onKeyDown={handleCommandPaletteKeyDown}
-        onOpenChange={handleCommandPaletteOpenChange}
-        open={isCommandPaletteOpen}
-      >
-        <MarbleCommandInput
-          onValueChange={setCommandPaletteQuery}
-          placeholder="Search projects, programs, profiles, or help..."
-          value={commandPaletteQuery}
-        />
-        <MarbleCommandList>
-          <MarbleCommandEmpty>{commandPaletteEmptyMessage}</MarbleCommandEmpty>
-
-          {commandPaletteSections.map((section, sectionIndex) => (
-            <div key={section.id}>
-              {sectionIndex > 0 ? <MarbleCommandSeparator /> : null}
-              <MarbleCommandGroup heading={section.heading}>
-                {section.items.map((item) => (
-                  <MarbleCommandItem
-                    key={item.id}
-                    keywords={item.keywords}
-                    onSelect={item.onSelect}
-                    value={item.label}
-                  >
-                    {item.icon}
-                    <span className="flex-1 truncate">{item.label}</span>
-                    <span className="font-mono text-eyebrow-xs text-taupe-400">
-                      {item.detail}
-                    </span>
-                  </MarbleCommandItem>
-                ))}
-              </MarbleCommandGroup>
-            </div>
-          ))}
-        </MarbleCommandList>
-
-        <div className="flex items-center justify-between border-t border-taupe-200 bg-linear-to-t from-taupe-200 via-white to-white px-4 py-2 text-eyebrow text-taupe-500">
-          <span>{commandPaletteFooterPrimaryText}</span>
-          <span>{commandPaletteFooterSecondaryText}</span>
-        </div>
-      </MarbleCommandDialog>
-
-      {commandPaletteSupportSheet ? (
-        <MarbleSheet
-          onOpenChange={(open) => {
-            if (!open) {
-              setCommandPaletteSupportSheet(null);
-            }
-          }}
-          open
-        >
-          <MarbleSheetContent
-            className={cx(supportSheetWidthClassName, "border-y-0 border-r-0")}
-            side="right"
+            id="gui-navigation-sidebar"
           >
-            <CommandPaletteSupportSheet
-              onClose={() => setCommandPaletteSupportSheet(null)}
-              view={commandPaletteSupportSheet}
+            <div className="flex w-full flex-col gap-2">
+              <div
+                className={cx(
+                  "flex w-full items-center",
+                  sidebar.brandClassName,
+                )}
+              >
+                <MarbleAccountPopover
+                  avatarUrl={userAvatarUrl ?? undefined}
+                  className={cx(sidebar.iconOnly ? null : "flex-1")}
+                  compact={sidebar.iconOnly}
+                  description={userEmail ?? undefined}
+                  displayName={userDisplayName}
+                  name={userDisplayName}
+                  sections={accountMenuSections}
+                />
+
+                {sidebar.iconOnly ? null : (
+                  <button
+                    aria-label={sidebar.toggleLabel}
+                    className="flex size-8 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200 hover:text-taupe-800"
+                    onClick={toggleSidebar}
+                    title={sidebar.toggleLabel}
+                    type="button"
+                  >
+                    <ToggleIcon
+                      size={16}
+                      weight="bold"
+                    />
+                  </button>
+                )}
+              </div>
+
+              {!sidebar.iconOnly && signOutError ? (
+                <p className="px-2 text-red-600 text-xs">{signOutError}</p>
+              ) : null}
+            </div>
+
+            <nav
+              aria-label="Primary"
+              className={cx(
+                "flex min-h-0 w-full flex-1 flex-col gap-4 overflow-y-auto pb-6",
+                sidebar.navClassName,
+              )}
+            >
+              {navigationGroups.map((group) => (
+                <div
+                  className="flex w-full flex-col gap-1"
+                  key={group.name}
+                >
+                  {sidebar.iconOnly ? null : (
+                    <span className="mb-1 px-2 font-medium text-sm tracking-tight">
+                      {group.name}
+                    </span>
+                  )}
+                  {group.routes.map((route) => {
+                    const isActive = topLevelPath === route.path;
+                    const sectionKey = `section:${route.id}`;
+                    const treeKey = route.id as TreeCollectionKey;
+                    const nodes = route.isTree ? sidebarData[treeKey] : [];
+                    const isOpen = effectiveOpenKeys.has(sectionKey);
+
+                    const previewTone =
+                      route.id === "projects" ||
+                      route.id === "programs" ||
+                      route.id === "profiles"
+                        ? getSectionPreviewTone(route.id)
+                        : null;
+
+                    return (
+                      <div
+                        className="flex w-full flex-col gap-1"
+                        key={route.name}
+                      >
+                        <SidebarNavRow
+                          active={isActive}
+                          expandable={route.isTree && !sidebar.iconOnly}
+                          expanded={isOpen}
+                          href={route.path}
+                          icon={route.icon}
+                          iconOnly={sidebar.iconOnly}
+                          label={route.name}
+                          onToggle={() => toggleOpen(sectionKey)}
+                          previewTone={previewTone}
+                          targetKey={
+                            route.id === "profiles"
+                              ? changeTargetKey.profiles()
+                              : undefined
+                          }
+                          title={sidebar.iconOnly ? route.name : undefined}
+                        />
+
+                        {route.isTree && !sidebar.iconOnly && isOpen ? (
+                          <div className="ml-2 flex flex-col gap-1 border-l border-taupe-200/80 pl-2">
+                            {renderTree(nodes)}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+
+              <div className="mt-auto mb-12 flex w-full flex-col gap-1">
+                {utilityRoutes.map((route) => (
+                  <SidebarNavRow
+                    active={topLevelPath === route.path}
+                    href={route.path}
+                    icon={route.icon}
+                    iconOnly={sidebar.iconOnly}
+                    key={route.name}
+                    label={route.name}
+                    onSelect={
+                      route.name === "Help" ? openHelpCommandPalette : undefined
+                    }
+                    title={sidebar.iconOnly ? route.name : undefined}
+                  />
+                ))}
+              </div>
+            </nav>
+          </aside>
+
+          {sidebarMode === "collapsed" ? (
+            <button
+              aria-label={sidebar.toggleLabel}
+              className="absolute top-[4rem] -right-2 z-20 flex size-7 translate-x-1/2 items-center justify-center rounded-full border border-taupe-300/80 bg-white/95 text-taupe-500 shadow-[0_8px_18px_rgba(84,57,26,0.14)] transition-[background-color,color,box-shadow,transform] hover:bg-white hover:text-taupe-900 hover:shadow-[0_12px_24px_rgba(84,57,26,0.18)]"
+              onClick={toggleSidebar}
+              title={sidebar.toggleLabel}
+              type="button"
+            >
+              <ToggleIcon
+                size={14}
+                weight="bold"
+              />
+            </button>
+          ) : null}
+
+          {sidebarMode === "collapsed" ? null : (
+            <hr
+              aria-controls="gui-navigation-sidebar"
+              aria-label="Resize navigation sidebar"
+              aria-orientation="vertical"
+              aria-valuemax={MAX_SIDEBAR_WIDTH}
+              aria-valuemin={MIN_SIDEBAR_WIDTH}
+              aria-valuenow={sidebarWidth}
+              className={cx(
+                "absolute top-0 right-0 z-10 h-full w-3 translate-x-1/2 cursor-col-resize touch-none border-0 bg-linear-to-r from-transparent via-transparent to-transparent transition-colors",
+                isResizing
+                  ? "via-taupe-400"
+                  : "hover:via-taupe-300 focus-visible:via-taupe-300",
+              )}
+              onKeyDown={handleResizeKeyDown}
+              onPointerCancel={finishResize}
+              onPointerDown={handleResizeStart}
+              onPointerMove={handleResizeMove}
+              onPointerUp={finishResize}
+              ref={resizeHandleRef}
+              tabIndex={0}
+              title="Resize navigation sidebar"
             />
-          </MarbleSheetContent>
-        </MarbleSheet>
-      ) : null}
-    </div>
+          )}
+        </div>
+
+        <main className="bg-transparent p-2 pb-8">
+          <div className="size-full overflow-hidden rounded-md border border-taupe-200 bg-taupe-50 shadow-md">
+            {children}
+          </div>
+        </main>
+
+        <div
+          className={cx(
+            "relative min-h-0",
+            agentSidebarMode === "collapsed"
+              ? null
+              : "h-screen border-l border-taupe-200/90 bg-linear-to-b from-taupe-100/95 to-white/95",
+          )}
+        >
+          {agentSidebarMode === "collapsed" ? null : (
+            <aside
+              className="flex size-full min-h-0 h-screen flex-col overflow-hidden"
+              id="gui-agent-sidebar"
+            >
+              <MarbleTabs
+                className="flex min-h-0 flex-1 flex-col"
+                onValueChange={handleAgentSidebarTabChange}
+                value={agentSidebarTab}
+              >
+                <div className="flex items-center gap-2 px-2 pt-2 pb-1">
+                  <MarbleTabsList className="flex-1">
+                    <MarbleTabsTrigger value="chat">Chat</MarbleTabsTrigger>
+                    <MarbleTabsTrigger value="changes">
+                      Changes
+                    </MarbleTabsTrigger>
+                  </MarbleTabsList>
+                  <button
+                    aria-label={agentSidebarToggleLabel}
+                    className="flex size-8 shrink-0 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200/80 hover:text-taupe-900"
+                    onClick={toggleAgentSidebar}
+                    title={agentSidebarToggleLabel}
+                    type="button"
+                  >
+                    <XIcon
+                      size={16}
+                      weight="bold"
+                    />
+                  </button>
+                </div>
+                <MarbleTabsContent
+                  className="min-h-0 flex-1 overflow-hidden"
+                  value="chat"
+                >
+                  <AgentChat />
+                </MarbleTabsContent>
+                <MarbleTabsContent
+                  className="min-h-0 flex-1 overflow-hidden"
+                  value="changes"
+                >
+                  <ChangeRadar
+                    className="min-h-0 size-full rounded-none border-0 bg-transparent shadow-none"
+                    sidebarData={sidebarData}
+                  />
+                </MarbleTabsContent>
+              </MarbleTabs>
+            </aside>
+          )}
+
+          {agentSidebarMode === "collapsed" ? null : (
+            <hr
+              aria-controls="gui-agent-sidebar"
+              aria-label="Resize agent sidebar"
+              aria-orientation="vertical"
+              aria-valuemax={MAX_AGENT_SIDEBAR_WIDTH}
+              aria-valuemin={MIN_AGENT_SIDEBAR_WIDTH}
+              aria-valuenow={agentSidebarWidth}
+              className={cx(
+                "absolute top-0 left-0 z-10 h-full w-3 -translate-x-1/2 cursor-col-resize touch-none border-0 bg-linear-to-r from-transparent via-transparent to-transparent transition-colors",
+                isAgentSidebarResizing
+                  ? "via-taupe-400"
+                  : "hover:via-taupe-300 focus-visible:via-taupe-300",
+              )}
+              onKeyDown={handleAgentSidebarResizeKeyDown}
+              onPointerCancel={finishAgentSidebarResize}
+              onPointerDown={handleAgentSidebarResizeStart}
+              onPointerMove={handleAgentSidebarResizeMove}
+              onPointerUp={finishAgentSidebarResize}
+              ref={agentResizeHandleRef}
+              tabIndex={0}
+              title="Resize agent sidebar"
+            />
+          )}
+        </div>
+
+        {agentSidebarMode === "collapsed" ? (
+          <div className="pointer-events-none absolute right-2 bottom-2 z-20">
+            <ChangeRadar
+              className="pointer-events-auto shrink-0 opacity-80 transition-opacity hover:opacity-100"
+              mode="trigger"
+              onToggleSidebar={toggleAgentSidebar}
+              sidebarData={sidebarData}
+            />
+          </div>
+        ) : null}
+
+        <ChangeSpotlight />
+
+        <AgentChatCue
+          disabled={isCommandPaletteOpen || commandPaletteSupportSheet !== null}
+          onSubmitStart={openAgentChat}
+        />
+
+        <MarbleCommandDialog
+          label="Global command palette"
+          loop
+          onKeyDown={handleCommandPaletteKeyDown}
+          onOpenChange={handleCommandPaletteOpenChange}
+          open={isCommandPaletteOpen}
+        >
+          <MarbleCommandInput
+            onValueChange={setCommandPaletteQuery}
+            placeholder="Search projects, programs, profiles, or help..."
+            value={commandPaletteQuery}
+          />
+          <MarbleCommandList>
+            <MarbleCommandEmpty>
+              {commandPaletteEmptyMessage}
+            </MarbleCommandEmpty>
+
+            {commandPaletteSections.map((section, sectionIndex) => (
+              <div key={section.id}>
+                {sectionIndex > 0 ? <MarbleCommandSeparator /> : null}
+                <MarbleCommandGroup heading={section.heading}>
+                  {section.items.map((item) => (
+                    <MarbleCommandItem
+                      key={item.id}
+                      keywords={item.keywords}
+                      onSelect={item.onSelect}
+                      value={item.label}
+                    >
+                      {item.icon}
+                      <span className="flex-1 truncate">{item.label}</span>
+                      <span className="font-mono text-eyebrow-xs text-taupe-400">
+                        {item.detail}
+                      </span>
+                    </MarbleCommandItem>
+                  ))}
+                </MarbleCommandGroup>
+              </div>
+            ))}
+          </MarbleCommandList>
+
+          <div className="flex items-center justify-between border-t border-taupe-200 bg-linear-to-t from-taupe-200 via-white to-white px-4 py-2 text-eyebrow text-taupe-500">
+            <span>{commandPaletteFooterPrimaryText}</span>
+            <span>{commandPaletteFooterSecondaryText}</span>
+          </div>
+        </MarbleCommandDialog>
+
+        {commandPaletteSupportSheet ? (
+          <MarbleSheet
+            onOpenChange={(open) => {
+              if (!open) {
+                setCommandPaletteSupportSheet(null);
+              }
+            }}
+            open
+          >
+            <MarbleSheetContent
+              className={cx(
+                supportSheetWidthClassName,
+                "border-y-0 border-r-0",
+              )}
+              side="right"
+            >
+              <CommandPaletteSupportSheet
+                onClose={() => setCommandPaletteSupportSheet(null)}
+                view={commandPaletteSupportSheet}
+              />
+            </MarbleSheetContent>
+          </MarbleSheet>
+        ) : null}
+      </div>
+    </AgentChatProvider>
   );
 };

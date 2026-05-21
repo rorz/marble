@@ -10,17 +10,15 @@ import {
   useRef,
 } from "react";
 
+import { useAgentChatSession } from "./context";
 import { ChatEntryView } from "./entry-view";
 import { HistoryMenu } from "./history-menu";
-import type { AgentChatPageContext } from "./types";
-import { useSession } from "./use-session";
 
 type AgentChatProps = {
   headerActions?: ReactNode;
-  pageContext?: AgentChatPageContext;
 };
 
-export const AgentChat = ({ headerActions, pageContext }: AgentChatProps) => {
+export const AgentChat = ({ headerActions }: AgentChatProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const {
     activeThreadId,
@@ -36,9 +34,7 @@ export const AgentChat = ({ headerActions, pageContext }: AgentChatProps) => {
     status,
     streaming,
     threadSummaries,
-  } = useSession({
-    pageContext,
-  });
+  } = useAgentChatSession();
 
   useEffect(() => {
     const node = scrollRef.current;
@@ -189,3 +185,6 @@ export const AgentChat = ({ headerActions, pageContext }: AgentChatProps) => {
     </section>
   );
 };
+
+export { AgentChatProvider } from "./context";
+export { AgentChatCue } from "./cue";

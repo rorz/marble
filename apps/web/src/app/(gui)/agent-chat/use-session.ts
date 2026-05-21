@@ -20,6 +20,10 @@ import type {
 import { useClientActions } from "./use-client-actions";
 import { useStreamEvents } from "./use-stream-events";
 
+type SendMessageOptions = {
+  freshThread?: boolean;
+};
+
 export const useSession = ({
   pageContext,
 }: {
@@ -63,13 +67,21 @@ export const useSession = ({
     hydrated,
   ]);
 
-  const sendMessage = async (text: string) => {
+  const sendMessage = async (
+    text: string,
+    { freshThread = false }: SendMessageOptions = {},
+  ) => {
     const trimmed = text.trim();
-    if (!trimmed || streaming) return;
-    const history = buildConversationHistory(entries);
+    if (!trimmed || streaming) return false;
+    const baseEntries = freshThread ? [] : entries;
+    const history = buildConversationHistory(baseEntries);
 
-    setEntries((prev) => [
-      ...prev,
+    if (freshThread) {
+      setActiveThreadId(createThreadId());
+    }
+
+    setEntries([
+      ...baseEntries,
       {
         content: trimmed,
         id: randomId(),
@@ -131,6 +143,8 @@ export const useSession = ({
         abortRef.current = null;
       }
     }
+
+    return true;
   };
 
   const cancelCurrentRun = () => {
