@@ -17,7 +17,10 @@ export const env = createEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
   },
   server: {
+    // harness-ignore: no-optional-env -- Conditioned by MARBLE_AGENT_PROVIDER; only the selected provider key must exist.
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
+    ELEVENLABS_API_KEY: z.string().min(1),
+    // harness-ignore: no-optional-env -- Conditioned by MARBLE_AGENT_PROVIDER; only the selected provider key must exist.
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
     MARBLE_AGENT_PROVIDER: z.enum([
       "anthropic",
@@ -26,6 +29,7 @@ export const env = createEnv({
     ]),
     MARBLE_EXECUTOR_URL: z.url(),
     MARBLE_INGESTOR_URL: z.url(),
+    // harness-ignore: no-optional-env -- Conditioned by MARBLE_AGENT_PROVIDER; only the selected provider key must exist.
     OPENAI_API_KEY: z.string().min(1).optional(),
     SUPABASE_JWT_SECRET: z.string().min(1),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1), // TODO: Change to secret key
