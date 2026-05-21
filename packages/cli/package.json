@@ -2,33 +2,30 @@
   "bin": {
     "marble": "./dist/cli.js"
   },
-  "dependencies": {
+  "devDependencies": {
     "@marble/contracts": "workspace:*",
     "@marble/lib": "workspace:*",
     "@marble/sdk": "workspace:*",
     "@orpc/contract": "catalog:base",
     "@t3-oss/env-core": "catalog:base",
+    "@types/node": "catalog:base",
     "commander": "catalog:base",
     "dotenv": "catalog:base",
+    "typescript": "catalog:base",
     "zod": "catalog:base"
-  },
-  "devDependencies": {
-    "@types/node": "catalog:base",
-    "typescript": "catalog:base"
-  },
-  "exports": {
-    ".": "./src/index.ts"
   },
   "files": [
     "dist/cli.js"
   ],
-  "name": "@marble/cli",
-  "private": true,
+  "name": "marble-cli",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "bun build ./src/cli.ts --target=node --outfile ./dist/cli.js",
     "install:local": "bun link",
     "typecheck": "tsc --noEmit"
   },
   "type": "module",
-  "version": "1.0.0"
+  "version": "0.0.4"
 }

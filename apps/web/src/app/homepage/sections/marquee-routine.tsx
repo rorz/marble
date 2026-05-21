@@ -19,7 +19,7 @@ export const MarqueeRoutineSection = () => {
           },
           {
             direction: "right",
-            phrase: "bunx @marble/cli init",
+            phrase: "bunx marble-cli init",
             separator: "▸",
             speed: "slow",
             tone: "cream",

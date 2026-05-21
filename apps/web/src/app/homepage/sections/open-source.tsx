@@ -39,7 +39,7 @@ export const OpenSourceSection = () => {
             tone="midnight"
             trailing="bunx → 30s"
           >
-            {`bunx @marble/cli init my-workspace
+            {`bunx marble-cli init my-workspace
 cd my-workspace
 bun run dev`}
           </MarketingCodeBlock>
