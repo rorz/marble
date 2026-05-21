@@ -1,10 +1,12 @@
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import type { createSupabaseClientRouterClient } from "@marble/api/supabase-client";
 import { marbleOperations } from "@marble/contracts";
-import { safeStringify } from "@marble/lib/json";
 import { formatRpcError } from "@marble/lib/result";
 import { z } from "zod";
-import { prepareToolSchema } from "./schema";
+import { prepareToolSchema } from "../schema";
+import { toolPromptMetadataFor } from "./guidance";
+import { prepareToolCallInput } from "./prepare-call";
+import { summarizeToolResult } from "./summarize-result";
 
 type RouterClient = ReturnType<typeof createSupabaseClientRouterClient>;
 
@@ -57,7 +59,6 @@ type ToolDetails = {
   result?: unknown;
 };
 
-const MAX_RESULT_PREVIEW = 2000;
 const BROWSER_NAVIGATE_TOOL_NAME = "browser_navigate";
 
 const camelToSnake = (input: string): string =>
@@ -65,12 +66,6 @@ const camelToSnake = (input: string): string =>
 
 const toToolName = (resourceName: string, opName: string): string =>
   `marble_${camelToSnake(resourceName)}_${camelToSnake(opName)}`;
-
-const summarizeResult = (result: unknown): string => {
-  const pretty = safeStringify(result);
-  if (pretty.length <= MAX_RESULT_PREVIEW) return pretty;
-  return `${pretty.slice(0, MAX_RESULT_PREVIEW)}\n... (truncated; full result in tool details)`;
-};
 
 const browserNavigateInput = z.object({
   href: z
@@ -145,6 +140,17 @@ const buildBrowserNavigateTool = (): ReturnType<typeof defineTool> => {
   });
 };
 
+const buildToolDescription = (operation: ContractOperation): string => {
+  const promptMetadata = toolPromptMetadataFor(operation.route.operationId);
+
+  return [
+    `${operation.route.summary}. (${operation.route.method} ${operation.route.path})`,
+    promptMetadata.description,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join("\n\n");
+};
+
 const buildToolForOperation = (
   dispatch: DispatchTable,
   resourceName: string,
@@ -165,10 +171,11 @@ const buildToolForOperation = (
   }
 
   const prepared = prepareToolSchema(rawSchema);
+  const promptMetadata = toolPromptMetadataFor(operation.route.operationId);
 
   try {
     const tool = defineTool({
-      description: `${operation.route.summary}. (${operation.route.method} ${operation.route.path})`,
+      description: buildToolDescription(operation),
       execute: async (_toolCallId, params) => {
         try {
           const callInput = prepared.wrapped
@@ -183,11 +190,19 @@ const buildToolForOperation = (
             throw new Error(`No handler found for ${resourceName}.${opName}.`);
           }
 
-          const result = await operationHandler(callInput);
+          const preparedInput = await prepareToolCallInput({
+            dispatch,
+            input: callInput,
+            operationId: operation.route.operationId,
+          });
+          const result = await operationHandler(preparedInput);
           return {
             content: [
               {
-                text: `${toolName} succeeded.\n\n${summarizeResult(result)}`,
+                text: `${toolName} succeeded.\n\n${summarizeToolResult({
+                  operationId: operation.route.operationId,
+                  result,
+                })}`,
                 type: "text" as const,
               },
             ],
@@ -207,6 +222,16 @@ const buildToolForOperation = (
       parameters: prepared.schema as Parameters<
         typeof defineTool
       >[0]["parameters"],
+      ...(promptMetadata.promptGuidelines
+        ? {
+            promptGuidelines: promptMetadata.promptGuidelines,
+          }
+        : {}),
+      ...(promptMetadata.promptSnippet
+        ? {
+            promptSnippet: promptMetadata.promptSnippet,
+          }
+        : {}),
     });
     return {
       kind: "ok",

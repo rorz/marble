@@ -1,5 +1,9 @@
 import "server-only";
-import { buildSystemPrompt, createMarbleAgentSession } from "@marble/agent";
+import {
+  buildSystemPrompt,
+  createMarbleAgentSession,
+  resolveMarbleAgentClarification,
+} from "@marble/agent";
 import { stringifyJsonSafe } from "@marble/lib/json";
 import { formatRpcError, getErrorMessage } from "@marble/lib/result";
 import { env } from "@/env";
@@ -71,8 +75,9 @@ export const POST = async (req: Request) => {
   }
 
   const provider = env.MARBLE_AGENT_PROVIDER;
-  const apiKey = providerApiKey(provider);
-  if (!apiKey) {
+  const clarification = resolveMarbleAgentClarification(parsed.data);
+  const apiKey = clarification ? null : providerApiKey(provider);
+  if (!clarification && !apiKey) {
     return new Response(
       `Provider "${provider}" is configured but its API key is missing.`,
       {
@@ -117,6 +122,33 @@ export const POST = async (req: Request) => {
         provider,
         type: "marble_session_starting",
       });
+
+      if (clarification) {
+        send({
+          reason: clarification.reason,
+          route: "direct",
+          type: "marble_conduit_decision",
+        });
+        send({
+          content: clarification.response,
+          type: "message_end",
+        });
+        send({
+          type: "marble_session_complete",
+        });
+        close();
+        return;
+      }
+
+      if (!apiKey) {
+        send({
+          code: "SESSION_INIT_FAILED",
+          message: `Provider "${provider}" is configured but its API key is missing.`,
+          type: "marble_session_error",
+        });
+        close();
+        return;
+      }
 
       const conduitDecision = await resolveConduitDecision({
         apiKey,

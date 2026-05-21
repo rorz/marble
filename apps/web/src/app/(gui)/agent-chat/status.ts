@@ -25,15 +25,6 @@ export const createRoutingStatus = (): AgentChatStatus =>
     "Routing through the fast conduit.",
   ]);
 
-export const appendStatusNote = (
-  status: AgentChatStatus | null,
-  note: string,
-): AgentChatStatus =>
-  createStatus(status?.message ?? note, [
-    ...(status?.notes ?? []),
-    note,
-  ]);
-
 export const mergeStatus = (
   current: AgentChatStatus | null,
   next: AgentChatStatus,
@@ -62,18 +53,11 @@ export const formatRouteStatus = (event: StreamEvent): AgentChatStatus => {
 };
 
 export const statusForToolStart = (event: StreamEvent): AgentChatStatus =>
-  createStatus(`Running ${formatToolName(event)}...`, [
-    `Calling ${formatToolName(event)}.`,
-  ]);
+  createStatus(`Running ${formatToolName(event)}...`);
 
 export const statusForToolEnd = (event: StreamEvent): AgentChatStatus =>
   createStatus(
     event.isError
-      ? `${formatToolName(event)} failed.`
-      : `Finished ${formatToolName(event)}.`,
-    [
-      event.isError
-        ? `${formatToolName(event)} failed.`
-        : `${formatToolName(event)} completed.`,
-    ],
+      ? "Tool failed; deciding the next step..."
+      : "Reading tool result...",
   );

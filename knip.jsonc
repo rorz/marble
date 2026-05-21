@@ -34,6 +34,9 @@
       // All harness scripts are entry points (each one is `bun run harness/X.ts`).
       "entry": ["*.ts"]
     },
+    "packages/agent": {
+      "entry": ["__tests__/**/*.test.ts"]
+    },
     "packages/api": {
       "entry": ["__tests__/**/*.test.ts"]
     },

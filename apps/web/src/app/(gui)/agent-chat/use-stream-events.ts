@@ -14,7 +14,6 @@ import {
 } from "./entries";
 import {
   type AgentChatStatus,
-  appendStatusNote,
   createRoutingStatus,
   formatRouteStatus,
   mergeStatus,
@@ -60,7 +59,6 @@ export const useStreamEvents = ({
     }
 
     if (event.type === "marble_session_built") {
-      setStatus((prev) => appendStatusNote(prev, "Tool session ready."));
       return;
     }
 

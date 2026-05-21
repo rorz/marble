@@ -17,6 +17,11 @@ const DEEP_AGENT_PATTERNS: Array<{
   },
   {
     pattern:
+      /\b(script|program code|manual input|manual value|user-?input|input column|external API)\b/i,
+    reason: "Program authoring or input-column design request.",
+  },
+  {
+    pattern:
       /\b(delete all|delete every|remove all|remove every|wipe|reset everything)\b/i,
     reason: "Broad destructive request.",
   },

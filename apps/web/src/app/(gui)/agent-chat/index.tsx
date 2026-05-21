@@ -62,6 +62,12 @@ export const AgentChat = ({ headerActions, pageContext }: AgentChatProps) => {
       void sendMessage(draft);
     }
   };
+  const hasStreamingAssistantActivity = entries.some(
+    (entry) =>
+      entry.kind === "assistant" &&
+      entry.streaming &&
+      (entry.content.length > 0 || Boolean(entry.tools?.length)),
+  );
 
   return (
     <section className="flex size-full min-h-0 flex-col">
@@ -115,14 +121,7 @@ export const AgentChat = ({ headerActions, pageContext }: AgentChatProps) => {
           />
         ))}
 
-        {streaming &&
-        (status ||
-          !entries.some(
-            (entry) =>
-              entry.kind === "assistant" &&
-              entry.streaming &&
-              entry.content.length > 0,
-          )) ? (
+        {streaming && !hasStreamingAssistantActivity ? (
           <div className="flex items-center gap-2 rounded-sm border border-taupe-200 bg-white/70 px-3 py-2 text-taupe-600 text-xs inset-shadow-2xs inset-shadow-white/45">
             <MarbleSpinner size="sm" />
             <div className="min-w-0 flex-1 space-y-1">

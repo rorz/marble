@@ -17,13 +17,14 @@ import {
 import { createMarbleResourceLoader } from "./resource-loader";
 import { buildMarbleTools, type SkippedTool } from "./tools";
 
+export { resolveMarbleAgentClarification } from "./clarification";
 export {
   type MarbleAgentConduitDecision,
   resolveMarbleAgentConduitDecision,
 } from "./conduit";
 export type { MarbleAgentModelTier, MarbleAgentProvider } from "./models";
 export { resolveAgentModel } from "./models";
-export { buildSystemPrompt } from "./prompt";
+export { buildSystemPrompt, MARBLE_AGENT_TURN_GUIDANCE } from "./prompt";
 export type { ClientAction } from "./tools";
 
 export type MarbleAgentSessionConfig = {
