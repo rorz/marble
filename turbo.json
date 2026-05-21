@@ -1,18 +1,6 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "globalDependencies": ["tsconfig.json"],
-  "globalEnv": [
-    "MARBLE_API_KEY",
-    "MARBLE_API_URL",
-    "MARBLE_EXECUTOR_URL",
-    "MARBLE_INGESTOR_URL",
-    "NEXT_PUBLIC_MARBLE_WEB_SESSION_API_URL",
-    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
-    "NEXT_PUBLIC_SUPABASE_URL",
-    "SUPABASE_JWT_SECRET",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "SUPABASE_URL"
-  ],
   "tasks": {
     "//#format-and-lint": {},
     "//#format-and-lint:fix": {

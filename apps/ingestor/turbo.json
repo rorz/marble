@@ -2,6 +2,15 @@
   "$schema": "https://turborepo.dev/schema.json",
   "extends": ["//"],
   "tasks": {
+    "deploy": {
+      "env": ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"]
+    },
+    "dev": {
+      "env": ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"]
+    },
+    "start": {
+      "env": ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"]
+    },
     "typecheck": {
       "dependsOn": ["$TURBO_EXTENDS$", "typegen"]
     },
