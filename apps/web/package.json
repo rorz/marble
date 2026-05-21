@@ -18,6 +18,7 @@
     "ai": "catalog:base",
     "csv-stringify": "catalog:base",
     "monaco-editor": "catalog:base",
+    "motion": "catalog:base",
     "next": "catalog:base",
     "prismjs": "catalog:base",
     "react": "catalog:base",

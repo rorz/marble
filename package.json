@@ -63,6 +63,7 @@
         "hono": "^4",
         "jsonpath-plus": "10.4.0",
         "monaco-editor": "0.55.1",
+        "motion": "^12.39.0",
         "nanoid": "^5.1.7",
         "next": "16.2.4",
         "prismjs": "^1.30.0",
