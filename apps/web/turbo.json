@@ -5,6 +5,7 @@
     "build": {
       "env": [
         "ANTHROPIC_API_KEY",
+        "ELEVENLABS_API_KEY",
         "GOOGLE_GENERATIVE_AI_API_KEY",
         "MARBLE_AGENT_PROVIDER",
         "MARBLE_EXECUTOR_URL",
