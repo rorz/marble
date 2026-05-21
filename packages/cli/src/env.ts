@@ -8,9 +8,6 @@ export const readCliEnv = (runtimeEnv: NodeJS.ProcessEnv) =>
     runtimeEnv,
     server: {
       MARBLE_API_KEY: z.string().min(1),
-      MARBLE_API_URL: z
-        .string()
-        .url()
-        .default("https://marble.kenobi.tech/api"),
+      MARBLE_API_URL: z.url().default("https://marble.zone/api"),
     },
   });
