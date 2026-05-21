@@ -1,13 +1,7 @@
 "use client";
 
 import { useReducedMotion } from "motion/react";
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAgentChatSession } from "../context";
 import { reportCueTranscriptionError } from "./error";
 import {
@@ -18,7 +12,6 @@ import {
   stopScribeSession,
 } from "./scribe";
 import {
-  CUE_TEXTAREA_ID,
   isCueStartKey,
   isTranscriptionStartKey,
   isTranscriptionStopKey,
@@ -43,6 +36,8 @@ export const AgentChatCue = ({
   const draftRef = useRef("");
   const scribeBaseRef = useRef("");
   const scribeCommittedRef = useRef("");
+  const scribeHadCommittedTranscriptRef = useRef(false);
+  const scribeHadTranscriptRef = useRef(false);
   const scribePartialRef = useRef("");
   const scribeStopSequenceRef = useRef(0);
   const scribeSessionRef = useRef<ScribeSession | null>(null);
@@ -87,7 +82,14 @@ export const AgentChatCue = ({
         return;
       }
 
-      if (result.reason !== "committed") {
+      if (!scribeHadTranscriptRef.current) {
+        return;
+      }
+
+      if (
+        result.reason !== "committed" ||
+        !scribeHadCommittedTranscriptRef.current
+      ) {
         reportCueTranscriptionError(
           new Error(
             `Speech transcription did not return a final transcript (${result.reason}).`,
@@ -159,7 +161,16 @@ export const AgentChatCue = ({
 
   const handleScribeTranscript = useCallback(
     ({ committed, text }: ScribeTranscriptEvent) => {
+      const transcribedText = text.trim();
+
+      if (transcribedText) {
+        scribeHadTranscriptRef.current = true;
+      }
+
       if (committed) {
+        if (transcribedText) {
+          scribeHadCommittedTranscriptRef.current = true;
+        }
         scribeCommittedRef.current = appendTranscriptSegment(
           scribeCommittedRef.current,
           text,
@@ -189,6 +200,8 @@ export const AgentChatCue = ({
 
     scribeBaseRef.current = draftRef.current;
     scribeCommittedRef.current = "";
+    scribeHadCommittedTranscriptRef.current = false;
+    scribeHadTranscriptRef.current = false;
     scribePartialRef.current = "";
     scribeStartingRef.current = true;
     scribeSubmitOnStopRef.current = false;
@@ -228,26 +241,10 @@ export const AgentChatCue = ({
     unavailable,
   ]);
 
-  useLayoutEffect(() => {
-    if (!visible) {
-      return;
-    }
-
-    const input = document.getElementById(CUE_TEXTAREA_ID);
-
-    if (!(input instanceof HTMLTextAreaElement)) {
-      return;
-    }
-
-    const cursorPosition = input.value.length;
-    input.focus();
-    input.setSelectionRange(cursorPosition, cursorPosition);
-  }, [
-    visible,
-  ]);
-
   const clearCue = useCallback(() => {
     scribeStopSequenceRef.current += 1;
+    scribeHadCommittedTranscriptRef.current = false;
+    scribeHadTranscriptRef.current = false;
     scribeSubmitOnStopRef.current = false;
     stopTranscribing();
     updateDraft("");

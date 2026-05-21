@@ -40,10 +40,43 @@ A Bun + Turborepo monorepo.
 | `packages/api` | The oRPC + OpenAPI implementation of those contracts. |
 | `packages/sdk` | The TypeScript SDK (`@marble/sdk`). |
 | `packages/cli` | The `marble` CLI, auto-generated from the contract. |
+| `packages/wizard` | The Marble Wizard agent skill. The installable skill root is `packages/wizard/src`. |
 | `packages/store` | Typed Supabase access for every resource. |
 | `packages/ui` | The shared React design system. |
 | `packages/lib`, `packages/keys` | Small internal helpers. |
 | `supabase/` | Postgres schema, auth config, and the seed generator. |
+
+## Publishing the CLI and skill
+
+The CLI and the agent skill ship through different channels:
+
+- CLI: publish `packages/cli` to npm as `marble-cli`.
+- Skill: install from the GitHub tree URL that points directly at the skill folder:
+
+```sh
+bunx skills add https://github.com/rorz/marble/tree/main/packages/wizard/src -g -y
+```
+
+Do not point skill installers at `packages/wizard`; that is the local package wrapper. The actual skill directory is `packages/wizard/src`, because it contains `SKILL.md` at its root. The Vercel `skills` installer supports full GitHub tree URLs for this exact case.
+
+Before publishing a new CLI version:
+
+```sh
+bun check
+bun test
+bun --cwd packages/cli run build
+cd packages/cli
+bun publish --dry-run
+bun publish --access public --tag latest
+```
+
+After publishing, verify both entry points:
+
+```sh
+bunx marble-cli@latest --help
+bunx marble-cli@latest describe
+bunx skills add https://github.com/rorz/marble/tree/main/packages/wizard/src -g -y
+```
 
 ## Running it locally
 
