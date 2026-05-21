@@ -23,15 +23,6 @@ type TextContentBlock = {
   type: "text";
 };
 
-type ToolResultMessage = {
-  content?: unknown;
-  details?: unknown;
-  isError?: unknown;
-  role?: unknown;
-  toolCallId?: unknown;
-  toolName?: unknown;
-};
-
 type ToolResultContent = {
   text?: unknown;
   type?: unknown;
@@ -148,11 +139,6 @@ const asToolExecutionResult = (value: unknown): ToolExecutionResult => {
   return value as ToolExecutionResult;
 };
 
-const asToolResultMessage = (value: unknown): ToolResultMessage => {
-  if (!value || typeof value !== "object") return {};
-  return value as ToolResultMessage;
-};
-
 const extractToolResultText = (
   result: ToolExecutionResult,
 ): string | undefined => {
@@ -182,38 +168,6 @@ const parseClientAction = (value: unknown): ClientAction | undefined => {
   return undefined;
 };
 
-const normalizeToolResultMessage = (
-  message: unknown,
-): AgentChatWireEvent | undefined => {
-  const toolResult = asToolResultMessage(message);
-  if (
-    toolResult.role !== "toolResult" ||
-    typeof toolResult.toolCallId !== "string" ||
-    typeof toolResult.toolName !== "string"
-  ) {
-    return undefined;
-  }
-
-  const result = asToolExecutionResult({
-    content: Array.isArray(toolResult.content) ? toolResult.content : undefined,
-    details: toolResult.details,
-  });
-  const isError = toolResult.isError === true;
-  const errorMessage = isError
-    ? (extractToolResultText(result) ?? "Tool failed")
-    : undefined;
-
-  return {
-    clientAction: parseClientAction(result.details?.clientAction),
-    isError,
-    message: errorMessage,
-    result: result.details?.result ?? result.details ?? result,
-    toolCallId: toolResult.toolCallId,
-    toolName: toolResult.toolName,
-    type: "tool_execution_end",
-  };
-};
-
 export const normalizeAgentEvent = (
   event: AgentSessionEvent,
   session: AgentSession,
@@ -232,9 +186,6 @@ export const normalizeAgentEvent = (
   }
 
   if (event.type === "message_end") {
-    const toolResultEvent = normalizeToolResultMessage(event.message);
-    if (toolResultEvent) return toolResultEvent;
-
     const maybeMessage = event.message as AgentMessageWithContent;
     if (maybeMessage?.role !== "assistant") return undefined;
 

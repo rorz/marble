@@ -3,18 +3,18 @@ import {
   createMarbleAgentSession,
   type MarbleAgentProvider,
 } from "@marble/agent";
-import { stringifyJsonSafe } from "@marble/lib/json";
 import { formatRpcError, getErrorMessage } from "@marble/lib/result";
 import { createClient } from "@/lib/supabase/server";
 import {
   createServiceRoleClient,
   resolveAgentProfileId,
 } from "@/lib/supabase/service-role";
-import { resolveConduitDecision } from "./conduit";
-import { type AgentChatWireEvent, normalizeAgentEvent } from "./events";
-import { buildAgentPrompt } from "./prompt";
-import type { AgentChatRequest } from "./request";
-import type { createAgentChatTiming } from "./timing";
+import { resolveConduitDecision } from "../conduit";
+import { normalizeAgentEvent } from "../events";
+import { buildAgentPrompt } from "../prompt";
+import type { AgentChatRequest } from "../request";
+import type { createAgentChatTiming } from "../timing";
+import { createStreamWriter } from "./stream";
 
 type AgentChatTiming = ReturnType<typeof createAgentChatTiming>;
 
@@ -72,29 +72,11 @@ export const createAgentChatStreamResponse = ({
       });
     },
     async start(controller) {
-      let closed = false;
-      const send = (payload: AgentChatWireEvent) => {
-        if (closed) return;
-        try {
-          controller.enqueue(
-            encoder.encode(`data: ${stringifyJsonSafe(payload)}\n\n`),
-          );
-          timing.observeWireEvent(payload);
-        } catch (error) {
-          console.error("[/api/agent/chat] stream write failed", error);
-          closed = true;
-          try {
-            controller.error(error);
-          } catch {}
-        }
-      };
-      const close = () => {
-        if (closed) return;
-        closed = true;
-        try {
-          controller.close();
-        } catch {}
-      };
+      const { close, send } = createStreamWriter({
+        controller,
+        encoder,
+        onPayload: timing.observeWireEvent,
+      });
       const errorMessage = (error: unknown) =>
         getErrorMessage(error, formatRpcError(error));
 
@@ -281,11 +263,15 @@ export const createAgentChatStreamResponse = ({
           unsubscribed = true;
           try {
             unsubscribe();
-          } catch {}
+          } catch (error) {
+            console.warn("[/api/agent/chat] unsubscribe failed", error);
+          }
         }
         try {
           dispose();
-        } catch {}
+        } catch (error) {
+          console.warn("[/api/agent/chat] dispose failed", error);
+        }
         close();
       };
 
