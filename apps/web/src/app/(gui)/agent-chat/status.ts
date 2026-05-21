@@ -10,6 +10,19 @@ const MAX_STATUS_NOTES = 5;
 const formatToolName = (event: StreamEvent): string =>
   event.label ?? event.toolName ?? "tool";
 
+const formatTierName = (tier: StreamEvent["modelTier"]): string => {
+  switch (tier) {
+    case "rapid":
+      return "Rapid";
+    case "standard":
+      return "Standard";
+    case "expert":
+      return "Expert";
+    default:
+      return "Agent";
+  }
+};
+
 const createStatus = (
   message: string,
   notes: string[] = [],
@@ -21,9 +34,7 @@ const createStatus = (
 });
 
 export const createRoutingStatus = (): AgentChatStatus =>
-  createStatus("Choosing model path...", [
-    "Routing through the fast conduit.",
-  ]);
+  createStatus("Starting Rapid...");
 
 export const mergeStatus = (
   current: AgentChatStatus | null,
@@ -34,23 +45,13 @@ export const mergeStatus = (
     ...next.notes,
   ]);
 
-export const formatRouteStatus = (event: StreamEvent): AgentChatStatus => {
-  if (event.route === "direct") {
-    return createStatus("Direct path: answering without tools.", [
-      event.reason ?? "The conduit found a direct answer path.",
-    ]);
-  }
+export const formatTierStatus = (event: StreamEvent): AgentChatStatus =>
+  createStatus(`${formatTierName(event.modelTier)} is working...`);
 
-  if (event.modelTier === "fast") {
-    return createStatus("Fast path: elemental request.", [
-      event.reason ?? "Intent is clear enough for the low-latency agent.",
-    ]);
-  }
-
-  return createStatus("Pro path: reasoning through workflow and context.", [
-    event.reason ?? "The request needs stronger intent handling.",
+export const formatHandoffStatus = (event: StreamEvent): AgentChatStatus =>
+  createStatus(`Handing off to ${formatTierName(event.toTier)}...`, [
+    event.reason ?? "The current tier asked for a stronger pass.",
   ]);
-};
 
 export const statusForToolStart = (event: StreamEvent): AgentChatStatus =>
   createStatus(`Running ${formatToolName(event)}...`);

@@ -7,7 +7,7 @@ import { stringifyJsonSafe } from "@marble/lib/json";
 import { env } from "@/env";
 import { getCurrentUser } from "@/lib/auth";
 import type { AgentChatWireEvent } from "./events";
-import { buildAgentPrompt, buildConduitPrompt } from "./prompt";
+import { buildAgentPrompt } from "./prompt";
 import { providerApiKey } from "./provider";
 import { type AgentChatRequest, requestSchema } from "./request";
 import { createAgentChatStreamResponse } from "./response";
@@ -31,9 +31,6 @@ const buildDebugPromptDump = (input: AgentChatRequest) =>
     "",
     "=== AGENT REQUEST PROMPT ===",
     buildAgentPrompt(input),
-    "",
-    "=== CONDUIT PROMPT ===",
-    buildConduitPrompt(input),
   ].join("\n");
 
 export const POST = async (req: Request) => {

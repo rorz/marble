@@ -54,7 +54,6 @@ const LEGACY_VIOLATION_KEYS = new Set([
   "harness/no-forward-reference.ts:308:7",
   "harness/no-optional-env.ts:70:5",
   "harness/patterns.ts:239:7",
-  "packages/agent/src/conduit.ts:84:5",
   "packages/agent/src/tools/prepare-call.ts:28:5",
   "packages/api/src/executor.ts:76:5",
   "packages/lib/json/index.ts:42:5",

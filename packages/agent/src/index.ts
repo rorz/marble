@@ -13,23 +13,37 @@ import {
   type MarbleAgentModelTier,
   type MarbleAgentProvider,
   resolveAgentModel,
+  resolveAgentThinkingLevel,
 } from "./models";
 import { createMarbleResourceLoader } from "./resource-loader";
-import { buildMarbleTools, type SkippedTool } from "./tools";
+import {
+  buildMarbleTools,
+  type MarbleAgentHandoffRequest,
+  type MarbleAgentHandoffTarget,
+  type SkippedTool,
+} from "./tools";
 
 export { resolveMarbleAgentClarification } from "./clarification";
 export {
-  type MarbleAgentConduitDecision,
-  resolveMarbleAgentConduitDecision,
-} from "./conduit";
-export type { MarbleAgentModelTier, MarbleAgentProvider } from "./models";
-export { resolveAgentModel } from "./models";
+  MARBLE_AGENT_MODEL_TIERS,
+  type MarbleAgentModelTier,
+  type MarbleAgentProvider,
+  resolveAgentModel,
+  resolveAgentThinkingLevel,
+} from "./models";
 export { buildSystemPrompt, MARBLE_AGENT_TURN_GUIDANCE } from "./prompt";
-export type { ClientAction } from "./tools";
+export type {
+  ClientAction,
+  MarbleAgentHandoffRequest,
+  MarbleAgentHandoffTarget,
+} from "./tools";
+export { REQUEST_HANDOFF_TOOL_NAME } from "./tools";
 
 export type MarbleAgentSessionConfig = {
   apiKey: string;
+  handoffTargets?: MarbleAgentHandoffTarget[];
   modelTier?: MarbleAgentModelTier;
+  onHandoffRequest?: (request: MarbleAgentHandoffRequest) => void;
   profileId: string;
   provider: MarbleAgentProvider;
   serviceSupabase?: SupabaseClient;
@@ -51,7 +65,7 @@ export const createMarbleAgentSession = async (
   auth.setRuntimeApiKey(config.provider, config.apiKey);
 
   const modelRegistry = ModelRegistry.create(auth);
-  const modelTier = config.modelTier ?? "deep";
+  const modelTier = config.modelTier ?? "rapid";
   const model = resolveAgentModel(config.provider, modelTier);
 
   const routerClient = createSupabaseClientRouterClient({
@@ -61,7 +75,10 @@ export const createMarbleAgentSession = async (
     userId: config.userId,
   });
 
-  const { skipped, tools } = buildMarbleTools(routerClient);
+  const { skipped, tools } = buildMarbleTools(routerClient, {
+    handoffTargets: config.handoffTargets,
+    onHandoffRequest: config.onHandoffRequest,
+  });
 
   const { session } = await createAgentSession({
     authStorage: auth,
@@ -71,7 +88,7 @@ export const createMarbleAgentSession = async (
     noTools: "builtin",
     resourceLoader: createMarbleResourceLoader(),
     sessionManager: SessionManager.inMemory(),
-    thinkingLevel: modelTier === "fast" ? "minimal" : undefined,
+    thinkingLevel: resolveAgentThinkingLevel(modelTier),
     tools: tools.map((tool) => tool.name),
   });
 

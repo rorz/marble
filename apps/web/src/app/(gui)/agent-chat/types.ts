@@ -74,13 +74,16 @@ export type StreamEvent = {
   isError?: boolean;
   label?: string;
   message?: string;
-  modelTier?: "deep" | "fast";
+  modelTier?: "expert" | "rapid" | "standard";
   content?: string;
+  brief?: string;
+  fromTier?: "expert" | "rapid" | "standard";
   parameters?: unknown;
   reason?: string;
   result?: unknown;
   route?: "agent" | "direct";
   suppress?: boolean;
+  toTier?: "expert" | "rapid" | "standard";
   toolCallId?: string;
   toolName?: string;
   type: string;

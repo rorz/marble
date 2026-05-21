@@ -2,6 +2,7 @@ import type {
   AgentSessionEvent,
   ClientAction,
   createMarbleAgentSession,
+  MarbleAgentModelTier,
   MarbleAgentProvider,
 } from "@marble/agent";
 
@@ -45,10 +46,16 @@ export type AgentChatWireEvent =
       type: "marble_session_starting";
     }
   | {
-      modelTier?: "deep" | "fast";
-      reason?: string;
-      route: "agent" | "direct";
-      type: "marble_conduit_decision";
+      attempt: number;
+      modelTier: MarbleAgentModelTier;
+      type: "marble_agent_tier_start";
+    }
+  | {
+      brief: string;
+      fromTier: MarbleAgentModelTier;
+      reason: string;
+      toTier: MarbleAgentModelTier;
+      type: "marble_agent_handoff_requested";
     }
   | {
       type: "marble_session_built" | "marble_session_complete";

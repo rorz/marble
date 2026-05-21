@@ -15,7 +15,8 @@ import {
 import {
   type AgentChatStatus,
   createRoutingStatus,
-  formatRouteStatus,
+  formatHandoffStatus,
+  formatTierStatus,
   mergeStatus,
   statusForToolEnd,
   statusForToolStart,
@@ -53,8 +54,15 @@ export const useStreamEvents = ({
       return;
     }
 
-    if (event.type === "marble_conduit_decision") {
-      setStatus(formatRouteStatus(event));
+    if (event.type === "marble_agent_tier_start") {
+      setStatus(formatTierStatus(event));
+      return;
+    }
+
+    if (event.type === "marble_agent_handoff_requested") {
+      setStatus((prevStatus) =>
+        mergeStatus(prevStatus, formatHandoffStatus(event)),
+      );
       return;
     }
 
