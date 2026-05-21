@@ -28,6 +28,10 @@
       "cache": false,
       "dependsOn": ["^install:local"]
     },
+    "publish": {
+      "cache": false,
+      "dependsOn": ["^build", "build"]
+    },
     "start": {
       "cache": false,
       "persistent": true

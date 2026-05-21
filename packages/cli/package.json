@@ -24,8 +24,9 @@
   "scripts": {
     "build": "bun build ./src/cli.ts --target=node --outfile ./dist/cli.js",
     "install:local": "bun link",
+    "publish": "bun pm version patch && bun publish --ignore-scripts",
     "typecheck": "tsc --noEmit"
   },
   "type": "module",
-  "version": "0.0.4"
+  "version": "0.0.7"
 }
