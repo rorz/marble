@@ -2,7 +2,6 @@ import "server-only";
 
 export type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
-export { resolveMarbleAgentClarification } from "./clarifications";
 export {
   type MarbleAgentModelTier,
   type MarbleAgentProvider,

@@ -54,7 +54,7 @@ const MARBLE_AGENT_MODEL_SELECTIONS = {
       thinkingLevel: "xhigh",
     },
     rapid: {
-      model: getModel("google", "gemini-flash-latest"),
+      model: getModel("google", "gemini-flash-lite-latest"),
       thinkingLevel: "minimal",
     },
     standard: {

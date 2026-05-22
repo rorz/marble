@@ -13,18 +13,12 @@ import { createStreamWriter } from "./stream";
 
 type AgentChatTiming = ReturnType<typeof createAgentChatTiming>;
 
-type AgentClarification = {
-  reason: string;
-  response: string;
-};
-
 type AuthenticatedUser = {
   id: string;
 };
 
 type AgentChatStreamResponseInput = {
-  apiKey: null | string;
-  clarification: AgentClarification | null;
+  apiKey: string;
   input: AgentChatRequest;
   provider: MarbleAgentProvider;
   timing: AgentChatTiming;
@@ -60,7 +54,6 @@ const sendSessionError = (
 
 export const createAgentChatStreamResponse = ({
   apiKey,
-  clarification,
   input,
   provider,
   timing,
@@ -88,34 +81,6 @@ export const createAgentChatStreamResponse = ({
         provider,
         type: "marble_session_starting",
       });
-
-      if (clarification) {
-        send({
-          content: clarification.response,
-          type: "message_end",
-        });
-        send({
-          type: "marble_session_complete",
-        });
-        timing.finish("clarification", {
-          provider,
-        });
-        close();
-        return;
-      }
-
-      if (!apiKey) {
-        sendSessionError(
-          send,
-          "SESSION_INIT_FAILED",
-          `Provider "${provider}" is configured but its API key is missing.`,
-        );
-        timing.finish("provider_key_missing", {
-          provider,
-        });
-        close();
-        return;
-      }
 
       const profileId = await timing.measure("profile.resolve", () =>
         resolveAgentProfileId(user.id),

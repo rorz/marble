@@ -1,9 +1,5 @@
 import "server-only";
-import {
-  buildMarbleAgentTurnPrompt,
-  buildSystemPrompt,
-  resolveMarbleAgentClarification,
-} from "@marble/agent";
+import { buildMarbleAgentTurnPrompt, buildSystemPrompt } from "@marble/agent";
 import { stringifyJsonSafe } from "@marble/lib/json";
 import { env } from "@/env";
 import { getCurrentUser } from "@/lib/auth";
@@ -75,19 +71,14 @@ export const POST = async (req: Request) => {
   }
 
   const provider = env.MARBLE_AGENT_PROVIDER;
-  const clarification = await timing.measure("clarification.resolve", () =>
-    resolveMarbleAgentClarification(parsed.data),
+  const apiKey = await timing.measure(
+    "provider.key",
+    () => providerApiKey(provider) ?? null,
+    {
+      provider,
+    },
   );
-  const apiKey = clarification
-    ? null
-    : await timing.measure(
-        "provider.key",
-        () => providerApiKey(provider) ?? null,
-        {
-          provider,
-        },
-      );
-  if (!clarification && !apiKey) {
+  if (!apiKey) {
     timing.finish("provider_key_missing", {
       provider,
     });
@@ -102,7 +93,6 @@ export const POST = async (req: Request) => {
 
   return createAgentChatStreamResponse({
     apiKey,
-    clarification,
     input: parsed.data,
     provider,
     timing,
