@@ -1,13 +1,39 @@
 "use client";
 
-import { MarbleJsonPreview, MarbleSpinner } from "@marble/ui";
-import { WarningIcon, WrenchIcon } from "@phosphor-icons/react";
+import { MarbleJsonPreview, MarbleMarkdown, MarbleSpinner } from "@marble/ui";
+import {
+  CaretDownIcon,
+  CaretRightIcon,
+  WarningIcon,
+  WrenchIcon,
+} from "@phosphor-icons/react";
 import { useState } from "react";
 import {
   type ChatEntry,
   ERROR_CODE_DESCRIPTIONS,
   type ToolChatEntry,
 } from "./types";
+
+const formatThinkingDuration = (ms: number): string => {
+  const totalSeconds = Math.round(ms / 1000);
+  if (totalSeconds < 1) return "<1s";
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
+};
+
+const StreamingIndicator = () => (
+  <div
+    aria-label="Working"
+    className="ml-2 flex items-center gap-1 pt-1 text-taupe-400"
+    role="status"
+  >
+    <span className="size-1.5 animate-typing-dot rounded-full bg-current [animation-delay:0ms]" />
+    <span className="size-1.5 animate-typing-dot rounded-full bg-current [animation-delay:160ms]" />
+    <span className="size-1.5 animate-typing-dot rounded-full bg-current [animation-delay:320ms]" />
+  </div>
+);
 
 const formatToolLabel = (label: string) => {
   if (!label.includes("_")) return label;
@@ -89,6 +115,125 @@ const ToolEntryView = ({
   );
 };
 
+const CollapsedSummary = ({
+  children,
+  expanded,
+  onToggle,
+}: {
+  children: React.ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+}) => (
+  <button
+    className="flex items-center gap-1.5 text-taupe-500 text-xs hover:text-taupe-700"
+    onClick={onToggle}
+    type="button"
+  >
+    {expanded ? (
+      <CaretDownIcon
+        size={10}
+        weight="bold"
+      />
+    ) : (
+      <CaretRightIcon
+        size={10}
+        weight="bold"
+      />
+    )}
+    {children}
+  </button>
+);
+
+const ThinkingBlock = ({
+  collapsed,
+  durationMs,
+  thinking,
+}: {
+  collapsed: boolean;
+  durationMs?: number;
+  thinking: string;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!collapsed) {
+    return (
+      <div className="ml-2 border-taupe-200 border-l pl-2">
+        <MarbleMarkdown
+          content={thinking}
+          tone="muted"
+        />
+      </div>
+    );
+  }
+  const label =
+    durationMs !== undefined
+      ? `Thought for ${formatThinkingDuration(durationMs)}`
+      : "Thought for a moment";
+  return (
+    <div className="space-y-2">
+      <CollapsedSummary
+        expanded={expanded}
+        onToggle={() => setExpanded((v) => !v)}
+      >
+        <span className="italic">{label}</span>
+      </CollapsedSummary>
+      {expanded ? (
+        <div className="ml-2 border-taupe-200 border-l pl-2">
+          <MarbleMarkdown
+            content={thinking}
+            tone="muted"
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+const ToolsBlock = ({
+  collapsed,
+  tools,
+}: {
+  collapsed: boolean;
+  tools: ToolChatEntry[];
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  if (!collapsed) {
+    return (
+      <div className="ml-2 space-y-1.5 border-taupe-200 border-l pl-2">
+        {tools.map((tool) => (
+          <ToolEntryView
+            entry={tool}
+            key={tool.id}
+            nested
+          />
+        ))}
+      </div>
+    );
+  }
+  const label =
+    tools.length === 1 ? "Used 1 tool" : `Used ${tools.length} tools`;
+  return (
+    <div className="space-y-2">
+      <CollapsedSummary
+        expanded={expanded}
+        onToggle={() => setExpanded((v) => !v)}
+      >
+        <span>{label}</span>
+      </CollapsedSummary>
+      {expanded ? (
+        <div className="ml-2 space-y-1.5 border-taupe-200 border-l pl-2">
+          {tools.map((tool) => (
+            <ToolEntryView
+              entry={tool}
+              key={tool.id}
+              nested
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 const AssistantEntryView = ({
   entry,
 }: {
@@ -98,36 +243,39 @@ const AssistantEntryView = ({
       kind: "assistant";
     }
   >;
-}) => (
-  <div className="flex justify-start">
-    <div className="max-w-[95%] space-y-2">
-      {entry.thinking ? (
-        <div className="ml-2 whitespace-pre-wrap border-taupe-200 border-l pl-2 text-taupe-500 text-xs italic">
-          {entry.thinking}
-        </div>
-      ) : null}
-      {entry.tools && entry.tools.length > 0 ? (
-        <div className="ml-2 space-y-1.5 border-taupe-200 border-l pl-2">
-          {entry.tools.map((tool) => (
-            <ToolEntryView
-              entry={tool}
-              key={tool.id}
-              nested
-            />
-          ))}
-        </div>
-      ) : null}
-      {entry.content ||
-      (entry.streaming &&
-        !entry.thinking &&
-        (!entry.tools || entry.tools.length === 0)) ? (
-        <div className="whitespace-pre-wrap rounded-sm px-3 py-2 text-sm text-taupe-900">
-          {entry.content || (entry.streaming ? "Waiting for response..." : "")}
-        </div>
-      ) : null}
+}) => {
+  const hasTools = Boolean(entry.tools && entry.tools.length > 0);
+  const collapseAfterTurn = !entry.streaming;
+  return (
+    <div className="flex justify-start">
+      <div className="max-w-[95%] space-y-2">
+        {entry.thinking ? (
+          <ThinkingBlock
+            collapsed={collapseAfterTurn}
+            durationMs={entry.thinkingDurationMs}
+            thinking={entry.thinking}
+          />
+        ) : null}
+        {hasTools && entry.tools ? (
+          <ToolsBlock
+            collapsed={collapseAfterTurn}
+            tools={entry.tools}
+          />
+        ) : null}
+        {entry.content ? (
+          <div className="rounded-sm px-3 py-2">
+            <MarbleMarkdown content={entry.content} />
+          </div>
+        ) : entry.streaming && !entry.thinking && !hasTools ? (
+          <div className="rounded-sm px-3 py-2 text-sm text-taupe-500 italic">
+            Waiting for response...
+          </div>
+        ) : null}
+        {entry.streaming ? <StreamingIndicator /> : null}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export const ChatEntryView = ({ entry }: { entry: ChatEntry }) => {
   if (entry.kind === "user") {

@@ -19,6 +19,8 @@ export type ChatEntry =
       kind: "assistant";
       streaming: boolean;
       thinking?: string;
+      thinkingDurationMs?: number;
+      thinkingStartedAt?: number;
       tools?: ToolChatEntry[];
     }
   | ToolChatEntry

@@ -20,6 +20,7 @@ export const env = createEnv({
     // harness-ignore: no-optional-env -- Conditioned by MARBLE_AGENT_PROVIDER; only the selected provider key must exist.
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
     ELEVENLABS_API_KEY: z.string().min(1),
+    EXA_API_KEY: z.string().min(1),
     // harness-ignore: no-optional-env -- Conditioned by MARBLE_AGENT_PROVIDER; only the selected provider key must exist.
     GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1).optional(),
     MARBLE_AGENT_PROVIDER: z.enum([

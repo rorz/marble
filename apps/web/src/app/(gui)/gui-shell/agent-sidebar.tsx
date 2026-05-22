@@ -68,24 +68,25 @@ export const GuiAgentSidebar = ({
           id="gui-agent-sidebar"
         >
           <MarbleTabs
-            className="flex min-h-0 flex-1 flex-col"
+            className="flex min-h-0 flex-1 flex-col gap-0"
             onValueChange={onAgentSidebarTabChange}
             value={agentSidebarTab}
+            variant="quiet"
           >
-            <div className="flex items-center gap-2 px-2 pt-2 pb-1">
+            <div className="flex items-center gap-1 px-3 pt-2">
               <MarbleTabsList className="flex-1">
                 <MarbleTabsTrigger value="chat">Chat</MarbleTabsTrigger>
                 <MarbleTabsTrigger value="changes">Changes</MarbleTabsTrigger>
               </MarbleTabsList>
               <button
                 aria-label={agentSidebarToggleLabel}
-                className="flex size-8 shrink-0 items-center justify-center rounded-md text-taupe-500 transition-colors hover:bg-taupe-200/80 hover:text-taupe-900"
+                className="flex size-7 shrink-0 items-center justify-center rounded-sm text-taupe-400 transition-colors hover:bg-taupe-100 hover:text-taupe-700"
                 onClick={onToggleAgentSidebar}
                 title={agentSidebarToggleLabel}
                 type="button"
               >
                 <XIcon
-                  size={16}
+                  size={14}
                   weight="bold"
                 />
               </button>

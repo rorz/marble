@@ -52,6 +52,11 @@ export const closePendingToolEntries = (
     return {
       ...entry,
       streaming: false,
+      thinkingDurationMs:
+        entry.thinkingDurationMs ??
+        (entry.thinkingStartedAt
+          ? Date.now() - entry.thinkingStartedAt
+          : undefined),
       tools: entry.tools.map((tool) =>
         tool.status === "pending"
           ? {
@@ -82,6 +87,11 @@ export const commitFinalAssistantMessage = (
             ...entry,
             content: finalContent,
             streaming: false,
+            thinkingDurationMs:
+              entry.thinkingDurationMs ??
+              (entry.thinkingStartedAt
+                ? Date.now() - entry.thinkingStartedAt
+                : undefined),
           }
         : entry,
     );
@@ -115,7 +125,6 @@ export const appendToolToAssistantTurn = (
       found = true;
       return {
         ...entry,
-        content: "",
         streaming: true,
         tools: [
           ...(entry.tools ?? []),

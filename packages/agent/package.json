@@ -7,6 +7,7 @@
     "@marble/lib": "workspace:*",
     "@marble/supabase": "workspace:*",
     "@marble/wizard": "workspace:*",
+    "exa-js": "catalog:base",
     "server-only": "catalog:base",
     "zod": "catalog:base"
   },

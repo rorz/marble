@@ -19,6 +19,7 @@ type AuthenticatedUser = {
 
 type AgentChatStreamResponseInput = {
   apiKey: string;
+  exaApiKey: string;
   input: AgentChatRequest;
   provider: MarbleAgentProvider;
   timing: AgentChatTiming;
@@ -54,6 +55,7 @@ const sendSessionError = (
 
 export const createAgentChatStreamResponse = ({
   apiKey,
+  exaApiKey,
   input,
   provider,
   timing,
@@ -114,6 +116,7 @@ export const createAgentChatStreamResponse = ({
         const result = await runAgentTier({
           apiKey,
           attempt: handoffCount + 1,
+          exaApiKey,
           handoff,
           input,
           modelTier,

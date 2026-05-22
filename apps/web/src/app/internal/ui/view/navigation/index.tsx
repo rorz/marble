@@ -76,6 +76,40 @@ export const NavigationSection = () => {
         </DemoPanel>
 
         <DemoPanel
+          description={`Quiet variant strips the chrome — no border, no shadow, just a soft bottom rail and a hairline underline. Use it in sidebars and embedded surfaces where the tabs should recede.`}
+          title="Tabs (quiet variant)"
+        >
+          <MarbleTabs
+            defaultValue="chat"
+            variant="quiet"
+          >
+            <MarbleTabsList>
+              <MarbleTabsTrigger value="chat">Chat</MarbleTabsTrigger>
+              <MarbleTabsTrigger value="changes">Changes</MarbleTabsTrigger>
+              <MarbleTabsTrigger value="files">Files</MarbleTabsTrigger>
+            </MarbleTabsList>
+            <MarbleTabsContent value="chat">
+              <div className="min-h-20 rounded-sm bg-taupe-50 p-4 text-sm text-taupe-700">
+                <p>
+                  Quiet tabs press flush against the surrounding panel without
+                  any visual lift.
+                </p>
+              </div>
+            </MarbleTabsContent>
+            <MarbleTabsContent value="changes">
+              <div className="min-h-20 rounded-sm bg-taupe-50 p-4 text-sm text-taupe-700">
+                <p>The active state still gets a hairline underline.</p>
+              </div>
+            </MarbleTabsContent>
+            <MarbleTabsContent value="files">
+              <div className="min-h-20 rounded-sm bg-taupe-50 p-4 text-sm text-taupe-700">
+                <p>Triggers are tighter and less assertive in this register.</p>
+              </div>
+            </MarbleTabsContent>
+          </MarbleTabs>
+        </DemoPanel>
+
+        <DemoPanel
           description="Compact, small, active, orange, and aside variants — plus the iconTone shortcut that wraps icons in the standard bordered tile."
           title="List rows"
         >

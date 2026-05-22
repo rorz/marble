@@ -2,3 +2,4 @@
 /.clerk/
 .vercel
 .env*.local
+.env*

@@ -93,6 +93,7 @@ export const POST = async (req: Request) => {
 
   return createAgentChatStreamResponse({
     apiKey,
+    exaApiKey: env.EXA_API_KEY,
     input: parsed.data,
     provider,
     timing,

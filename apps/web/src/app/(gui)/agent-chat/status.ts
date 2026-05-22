@@ -3,6 +3,7 @@ import type { StreamEvent } from "./types";
 export type AgentChatStatus = {
   message: string;
   notes: string[];
+  tier?: "expert" | "rapid" | "standard";
 };
 
 const MAX_STATUS_NOTES = 5;
@@ -23,35 +24,51 @@ const formatTierName = (tier: StreamEvent["modelTier"]): string => {
   }
 };
 
+type StatusOptions = {
+  notes?: string[];
+  tier?: AgentChatStatus["tier"];
+};
+
 const createStatus = (
   message: string,
-  notes: string[] = [],
+  options: StatusOptions = {},
 ): AgentChatStatus => ({
   message,
   notes: [
-    ...new Set(notes.filter(Boolean)),
+    ...new Set((options.notes ?? []).filter(Boolean)),
   ].slice(-MAX_STATUS_NOTES),
+  tier: options.tier,
 });
 
 export const createRoutingStatus = (): AgentChatStatus =>
-  createStatus("Starting Rapid...");
+  createStatus("", {
+    tier: "rapid",
+  });
 
 export const mergeStatus = (
   current: AgentChatStatus | null,
   next: AgentChatStatus,
 ): AgentChatStatus =>
-  createStatus(next.message, [
-    ...(current?.notes ?? []),
-    ...next.notes,
-  ]);
+  createStatus(next.message, {
+    notes: [
+      ...(current?.notes ?? []),
+      ...next.notes,
+    ],
+    tier: next.tier ?? current?.tier,
+  });
 
 export const formatTierStatus = (event: StreamEvent): AgentChatStatus =>
-  createStatus(`${formatTierName(event.modelTier)} is working...`);
+  createStatus("", {
+    tier: event.modelTier,
+  });
 
 export const formatHandoffStatus = (event: StreamEvent): AgentChatStatus =>
-  createStatus(`Handing off to ${formatTierName(event.toTier)}...`, [
-    event.reason ?? "The current tier asked for a stronger pass.",
-  ]);
+  createStatus(`Handing off to ${formatTierName(event.toTier)}...`, {
+    notes: [
+      event.reason ?? "The current tier asked for a stronger pass.",
+    ],
+    tier: event.toTier,
+  });
 
 export const statusForToolStart = (event: StreamEvent): AgentChatStatus =>
   createStatus(`Running ${formatToolName(event)}...`);

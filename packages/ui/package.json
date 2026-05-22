@@ -8,6 +8,8 @@
     "cmdk": "catalog:base",
     "react": "catalog:base",
     "react-dom": "catalog:base",
+    "react-markdown": "catalog:base",
+    "remark-gfm": "catalog:base",
     "sonner": "catalog:base",
     "tailwind-merge": "catalog:base"
   },

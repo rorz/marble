@@ -25,6 +25,7 @@ import { REPO_ROOT } from "./lib";
 
 const CHECKS = [
   "patterns",
+  "agent-routes",
   "catalog",
   "almanac",
   "handlers",

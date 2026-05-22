@@ -3,6 +3,7 @@ import {
   MarbleFieldLabel,
   MarbleInput,
   MarbleJsonPreview,
+  MarbleMarkdown,
   MarbleSearchSelect,
   type MarbleSearchSelectOption,
   MarbleSelect,
@@ -268,6 +269,47 @@ export const FormsSection = () => {
               ran: 14,
             }}
           />
+        </DemoPanel>
+
+        <DemoPanel
+          description="Streaming-safe markdown renderer for AI / model output. GFM tables, code blocks, and inline emphasis all use the system's taupe / orange tokens. The 'muted' tone is the dim italic register used for thinking traces."
+          title="Markdown"
+        >
+          <div className="space-y-4">
+            <MarbleMarkdown
+              content={`I'd love to help you plan your next big project! To build a robust and scalable workflow in Marble, it helps to break the project down into a few core architectural components:
+
+1. **The Source:** How will data enter your project? (e.g., a webhook from your CRM, a recurring schedule, or manual user input).
+2. **The Table:** This is the orchestrator for your workflow where each row represents a single run or record.
+3. **The Programs (Logic & Integrations):** What specific actions do we need to take? We can write custom TypeScript programs for things like calling an LLM, scraping a website, hitting external APIs, or complex data transformations.
+
+To get started, tell me a bit about your goal:
+- What is the main problem this project is trying to solve?
+- What kind of data are we starting with, and what should the final output look like?
+
+> Tip: most projects start with a single table and add programs as you grow.
+
+\`\`\`ts
+export const main = async ({ input }) => {
+  return { ok: true, summary: input.text.slice(0, 80) };
+};
+\`\`\``}
+            />
+            <div className="ml-2 border-taupe-200 border-l pl-2">
+              <MarbleMarkdown
+                content={`**Reviewing Publication Status**
+
+I need to check whether the \`User Input\` program has a published version before wiring it into the new column. Let me list the editor data and confirm:
+
+- which programs are first-party
+- which versions are published
+- whether \`allowManualInput\` is enabled
+
+Once I know that I can decide whether to create a new version or reuse the latest one.`}
+                tone="muted"
+              />
+            </div>
+          </div>
         </DemoPanel>
       </div>
     </Section>

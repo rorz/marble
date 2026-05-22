@@ -11,6 +11,7 @@ import {
 } from "@marble/agent";
 import { formatRpcError, getErrorMessage } from "@marble/lib/result";
 import type { SupabaseClient } from "@marble/supabase";
+import agentRoutesManifest from "../../../../../../agent-routes.generated.json";
 import { type AgentChatWireEvent, normalizeAgentEvent } from "../events";
 import type { AgentChatRequest } from "../request";
 import type { createAgentChatTiming } from "../timing";
@@ -27,6 +28,7 @@ type HandoffContext = {
 type AgentTierRunInput = {
   apiKey: string;
   attempt: number;
+  exaApiKey: string;
   handoff?: HandoffContext;
   input: AgentChatRequest;
   modelTier: MarbleAgentModelTier;
@@ -104,6 +106,7 @@ const isHandoffToolEvent = (event: AgentChatWireEvent) =>
 export const runAgentTier = async ({
   apiKey,
   attempt,
+  exaApiKey,
   handoff,
   input,
   modelTier,
@@ -143,6 +146,8 @@ export const runAgentTier = async ({
       () =>
         createMarbleAgentSession({
           apiKey,
+          browserRoutePatterns: agentRoutesManifest.routes,
+          exaApiKey,
           handoffTargets: HANDOFF_TARGETS_BY_TIER[modelTier],
           modelConfig,
           modelTier,

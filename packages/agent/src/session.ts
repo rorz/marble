@@ -24,6 +24,8 @@ import {
 
 type MarbleAgentSessionConfig = {
   apiKey: string;
+  browserRoutePatterns?: readonly string[];
+  exaApiKey?: string;
   handoffTargets?: MarbleAgentHandoffTarget[];
   modelConfig?: MarbleAgentModelConfig;
   modelTier?: MarbleAgentModelTier;
@@ -61,6 +63,8 @@ export const createMarbleAgentSession = async (
   });
 
   const { skipped, tools } = buildMarbleTools(routerClient, {
+    browserRoutePatterns: config.browserRoutePatterns,
+    exaApiKey: config.exaApiKey,
     handoffTargets: config.handoffTargets,
     onHandoffRequest: config.onHandoffRequest,
   });

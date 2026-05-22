@@ -10,6 +10,8 @@ import {
   buildRequestHandoffTool,
   type HandoffToolBuildOptions,
 } from "./request-handoff";
+import { buildWebFetchTool } from "./web-fetch";
+import { buildWebSearchTool } from "./web-search";
 
 export type { ClientAction } from "./browser-navigate";
 export type { SkippedTool } from "./contract";
@@ -22,6 +24,8 @@ export { REQUEST_HANDOFF_TOOL_NAME } from "./request-handoff";
 type RouterClient = ReturnType<typeof createSupabaseClientRouterClient>;
 
 type ToolBuildOptions = {
+  browserRoutePatterns?: readonly string[];
+  exaApiKey?: string;
   handoffTargets?: HandoffToolBuildOptions["handoffTargets"];
   onHandoffRequest?: HandoffToolBuildOptions["onHandoffRequest"];
 };
@@ -37,7 +41,9 @@ export const buildMarbleTools = (
 ): ToolBuildReport => {
   const dispatch = client as unknown as DispatchTable;
   const tools: ReturnType<typeof defineTool>[] = [
-    buildBrowserNavigateTool(),
+    buildBrowserNavigateTool({
+      routePatterns: options.browserRoutePatterns,
+    }),
   ];
 
   if (options.handoffTargets?.length && options.onHandoffRequest) {
@@ -45,6 +51,19 @@ export const buildMarbleTools = (
       buildRequestHandoffTool({
         handoffTargets: options.handoffTargets,
         onHandoffRequest: options.onHandoffRequest,
+      }),
+    );
+  }
+
+  if (options.exaApiKey) {
+    tools.push(
+      buildWebFetchTool({
+        exaApiKey: options.exaApiKey,
+      }),
+    );
+    tools.push(
+      buildWebSearchTool({
+        exaApiKey: options.exaApiKey,
       }),
     );
   }

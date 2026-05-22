@@ -121,12 +121,14 @@ export const useStreamEvents = ({
       ) {
         const delta = event.assistantMessageEvent.delta ?? "";
         const activeId = activeAssistantIdRef.current;
+        const now = Date.now();
         if (activeId) {
           return prev.map((entry) =>
             entry.id === activeId && entry.kind === "assistant"
               ? {
                   ...entry,
                   thinking: (entry.thinking ?? "") + delta,
+                  thinkingStartedAt: entry.thinkingStartedAt ?? now,
                 }
               : entry,
           );
@@ -141,6 +143,7 @@ export const useStreamEvents = ({
             kind: "assistant",
             streaming: true,
             thinking: delta,
+            thinkingStartedAt: now,
           },
         ];
       }
@@ -160,15 +163,21 @@ export const useStreamEvents = ({
             ? commitFinalAssistantMessage(prev, finalContent)
             : prev;
         }
-        return prev.map((entry) =>
-          entry.id !== activeId || entry.kind !== "assistant"
-            ? entry
-            : {
-                ...entry,
-                content: finalContent ?? entry.content,
-                streaming: false,
-              },
-        );
+        const endedAt = Date.now();
+        return prev.map((entry) => {
+          if (entry.id !== activeId || entry.kind !== "assistant") return entry;
+          const thinkingDurationMs =
+            entry.thinkingDurationMs ??
+            (entry.thinkingStartedAt
+              ? endedAt - entry.thinkingStartedAt
+              : undefined);
+          return {
+            ...entry,
+            content: finalContent ?? entry.content,
+            streaming: false,
+            thinkingDurationMs,
+          };
+        });
       }
 
       if (event.type === "tool_execution_start" && event.toolCallId) {

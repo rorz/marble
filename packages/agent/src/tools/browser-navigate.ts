@@ -13,18 +13,87 @@ type BrowserToolDetails = {
   result?: unknown;
 };
 
+type BrowserNavigateToolBuildOptions = {
+  routePatterns?: readonly string[];
+};
+
 const BROWSER_NAVIGATE_TOOL_NAME = "browser_navigate";
 
-const browserNavigateInput = z.object({
-  href: z
-    .string()
-    .min(1)
-    .describe("Internal Marble path to navigate to, such as /projects."),
-  replace: z
-    .boolean()
-    .optional()
-    .describe("Use history replace instead of push."),
-});
+const formatRoutePatterns = (routePatterns: readonly string[]): string => {
+  return routePatterns.map((route) => `- ${route}`).join("\n");
+};
+
+const createBrowserNavigateInput = (routePatterns: readonly string[]) =>
+  z.object({
+    href: z
+      .string()
+      .min(1)
+      .describe(
+        routePatterns.length === 0
+          ? "Internal Marble path to navigate to, such as /projects."
+          : `Internal Marble path to navigate to. It must match one of these route patterns:\n${formatRoutePatterns(routePatterns)}`,
+      ),
+    replace: z
+      .boolean()
+      .optional()
+      .describe("Use history replace instead of push."),
+  });
+
+const uniqueRoutePatterns = (
+  routePatterns: readonly string[] | undefined,
+): string[] => {
+  return [
+    ...new Set(routePatterns ?? []),
+  ].sort();
+};
+
+const normalizePathname = (href: string): string => {
+  const url = new URL(href, "http://marble.local");
+  const pathname = url.pathname;
+
+  return pathname.length > 1 && pathname.endsWith("/")
+    ? pathname.slice(0, -1)
+    : pathname;
+};
+
+const routePatternMatchesPathname = (
+  routePattern: string,
+  pathname: string,
+): boolean => {
+  const patternSegments = routePattern.split("/").filter(Boolean);
+  const pathnameSegments = pathname.split("/").filter(Boolean);
+
+  for (let i = 0; i < patternSegments.length; i++) {
+    const patternSegment = patternSegments[i];
+
+    if (patternSegment.startsWith("[[...") && patternSegment.endsWith("]]")) {
+      return true;
+    }
+
+    if (patternSegment.startsWith("[...") && patternSegment.endsWith("]")) {
+      return pathnameSegments.length > i;
+    }
+
+    if (pathnameSegments[i] === undefined) return false;
+
+    if (patternSegment.startsWith("[") && patternSegment.endsWith("]")) {
+      continue;
+    }
+
+    if (patternSegment !== pathnameSegments[i]) return false;
+  }
+
+  return patternSegments.length === pathnameSegments.length;
+};
+
+const matchesRoutePattern = (
+  routePatterns: readonly string[],
+  pathname: string,
+): boolean => {
+  return routePatterns.some((routePattern) =>
+    routePatternMatchesPathname(routePattern, pathname),
+  );
+};
 
 const normalizeBrowserHref = (href: string): string => {
   const trimmed = href.trim();
@@ -35,8 +104,33 @@ const normalizeBrowserHref = (href: string): string => {
   return trimmed;
 };
 
-export const buildBrowserNavigateTool = (): ReturnType<typeof defineTool> => {
+const validateBrowserHref = (
+  href: string,
+  routePatterns: readonly string[],
+): string => {
+  const normalized = normalizeBrowserHref(href);
+  if (
+    routePatterns.length > 0 &&
+    !matchesRoutePattern(routePatterns, normalizePathname(normalized))
+  ) {
+    throw new Error(
+      `browser_navigate only accepts known Marble page routes. Available route patterns:\n${formatRoutePatterns(routePatterns)}`,
+    );
+  }
+
+  return normalized;
+};
+
+export const buildBrowserNavigateTool = (
+  options: BrowserNavigateToolBuildOptions = {},
+): ReturnType<typeof defineTool> => {
+  const routePatterns = uniqueRoutePatterns(options.routePatterns);
+  const browserNavigateInput = createBrowserNavigateInput(routePatterns);
   const prepared = prepareToolSchema(z.toJSONSchema(browserNavigateInput));
+  const routeGuidance =
+    routePatterns.length === 0
+      ? "Use browser_navigate only for internal Marble paths, never for external web browsing."
+      : `Use browser_navigate only for internal Marble paths that match this canonical page route map:\n${formatRoutePatterns(routePatterns)}`;
 
   return defineTool({
     description:
@@ -51,7 +145,7 @@ export const buildBrowserNavigateTool = (): ReturnType<typeof defineTool> => {
             ).input
           : params,
       );
-      const href = normalizeBrowserHref(input.href);
+      const href = validateBrowserHref(input.href, routePatterns);
       const clientAction: ClientAction = {
         href,
         replace: input.replace,
@@ -80,7 +174,7 @@ export const buildBrowserNavigateTool = (): ReturnType<typeof defineTool> => {
       typeof defineTool
     >[0]["parameters"],
     promptGuidelines: [
-      "Use browser_navigate only for internal Marble paths, never for external web browsing.",
+      routeGuidance,
       "After creating a resource, navigate to the most useful detail page when its path is known.",
     ],
     promptSnippet:

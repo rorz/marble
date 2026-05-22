@@ -1,0 +1,25 @@
+{
+  "routes": [
+    "/",
+    "/account",
+    "/automations",
+    "/events",
+    "/help",
+    "/homepage",
+    "/internal/marketing",
+    "/internal/ui",
+    "/profiles",
+    "/programs",
+    "/programs/[id]",
+    "/projects",
+    "/projects/[id]",
+    "/projects/[id]/pipes/[pipeId]",
+    "/projects/[id]/sources",
+    "/projects/[id]/sources/[sourceId]",
+    "/projects/[id]/tables/[tableId]",
+    "/secrets",
+    "/testing/db-perf",
+    "/testing/db-perf-2"
+  ],
+  "version": 1
+}

@@ -218,9 +218,12 @@ export const normalizeAgentEvent = (
     const maybeMessage = event.message as AgentMessageWithContent;
     if (maybeMessage?.role !== "assistant") return undefined;
 
+    const content = extractAssistantText(event.message);
+    const hasToolCall = hasContentBlockType(event.message, "toolCall");
+
     return {
-      content: extractAssistantText(event.message),
-      suppress: hasContentBlockType(event.message, "toolCall"),
+      content,
+      suppress: hasToolCall && !content,
       type: "message_end",
     };
   }

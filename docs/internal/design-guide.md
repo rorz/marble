@@ -128,6 +128,7 @@ Every primitive in `@marble/ui`. Each entry is a one-line "use when" so you can 
 - **`MarbleListRow`** — every clickable row in a list-of-records view. Sizes `compact` / `sm` / `md`, tones `neutral` / `orange`, `active`, `aside`, `meta`, `align`. Use `iconTone="neutral" | "orange"` to wrap an icon in the standard bordered tile.
 - **`MarbleStat`** — labeled read-only value tile. Use `framed` for the bordered chip variant; default is inline label-above-value. Tones `neutral` / `subtle`.
 - **`MarbleJsonPreview`** — tokenized JSON display with the project's monospace + border + scroll defaults. Replaces every hand-rolled `tokenize` helper + `<pre>` cocktail.
+- **`MarbleMarkdown`** — streaming-safe markdown renderer for AI / model output and any prose-shaped content. GFM tables, code blocks, inline emphasis, blockquotes, and links all use the system's taupe / orange tokens. Safe to call on partial markdown — react-markdown re-parses on every render. `tone="default"` is the full-contrast body register; `tone="muted"` is the dim, italic, smaller-text register used for AI thinking traces and other deemphasised inline commentary. Replaces every `<div className="whitespace-pre-wrap">{text}</div>` cocktail wherever the source string is actually markdown.
 
 ### Forms
 
@@ -143,7 +144,7 @@ Every primitive in `@marble/ui`. Each entry is a one-line "use when" so you can 
 ### Navigation
 
 - **`MarblePane`** — every page-level pane. Crumbs, actions, disclosure menu, and frame are all primitive concerns. Width is a `width` prop with a four-step scale — `Narrow` (`max-w-2xl`, focused reading column with extra top breathing room), `Wide` (`max-w-5xl`, two-column dashboards), `ExtraWide` (`max-w-6xl`, list-heavy admin views), `Full` (no cap, edge-to-edge). **Never** override the max-width via `className="max-w-*"` — extend the prop scale instead.
-- **`MarbleTabs` / `MarbleTabsList` / `MarbleTabsTrigger` / `MarbleTabsContent`** — route-level tab composition with count badges and a hover / focus / active underline indicator. Use this for shadcn-style product tab sets. Keep `MarbleWorkbenchTabs` for editor / dock chrome.
+- **`MarbleTabs` / `MarbleTabsList` / `MarbleTabsTrigger` / `MarbleTabsContent`** — route-level tab composition with count badges and a hover / focus / active underline indicator. Use this for shadcn-style product tab sets. Two variants: `variant="default"` (the chunky bordered control surface for headers and editor toolbars) and `variant="quiet"` (a borderless flush register with a hairline underline for sidebars and embedded surfaces where the tabs should recede). Keep `MarbleWorkbenchTabs` for editor / dock chrome.
 - **`MarbleWorkbenchSection` / `MarbleWorkbenchTabs` / `MarbleWorkbenchTab` / `MarbleWorkbenchResizeHandle`** — editor / dock chrome.
 - **`MarbleReviewNavigator`** — compact review tray for stepping through grouped changes.
 - **`MarbleLink`** — the canonical client-side link primitive. A drop-in for `next/link`'s `Link` (it accepts the same props) that auto-registers `<MarbleRouteProgressBeacon />` so every click surfaces in the top progress bar. **Never** use raw `<a href="/internal/path">` for in-app navigation (causes a full document reload and skips the bar). **Never** import `Link` from `next/link` directly inside `(gui)/**` product code — use `MarbleLink`. Marketing surfaces and fragment-only links (`href="#section"`) are exempt.
@@ -260,6 +261,7 @@ When you find yourself reaching for the pattern on the left, use the primitive o
 | Label above an input / select / textarea | `MarbleField` |
 | Destructive confirmation prompt | `MarbleConfirmModal` (never `window.confirm`) |
 | JSON / structured data preview | `MarbleJsonPreview` |
+| Streaming model / markdown output | `MarbleMarkdown` |
 | Toggle tile grid (icon picker, library dock, segmented chip) | `MarbleSelectableTile` |
 | Read-only labeled value tile | `MarbleStat` |
 | Modal header close button | `MarbleModalClose` |
@@ -290,6 +292,7 @@ Each of these patterns was hand-rolled across the codebase in the past. Each has
 - ❌ `window.confirm(...)`, `window.alert(...)`, `window.prompt(...)` → use `MarbleConfirmModal`.
 - ❌ `<div className="space-y-1.5"><MarbleFieldLabel>X</MarbleFieldLabel><MarbleInput/></div>` → use `<MarbleField label="X"><MarbleInput/></MarbleField>`.
 - ❌ Local `tokenizeJson` helpers + `<pre>{tokens}</pre>` → use `<MarbleJsonPreview value={...} />`.
+- ❌ `<div className="whitespace-pre-wrap">{markdownText}</div>` rendering markdown as flat text → use `<MarbleMarkdown content={...} />`. The pre-wrap cocktail dumps `**bold**`, list markers, and code fences as literal characters.
 - ❌ Hand-rolled `<button aria-pressed={isSelected} className="aspect-square border ...">` grids → use `<MarbleSelectableTile shape="square" active={isSelected}>`.
 - ❌ `<div className="rounded-xs border ... px-3 py-2"><label/><value/></div>` → use `<MarbleStat framed label value />`.
 - ❌ `<button>×</button>` close buttons → use `<MarbleModalClose />` or `<MarbleSheetClose variant="button">Dismiss</MarbleSheetClose>`.

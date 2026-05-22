@@ -35,6 +35,20 @@
       opacity: 10%;
     }
   }
+
+  --animate-typing-dot: typing-dot 1200ms ease-in-out infinite;
+  @keyframes typing-dot {
+    0%,
+    80%,
+    100% {
+      opacity: 0.25;
+      transform: translateY(0);
+    }
+    40% {
+      opacity: 1;
+      transform: translateY(-1px);
+    }
+  }
 }
 
 /* Marble eyebrow typography — small uppercase labels and metadata captions. */

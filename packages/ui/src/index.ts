@@ -110,6 +110,10 @@ export {
   type MarbleListRowProps,
 } from "./components/list-row";
 export {
+  MarbleMarkdown,
+  type MarbleMarkdownProps,
+} from "./components/marble-markdown";
+export {
   MarbleMenuButton,
   type MarbleMenuButtonProps,
 } from "./components/menu-button";

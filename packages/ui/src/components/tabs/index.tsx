@@ -3,75 +3,32 @@
 import {
   type ButtonHTMLAttributes,
   type CSSProperties,
-  createContext,
   type HTMLAttributes,
   type ReactNode,
   useCallback,
-  useContext,
   useEffect,
   useId,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { cx } from "../utils/cx";
-
-type MarbleTabsContextValue = {
-  getTriggerNode: (value: string) => HTMLButtonElement | null;
-  onValueChange: (value: string) => void;
-  previewValue: null | string;
-  registerTrigger: (value: string, node: HTMLButtonElement | null) => void;
-  rootId: string;
-  setPreviewValue: (value: null | string) => void;
-  value: string | undefined;
-};
-
-const MarbleTabsContext = createContext<MarbleTabsContextValue | null>(null);
-
-const normalizeTabIdPart = (value: string) => {
-  const normalized = value.replace(/[^a-zA-Z0-9_-]/g, "-");
-
-  return normalized.length > 0 ? normalized : "tab";
-};
-
-const getTabTriggerId = (rootId: string, value: string) => {
-  return `${rootId}-trigger-${normalizeTabIdPart(value)}`;
-};
-
-const getTabContentId = (rootId: string, value: string) => {
-  return `${rootId}-content-${normalizeTabIdPart(value)}`;
-};
-
-const useMarbleTabsContext = () => {
-  const context = useContext(MarbleTabsContext);
-
-  if (!context) {
-    throw new Error(
-      "Marble tabs components must be rendered inside MarbleTabs.",
-    );
-  }
-
-  return context;
-};
-
-const measureIndicator = (
-  list: HTMLDivElement,
-  trigger: HTMLButtonElement,
-): CSSProperties => {
-  const listRect = list.getBoundingClientRect();
-  const triggerRect = trigger.getBoundingClientRect();
-
-  return {
-    opacity: 1,
-    transform: `translateX(${triggerRect.left - listRect.left}px)`,
-    width: triggerRect.width,
-  };
-};
+import { cx } from "../../utils/cx";
+import {
+  getTabContentId,
+  getTabTriggerId,
+  MarbleTabsContext,
+  type MarbleTabsVariant,
+  measureIndicator,
+  normalizeTabIdPart,
+  useMarbleTabsContext,
+} from "./context";
 
 export type MarbleTabsProps = HTMLAttributes<HTMLDivElement> & {
   defaultValue?: string;
   onValueChange?: (value: string) => void;
   value?: string;
+  /** `default` is the chunky bordered control surface; `quiet` is borderless with a hairline underline for embedded surfaces. */
+  variant?: MarbleTabsVariant;
 };
 
 export const MarbleTabs = ({
@@ -81,6 +38,7 @@ export const MarbleTabs = ({
   id,
   onValueChange,
   value,
+  variant = "default",
   ...props
 }: MarbleTabsProps) => {
   const generatedId = useId();
@@ -134,6 +92,7 @@ export const MarbleTabs = ({
       rootId,
       setPreviewValue,
       value: resolvedValue,
+      variant,
     }),
     [
       getTriggerNode,
@@ -142,6 +101,7 @@ export const MarbleTabs = ({
       registerTrigger,
       resolvedValue,
       rootId,
+      variant,
     ],
   );
 
@@ -165,7 +125,7 @@ export const MarbleTabsList = ({
   className,
   ...props
 }: MarbleTabsListProps) => {
-  const { getTriggerNode, previewValue, setPreviewValue, value } =
+  const { getTriggerNode, previewValue, setPreviewValue, value, variant } =
     useMarbleTabsContext();
   const listRef = useRef<HTMLDivElement | null>(null);
   const indicatorValue = previewValue ?? value;
@@ -202,7 +162,10 @@ export const MarbleTabsList = ({
   return (
     <div
       className={cx(
-        "relative isolate flex h-12 min-w-0 items-stretch overflow-hidden rounded-sm border border-taupe-200 bg-white/85 shadow-sm",
+        "relative isolate flex min-w-0",
+        variant === "quiet"
+          ? "h-9 items-end gap-1 border-taupe-100 border-b"
+          : "h-12 items-stretch overflow-hidden rounded-sm border border-taupe-200 bg-white/85 shadow-sm",
         className,
       )}
       onPointerLeave={() => setPreviewValue(null)}
@@ -212,7 +175,12 @@ export const MarbleTabsList = ({
     >
       <span
         aria-hidden="true"
-        className="absolute bottom-0 left-0 z-0 h-0.5 bg-orange-500 opacity-0 transition-[transform,width,opacity] duration-200 ease-out motion-reduce:transition-none"
+        className={cx(
+          "absolute left-0 z-0 opacity-0 transition-[transform,width,opacity] duration-200 ease-out motion-reduce:transition-none",
+          variant === "quiet"
+            ? "-bottom-px h-px bg-taupe-700"
+            : "bottom-0 h-0.5 bg-orange-500",
+        )}
         style={indicatorStyle}
       />
       {children}
@@ -247,6 +215,7 @@ export const MarbleTabsTrigger = ({
     rootId,
     setPreviewValue,
     value: activeValue,
+    variant,
   } = useMarbleTabsContext();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const active = activeValue === value;
@@ -265,8 +234,14 @@ export const MarbleTabsTrigger = ({
       aria-controls={getTabContentId(rootId, value)}
       aria-selected={active}
       className={cx(
-        "relative z-10 flex min-w-0 flex-1 items-center justify-center gap-2 px-3 font-medium text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:pointer-events-none disabled:opacity-50",
-        active ? "text-zinc-950" : "text-taupe-600 hover:text-zinc-950",
+        "relative z-10 flex min-w-0 items-center justify-center gap-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:pointer-events-none disabled:opacity-50",
+        variant === "quiet"
+          ? active
+            ? "flex-initial px-2 py-1 font-normal text-[13px] text-taupe-900"
+            : "flex-initial px-2 py-1 font-normal text-[13px] text-taupe-500 hover:text-taupe-900"
+          : active
+            ? "flex-1 px-3 font-medium text-sm text-zinc-950"
+            : "flex-1 px-3 font-medium text-sm text-taupe-600 hover:text-zinc-950",
         className,
       )}
       data-state={active ? "active" : "inactive"}
