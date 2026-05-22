@@ -1,4 +1,5 @@
 import { getApiKeyTokenFromHeaders, resolveApiKeyAuth } from "@marble/keys";
+import { toBase64Url } from "@marble/lib/crypto";
 import { createClient, type SupabaseClient } from "@marble/supabase";
 import { ORPCError } from "@orpc/server";
 import type { ApiActor, MarbleApiRuntime } from ".";
@@ -112,21 +113,6 @@ export const resolveHostedApiActor = async (
   return requireSupabaseSessionActor(request, runtime, serviceSupabase);
 };
 
-const base64UrlEncode = (input: string | Uint8Array) => {
-  const bytes =
-    typeof input === "string" ? new TextEncoder().encode(input) : input;
-  let binary = "";
-
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte);
-  }
-
-  return btoa(binary)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replaceAll("=", "");
-};
-
 const signApiKeyActorAccessToken = async (
   runtime: MarbleApiRuntime,
   actor: Extract<
@@ -143,13 +129,13 @@ const signApiKeyActorAccessToken = async (
   }
 
   const issuedAt = Math.floor(Date.now() / 1000);
-  const header = base64UrlEncode(
+  const header = toBase64Url(
     JSON.stringify({
       alg: "HS256",
       typ: "JWT",
     }),
   );
-  const payload = base64UrlEncode(
+  const payload = toBase64Url(
     JSON.stringify({
       aud: "authenticated",
       exp: issuedAt + 5 * 60,
@@ -178,7 +164,7 @@ const signApiKeyActorAccessToken = async (
     new TextEncoder().encode(signingInput),
   );
 
-  return `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`;
+  return `${signingInput}.${toBase64Url(new Uint8Array(signature))}`;
 };
 
 export const createActorSupabaseClient = async (

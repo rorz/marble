@@ -5,6 +5,7 @@ import {
   type RunReturnValue as RunReturnValueType,
 } from "@marble/contracts";
 import { assert } from "@marble/lib/assert";
+import { toBase64 } from "@marble/lib/crypto";
 import type { ProgramVersionTestData } from "@marble/store";
 import { z } from "zod";
 import {
@@ -90,7 +91,7 @@ export const executeProgram = async (
   input: JsonValue,
   environmentVariables: Record<string, string>,
 ) => {
-  const inputAsBase64 = btoa(JSON.stringify(input));
+  const inputAsBase64 = toBase64(JSON.stringify(input));
   const command = `bun run .marble/executor.ts --inputAsBase64 ${inputAsBase64}`;
   const session = await sandbox.createSession({
     cwd: "/workspace",
@@ -108,7 +109,7 @@ export const executeProgramBatch = async (
   jobs: BatchExecutionJob[],
   environmentVariables: Record<string, string>,
 ) => {
-  const jobsAsBase64 = btoa(
+  const jobsAsBase64 = toBase64(
     JSON.stringify(
       jobs.map((job) => ({
         input: job.runInput,

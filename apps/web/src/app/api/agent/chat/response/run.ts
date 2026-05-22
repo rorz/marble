@@ -6,6 +6,8 @@ import {
   type MarbleAgentModelTier,
   type MarbleAgentProvider,
   REQUEST_HANDOFF_TOOL_NAME,
+  resolveAgentModel,
+  resolveAgentThinkingLevel,
 } from "@marble/agent";
 import { formatRpcError, getErrorMessage } from "@marble/lib/result";
 import type { SupabaseClient } from "@marble/supabase";
@@ -115,15 +117,23 @@ export const runAgentTier = async ({
   userId,
 }: AgentTierRunInput): Promise<AgentTierRunResult> => {
   let handoffRequest: MarbleAgentHandoffRequest | null = null;
+  const model = resolveAgentModel(provider, modelTier);
+  const modelMetadata = {
+    modelId: model.id,
+    modelTier,
+    provider,
+    thinkingLevel: resolveAgentThinkingLevel(modelTier),
+  };
 
   timing.mark("agent.tier.start", {
     attempt,
-    modelTier,
-    provider,
+    ...modelMetadata,
   });
   send({
     attempt,
+    modelId: model.id,
     modelTier,
+    thinkingLevel: modelMetadata.thinkingLevel,
     type: "marble_agent_tier_start",
   });
 
@@ -150,10 +160,7 @@ export const runAgentTier = async ({
           supabase,
           userId,
         }),
-      {
-        modelTier,
-        provider,
-      },
+      modelMetadata,
     );
   } catch (error) {
     console.error("[/api/agent/chat] SESSION_INIT_FAILED", error);
@@ -166,8 +173,9 @@ export const runAgentTier = async ({
   }
 
   timing.mark("agent.session_built", {
-    modelTier,
+    ...modelMetadata,
     skippedTools: agentSession.skipped.length,
+    toolCount: agentSession.session.getActiveToolNames().length,
   });
   send({
     type: "marble_session_built",
@@ -223,13 +231,13 @@ export const runAgentTier = async ({
           session.prompt(
             buildAgentPrompt(input, {
               handoff,
+              modelTier,
             }),
           ),
           createPromptTimeout(provider, modelTier),
         ]),
       {
-        modelTier,
-        provider,
+        ...modelMetadata,
       },
     );
   } catch (error) {

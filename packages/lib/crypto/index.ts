@@ -16,6 +16,27 @@ export const ALPHANUMERIC =
   "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 const textEncoder = new TextEncoder();
+const BASE64_CHUNK_SIZE = 0x8000;
+
+const toBytes = (value: string | ArrayBuffer | Uint8Array): Uint8Array => {
+  if (typeof value === "string") {
+    return textEncoder.encode(value);
+  }
+
+  return value instanceof Uint8Array ? value : new Uint8Array(value);
+};
+
+const bytesToBinary = (bytes: Uint8Array): string => {
+  let binary = "";
+
+  for (let index = 0; index < bytes.length; index += BASE64_CHUNK_SIZE) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(index, index + BASE64_CHUNK_SIZE),
+    );
+  }
+
+  return binary;
+};
 
 /**
  * Build a random-token generator over a fixed alphabet and length. Returns
@@ -28,17 +49,19 @@ export const randomToken = (options: {
   return customAlphabet(options.alphabet, options.length);
 };
 
-/** Convert an `ArrayBuffer` to a URL-safe base64 string (no padding). */
-export const toBase64Url = (value: ArrayBuffer): string => {
-  const bytes = new Uint8Array(value);
-  let binary = "";
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index]);
-  }
-  return btoa(binary)
+/** Convert bytes or a UTF-8 string to standard base64. */
+export const toBase64 = (value: string | ArrayBuffer | Uint8Array): string => {
+  return btoa(bytesToBinary(toBytes(value)));
+};
+
+/** Convert bytes or a UTF-8 string to a URL-safe base64 string (no padding). */
+export const toBase64Url = (
+  value: string | ArrayBuffer | Uint8Array,
+): string => {
+  return toBase64(value)
     .replaceAll("+", "-")
     .replaceAll("/", "_")
-    .replace(/=+$/u, "");
+    .replaceAll("=", "");
 };
 
 /**

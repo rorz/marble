@@ -15,11 +15,20 @@ const serializeError = (err) => ({
 });
 `.trim();
 
+const PARSE_BASE64_JSON_HELPER = `
+const parseBase64Json = (value) => {
+  const binary = atob(value);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
+};
+`.trim();
+
 export const EXECUTOR_FILE_CONTENT = `
 import { parseArgs } from "util";
 import main from "../main.ts";
 
 ${SERIALIZE_ERROR_HELPER}
+${PARSE_BASE64_JSON_HELPER}
 
 const { values: { inputAsBase64 } } = parseArgs({
   args: Bun.argv,
@@ -32,7 +41,7 @@ const { values: { inputAsBase64 } } = parseArgs({
   allowPositionals: true,
 });
 
-const input = JSON.parse(atob(inputAsBase64));
+const input = parseBase64Json(inputAsBase64);
 
 try {
   const result = await main(input);
@@ -48,6 +57,7 @@ import { parseArgs } from "util";
 import main from "../main.ts";
 
 ${SERIALIZE_ERROR_HELPER}
+${PARSE_BASE64_JSON_HELPER}
 
 const { values: { jobsAsBase64 } } = parseArgs({
   args: Bun.argv,
@@ -60,7 +70,7 @@ const { values: { jobsAsBase64 } } = parseArgs({
   allowPositionals: true,
 });
 
-const jobs = JSON.parse(atob(jobsAsBase64));
+const jobs = parseBase64Json(jobsAsBase64);
 const results = [];
 
 for (const job of jobs) {

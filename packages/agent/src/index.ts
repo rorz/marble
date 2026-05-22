@@ -31,7 +31,12 @@ export {
   resolveAgentModel,
   resolveAgentThinkingLevel,
 } from "./models";
-export { buildSystemPrompt, MARBLE_AGENT_TURN_GUIDANCE } from "./prompt";
+export {
+  buildSystemPrompt,
+  MARBLE_AGENT_PROMPT_SHEETS,
+  MARBLE_AGENT_TURN_GUIDANCE,
+  resolveMarbleAgentPromptSheet,
+} from "./prompt";
 export type {
   ClientAction,
   MarbleAgentHandoffRequest,
@@ -86,7 +91,7 @@ export const createMarbleAgentSession = async (
     model,
     modelRegistry,
     noTools: "builtin",
-    resourceLoader: createMarbleResourceLoader(),
+    resourceLoader: createMarbleResourceLoader(modelTier),
     sessionManager: SessionManager.inMemory(),
     thinkingLevel: resolveAgentThinkingLevel(modelTier),
     tools: tools.map((tool) => tool.name),

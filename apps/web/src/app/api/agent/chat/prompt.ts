@@ -1,6 +1,6 @@
 import {
-  MARBLE_AGENT_TURN_GUIDANCE,
   type MarbleAgentModelTier,
+  resolveMarbleAgentPromptSheet,
 } from "@marble/agent";
 import type { AgentChatRequest } from "./request";
 
@@ -13,6 +13,7 @@ type AgentPromptHandoffContext = {
 
 type AgentPromptOptions = {
   handoff?: AgentPromptHandoffContext;
+  modelTier?: MarbleAgentModelTier;
 };
 
 const formatHistory = (history: AgentChatRequest["history"]): string | null => {
@@ -72,7 +73,7 @@ export const buildAgentPrompt = (
   options: AgentPromptOptions = {},
 ): string =>
   [
-    MARBLE_AGENT_TURN_GUIDANCE,
+    resolveMarbleAgentPromptSheet(options.modelTier ?? "rapid").turnGuidance,
     formatHistory(input.history),
     formatPageContext(input.context),
     formatHandoffContext(options.handoff),

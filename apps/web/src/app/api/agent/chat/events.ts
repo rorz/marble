@@ -47,7 +47,9 @@ export type AgentChatWireEvent =
     }
   | {
       attempt: number;
+      modelId?: string;
       modelTier: MarbleAgentModelTier;
+      thinkingLevel?: string;
       type: "marble_agent_tier_start";
     }
   | {

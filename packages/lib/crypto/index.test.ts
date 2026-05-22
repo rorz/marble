@@ -4,6 +4,7 @@ import {
   parseBearerToken,
   randomToken,
   sha256Base64Url,
+  toBase64,
   toBase64Url,
 } from "./index";
 
@@ -35,9 +36,23 @@ describe("randomToken", () => {
 });
 
 describe("toBase64Url", () => {
+  test("encodes UTF-8 strings before base64 conversion", () => {
+    const value = "hello 🌍 café";
+    const encoded = toBase64(value);
+    const decoded = new TextDecoder().decode(
+      Uint8Array.from(atob(encoded), (char) => char.charCodeAt(0)),
+    );
+
+    expect(decoded).toBe(value);
+  });
+
   test("encodes a buffer using URL-safe base64 without padding", () => {
     const buffer = new TextEncoder().encode("hello").buffer as ArrayBuffer;
     expect(toBase64Url(buffer)).toBe("aGVsbG8");
+  });
+
+  test("encodes UTF-8 strings using URL-safe base64 without padding", () => {
+    expect(toBase64Url("😀")).toBe("8J-YgA");
   });
 
   test("uses '_' instead of '/' (URL-safe)", () => {
