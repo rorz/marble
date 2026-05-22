@@ -1,10 +1,7 @@
 import { stringifyJsonSafe } from "@marble/lib/json";
-import { findUserInputVersion } from "./user-input";
-
-type DispatchTable = Record<
-  string,
-  Record<string, (input: unknown) => Promise<unknown>>
->;
+import { isPlainRecord } from "@marble/lib/object";
+import type { DispatchTable } from "./index";
+import { findUserInputVersion } from "./user-input-program";
 
 type PrepareToolCallInput = {
   dispatch: DispatchTable;
@@ -18,13 +15,11 @@ const USER_INPUT_TEMPLATE_FORMATS = new Set([
   "string",
 ]);
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const parseTemplate = (value: unknown): unknown => {
   if (typeof value !== "string") return value;
   try {
     return JSON.parse(value) as unknown;
+    // harness-ignore: no-swallowed-errors -- intentional JSON.parse fallback returns the raw string when the value is not JSON
   } catch {
     return value;
   }
@@ -37,7 +32,7 @@ const isUserInputTemplate = (value: unknown): boolean => {
   if (value === undefined) return true;
 
   const template = parseTemplate(value);
-  if (!isRecord(template)) return false;
+  if (!isPlainRecord(template)) return false;
 
   const keys = Object.keys(template);
   if (keys.length === 0) return true;
@@ -62,7 +57,7 @@ const prepareColumnCreateInput = async (
   dispatch: DispatchTable,
   input: unknown,
 ): Promise<unknown> => {
-  if (!isRecord(input)) return input;
+  if (!isPlainRecord(input)) return input;
 
   const normalized: Record<string, unknown> = {
     ...input,

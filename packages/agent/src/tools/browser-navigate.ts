@@ -1,6 +1,6 @@
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
-import { prepareToolSchema } from "../schema";
+import { prepareToolSchema } from "./contract/schema";
 
 export type ClientAction = {
   href: string;

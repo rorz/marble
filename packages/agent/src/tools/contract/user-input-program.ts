@@ -1,51 +1,16 @@
+import {
+  isPlainRecord,
+  readBoolean,
+  readNumber,
+  readRecordArray,
+  readString,
+} from "@marble/lib/object";
+
 const USER_INPUT_PROGRAM_NAME = "User Input";
 
 type UserInputVersionLookup = {
   programId: null | string;
   versionId: null | string;
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-export const readString = (
-  record: Record<string, unknown>,
-  key: string,
-): string | null => {
-  const value = record[key];
-  return typeof value === "string" ? value : null;
-};
-
-const readNumber = (
-  record: Record<string, unknown>,
-  key: string,
-): number | null => {
-  const value = record[key];
-  return typeof value === "number" ? value : null;
-};
-
-export const readBoolean = (
-  record: Record<string, unknown>,
-  key: string,
-): boolean | null => {
-  const value = record[key];
-  return typeof value === "boolean" ? value : null;
-};
-
-export const readRecord = (
-  record: Record<string, unknown>,
-  key: string,
-): Record<string, unknown> | null => {
-  const value = record[key];
-  return isRecord(value) ? value : null;
-};
-
-export const readRecordArray = (
-  record: Record<string, unknown>,
-  key: string,
-): Record<string, unknown>[] => {
-  const value = record[key];
-  return Array.isArray(value) ? value.filter(isRecord) : [];
 };
 
 export const isPublishedVersion = (version: Record<string, unknown>): boolean =>
@@ -81,7 +46,7 @@ const latestPublishedVersionForProgram = (
 export const findUserInputVersion = (
   programEditorData: unknown,
 ): UserInputVersionLookup => {
-  if (!isRecord(programEditorData)) {
+  if (!isPlainRecord(programEditorData)) {
     return {
       programId: null,
       versionId: null,

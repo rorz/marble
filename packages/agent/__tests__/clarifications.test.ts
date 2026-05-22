@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { resolveMarbleAgentClarification } from "../src/clarification";
+import { resolveMarbleAgentClarification } from "../src/clarifications";
 
 describe("resolveMarbleAgentClarification", () => {
   test("asks what email enrichment means before creating workflow resources", () => {

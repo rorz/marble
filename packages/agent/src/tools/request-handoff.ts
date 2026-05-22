@@ -1,7 +1,7 @@
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
 import type { MarbleAgentModelTier } from "../models";
-import { prepareToolSchema } from "../schema";
+import { prepareToolSchema } from "./contract/schema";
 
 export type MarbleAgentHandoffTarget = Extract<
   MarbleAgentModelTier,

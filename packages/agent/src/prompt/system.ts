@@ -1,39 +1,5 @@
 import { wizardSkillContent } from "@marble/wizard";
-import type { MarbleAgentModelTier } from "./models";
-
-type MarbleAgentTurnHandoffContext = {
-  brief: string;
-  fromTier: MarbleAgentModelTier;
-  reason: string;
-  toTier: MarbleAgentModelTier;
-};
-
-type MarbleAgentTurnPageContext = {
-  currentResource?: {
-    id: string;
-    kind: string;
-    label: string;
-    parent?: {
-      id: string;
-      label: string;
-    };
-  };
-  pathname: string;
-  search?: string;
-};
-
-type MarbleAgentTurnPromptInput = {
-  context?: MarbleAgentTurnPageContext;
-  history?: {
-    content: string;
-    role: "assistant" | "user";
-  }[];
-  message: string;
-};
-
-type MarbleAgentTurnPromptOptions = {
-  handoff?: MarbleAgentTurnHandoffContext;
-};
+import type { MarbleAgentModelTier } from "../models";
 
 const MARBLE_AGENT_TIER_HANDOFF_GUIDANCE = {
   expert: "Finish the work. Do not hand off to another tier.",
@@ -66,7 +32,7 @@ const buildSharedSystemPrompt = (modelTier: MarbleAgentModelTier): string =>
     ...buildTierInstructions(modelTier),
     "Tools:",
     "- Use the `marble_<resource>_<op>` tools to read and modify the user's workspace.",
-    "- For simple operator/source input columns, call `marble_programs_list_for_editor`, find the first-party `User Input` program's latest published version, then call `marble_columns_create` with that version. Do not create custom programs named `Input: ...` for raw values like name, company, email, URL, number, or yes/no.",
+    "- For simple operator/source input columns, call `marble_programs_list_for_editor`, find the first-party `User Input` program, and pass its latest published version to `marble_columns_create`.",
     "- Use `browser_navigate` to move the user's current Marble app page to an internal path after creating or finding a resource they should see.",
     "- Use `request_handoff` when the current tier should stop and let a stronger tier continue the same user turn. Call it as the only tool in that assistant turn, then stop.",
     "- You do NOT have filesystem, shell, or external web access in this environment.",
@@ -100,71 +66,3 @@ const buildSharedSystemPrompt = (modelTier: MarbleAgentModelTier): string =>
 export const buildSystemPrompt = (
   modelTier: MarbleAgentModelTier = "rapid",
 ): string => buildSharedSystemPrompt(modelTier);
-
-const formatHistory = (
-  history: MarbleAgentTurnPromptInput["history"],
-): string | null => {
-  if (!history || history.length === 0) return null;
-
-  return [
-    "Recent chat context:",
-    ...history.map(
-      (entry) =>
-        `${entry.role === "user" ? "User" : "Assistant"}: ${entry.content}`,
-    ),
-  ].join("\n");
-};
-
-const formatPageContext = (
-  context: MarbleAgentTurnPromptInput["context"],
-): string | null => {
-  if (!context) return null;
-
-  const lines = [
-    "Current Marble page context:",
-    `- Path: ${context.pathname}${context.search ? `?${context.search}` : ""}`,
-  ];
-
-  if (context.currentResource) {
-    lines.push(
-      `- Current resource: ${context.currentResource.kind} "${context.currentResource.label}" (${context.currentResource.id})`,
-    );
-
-    if (context.currentResource.parent) {
-      lines.push(
-        `- Parent project: "${context.currentResource.parent.label}" (${context.currentResource.parent.id})`,
-      );
-    }
-  }
-
-  return lines.join("\n");
-};
-
-const formatHandoffContext = (
-  handoff: MarbleAgentTurnHandoffContext | undefined,
-): string | null => {
-  if (!handoff) return null;
-
-  return [
-    "Internal handoff context:",
-    `- Previous tier: ${handoff.fromTier}`,
-    `- Current tier: ${handoff.toTier}`,
-    `- Reason: ${handoff.reason}`,
-    `- Brief: ${handoff.brief}`,
-    "Continue the same user turn from this context. Do not mention the handoff unless it changes the user-facing answer.",
-  ].join("\n");
-};
-
-export const buildMarbleAgentTurnPrompt = (
-  input: MarbleAgentTurnPromptInput,
-  options: MarbleAgentTurnPromptOptions = {},
-): string =>
-  [
-    formatHistory(input.history),
-    formatPageContext(input.context),
-    formatHandoffContext(options.handoff),
-    "Current user message:",
-    input.message,
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join("\n\n");

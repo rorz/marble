@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { summarizeToolResult } from "../src/tools/summarize-result";
+import { summarizeToolResult } from "../src/tools/contract/summarize-output";
 
 describe("summarizeToolResult", () => {
   test("keeps the first-party User Input version visible in program editor summaries", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { prepareToolCallInput } from "../src/tools/prepare-call";
+import { prepareToolCallInput } from "../src/tools/contract/prepare-input";
 
 describe("prepareToolCallInput", () => {
   test("fills User Input program version for simple column create calls", async () => {

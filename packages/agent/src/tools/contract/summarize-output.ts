@@ -1,14 +1,17 @@
 import { safeStringify } from "@marble/lib/json";
 import {
-  findUserInputVersion,
-  isPublishedVersion,
+  isPlainRecord,
   readBoolean,
   readRecord,
   readRecordArray,
   readString,
+} from "@marble/lib/object";
+import {
+  findUserInputVersion,
+  isPublishedVersion,
   sortPublishedVersionsDesc,
   versionNumber,
-} from "./user-input";
+} from "./user-input-program";
 
 const MAX_RESULT_PREVIEW = 2000;
 
@@ -16,9 +19,6 @@ type SummarizeToolResultInput = {
   operationId: string;
   result: unknown;
 };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
 
 const summarizeGenericResult = (result: unknown): string => {
   const pretty = safeStringify(result);
@@ -59,7 +59,7 @@ const summarizeProgramVersions = (
 };
 
 const summarizeProgramEditorResult = (result: unknown): string | null => {
-  if (!isRecord(result)) return null;
+  if (!isPlainRecord(result)) return null;
 
   const programs = readRecordArray(result, "programs");
   const versions = readRecordArray(result, "programVersions");
