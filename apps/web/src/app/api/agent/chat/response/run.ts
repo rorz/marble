@@ -1,18 +1,17 @@
 import "server-only";
 import {
+  buildMarbleAgentTurnPrompt,
   createMarbleAgentSession,
   type MarbleAgentHandoffRequest,
   type MarbleAgentHandoffTarget,
   type MarbleAgentModelTier,
   type MarbleAgentProvider,
   REQUEST_HANDOFF_TOOL_NAME,
-  resolveAgentModel,
-  resolveAgentThinkingLevel,
+  resolveAgentModelConfig,
 } from "@marble/agent";
 import { formatRpcError, getErrorMessage } from "@marble/lib/result";
 import type { SupabaseClient } from "@marble/supabase";
 import { type AgentChatWireEvent, normalizeAgentEvent } from "../events";
-import { buildAgentPrompt } from "../prompt";
 import type { AgentChatRequest } from "../request";
 import type { createAgentChatTiming } from "../timing";
 
@@ -117,12 +116,12 @@ export const runAgentTier = async ({
   userId,
 }: AgentTierRunInput): Promise<AgentTierRunResult> => {
   let handoffRequest: MarbleAgentHandoffRequest | null = null;
-  const model = resolveAgentModel(provider, modelTier);
+  const modelConfig = resolveAgentModelConfig(provider, modelTier);
   const modelMetadata = {
-    modelId: model.id,
+    modelId: modelConfig.modelId,
     modelTier,
     provider,
-    thinkingLevel: resolveAgentThinkingLevel(modelTier),
+    thinkingLevel: modelConfig.thinkingLevel,
   };
 
   timing.mark("agent.tier.start", {
@@ -131,7 +130,7 @@ export const runAgentTier = async ({
   });
   send({
     attempt,
-    modelId: model.id,
+    modelId: modelConfig.modelId,
     modelTier,
     thinkingLevel: modelMetadata.thinkingLevel,
     type: "marble_agent_tier_start",
@@ -145,6 +144,7 @@ export const runAgentTier = async ({
         createMarbleAgentSession({
           apiKey,
           handoffTargets: HANDOFF_TARGETS_BY_TIER[modelTier],
+          modelConfig,
           modelTier,
           onHandoffRequest: (request) => {
             handoffRequest = request;
@@ -229,9 +229,8 @@ export const runAgentTier = async ({
       () =>
         Promise.race([
           session.prompt(
-            buildAgentPrompt(input, {
+            buildMarbleAgentTurnPrompt(input, {
               handoff,
-              modelTier,
             }),
           ),
           createPromptTimeout(provider, modelTier),

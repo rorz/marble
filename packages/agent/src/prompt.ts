@@ -1,15 +1,61 @@
 import { wizardSkillContent } from "@marble/wizard";
 import type { MarbleAgentModelTier } from "./models";
 
-type MarbleAgentPromptSheet = {
-  systemPrompt: () => string;
-  turnGuidance: string;
+type MarbleAgentTurnHandoffContext = {
+  brief: string;
+  fromTier: MarbleAgentModelTier;
+  reason: string;
+  toTier: MarbleAgentModelTier;
 };
 
-const MARBLE_AGENT_SHARED_TURN_GUIDANCE =
-  "Use the context below to resolve references like this/current/here. Verify IDs with tools before mutating data. Do not invent missing instructions, and never infer destructive intent from frustration. You may have a request_handoff tool; use it before answering when the current turn needs a stronger tier. Rapid should hand off bounded multi-step work to standard and orchestration, coordination, ambiguous workflows, or risky broad mutations to expert. Standard should hand off orchestration, coordination, ambiguous workflows, or risky broad mutations to expert. Expert should finish the work. When calling request_handoff, call it as the only tool in that assistant turn and stop without user-facing text. Treat workflow/flow/enrichment/webhook/sign-up requests as product-intent requests: ask concise follow-up questions when key details are missing, or create a connected resource bundle with the needed sources, tables, columns, pipes, and programs when intent is clear. Key details include input source/fields, enrichment target, provider/source, output columns, and completion criterion. For email enrichment or email-finding work, never invent a fake pattern like first.last@company; ask which provider/source to use unless the user names one or explicitly asks for dummy/demo data. If the user asks to enrich emails and does not say what enrichment means, ask whether they want verification, person/company/profile data, copy drafting, CRM updates, or something else. Do not create blank placeholder resources while waiting for that answer. For program code, follow the Marble Wizard contract: main.ts exports a default function with ({ system, cell, input }); never import @earendil-works/marble-sdk or instantiate Program. For operator or source-provided values, use marble_programs_list_for_editor to find the first-party User Input program latest published version, then create columns with marble_columns_create. Do not create new custom programs named Input: ... for raw values like name, company, email, URL, number, or yes/no. Feed downstream logic through inputTemplate rather than putting manual input directly on business-logic columns. Cell rule: setting manual cell values only stores input; if the user expects populated output or downstream work, run the ready cells with marble_cells_run before saying the work is done. Style: answer in one short sentence by default, do not advertise capabilities, and do not use Markdown formatting.";
+type MarbleAgentTurnPageContext = {
+  currentResource?: {
+    id: string;
+    kind: string;
+    label: string;
+    parent?: {
+      id: string;
+      label: string;
+    };
+  };
+  pathname: string;
+  search?: string;
+};
 
-const buildSharedSystemPrompt = (): string =>
+type MarbleAgentTurnPromptInput = {
+  context?: MarbleAgentTurnPageContext;
+  history?: {
+    content: string;
+    role: "assistant" | "user";
+  }[];
+  message: string;
+};
+
+type MarbleAgentTurnPromptOptions = {
+  handoff?: MarbleAgentTurnHandoffContext;
+};
+
+const MARBLE_AGENT_TIER_HANDOFF_GUIDANCE = {
+  expert: "Finish the work. Do not hand off to another tier.",
+  rapid:
+    "Use request_handoff for bounded multi-step work that should continue on standard, and for orchestration, coordination, ambiguous workflows, or risky broad mutations that should continue on expert.",
+  standard:
+    "Use request_handoff for orchestration, coordination, ambiguous workflows, or risky broad mutations that should continue on expert.",
+} satisfies Record<MarbleAgentModelTier, string>;
+
+const buildTierInstructions = (modelTier: MarbleAgentModelTier): string[] => [
+  "Turn handling:",
+  `- Current tier: ${modelTier}.`,
+  `- ${MARBLE_AGENT_TIER_HANDOFF_GUIDANCE[modelTier]}`,
+  "- Use the latest user prompt, recent chat context, current Marble page context, and internal handoff context to resolve references like this/current/here.",
+  "- Verify IDs with tools before mutating data.",
+  "- Do not invent missing instructions, and never infer destructive intent from frustration.",
+  "- When calling request_handoff, call it as the only tool in the assistant turn and stop without user-facing text.",
+  "- Answer in one short sentence by default. Do not advertise capabilities. Do not use Markdown formatting unless the user asks for it.",
+  "",
+];
+
+const buildSharedSystemPrompt = (modelTier: MarbleAgentModelTier): string =>
   [
     "You are **Marble Agent**, an assistant embedded inside the Marble web app.",
     "",
@@ -17,6 +63,7 @@ const buildSharedSystemPrompt = (): string =>
     "- You act on behalf of the user through their **Agent profile**.",
     "- Every action you take is recorded as a Marble event and surfaces in their changeset feed.",
     "",
+    ...buildTierInstructions(modelTier),
     "Tools:",
     "- Use the `marble_<resource>_<op>` tools to read and modify the user's workspace.",
     "- For simple operator/source input columns, call `marble_programs_list_for_editor`, find the first-party `User Input` program's latest published version, then call `marble_columns_create` with that version. Do not create custom programs named `Input: ...` for raw values like name, company, email, URL, number, or yes/no.",
@@ -50,24 +97,74 @@ const buildSharedSystemPrompt = (): string =>
     wizardSkillContent(),
   ].join("\n");
 
-const buildSharedPromptSheet = (): MarbleAgentPromptSheet => ({
-  systemPrompt: buildSharedSystemPrompt,
-  turnGuidance: MARBLE_AGENT_SHARED_TURN_GUIDANCE,
-});
-
-export const MARBLE_AGENT_PROMPT_SHEETS = {
-  expert: buildSharedPromptSheet(),
-  rapid: buildSharedPromptSheet(),
-  standard: buildSharedPromptSheet(),
-} satisfies Record<MarbleAgentModelTier, MarbleAgentPromptSheet>;
-
-export const resolveMarbleAgentPromptSheet = (
-  modelTier: MarbleAgentModelTier,
-) => MARBLE_AGENT_PROMPT_SHEETS[modelTier];
-
-export const MARBLE_AGENT_TURN_GUIDANCE =
-  MARBLE_AGENT_PROMPT_SHEETS.rapid.turnGuidance;
-
 export const buildSystemPrompt = (
   modelTier: MarbleAgentModelTier = "rapid",
-): string => resolveMarbleAgentPromptSheet(modelTier).systemPrompt();
+): string => buildSharedSystemPrompt(modelTier);
+
+const formatHistory = (
+  history: MarbleAgentTurnPromptInput["history"],
+): string | null => {
+  if (!history || history.length === 0) return null;
+
+  return [
+    "Recent chat context:",
+    ...history.map(
+      (entry) =>
+        `${entry.role === "user" ? "User" : "Assistant"}: ${entry.content}`,
+    ),
+  ].join("\n");
+};
+
+const formatPageContext = (
+  context: MarbleAgentTurnPromptInput["context"],
+): string | null => {
+  if (!context) return null;
+
+  const lines = [
+    "Current Marble page context:",
+    `- Path: ${context.pathname}${context.search ? `?${context.search}` : ""}`,
+  ];
+
+  if (context.currentResource) {
+    lines.push(
+      `- Current resource: ${context.currentResource.kind} "${context.currentResource.label}" (${context.currentResource.id})`,
+    );
+
+    if (context.currentResource.parent) {
+      lines.push(
+        `- Parent project: "${context.currentResource.parent.label}" (${context.currentResource.parent.id})`,
+      );
+    }
+  }
+
+  return lines.join("\n");
+};
+
+const formatHandoffContext = (
+  handoff: MarbleAgentTurnHandoffContext | undefined,
+): string | null => {
+  if (!handoff) return null;
+
+  return [
+    "Internal handoff context:",
+    `- Previous tier: ${handoff.fromTier}`,
+    `- Current tier: ${handoff.toTier}`,
+    `- Reason: ${handoff.reason}`,
+    `- Brief: ${handoff.brief}`,
+    "Continue the same user turn from this context. Do not mention the handoff unless it changes the user-facing answer.",
+  ].join("\n");
+};
+
+export const buildMarbleAgentTurnPrompt = (
+  input: MarbleAgentTurnPromptInput,
+  options: MarbleAgentTurnPromptOptions = {},
+): string =>
+  [
+    formatHistory(input.history),
+    formatPageContext(input.context),
+    formatHandoffContext(options.handoff),
+    "Current user message:",
+    input.message,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join("\n\n");

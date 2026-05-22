@@ -10,10 +10,10 @@ import {
 import { createSupabaseClientRouterClient } from "@marble/api/supabase-client";
 import type { SupabaseClient } from "@marble/supabase";
 import {
+  type MarbleAgentModelConfig,
   type MarbleAgentModelTier,
   type MarbleAgentProvider,
-  resolveAgentModel,
-  resolveAgentThinkingLevel,
+  resolveAgentModelConfig,
 } from "./models";
 import { createMarbleResourceLoader } from "./resource-loader";
 import {
@@ -25,17 +25,13 @@ import {
 
 export { resolveMarbleAgentClarification } from "./clarification";
 export {
-  MARBLE_AGENT_MODEL_TIERS,
   type MarbleAgentModelTier,
   type MarbleAgentProvider,
-  resolveAgentModel,
-  resolveAgentThinkingLevel,
+  resolveAgentModelConfig,
 } from "./models";
 export {
+  buildMarbleAgentTurnPrompt,
   buildSystemPrompt,
-  MARBLE_AGENT_PROMPT_SHEETS,
-  MARBLE_AGENT_TURN_GUIDANCE,
-  resolveMarbleAgentPromptSheet,
 } from "./prompt";
 export type {
   ClientAction,
@@ -47,6 +43,7 @@ export { REQUEST_HANDOFF_TOOL_NAME } from "./tools";
 export type MarbleAgentSessionConfig = {
   apiKey: string;
   handoffTargets?: MarbleAgentHandoffTarget[];
+  modelConfig?: MarbleAgentModelConfig;
   modelTier?: MarbleAgentModelTier;
   onHandoffRequest?: (request: MarbleAgentHandoffRequest) => void;
   profileId: string;
@@ -71,7 +68,8 @@ export const createMarbleAgentSession = async (
 
   const modelRegistry = ModelRegistry.create(auth);
   const modelTier = config.modelTier ?? "rapid";
-  const model = resolveAgentModel(config.provider, modelTier);
+  const modelConfig =
+    config.modelConfig ?? resolveAgentModelConfig(config.provider, modelTier);
 
   const routerClient = createSupabaseClientRouterClient({
     profileId: config.profileId,
@@ -88,12 +86,12 @@ export const createMarbleAgentSession = async (
   const { session } = await createAgentSession({
     authStorage: auth,
     customTools: tools,
-    model,
+    model: modelConfig.model,
     modelRegistry,
     noTools: "builtin",
     resourceLoader: createMarbleResourceLoader(modelTier),
     sessionManager: SessionManager.inMemory(),
-    thinkingLevel: resolveAgentThinkingLevel(modelTier),
+    thinkingLevel: modelConfig.thinkingLevel,
     tools: tools.map((tool) => tool.name),
   });
 
