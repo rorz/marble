@@ -115,6 +115,36 @@ export const useStreamEvents = ({
         ];
       }
 
+      if (
+        event.type === "thinking_update" &&
+        event.assistantMessageEvent?.type === "thinking_delta"
+      ) {
+        const delta = event.assistantMessageEvent.delta ?? "";
+        const activeId = activeAssistantIdRef.current;
+        if (activeId) {
+          return prev.map((entry) =>
+            entry.id === activeId && entry.kind === "assistant"
+              ? {
+                  ...entry,
+                  thinking: (entry.thinking ?? "") + delta,
+                }
+              : entry,
+          );
+        }
+        const newId = randomId();
+        activeAssistantIdRef.current = newId;
+        return [
+          ...prev,
+          {
+            content: "",
+            id: newId,
+            kind: "assistant",
+            streaming: true,
+            thinking: delta,
+          },
+        ];
+      }
+
       if (event.type === "message_end") {
         const activeId = activeAssistantIdRef.current;
         activeAssistantIdRef.current = null;

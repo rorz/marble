@@ -18,6 +18,7 @@ export type ChatEntry =
       id: string;
       kind: "assistant";
       streaming: boolean;
+      thinking?: string;
       tools?: ToolChatEntry[];
     }
   | ToolChatEntry

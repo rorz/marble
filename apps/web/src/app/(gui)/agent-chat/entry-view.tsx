@@ -101,6 +101,11 @@ const AssistantEntryView = ({
 }) => (
   <div className="flex justify-start">
     <div className="max-w-[95%] space-y-2">
+      {entry.thinking ? (
+        <div className="ml-2 whitespace-pre-wrap border-taupe-200 border-l pl-2 text-taupe-500 text-xs italic">
+          {entry.thinking}
+        </div>
+      ) : null}
       {entry.tools && entry.tools.length > 0 ? (
         <div className="ml-2 space-y-1.5 border-taupe-200 border-l pl-2">
           {entry.tools.map((tool) => (
@@ -113,7 +118,9 @@ const AssistantEntryView = ({
         </div>
       ) : null}
       {entry.content ||
-      (entry.streaming && (!entry.tools || entry.tools.length === 0)) ? (
+      (entry.streaming &&
+        !entry.thinking &&
+        (!entry.tools || entry.tools.length === 0)) ? (
         <div className="whitespace-pre-wrap rounded-sm px-3 py-2 text-sm text-taupe-900">
           {entry.content || (entry.streaming ? "Waiting for response..." : "")}
         </div>

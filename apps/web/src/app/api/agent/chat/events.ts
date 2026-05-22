@@ -70,6 +70,13 @@ export type AgentChatWireEvent =
       type: "message_update";
     }
   | {
+      assistantMessageEvent: {
+        delta: string;
+        type: "thinking_delta";
+      };
+      type: "thinking_update";
+    }
+  | {
       content?: string;
       suppress?: boolean;
       type: "message_end";
@@ -191,6 +198,19 @@ export const normalizeAgentEvent = (
         type: "text_delta",
       },
       type: "message_update",
+    };
+  }
+
+  if (
+    event.type === "message_update" &&
+    event.assistantMessageEvent.type === "thinking_delta"
+  ) {
+    return {
+      assistantMessageEvent: {
+        delta: event.assistantMessageEvent.delta ?? "",
+        type: "thinking_delta",
+      },
+      type: "thinking_update",
     };
   }
 

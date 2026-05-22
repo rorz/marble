@@ -23,7 +23,7 @@ const buildDebugPromptDump = (input: AgentChatRequest) =>
     "The Marble Wizard skill is included inside the system prompt below.",
     "",
     "=== SYSTEM PROMPT ===",
-    buildSystemPrompt(),
+    buildSystemPrompt("rapid"),
     "",
     "=== AGENT REQUEST PROMPT ===",
     buildMarbleAgentTurnPrompt(input),
