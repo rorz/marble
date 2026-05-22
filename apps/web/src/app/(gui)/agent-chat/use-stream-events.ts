@@ -92,6 +92,12 @@ export const useStreamEvents = ({
       ) {
         const delta = event.assistantMessageEvent.delta ?? "";
         const activeId = activeAssistantIdRef.current;
+        if (delta.length > 0) {
+          console.log("[chat-client] text_delta", {
+            activeId,
+            deltaLen: delta.length,
+          });
+        }
         if (activeId) {
           return prev.map((entry) =>
             entry.id === activeId && entry.kind === "assistant"
@@ -151,6 +157,32 @@ export const useStreamEvents = ({
       if (event.type === "message_end") {
         const activeId = activeAssistantIdRef.current;
         activeAssistantIdRef.current = null;
+        console.log("[chat-client] message_end", {
+          activeId,
+          contentLen: event.content?.length ?? 0,
+          entryCount: prev.length,
+          lastEntry: prev.at(-1) && {
+            contentLen:
+              prev.at(-1)?.kind === "assistant"
+                ? (
+                    prev.at(-1) as {
+                      content?: string;
+                    }
+                  ).content?.length
+                : undefined,
+            id: prev.at(-1)?.id,
+            kind: prev.at(-1)?.kind,
+            tools:
+              prev.at(-1)?.kind === "assistant"
+                ? (
+                    prev.at(-1) as {
+                      tools?: unknown[];
+                    }
+                  ).tools?.length
+                : undefined,
+          },
+          suppress: event.suppress,
+        });
         if (event.suppress) {
           return suppressAssistantText(prev, activeId);
         }
@@ -202,6 +234,11 @@ export const useStreamEvents = ({
           activeAssistantIdRef.current,
         );
         activeAssistantIdRef.current = next.assistantId;
+        console.log("[chat-client] tool_start", {
+          entryCount: next.entries.length,
+          newActiveId: next.assistantId,
+          toolName: event.toolName,
+        });
         return next.entries;
       }
 

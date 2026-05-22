@@ -18,6 +18,64 @@ import type { createAgentChatTiming } from "../timing";
 
 type AgentChatTiming = ReturnType<typeof createAgentChatTiming>;
 
+const logRawAgentEvent = (event: unknown) => {
+  const e = event as {
+    type?: string;
+    assistantMessageEvent?: {
+      type?: string;
+      delta?: string;
+    };
+    message?: {
+      role?: string;
+      content?: Array<{
+        type?: string;
+        text?: string;
+      }>;
+    };
+    toolCallId?: string;
+    toolName?: string;
+    isError?: boolean;
+  };
+  const summary: Record<string, unknown> = {
+    type: e.type,
+  };
+  if (e.assistantMessageEvent) {
+    summary.amType = e.assistantMessageEvent.type;
+    summary.deltaLen = e.assistantMessageEvent.delta?.length ?? 0;
+  }
+  if (e.message) {
+    summary.msgRole = e.message.role;
+    summary.blocks = e.message.content?.map((b) => ({
+      textLen: b.text?.length ?? 0,
+      type: b.type,
+    }));
+  }
+  if (e.toolCallId) summary.toolCallId = e.toolCallId;
+  if (e.toolName) summary.toolName = e.toolName;
+  if (e.isError !== undefined) summary.isError = e.isError;
+  console.log("[agent-chat:raw]", JSON.stringify(summary));
+};
+
+const logWireEvent = (event: AgentChatWireEvent) => {
+  const summary: Record<string, unknown> = {
+    type: event.type,
+  };
+  if (event.type === "message_update" || event.type === "thinking_update") {
+    summary.amType = event.assistantMessageEvent.type;
+    summary.deltaLen = event.assistantMessageEvent.delta.length;
+  }
+  if (event.type === "message_end") {
+    summary.contentLen = event.content?.length ?? 0;
+    summary.suppress = event.suppress;
+  }
+  if (event.type === "tool_execution_start") summary.toolName = event.toolName;
+  if (event.type === "tool_execution_end") {
+    summary.isError = event.isError;
+    summary.toolCallId = event.toolCallId;
+  }
+  console.log("[agent-chat:wire]", JSON.stringify(summary));
+};
+
 type HandoffContext = {
   brief: string;
   fromTier: MarbleAgentModelTier;
@@ -197,7 +255,11 @@ export const runAgentTier = async ({
   let unsubscribed = false;
   const unsubscribe = session.subscribe((event) => {
     if (unsubscribed) return;
+    logRawAgentEvent(event);
     const normalized = normalizeAgentEvent(event, session);
+    if (normalized) {
+      logWireEvent(normalized);
+    }
     if (normalized && !isHandoffToolEvent(normalized)) {
       send(normalized);
     }

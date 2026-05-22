@@ -195,7 +195,6 @@ export const suppressAssistantText = (
       return [
         {
           ...entry,
-          content: "",
           streaming: true,
         },
       ];
