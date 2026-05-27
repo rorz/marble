@@ -157,6 +157,7 @@ const TablePageView = ({
     selectedTableId,
     setColumnSecretBindings,
     setSidebarMode,
+    setTableError,
     sidebarMode,
     upsertLocalCells,
     upsertLocalColumn,

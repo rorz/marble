@@ -1,4 +1,5 @@
 import type { SupabaseClient, Tables } from "@marble/supabase";
+import { readProgramConfigFromFiles } from "../program-file/config";
 import { firstRelation, type JsonValue, type StoredProgramRun } from "./load";
 
 type ProgramRunBaseInputContext = {
@@ -11,7 +12,10 @@ type ProgramRunBaseInputContext = {
     | "run_condition"
     | "table_id"
   >;
-  programVersion: Pick<Tables<"program_version">, "id" | "input_schema">;
+  programConfig: {
+    inputSchema: JsonValue;
+  };
+  programVersion: Pick<Tables<"program_version">, "id">;
   row: Pick<Tables<"row">, "id" | "idx" | "table_id">;
 };
 
@@ -47,9 +51,12 @@ export const createExecutionInputContextFromStoredRun = (
       run_condition: run.cell.column.run_condition,
       table_id: run.cell.column.table_id,
     },
+    programConfig: {
+      inputSchema: readProgramConfigFromFiles(run.program_version.program_file)
+        .inputSchema as JsonValue,
+    },
     programVersion: {
       id: run.program_version.id,
-      input_schema: run.program_version.input_schema,
     },
     row: {
       id: row.id,
@@ -90,7 +97,7 @@ export const loadExecutionInputContextForCell = async (
 
   const { data: programVersion, error: programVersionError } = await supabase
     .from("program_version")
-    .select("id, input_schema")
+    .select("id, program_file(content, filename)")
     .eq("id", column.program_version_id)
     .maybeSingle();
 
@@ -117,9 +124,12 @@ export const loadExecutionInputContextForCell = async (
       run_condition: column.run_condition,
       table_id: column.table_id,
     },
+    programConfig: {
+      inputSchema: readProgramConfigFromFiles(programVersion.program_file ?? [])
+        .inputSchema as JsonValue,
+    },
     programVersion: {
       id: programVersion.id,
-      input_schema: programVersion.input_schema,
     },
     row: {
       id: row.id,

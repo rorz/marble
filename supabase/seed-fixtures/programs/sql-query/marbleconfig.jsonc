@@ -1,0 +1,48 @@
+{
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "connection": {
+        "type": "object",
+        "properties": {
+          "dialect": {
+            "type": "string",
+            "enum": ["Postgres", "MySQL"]
+          },
+          "return_mode": {
+            "type": "string",
+            "enum": ["Rows", "Count"]
+          }
+        }
+      },
+      "query": {
+        "type": "string",
+        "title": "SQL Query"
+      }
+    },
+    "required": ["connection", "query"]
+  },
+  "outputConfig": {
+    "flags": {
+      "allowInference": true
+    },
+    "schema": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Query result rows"
+    },
+    "overloads": [
+      {
+        "match": {
+          "connection.return_mode": "Count"
+        },
+        "schema": {
+          "type": "number",
+          "description": "The total number of matching rows"
+        }
+      }
+    ]
+  }
+}

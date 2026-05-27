@@ -657,8 +657,6 @@ export type Database = {
         Row: {
           created_at: string;
           id: string;
-          input_schema: Json;
-          output_config: Json;
           program_id: string;
           published_at: string | null;
           secret_config: Json | null;
@@ -668,8 +666,6 @@ export type Database = {
         Insert: {
           created_at?: string;
           id?: string;
-          input_schema: Json;
-          output_config: Json;
           program_id: string;
           published_at?: string | null;
           secret_config?: Json | null;
@@ -679,8 +675,6 @@ export type Database = {
         Update: {
           created_at?: string;
           id?: string;
-          input_schema?: Json;
-          output_config?: Json;
           program_id?: string;
           published_at?: string | null;
           secret_config?: Json | null;

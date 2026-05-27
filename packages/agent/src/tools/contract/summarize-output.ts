@@ -1,8 +1,8 @@
+import { parseProgramConfigFromFiles } from "@marble/contracts";
 import { safeStringify } from "@marble/lib/json";
 import {
   isPlainRecord,
   readBoolean,
-  readRecord,
   readRecordArray,
   readString,
 } from "@marble/lib/object";
@@ -19,6 +19,10 @@ type SummarizeToolResultInput = {
   operationId: string;
   result: unknown;
 };
+type ProgramFileSummary = {
+  content: string;
+  filename: string;
+};
 
 const summarizeGenericResult = (result: unknown): string => {
   const pretty = safeStringify(result);
@@ -28,23 +32,68 @@ const summarizeGenericResult = (result: unknown): string => {
 
 const versionAllowsManualInput = (
   version: Record<string, unknown>,
+  filesByVersionId: Map<string, ProgramFileSummary[]>,
 ): boolean => {
-  const outputConfig = readRecord(version, "outputConfig");
-  const flags = outputConfig ? readRecord(outputConfig, "flags") : null;
-  return flags ? readBoolean(flags, "allowManualInput") === true : false;
+  const id = readString(version, "id");
+
+  if (!id) {
+    return false;
+  }
+
+  try {
+    return (
+      parseProgramConfigFromFiles(filesByVersionId.get(id) ?? []).outputConfig
+        .flags.allowManualInput === true
+    );
+  } catch (error) {
+    void error;
+    return false;
+  }
 };
 
-const describeVersion = (version: Record<string, unknown>): string => {
+const describeVersion = (
+  version: Record<string, unknown>,
+  filesByVersionId: Map<string, ProgramFileSummary[]>,
+): string => {
   const id = readString(version, "id") ?? "unknown";
   const label =
     versionNumber(version) > 0 ? `v${versionNumber(version)}` : "draft";
   const published = isPublishedVersion(version) ? "published" : "draft";
-  const manual = versionAllowsManualInput(version) ? ", manualInput" : "";
+  const manual = versionAllowsManualInput(version, filesByVersionId)
+    ? ", manualInput"
+    : "";
   return `${label}:${id} (${published}${manual})`;
+};
+
+const groupProgramFilesByVersionId = (
+  files: Record<string, unknown>[],
+): Map<string, ProgramFileSummary[]> => {
+  const filesByVersionId = new Map<string, ProgramFileSummary[]>();
+
+  for (const file of files) {
+    const versionId = readString(file, "versionId");
+    const filename = readString(file, "filename");
+    const content = readString(file, "content");
+
+    if (!versionId || !filename || content === null) {
+      continue;
+    }
+
+    filesByVersionId.set(versionId, [
+      ...(filesByVersionId.get(versionId) ?? []),
+      {
+        content,
+        filename,
+      },
+    ]);
+  }
+
+  return filesByVersionId;
 };
 
 const summarizeProgramVersions = (
   versions: Record<string, unknown>[],
+  filesByVersionId: Map<string, ProgramFileSummary[]>,
   programId: string,
 ): string => {
   const relevantVersions = versions.filter(
@@ -54,7 +103,7 @@ const summarizeProgramVersions = (
 
   return relevantVersions
     .sort(sortPublishedVersionsDesc)
-    .map(describeVersion)
+    .map((version) => describeVersion(version, filesByVersionId))
     .join(", ");
 };
 
@@ -64,6 +113,7 @@ const summarizeProgramEditorResult = (result: unknown): string | null => {
   const programs = readRecordArray(result, "programs");
   const versions = readRecordArray(result, "programVersions");
   const files = readRecordArray(result, "programFiles");
+  const filesByVersionId = groupProgramFilesByVersionId(files);
   const userInput = findUserInputVersion(result);
   const lines = [
     `Program editor summary: ${programs.length} programs, ${versions.length} versions, ${files.length} files.`,
@@ -87,6 +137,7 @@ const summarizeProgramEditorResult = (result: unknown): string | null => {
     lines.push(
       `- ${name}${firstParty ? " [first-party]" : ""} id=${id}; versions=${summarizeProgramVersions(
         versions,
+        filesByVersionId,
         id,
       )}`,
     );

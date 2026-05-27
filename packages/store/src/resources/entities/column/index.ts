@@ -1,6 +1,12 @@
-import type { Json } from "@marble/supabase";
+import type { ProgramConfig } from "@marble/contracts";
+import type { Json, SupabaseClient } from "@marble/supabase";
 import type { ResourceDeps } from "../../../db";
 import type { CreateParams, Entity, UpdateParams } from "../../../types";
+import {
+  getProgramConfigOutputSchema,
+  loadProgramConfigForVersion,
+  programConfigAllowsManualInput,
+} from "../program-file/config";
 import {
   deleteColumnDependencies,
   replaceColumnDependencies,
@@ -57,38 +63,47 @@ export type ColumnCollectionApi = {
   readonly update: (input: UpdateColumnParams) => Promise<Column>;
 };
 
-const getOutputSchema = (outputConfig: unknown) => {
-  if (!outputConfig || typeof outputConfig !== "object") {
-    return {};
-  }
+const asJson = (value: unknown): Json => value as Json;
 
-  return "schema" in outputConfig ? outputConfig.schema : {};
+const loadColumnProgramConfig = async (
+  deps: ResourceDeps,
+  versionId: string,
+): Promise<ProgramConfig> => {
+  try {
+    return await loadProgramConfigForVersion(
+      deps.serviceSupabase ?? deps.supabase,
+      versionId,
+    );
+  } catch (error) {
+    throw new Error(
+      "Program version must include a readable marbleconfig.jsonc before it can be used for a column.",
+      {
+        cause: error,
+      },
+    );
+  }
 };
 
-const outputConfigAllowsManualInput = (outputConfig: unknown) => {
-  if (!outputConfig || typeof outputConfig !== "object") {
+const loadProgramVersionAllowsManualInput = async (
+  supabase: SupabaseClient,
+  versionId: string,
+) => {
+  try {
+    return programConfigAllowsManualInput(
+      await loadProgramConfigForVersion(supabase, versionId),
+    );
+  } catch (error) {
+    void error;
     return false;
   }
-
-  return (
-    (
-      outputConfig as {
-        flags?: {
-          allowManualInput?: boolean;
-        };
-      }
-    ).flags?.allowManualInput === true
-  );
 };
-
-const asJson = (value: unknown): Json => value as Json;
 
 export class ColumnCollection implements ColumnCollectionApi {
   public constructor(private readonly deps: ResourceDeps) {}
 
   public readonly create = async (input: CreateColumnInput) => {
-    const programVersion = await this.deps.db.get(
-      "program_version",
+    const programConfig = await loadColumnProgramConfig(
+      this.deps,
       input.programVersionId,
     );
     const idx =
@@ -109,7 +124,7 @@ export class ColumnCollection implements ColumnCollectionApi {
       inputTemplate: input.inputTemplate,
       name: input.name,
       outputSchema: asJson(
-        input.outputSchema ?? getOutputSchema(programVersion.outputConfig),
+        input.outputSchema ?? getProgramConfigOutputSchema(programConfig),
       ),
       programVersionId: input.programVersionId,
       runCondition: asJson(input.runCondition ?? false),
@@ -209,10 +224,18 @@ export class ColumnCollection implements ColumnCollectionApi {
       ]),
     );
     const programVersionAllowsManualInputById = new Map(
-      allProgramVersions.map((version) => [
-        version.id,
-        outputConfigAllowsManualInput(version.outputConfig),
-      ]),
+      await Promise.all(
+        allProgramVersions.map(
+          async (version) =>
+            [
+              version.id,
+              await loadProgramVersionAllowsManualInput(
+                this.deps.serviceSupabase ?? this.deps.supabase,
+                version.id,
+              ),
+            ] as const,
+        ),
+      ),
     );
 
     return columns.flat().flatMap((column) => {
@@ -241,19 +264,22 @@ export class ColumnCollection implements ColumnCollectionApi {
   };
 
   public readonly update = async ({ id, values }: UpdateColumnParams) => {
-    const programVersion =
+    const programConfig =
       values.programVersionId === undefined
         ? null
-        : await this.deps.db.get("program_version", values.programVersionId);
+        : await loadColumnProgramConfig(this.deps, values.programVersionId);
+    const nextOutputSchema =
+      values.outputSchema !== undefined
+        ? values.outputSchema
+        : programConfig
+          ? getProgramConfigOutputSchema(programConfig)
+          : undefined;
     const column = await this.deps.db.update("column", id, {
       ...values,
-      ...(values.outputSchema === undefined && programVersion === null
+      ...(nextOutputSchema === undefined
         ? {}
         : {
-            outputSchema: asJson(
-              values.outputSchema ??
-                getOutputSchema(programVersion?.outputConfig),
-            ),
+            outputSchema: asJson(nextOutputSchema),
           }),
       ...(values.runCondition === undefined
         ? {}

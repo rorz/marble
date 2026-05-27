@@ -1,0 +1,20 @@
+{
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "text_to_format": {
+        "type": "string",
+        "title": "Text",
+        "description": "The string you want to capitalize"
+      }
+    },
+    "required": ["text_to_format"]
+  },
+  "outputConfig": {
+    "flags": {},
+    "schema": {
+      "type": "string",
+      "description": "The capitalized string"
+    }
+  }
+}

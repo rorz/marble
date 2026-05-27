@@ -1,6 +1,6 @@
 "use client";
 
-import { stringifyPretty } from "@marble/lib/json";
+import { getErrorMessage } from "@marble/lib/result";
 import { MarbleAlert } from "@marble/ui";
 import { XIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
@@ -23,7 +23,6 @@ import type {
 import { ColumnBasics } from "./basics";
 import { SidebarFooter } from "./footer";
 import { InputTemplate } from "./input-template";
-import { OutputConfig } from "./output-config";
 import { SecretOverrides } from "./secret-overrides";
 import {
   buildColumnInputTemplate,
@@ -118,14 +117,8 @@ export const ColumnSidebar = ({
     () => (editingColumn ? (columnSecretBindings[editingColumn.id] ?? {}) : {}),
   );
   const [fieldValues, setFieldValues] = useState(initFieldValues);
+  const [saveError, setSaveError] = useState<null | string>(null);
   const [saving, setSaving] = useState(false);
-  const [outputSchemaOpen, setOutputSchemaOpen] = useState(false);
-  const [outputSchemaJson, setOutputSchemaJson] = useState(() => {
-    const config = getProgramOutputConfig(editingColumn?.programVersion);
-    return config ? stringifyPretty(config) : "{}";
-  });
-  const [outputSchemaDirty, setOutputSchemaDirty] = useState(false);
-  const [savingOutputSchema, setSavingOutputSchema] = useState(false);
   const initialProgramId = useRef(programId);
   const selectedProgram = programs.find((program) => program.id === programId);
   const latestVersion = selectedProgram?.programVersions?.length
@@ -207,6 +200,7 @@ export const ColumnSidebar = ({
     }
 
     setSaving(true);
+    setSaveError(null);
     try {
       if (mode.kind === "create") {
         await onCreateColumn({
@@ -230,6 +224,8 @@ export const ColumnSidebar = ({
           secretBindings: secretBindingMapToEntries(secretBindingsForSave),
         });
       }
+    } catch (error) {
+      setSaveError(getErrorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -295,26 +291,21 @@ export const ColumnSidebar = ({
             />
           )}
 
+          {saveError ? (
+            <MarbleAlert
+              size="sm"
+              tone="error"
+            >
+              {saveError}
+            </MarbleAlert>
+          ) : null}
+
           <InputTemplate
             currentTableId={currentTableId}
             fields={fields}
             fieldValues={fieldValues}
             referenceColumns={referenceColumns}
             setFieldValues={setFieldValues}
-          />
-
-          <OutputConfig
-            isCreate={isCreate}
-            latestVersionId={latestVersion?.id ?? null}
-            outputSchemaDirty={outputSchemaDirty}
-            outputSchemaJson={outputSchemaJson}
-            outputSchemaOpen={outputSchemaOpen}
-            savingOutputSchema={savingOutputSchema}
-            selectedProgramExists={Boolean(selectedProgram)}
-            setOutputSchemaDirty={setOutputSchemaDirty}
-            setOutputSchemaJson={setOutputSchemaJson}
-            setOutputSchemaOpen={setOutputSchemaOpen}
-            setSavingOutputSchema={setSavingOutputSchema}
           />
         </div>
 

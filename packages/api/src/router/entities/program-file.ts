@@ -1,4 +1,7 @@
-import { parseProgramManifestFileContent } from "@marble/contracts";
+import {
+  parseProgramConfigFromFiles,
+  parseProgramManifestFileContent,
+} from "@marble/contracts";
 import { os } from "../../server";
 import type { RouterResourcePart } from "../../types";
 import { composeResourceRouter } from "../compose";
@@ -26,11 +29,29 @@ const assertValidProgramManifest = (
   }
 };
 
+const assertValidProgramConfig = (
+  files: Array<{
+    content: string;
+    filename: string;
+  }>,
+) => {
+  try {
+    parseProgramConfigFromFiles(files);
+  } catch (error) {
+    throw new Error(
+      error instanceof Error
+        ? `marbleconfig.jsonc is invalid: ${error.message}`
+        : "marbleconfig.jsonc is invalid.",
+    );
+  }
+};
+
 export const programFileRouter = {
   ...composeResourceRouter("programFiles"),
   syncForVersion: os.programFiles.syncForVersion.handler(
     ({ context, input }) => {
       assertValidProgramManifest(input.files);
+      assertValidProgramConfig(input.files);
       return context.store.programFiles.syncForVersion(input);
     },
   ),

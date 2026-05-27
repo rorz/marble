@@ -6,8 +6,7 @@
  *
  * Each program directory contains:
  *   package.json        -> name
- *   input-schema.json   -> input_schema          (JSON Schema)
- *   output-config.json  -> output_config         (ProgramOutputConfig)
+ *   marbleconfig.jsonc  -> input/output config
  *   index.ts            -> code
  *
  * Operator accounts file:
@@ -36,9 +35,7 @@ interface ProgramFile {
 interface ProgramSeed {
   files: ProgramFile[];
   firstParty: boolean;
-  inputSchema: string;
   name: string;
-  outputConfig: string;
   slug: string;
 }
 
@@ -67,11 +64,6 @@ const readOptionalJson = (path: string): unknown | null => {
   }
 };
 
-const readJsonObject = (path: string): JsonObject => {
-  const value = readOptionalJson(path);
-  return isJsonObject(value) ? value : {};
-};
-
 const readOptionalText = (path: string): string | null => {
   try {
     return readFileSync(path, "utf-8").trim();
@@ -97,7 +89,7 @@ const getFileType = (filename: string): ProgramFileType => {
     return "TypeScript";
   }
 
-  if (filename.endsWith(".json")) {
+  if (filename.endsWith(".json") || filename.endsWith(".jsonc")) {
     return "Json";
   }
 
@@ -120,8 +112,6 @@ const getProgramName = (dirName: string, dir: string): string => {
 
 const buildProgramSeed = (dirName: string): ProgramSeed => {
   const dir = join(FIXTURES_DIR, dirName);
-  const inputSchema = readJsonObject(join(dir, "input-schema.json"));
-  const outputConfig = readJsonObject(join(dir, "output-config.json"));
 
   const files = readdirSync(dir, {
     withFileTypes: true,
@@ -137,9 +127,7 @@ const buildProgramSeed = (dirName: string): ProgramSeed => {
   return {
     files,
     firstParty: true,
-    inputSchema: JSON.stringify(inputSchema),
     name: getProgramName(dirName, dir),
-    outputConfig: JSON.stringify(outputConfig),
     slug: dirName,
   };
 };
@@ -179,8 +167,8 @@ inserted_program_${slug} AS (
   RETURNING id
 ),
 inserted_version_${slug} AS (
-  INSERT INTO public."program_version" (program_id, "version", input_schema, output_config, published_at)
-  SELECT id, 1, '${sqlEscape(program.inputSchema)}', '${sqlEscape(program.outputConfig)}', NOW() FROM inserted_program_${slug}
+  INSERT INTO public."program_version" (program_id, "version", published_at)
+  SELECT id, 1, NOW() FROM inserted_program_${slug}
   RETURNING id
 ),${fileInserts}`;
   })

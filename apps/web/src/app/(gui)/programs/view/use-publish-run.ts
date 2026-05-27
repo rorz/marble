@@ -25,9 +25,8 @@ export const usePublishRun = ({
   latestPublishedVersion,
   manualInput,
   nextVersionNumber,
-  normalizedInputSchemaStr,
-  normalizedOutputConfigStr,
   packageManifestError,
+  programConfigError,
   progName,
   refreshPrograms,
   selectedHistoricalVersion,
@@ -53,9 +52,8 @@ export const usePublishRun = ({
   latestPublishedVersion: ProgramVersionWithFiles | null;
   manualInput: string;
   nextVersionNumber: number;
-  normalizedInputSchemaStr: null | string;
-  normalizedOutputConfigStr: null | string;
   packageManifestError: null | string;
+  programConfigError: null | string;
   progName: string;
   refreshPrograms: () => Promise<FullProgram[]>;
   selectedHistoricalVersion: ProgramVersionWithFiles | null;
@@ -95,16 +93,12 @@ export const usePublishRun = ({
     addLog(`Publishing "${nextName}" as v${nextVersionNumber}...`);
 
     try {
-      if (!normalizedInputSchemaStr) {
-        throw new Error("Invalid Input Schema JSON");
-      }
-
-      if (!normalizedOutputConfigStr) {
-        throw new Error("Invalid Output Config JSON");
-      }
-
       if (packageManifestError) {
         throw new Error(`Invalid package.json: ${packageManifestError}`);
+      }
+
+      if (programConfigError) {
+        throw new Error(`Invalid marbleconfig.jsonc: ${programConfigError}`);
       }
 
       if (!currentSecretConfigStr) {
@@ -119,8 +113,6 @@ export const usePublishRun = ({
 
       const publishedVersion = await actions.publishDraftVersion(
         persistedDraft.id,
-        JSON.parse(normalizedInputSchemaStr),
-        JSON.parse(normalizedOutputConfigStr),
         files,
         currentSecretConfigState.declarations,
       );

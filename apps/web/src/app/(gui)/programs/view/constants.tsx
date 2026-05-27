@@ -38,10 +38,8 @@ export const compactSidebarRowActiveClassName =
 export const compactSidebarRowIdleClassName =
   "text-taupe-700 hover:bg-white/70 hover:text-taupe-950";
 export const importAccept =
-  ".ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.md,.markdown,.txt";
+  ".ts,.tsx,.js,.jsx,.mjs,.cjs,.json,.jsonc,.md,.markdown,.txt";
 export const rightPanelDefaultHeights = {
-  inputSchema: 220,
-  outputConfig: 220,
   secrets: 176,
   testInputs: 320,
 } satisfies Record<RightWorkbenchPanelId, number>;

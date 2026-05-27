@@ -1,0 +1,41 @@
+{
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "format": {
+        "type": "string",
+        "enum": ["string", "number", "boolean"],
+        "title": "Column Type",
+        "default": "string"
+      }
+    },
+    "required": ["format"]
+  },
+  "outputConfig": {
+    "flags": {
+      "allowManualInput": true
+    },
+    "schema": {
+      "type": "string",
+      "description": "Standard text value"
+    },
+    "overloads": [
+      {
+        "match": {
+          "format": "number"
+        },
+        "schema": {
+          "type": "number"
+        }
+      },
+      {
+        "match": {
+          "format": "boolean"
+        },
+        "schema": {
+          "type": "boolean"
+        }
+      }
+    ]
+  }
+}

@@ -78,7 +78,7 @@ const resolveInputContext = (context: ProgramRunInputContext) => {
   const inputTemplate = JSON.parse(context.column.input_template) as JsonValue;
   const resolvedInput = resolveColumnConfig(inputTemplate, rowContext);
   const inputPayloadSchema = ProgramInputSchema.parse(
-    context.programVersion.input_schema,
+    context.programConfig.inputSchema,
   );
   const parsedInput = z
     .fromJSONSchema(inputPayloadSchema)

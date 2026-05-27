@@ -1,9 +1,6 @@
 "use server";
 
-import {
-  createServerMarbleSdk,
-  createServerMarbleSdkForTable,
-} from "@/lib/marble-sdk-server";
+import { createServerMarbleSdkForTable } from "@/lib/marble-sdk-server";
 import { type FullProgram, hydrateEditorPrograms } from "@/lib/program-data";
 import {
   listColumnSecretBindings,
@@ -148,17 +145,3 @@ export const loadTablePageDataForUser = async (
 export type TablePageData = Awaited<
   ReturnType<typeof loadTablePageDataForUser>
 >;
-
-export const updateProgramOutputSchema = async (
-  programVersionId: string,
-  outputConfig: unknown,
-) => {
-  const sdk = await createServerMarbleSdk();
-
-  await sdk.programVersions.update({
-    id: programVersionId,
-    values: {
-      outputConfig,
-    },
-  });
-};

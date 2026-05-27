@@ -1,3 +1,4 @@
+import { getErrorMessage } from "@marble/lib/result";
 import type { MarbleClient } from "@marble/sdk";
 import type { MarbleConfirmModalState } from "@marble/ui";
 import type { CellContextMenuEvent } from "ag-grid-community";
@@ -49,6 +50,7 @@ type UseColumnControlsInput = {
   selectedTableId: string;
   setColumnSecretBindings: Dispatch<SetStateAction<ColumnSecretBindingMap>>;
   setSidebarMode: Dispatch<SetStateAction<SidebarMode>>;
+  setTableError: Dispatch<SetStateAction<null | string>>;
   sidebarMode: SidebarMode;
   upsertLocalCells: (cells: Cell[]) => void;
   upsertLocalColumn: (column: Column) => void;
@@ -63,6 +65,7 @@ export const useColumnControls = ({
   selectedTableId,
   setColumnSecretBindings,
   setSidebarMode,
+  setTableError,
   sidebarMode,
   upsertLocalCells,
   upsertLocalColumn,
@@ -93,36 +96,48 @@ export const useColumnControls = ({
       return;
     }
 
-    const column = await createColumn(sdk, {
-      tableId: selectedTableId,
-      ...input,
-    });
-    const materializedCells = await sdk.cells.list({
-      columnId: column.id,
-    });
+    setTableError(null);
+    try {
+      const column = await createColumn(sdk, {
+        tableId: selectedTableId,
+        ...input,
+      });
+      const materializedCells = await sdk.cells.list({
+        columnId: column.id,
+      });
 
-    upsertLocalColumn(hydrateColumnRecord(column, programs));
-    upsertLocalCells(materializedCells);
-    await refreshReferenceColumns();
+      upsertLocalColumn(hydrateColumnRecord(column, programs));
+      upsertLocalCells(materializedCells);
+      await refreshReferenceColumns();
+    } catch (error) {
+      setTableError(getErrorMessage(error));
+      throw error;
+    }
   };
 
   const handleUpdateColumn = async (input: UpdateColumnInput) => {
-    await updateColumn(sdk, input);
+    setTableError(null);
+    try {
+      await updateColumn(sdk, input);
 
-    if (input.secretBindings) {
-      const savedBindings = await updateColumnSecretBindings(
-        sdk,
-        input.columnId,
-        input.secretBindings,
-      );
+      if (input.secretBindings) {
+        const savedBindings = await updateColumnSecretBindings(
+          sdk,
+          input.columnId,
+          input.secretBindings,
+        );
 
-      setColumnSecretBindings((current) => ({
-        ...current,
-        [input.columnId]: secretBindingEntriesToMap(savedBindings),
-      }));
+        setColumnSecretBindings((current) => ({
+          ...current,
+          [input.columnId]: secretBindingEntriesToMap(savedBindings),
+        }));
+      }
+
+      await refreshReferenceColumns();
+    } catch (error) {
+      setTableError(getErrorMessage(error));
+      throw error;
     }
-
-    await refreshReferenceColumns();
   };
 
   const requestDeleteColumn = (columnId: string) => {

@@ -1,14 +1,20 @@
+import { parseJsonc } from "@marble/lib/json";
 import { z } from "zod";
 import { defineResourceOperations } from "../../orpc";
 import { baseEntitySchema, jsonValueSchema } from "../base";
 import { ProgramFileSchema } from "./program-file";
-import { ProgramVersionSchema } from "./program-version";
+import {
+  ProgramInputSchema,
+  ProgramOutputConfig,
+  ProgramVersionSchema,
+} from "./program-version";
 
 const tags = [
   "Programs",
 ] as const;
 
 export const ENVIRONMENT_VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+export const PROGRAM_CONFIG_FILENAME = "marbleconfig.jsonc";
 
 const environmentVariableNameSchema = z
   .string()
@@ -173,6 +179,39 @@ export const listProgramSecretDeclarationsFromFiles = (
   );
 };
 
+export const ProgramConfigSchema = z
+  .object({
+    inputSchema: ProgramInputSchema,
+    outputConfig: ProgramOutputConfig,
+  })
+  .passthrough();
+export type ProgramConfig = z.infer<typeof ProgramConfigSchema>;
+
+export const parseProgramConfig = (input: unknown): ProgramConfig => {
+  return ProgramConfigSchema.parse(input);
+};
+
+export const parseProgramConfigFileContent = (content: string) => {
+  return parseProgramConfig(parseJsonc(content));
+};
+
+export const parseProgramConfigFromFiles = (
+  files: Array<{
+    content: string;
+    filename: string;
+  }>,
+) => {
+  const configFile = files.find(
+    (file) => file.filename === PROGRAM_CONFIG_FILENAME,
+  );
+
+  if (!configFile) {
+    throw new Error(`Program files must include ${PROGRAM_CONFIG_FILENAME}.`);
+  }
+
+  return parseProgramConfigFileContent(configFile.content);
+};
+
 const ProgramSchema = z.object({
   ...baseEntitySchema.shape,
   firstParty: z.boolean(),
@@ -182,8 +221,6 @@ const ProgramSchema = z.object({
 });
 
 const InitialProgramVersionSchema = z.object({
-  inputSchema: jsonValueSchema,
-  outputConfig: jsonValueSchema,
   publish: z.boolean().optional(),
   secretConfig: jsonValueSchema.optional(),
 });

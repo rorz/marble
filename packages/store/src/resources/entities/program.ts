@@ -24,8 +24,6 @@ export type CreatedProgram = Program & {
 export type CreateProgramInput = Pick<Program, "name"> & {
   forkedFromVersionId?: null | string;
   initialVersion?: {
-    inputSchema: unknown;
-    outputConfig: unknown;
     publish?: boolean;
     secretConfig?: unknown;
   };
@@ -104,8 +102,6 @@ export class ProgramCollection implements ProgramCollectionApi {
 
     const initialVersion = await new ProgramVersionCollection(this.deps).create(
       {
-        inputSchema: input.initialVersion.inputSchema,
-        outputConfig: input.initialVersion.outputConfig,
         programId: program.id,
         publish: input.initialVersion.publish,
         secretConfig: input.initialVersion.secretConfig,

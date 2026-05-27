@@ -161,6 +161,7 @@
       "name": "@marble/contracts",
       "version": "1.0.0",
       "dependencies": {
+        "@marble/lib": "workspace:*",
         "@orpc/contract": "catalog:base",
         "jsonpath-plus": "catalog:base",
         "sift": "catalog:base",
@@ -212,6 +213,7 @@
       "name": "@marble/store",
       "version": "1.0.0",
       "dependencies": {
+        "@marble/contracts": "workspace:*",
         "@marble/keys": "workspace:*",
         "@marble/lib": "workspace:*",
         "@marble/supabase": "workspace:*",

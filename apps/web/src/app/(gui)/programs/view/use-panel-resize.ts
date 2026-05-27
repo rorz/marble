@@ -18,8 +18,6 @@ export const usePanelResize = () => {
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState<
     Record<RightWorkbenchPanelId, boolean>
   >({
-    inputSchema: false,
-    outputConfig: false,
     secrets: false,
     testInputs: false,
   });

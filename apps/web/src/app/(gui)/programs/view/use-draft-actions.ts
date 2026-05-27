@@ -1,5 +1,4 @@
 import type { ProgramManifestSecretDeclaration } from "@marble/contracts";
-import { stringifyPretty } from "@marble/lib/json";
 import { getErrorMessage } from "@marble/lib/result";
 import { normalizeDisplayLabel } from "@marble/lib/string";
 import { marbleToast } from "@marble/ui";
@@ -26,18 +25,15 @@ export const useDraftActions = ({
   draftVersion,
   files,
   latestPublishedVersion,
-  normalizedInputSchemaStr,
-  normalizedOutputConfigStr,
   packageManifestError,
+  programConfigError,
   progName,
   selectedHistoricalVersion,
   selectedProgram,
   setActiveFile,
   setEditingSurface,
   setFiles,
-  setInputSchemaStr,
   setOpenTabs,
-  setOutputConfigStr,
   setProgName,
   setRenameError,
   setResult,
@@ -54,18 +50,15 @@ export const useDraftActions = ({
   draftVersion: ProgramVersionWithFiles | null;
   files: EditableProgramFile[];
   latestPublishedVersion: ProgramVersionWithFiles | null;
-  normalizedInputSchemaStr: null | string;
-  normalizedOutputConfigStr: null | string;
   packageManifestError: null | string;
+  programConfigError: null | string;
   progName: string;
   selectedHistoricalVersion: ProgramVersionWithFiles | null;
   selectedProgram: FullProgram | undefined;
   setActiveFile: (filename: null | string) => void;
   setEditingSurface: (surface: null | "crumb" | "title") => void;
   setFiles: (files: EditableProgramFile[]) => void;
-  setInputSchemaStr: (value: string) => void;
   setOpenTabs: (tabs: string[]) => void;
-  setOutputConfigStr: (value: string) => void;
   setProgName: (value: string) => void;
   setRenameError: (value: null | string) => void;
   setResult: (result: null) => void;
@@ -90,13 +83,15 @@ export const useDraftActions = ({
         return draftVersion;
       }
 
-      if (!normalizedInputSchemaStr || !normalizedOutputConfigStr) {
-        throw new Error("Fix the draft JSON before creating a draft.");
-      }
-
       if (packageManifestError) {
         throw new Error(
           `Fix package.json before creating a draft: ${packageManifestError}`,
+        );
+      }
+
+      if (programConfigError) {
+        throw new Error(
+          `Fix marbleconfig.jsonc before creating a draft: ${programConfigError}`,
         );
       }
 
@@ -106,8 +101,6 @@ export const useDraftActions = ({
 
       const { version } = await actions.createDraftVersion(
         selectedProgram.id,
-        JSON.parse(normalizedInputSchemaStr),
-        JSON.parse(normalizedOutputConfigStr),
         files,
         currentSecretConfigState.declarations,
       );
@@ -127,9 +120,8 @@ export const useDraftActions = ({
       draftVersion,
       files,
       latestPublishedVersion?.version,
-      normalizedInputSchemaStr,
-      normalizedOutputConfigStr,
       packageManifestError,
+      programConfigError,
       selectedProgram,
       upsertProgramVersion,
     ],
@@ -189,8 +181,6 @@ export const useDraftActions = ({
       );
       const { version } = await actions.createDraftVersion(
         selectedProgram.id,
-        selectedHistoricalVersion.inputSchema,
-        selectedHistoricalVersion.outputConfig,
         sourceFiles,
         normalizeStoredProgramSecretConfig(
           selectedHistoricalVersion.secretConfig,
@@ -211,8 +201,6 @@ export const useDraftActions = ({
             ]
           : [],
       );
-      setInputSchemaStr(stringifyPretty(persistedDraft.inputSchema));
-      setOutputConfigStr(stringifyPretty(persistedDraft.outputConfig));
       setSelectedVersionView("current");
       setResult(null);
 
@@ -235,9 +223,7 @@ export const useDraftActions = ({
     selectedProgram,
     setActiveFile,
     setFiles,
-    setInputSchemaStr,
     setOpenTabs,
-    setOutputConfigStr,
     setResult,
     setSecretConfigDraft,
     setSelectedVersionView,

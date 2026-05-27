@@ -1,5 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
+import {
+  PROGRAM_CONFIG_FILENAME,
+  parseProgramConfigFileContent,
+} from "@marble/contracts";
 import type { MarbleClient } from "@marble/sdk";
 import { Command } from "commander";
 import { getMarbleClient } from "./client";
@@ -29,9 +33,7 @@ type ProgramDirectoryFile = {
 
 type ProgramDirectory = {
   files: ProgramDirectoryFile[];
-  inputSchema: JsonValue;
   name: string;
-  outputConfig: JsonValue;
   secretConfig: JsonValue[];
 };
 
@@ -42,7 +44,7 @@ type EditorProgram = ProgramEditorData["programs"][number];
 type EditorProgramVersion = ProgramEditorData["programVersions"][number];
 
 const getFileType = (filename: string): ProgramFileType => {
-  if (filename.endsWith(".json")) {
+  if (filename.endsWith(".json") || filename.endsWith(".jsonc")) {
     return "Json";
   }
 
@@ -104,12 +106,22 @@ const readProgramFiles = async (dir: string) => {
 
 const readProgramDirectory = async (dir: string): Promise<ProgramDirectory> => {
   const manifest = await readProgramManifest(dir);
+  const files = await readProgramFiles(dir);
+  const configFile = files.find(
+    (file) => file.filename === PROGRAM_CONFIG_FILENAME,
+  );
+
+  if (!configFile) {
+    throw new Error(
+      `Program directory must contain ${PROGRAM_CONFIG_FILENAME}.`,
+    );
+  }
+
+  parseProgramConfigFileContent(configFile.content);
 
   return {
-    files: await readProgramFiles(dir),
-    inputSchema: await readJsonFile(join(dir, "input-schema.json")),
+    files,
     name: manifest.name || basename(dir),
-    outputConfig: await readJsonFile(join(dir, "output-config.json")),
     secretConfig: manifest.secrets,
   };
 };
@@ -162,14 +174,10 @@ const upsertProgramDirectory = async (marble: MarbleClient, dir: string) => {
     ? await marble.programVersions.update({
         id: draft.id,
         values: {
-          inputSchema: source.inputSchema,
-          outputConfig: source.outputConfig,
           secretConfig: source.secretConfig,
         },
       })
     : await marble.programVersions.create({
-        inputSchema: source.inputSchema,
-        outputConfig: source.outputConfig,
         programId: program.id,
         secretConfig: source.secretConfig,
       });
@@ -208,7 +216,7 @@ export const registerProgramDir = (root: Command) => {
     .command("upsert")
     .argument(
       "<directory>",
-      "Path to a program directory (must contain package.json, main.ts, input-schema.json, output-config.json)",
+      `Path to a program directory (must contain package.json, main.ts, ${PROGRAM_CONFIG_FILENAME})`,
     )
     .description(
       "Upsert the program directory and publish a new version. Returns the program, version, and synced files.",

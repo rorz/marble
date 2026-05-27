@@ -58,8 +58,6 @@ const patchProgramVersion = async (
   sdk: ServerMarbleSdk,
   programVersionId: string,
   body: {
-    inputSchema?: unknown;
-    outputConfig?: unknown;
     publish?: boolean;
     secretConfig?: ProgramSecretConfig;
   },
@@ -72,15 +70,11 @@ const patchProgramVersion = async (
 
 export const createDraftVersion = async (
   programId: string,
-  inputSchema: unknown,
-  outputConfig: unknown,
   files: EditableProgramFile[],
   secretConfig: ProgramSecretConfig,
 ) => {
   const sdk = await createServerMarbleSdk();
   const version = await sdk.programVersions.create({
-    inputSchema,
-    outputConfig,
     programId,
     publish: false,
     secretConfig,
@@ -101,15 +95,11 @@ export const createDraftVersion = async (
 
 export const syncDraftVersion = async (
   programVersionId: string,
-  inputSchema: unknown,
-  outputConfig: unknown,
   files: EditableProgramFile[],
   secretConfig: ProgramSecretConfig,
 ) => {
   const sdk = await createServerMarbleSdk();
   const version = await patchProgramVersion(sdk, programVersionId, {
-    inputSchema,
-    outputConfig,
     secretConfig,
   });
   const programFiles = await sdk.programFiles.syncForVersion({
@@ -125,8 +115,6 @@ export const syncDraftVersion = async (
 
 export const publishDraftVersion = async (
   programVersionId: string,
-  inputSchema: unknown,
-  outputConfig: unknown,
   files: EditableProgramFile[],
   secretConfig: ProgramSecretConfig,
 ) => {
@@ -136,8 +124,6 @@ export const publishDraftVersion = async (
     versionId: programVersionId,
   });
   const version = await patchProgramVersion(sdk, programVersionId, {
-    inputSchema,
-    outputConfig,
     publish: true,
     secretConfig,
   });

@@ -17,8 +17,6 @@ export const useDraftSync = ({
   hasLocalDraftPayloadChanges,
   hasVersionChangesAgainstPublished,
   latestPublishedVersion,
-  normalizedInputSchemaStr,
-  normalizedOutputConfigStr,
   selectedProgram,
   upsertProgramVersion,
 }: {
@@ -33,8 +31,6 @@ export const useDraftSync = ({
   hasLocalDraftPayloadChanges: boolean;
   hasVersionChangesAgainstPublished: boolean;
   latestPublishedVersion: ProgramVersionWithFiles | null;
-  normalizedInputSchemaStr: null | string;
-  normalizedOutputConfigStr: null | string;
   selectedProgram: FullProgram | undefined;
   upsertProgramVersion: (
     programId: string,
@@ -77,7 +73,8 @@ export const useDraftSync = ({
     void (async () => {
       try {
         await ensurePersistedDraftVersion();
-      } catch {
+      } catch (error) {
+        void error;
       } finally {
         draftBootstrapInFlightRef.current = false;
         if (isMountedRef.current) {
@@ -121,25 +118,15 @@ export const useDraftSync = ({
     setDraftSyncPending(true);
     draftSyncTimeoutRef.current = setTimeout(() => {
       void (async () => {
-        const inputSchema = normalizedInputSchemaStr;
-        const outputConfig = normalizedOutputConfigStr;
-
-        if (!inputSchema || !outputConfig) {
-          setDraftSyncPending(false);
-          draftSyncTimeoutRef.current = null;
-          return;
-        }
-
         try {
           const syncedDraft = await actions.syncDraftVersion(
             draftVersion.id,
-            JSON.parse(inputSchema),
-            JSON.parse(outputConfig),
             files,
             currentSecretConfigState.declarations,
           );
           upsertProgramVersion(selectedProgram.id, syncedDraft);
-        } catch {
+        } catch (error) {
+          void error;
         } finally {
           setDraftSyncPending(false);
           draftSyncTimeoutRef.current = null;
@@ -160,8 +147,6 @@ export const useDraftSync = ({
     draftVersion,
     files,
     hasLocalDraftPayloadChanges,
-    normalizedInputSchemaStr,
-    normalizedOutputConfigStr,
     selectedProgram,
     upsertProgramVersion,
   ]);

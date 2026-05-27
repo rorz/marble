@@ -1,4 +1,4 @@
-import { stringifyPretty } from "@marble/lib/json";
+import { safeStringify } from "@marble/lib/json";
 import { type Dispatch, type SetStateAction, useEffect, useRef } from "react";
 import { createDefaultDraftFiles, normalizeProgramFiles } from "./files";
 import { createEditableProgramSecretDeclarations } from "./secret-config";
@@ -9,11 +9,7 @@ import type {
   ProgramTestResult,
   ProgramVersionWithFiles,
 } from "./types";
-import {
-  buildFieldsFromSchema,
-  getDefaultDraftInputSchema,
-  getDefaultDraftOutputConfig,
-} from "./workbench";
+import { buildFieldsFromSchema } from "./workbench";
 
 type UseEditorLoaderInput = {
   editingSurface: null | "crumb" | "title";
@@ -24,14 +20,12 @@ type UseEditorLoaderInput = {
   setActiveFile: Dispatch<SetStateAction<null | string>>;
   setEditingSurface: Dispatch<SetStateAction<null | "crumb" | "title">>;
   setFiles: Dispatch<SetStateAction<EditableProgramFile[]>>;
-  setInputSchemaStr: Dispatch<SetStateAction<string>>;
   setInputValues: Dispatch<SetStateAction<Record<string, string>>>;
   setIsNewFileModalOpen: Dispatch<SetStateAction<boolean>>;
   setLog: Dispatch<SetStateAction<string[]>>;
   setManualInput: Dispatch<SetStateAction<string>>;
   setNewFileError: Dispatch<SetStateAction<null | string>>;
   setOpenTabs: Dispatch<SetStateAction<string[]>>;
-  setOutputConfigStr: Dispatch<SetStateAction<string>>;
   setProgName: Dispatch<SetStateAction<string>>;
   setRenameError: Dispatch<SetStateAction<null | string>>;
   setResult: Dispatch<SetStateAction<ProgramTestResult | null>>;
@@ -40,6 +34,7 @@ type UseEditorLoaderInput = {
   >;
   setSelectedVersionView: Dispatch<SetStateAction<"current" | string>>;
   setWorkspaceDragDepth: Dispatch<SetStateAction<number>>;
+  testInputResetKey: string;
   visibleFiles: EditableProgramFile[];
   workingVersion: ProgramVersionWithFiles | null;
 };
@@ -53,24 +48,24 @@ export const useEditorLoader = ({
   setActiveFile,
   setEditingSurface,
   setFiles,
-  setInputSchemaStr,
   setInputValues,
   setIsNewFileModalOpen,
   setLog,
   setManualInput,
   setNewFileError,
   setOpenTabs,
-  setOutputConfigStr,
   setProgName,
   setRenameError,
   setResult,
   setSecretConfigDraft,
   setSelectedVersionView,
   setWorkspaceDragDepth,
+  testInputResetKey,
   visibleFiles,
   workingVersion,
 }: UseEditorLoaderInput) => {
   const loadedProgramIdRef = useRef<null | string>(null);
+  const loadedTestInputKeyRef = useRef<null | string>(null);
 
   useEffect(() => {
     if (!isEditorRoute) {
@@ -112,8 +107,6 @@ export const useEditorLoader = ({
             ]
           : [],
       );
-      setInputSchemaStr(getDefaultDraftInputSchema());
-      setOutputConfigStr(getDefaultDraftOutputConfig());
       return;
     }
 
@@ -133,8 +126,6 @@ export const useEditorLoader = ({
             ]
           : [],
       );
-      setInputSchemaStr(stringifyPretty(workingVersion.inputSchema));
-      setOutputConfigStr(stringifyPretty(workingVersion.outputConfig));
       return;
     }
 
@@ -143,8 +134,6 @@ export const useEditorLoader = ({
     setSecretConfigDraft([]);
     setActiveFile(null);
     setOpenTabs([]);
-    setInputSchemaStr("{}");
-    setOutputConfigStr("{}");
   }, [
     isEditorRoute,
     isLocalDraftProgram,
@@ -153,13 +142,11 @@ export const useEditorLoader = ({
     setActiveFile,
     setEditingSurface,
     setFiles,
-    setInputSchemaStr,
     setIsNewFileModalOpen,
     setLog,
     setManualInput,
     setNewFileError,
     setOpenTabs,
-    setOutputConfigStr,
     setProgName,
     setRenameError,
     setResult,
@@ -221,6 +208,13 @@ export const useEditorLoader = ({
 
   useEffect(() => {
     if (!latestVersionInputSchema) {
+      const resetKey = `${testInputResetKey}:no-schema`;
+
+      if (loadedTestInputKeyRef.current === resetKey) {
+        return;
+      }
+
+      loadedTestInputKeyRef.current = resetKey;
       setInputValues({});
       setManualInput("");
       setResult(null);
@@ -228,6 +222,13 @@ export const useEditorLoader = ({
     }
 
     const schema = latestVersionInputSchema as Record<string, unknown>;
+    const resetKey = `${testInputResetKey}:${safeStringify(schema)}`;
+
+    if (loadedTestInputKeyRef.current === resetKey) {
+      return;
+    }
+
+    loadedTestInputKeyRef.current = resetKey;
     const defaults: Record<string, string> = {};
 
     for (const field of buildFieldsFromSchema(schema)) {
@@ -242,5 +243,6 @@ export const useEditorLoader = ({
     setInputValues,
     setManualInput,
     setResult,
+    testInputResetKey,
   ]);
 };

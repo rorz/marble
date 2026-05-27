@@ -60,14 +60,6 @@ export const workbenchPanelHeightLimits = {
     max: 360,
     min: 180,
   },
-  inputSchema: {
-    max: 360,
-    min: 180,
-  },
-  outputConfig: {
-    max: 360,
-    min: 180,
-  },
   secrets: {
     max: 280,
     min: 140,
@@ -175,14 +167,11 @@ export type ProgramEditorViewModel = {
   initialProgramId?: string;
   initialSecrets: ProgramsPageData["secrets"];
   importingFiles: boolean;
-  inputSchemaStr: string;
   inputValues: Record<string, string>;
   isDraftProgram: boolean;
   isNewFileModalOpen: boolean;
   isSystemProgram: boolean;
   isWorkspaceDropzoneVisible: boolean;
-  latestInputSchemaStr: string;
-  latestOutputConfigStr: string;
   latestPublishedVersion: PublishedProgramVersionWithFiles | null;
   log: string[];
   manualInput: string;
@@ -193,7 +182,6 @@ export type ProgramEditorViewModel = {
   openNewFileModal: () => void;
   openTabFiles: EditableProgramFile[];
   onOpenSecrets: () => void;
-  outputConfigStr: string;
   pendingChanges: PendingChange[];
   persistProgramName: () => Promise<string>;
   programVersions: ProgramVersionWithFiles[];
@@ -212,12 +200,10 @@ export type ProgramEditorViewModel = {
   setActiveFile: Dispatch<SetStateAction<null | string>>;
   setDraftStackCollapsed: Dispatch<SetStateAction<boolean>>;
   setEditingSurface: Dispatch<SetStateAction<null | "crumb" | "title">>;
-  setInputSchemaStr: Dispatch<SetStateAction<string>>;
   setInputValues: Dispatch<SetStateAction<Record<string, string>>>;
   setManualInput: Dispatch<SetStateAction<string>>;
   setNewFileError: Dispatch<SetStateAction<null | string>>;
   setNewFileName: Dispatch<SetStateAction<string>>;
-  setOutputConfigStr: Dispatch<SetStateAction<string>>;
   setProgName: Dispatch<SetStateAction<string>>;
   setRightPanelCollapsed: Dispatch<
     SetStateAction<Record<RightWorkbenchPanelId, boolean>>
@@ -225,8 +211,6 @@ export type ProgramEditorViewModel = {
   setSelectedVersionView: Dispatch<SetStateAction<"current" | string>>;
   setVersionsCollapsed: Dispatch<SetStateAction<boolean>>;
   visibleFiles: EditableProgramFile[];
-  visibleInputSchemaStr: string;
-  visibleOutputConfigStr: string;
   visibleSecretConfigState: {
     declarations: ProgramManifestSecretDeclaration[];
     error: null | string;

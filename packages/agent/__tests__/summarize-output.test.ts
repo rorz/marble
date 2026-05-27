@@ -12,6 +12,21 @@ describe("summarizeToolResult", () => {
             filename: "main.ts",
             versionId: "user-input-version",
           },
+          {
+            content: JSON.stringify({
+              inputSchema: {},
+              outputConfig: {
+                flags: {
+                  allowManualInput: true,
+                },
+                schema: {
+                  type: "string",
+                },
+              },
+            }),
+            filename: "marbleconfig.jsonc",
+            versionId: "user-input-version",
+          },
         ],
         programs: [
           {
@@ -28,20 +43,12 @@ describe("summarizeToolResult", () => {
         programVersions: [
           {
             id: "other-version",
-            outputConfig: {
-              flags: {},
-            },
             programId: "other-program",
             publishedAt: "2026-01-01T00:00:00.000Z",
             version: 1,
           },
           {
             id: "user-input-version",
-            outputConfig: {
-              flags: {
-                allowManualInput: true,
-              },
-            },
             programId: "user-input-program",
             publishedAt: "2026-01-02T00:00:00.000Z",
             version: 1,

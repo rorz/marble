@@ -23,7 +23,7 @@ Think of Marble as Cursor-meets-Clay or Airtable.
 
 Marble's tabular workflow should feel as familiar as action-based spreadsheets. You set up a table for a specific outcome (enrich a list, draft an outbound sequence, summarize a stack of sales calls), and each column is a step in that workflow.
 
-Each column is a program with a Zod input schema and an output schema. When a cell needs a value, the executor spins up a Cloudflare Workers Sandbox, runs the program with the row's resolved inputs, validates the output, and writes the result back. Columns can reference other columns, which is how a workflow gets wired together. Realtime updates and inbound source events flow through Supabase.
+Each column points at a versioned program. The program's `marbleconfig.jsonc` defines the input schema and output schema. When a cell needs a value, the executor spins up a Cloudflare Workers Sandbox, runs the program with the row's resolved inputs, validates the output, and writes the result back. Columns can reference other columns, which is how a workflow gets wired together. Realtime updates and inbound source events flow through Supabase.
 
 Everything that can change a cell's value goes through this same pipe, including plain user input. There is no second-class "automation" layer bolted on the side.
 

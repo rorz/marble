@@ -146,11 +146,11 @@ Program lifecycle stays separate from file editing. Do not hide program-file mut
 
 ## programVersions
 
-Program versions own input schema, output config, secret config, publish state, and test execution for a program version.
+Program versions own publish state, secret config, and test execution for a program version. Program input/output config lives in `marbleconfig.jsonc` within the version's files.
 
 Allowed operations:
 
-- `create` - Create a draft or published version for a program.
+- `create` - Create a draft version for a program. Files must be synced before publishing.
 - `update` - Update draft configuration or publish a draft version.
 - `test` - Execute a version through an injected runtime action without persisting a cell result.
 

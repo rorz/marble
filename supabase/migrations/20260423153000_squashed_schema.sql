@@ -502,8 +502,6 @@ CREATE TABLE IF NOT EXISTS "public"."program_version" (
     "program_id" "uuid" NOT NULL,
     "version" integer,
     "published_at" timestamp with time zone,
-    "input_schema" "jsonb" NOT NULL,
-    "output_config" "jsonb" NOT NULL,
     "secret_config" "jsonb",
     CONSTRAINT "program_version_publish_state_check" CHECK (((("published_at" IS NULL) AND ("version" IS NULL)) OR (("published_at" IS NOT NULL) AND ("version" IS NOT NULL)))),
     CONSTRAINT "program_version_secret_config_is_array" CHECK ((("secret_config" IS NULL) OR ("jsonb_typeof"("secret_config") = 'array'::"text")))
@@ -1921,6 +1919,10 @@ CREATE POLICY "Users can view first-party and own programs" ON "public"."program
 
 
 CREATE POLICY "Users can view versions for first-party and own programs" ON "public"."program_version" FOR SELECT TO "authenticated" USING ("public"."current_user_can_use_program_version"("id"));
+
+
+
+CREATE POLICY "Users can view files for first-party and own program versions" ON "public"."program_file" FOR SELECT TO "authenticated" USING ("public"."current_user_can_use_program_version"("version_id"));
 
 
 

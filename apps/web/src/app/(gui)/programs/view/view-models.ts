@@ -31,19 +31,15 @@ type CreateLibraryViewModelInput = {
 
 type EditorFormState = {
   editingSurface: null | "crumb" | "title";
-  inputSchemaStr: string;
   inputValues: Record<string, string>;
   manualInput: string;
-  outputConfigStr: string;
   progName: string;
   renameError: null | string;
   result: ProgramEditorViewModel["result"];
   selectedVersionView: "current" | string;
   setEditingSurface: Dispatch<SetStateAction<null | "crumb" | "title">>;
-  setInputSchemaStr: Dispatch<SetStateAction<string>>;
   setInputValues: Dispatch<SetStateAction<Record<string, string>>>;
   setManualInput: Dispatch<SetStateAction<string>>;
-  setOutputConfigStr: Dispatch<SetStateAction<string>>;
   setProgName: Dispatch<SetStateAction<string>>;
   setSelectedVersionView: Dispatch<SetStateAction<"current" | string>>;
 };
@@ -157,14 +153,11 @@ export const createEditorViewModel = ({
     importingFiles: workspace.importingFiles,
     initialProgramId,
     initialSecrets,
-    inputSchemaStr: form.inputSchemaStr,
     inputValues: form.inputValues,
     isDraftProgram: derived.isDraftProgram,
     isNewFileModalOpen: workspace.isNewFileModalOpen,
     isSystemProgram: derived.isSystemProgram,
     isWorkspaceDropzoneVisible: derived.isWorkspaceDropzoneVisible,
-    latestInputSchemaStr: derived.latestInputSchemaStr,
-    latestOutputConfigStr: derived.latestOutputConfigStr,
     latestPublishedVersion: derived.latestPublishedVersion,
     log,
     manualInput: form.manualInput,
@@ -175,7 +168,6 @@ export const createEditorViewModel = ({
     onOpenSecrets,
     openNewFileModal: workspace.openNewFileModal,
     openTabFiles: derived.openTabFiles,
-    outputConfigStr: form.outputConfigStr,
     pendingChanges: derived.pendingChanges,
     persistProgramName: draftActions.persistProgramName,
     progName: form.progName,
@@ -194,12 +186,10 @@ export const createEditorViewModel = ({
     setActiveFile: workspace.setActiveFile,
     setDraftStackCollapsed: panels.setDraftStackCollapsed,
     setEditingSurface: form.setEditingSurface,
-    setInputSchemaStr: form.setInputSchemaStr,
     setInputValues: form.setInputValues,
     setManualInput: form.setManualInput,
     setNewFileError: workspace.setNewFileError,
     setNewFileName: workspace.setNewFileName,
-    setOutputConfigStr: form.setOutputConfigStr,
     setProgName: form.setProgName,
     setRightPanelCollapsed: panels.setRightPanelCollapsed,
     setSelectedVersionView: form.setSelectedVersionView,
@@ -208,8 +198,6 @@ export const createEditorViewModel = ({
     versionsHeight: panels.versionsHeight,
     viewingHistoricalVersion: derived.viewingHistoricalVersion,
     visibleFiles: derived.visibleFiles,
-    visibleInputSchemaStr: derived.visibleInputSchemaStr,
-    visibleOutputConfigStr: derived.visibleOutputConfigStr,
     visibleSecretConfigState: derived.visibleSecretConfigState,
     visibleSecretDeclarationIssues: derived.visibleSecretDeclarationIssues,
     visibleSecretDeclarations: derived.visibleSecretDeclarations,

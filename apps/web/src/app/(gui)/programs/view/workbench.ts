@@ -40,25 +40,17 @@ export const buildFieldsFromSchema = (
 
 export const buildPendingChanges = ({
   files,
-  inputSchemaStr,
   isDraftProgram,
   latestFileContentByName,
-  latestInputSchemaStr,
-  latestOutputConfigStr,
   latestSecretConfigStr,
-  outputConfigStr,
   programName,
   savedProgramName,
   secretConfigStr,
 }: {
   files: EditableProgramFile[];
-  inputSchemaStr: string;
   isDraftProgram: boolean;
   latestFileContentByName: Map<string, string>;
-  latestInputSchemaStr: string;
-  latestOutputConfigStr: string;
   latestSecretConfigStr: string;
-  outputConfigStr: string;
   programName: string;
   savedProgramName: string;
   secretConfigStr: string;
@@ -77,28 +69,6 @@ export const buildPendingChanges = ({
       summary:
         "The next saved version will publish under the updated program name.",
       tag: "Rename",
-    });
-  }
-
-  if (inputSchemaStr !== latestInputSchemaStr) {
-    changes.push({
-      badgeTone: "warning",
-      id: "input-schema",
-      label: "Edited input schema",
-      summary:
-        "Input requirements are staged in the draft until you mint the next version.",
-      tag: "Schema",
-    });
-  }
-
-  if (outputConfigStr !== latestOutputConfigStr) {
-    changes.push({
-      badgeTone: "warning",
-      id: "output-config",
-      label: "Edited output config",
-      summary:
-        "Output mapping changes stay isolated from live columns until save.",
-      tag: "Output",
     });
   }
 
@@ -167,24 +137,3 @@ export const buildPendingChanges = ({
 
   return changes;
 };
-
-export const getDefaultDraftInputSchema = () => {
-  return stringifyPretty({
-    properties: {
-      param1: {
-        type: "string",
-      },
-    },
-    type: "object",
-  });
-};
-
-export const getDefaultDraftOutputConfig = () => {
-  return stringifyPretty({
-    schema: {
-      type: "object",
-    },
-  });
-};
-
-import { stringifyPretty } from "@marble/lib/json";

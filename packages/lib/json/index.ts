@@ -27,6 +27,119 @@ export const parseJsonOrUndefined = (input: string): unknown => {
   }
 };
 
+const stripJsoncComments = (input: string): string => {
+  let output = "";
+  let inString = false;
+  let escaped = false;
+  let index = 0;
+
+  while (index < input.length) {
+    const char = input[index];
+    const nextChar = input[index + 1];
+
+    if (inString) {
+      output += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      index += 1;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      output += char;
+      index += 1;
+      continue;
+    }
+
+    if (char === "/" && nextChar === "/") {
+      index += 2;
+      while (index < input.length && input[index] !== "\n") {
+        index += 1;
+      }
+      continue;
+    }
+
+    if (char === "/" && nextChar === "*") {
+      index += 2;
+      while (
+        index < input.length &&
+        !(input[index] === "*" && input[index + 1] === "/")
+      ) {
+        output += input[index] === "\n" ? "\n" : "";
+        index += 1;
+      }
+      index = Math.min(index + 2, input.length);
+      continue;
+    }
+
+    output += char;
+    index += 1;
+  }
+
+  return output;
+};
+
+const stripJsoncTrailingCommas = (input: string): string => {
+  let output = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+
+    if (inString) {
+      output += char;
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      output += char;
+      continue;
+    }
+
+    if (char === ",") {
+      let lookahead = index + 1;
+      while (/\s/.test(input[lookahead] ?? "")) {
+        lookahead += 1;
+      }
+
+      if (input[lookahead] === "}" || input[lookahead] === "]") {
+        continue;
+      }
+    }
+
+    output += char;
+  }
+
+  return output;
+};
+
+export const parseJsonc = (input: string): unknown => {
+  try {
+    return JSON.parse(
+      stripJsoncTrailingCommas(stripJsoncComments(input)),
+    ) as unknown;
+  } catch (cause) {
+    throw new Error("Input must be valid JSONC.", {
+      cause,
+    });
+  }
+};
+
 /** Pretty-print a value as JSON with 2-space indentation. */
 export const stringifyPretty = (value: unknown): string => {
   return JSON.stringify(value, null, 2) ?? "null";
@@ -39,7 +152,8 @@ export const stringifyPretty = (value: unknown): string => {
 export const safeStringify = (value: unknown): string => {
   try {
     return JSON.stringify(value) ?? String(value);
-  } catch {
+  } catch (error) {
+    void error;
     return String(value);
   }
 };

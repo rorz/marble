@@ -1,6 +1,7 @@
 import type { Json, Tables } from "@marble/supabase";
 import type { ResourceDeps } from "../../../db";
 import { requireServiceSupabase } from "../../require-deps";
+import { readProgramConfigFromFiles } from "../program-file/config";
 import { listDependentCandidateCellIds } from "./dependents";
 import {
   createExecutionInputContextFromStoredRun,
@@ -30,7 +31,7 @@ type ProgramFile = Pick<
 
 export type ProgramVersionTestData = {
   files: ProgramFile[];
-  outputConfig: Json;
+  programConfig: Json;
   programId: string;
   secretConfig: Json | null;
 };
@@ -166,7 +167,7 @@ export class ProgramRunCollection {
       this.loadProgramVersionFiles(programVersionId),
       this.supabase()
         .from("program_version")
-        .select("output_config, program_id, secret_config")
+        .select("program_id, secret_config")
         .eq("id", programVersionId)
         .maybeSingle(),
     ]);
@@ -181,7 +182,7 @@ export class ProgramRunCollection {
 
     return {
       files,
-      outputConfig: versionRecord.data.output_config,
+      programConfig: readProgramConfigFromFiles(files) as Json,
       programId: versionRecord.data.program_id,
       secretConfig: versionRecord.data.secret_config,
     };

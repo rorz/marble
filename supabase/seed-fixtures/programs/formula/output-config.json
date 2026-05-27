@@ -1,6 +1,0 @@
-{
-  "schema": {
-    "type": "string",
-    "description": "Computed formula result"
-  }
-}

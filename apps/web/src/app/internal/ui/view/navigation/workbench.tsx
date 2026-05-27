@@ -19,12 +19,12 @@ import { useState } from "react";
 
 export const WorkbenchDemo = () => {
   const [workbenchTabs, setWorkbenchTabs] = useState([
-    "input-schema.json",
+    "marbleconfig.jsonc",
     "main.ts",
     "package.json",
   ]);
   const [activeWorkbenchTab, setActiveWorkbenchTab] =
-    useState("input-schema.json");
+    useState("marbleconfig.jsonc");
   const [isWorkbenchVersionsCollapsed, setIsWorkbenchVersionsCollapsed] =
     useState(false);
   const [isWorkbenchDraftCollapsed, setIsWorkbenchDraftCollapsed] =
@@ -64,7 +64,7 @@ export const WorkbenchDemo = () => {
           >
             <div className="space-y-px p-1.5 font-mono text-[11px]">
               {[
-                "input-schema.json",
+                "marbleconfig.jsonc",
                 "main.ts",
                 "package.json",
               ].map((filename) => (

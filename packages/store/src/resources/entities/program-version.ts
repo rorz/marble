@@ -9,6 +9,7 @@ import type {
 import { toCamelKeys } from "../../types";
 import { listOwnedProfileIds } from "../list-owned-profile-ids";
 import { requireServiceSupabase, requireUserId } from "../require-deps";
+import { loadProgramConfigForVersion } from "./program-file/config";
 
 export type ProgramVersion = Entity<"program_version">;
 
@@ -17,8 +18,6 @@ type TestProgramVersionInput = ProgramVersionTestInput & {
 };
 
 type ProgramVersionWriteInput = {
-  inputSchema?: unknown;
-  outputConfig?: unknown;
   publish?: boolean;
   secretConfig?: unknown;
   version?: number;
@@ -33,8 +32,6 @@ const asJson = (value: unknown): Json => {
   return value as Json;
 };
 
-const parseInputSchema = asJson;
-const parseOutputConfig = asJson;
 const parseSecretConfig = asJson;
 
 const nextProgramVersionNumber = async (
@@ -172,33 +169,33 @@ export class ProgramVersionCollection {
 
   public readonly create = async (
     input: ProgramVersionWriteInput & {
-      inputSchema: unknown;
-      outputConfig: unknown;
       programId: string;
     },
   ) => {
+    if (input.publish) {
+      throw new Error(
+        "Create a draft program version, sync files, then publish it.",
+      );
+    }
+
     await requireWritableProgram(this.deps, input.programId);
 
-    const versionNumber = input.publish
-      ? (input.version ??
-        (await nextProgramVersionNumber(this.deps, input.programId)))
-      : null;
+    const draftVersionInsert = {
+      program_id: input.programId,
+      published_at: null,
+      secret_config:
+        input.secretConfig === undefined
+          ? null
+          : parseSecretConfig(input.secretConfig),
+      version: null,
+    };
+
     const { data: versionRow, error } = await requireServiceSupabase(
       this.deps,
       "Program version",
     )
       .from("program_version")
-      .insert({
-        input_schema: parseInputSchema(input.inputSchema),
-        output_config: parseOutputConfig(input.outputConfig),
-        program_id: input.programId,
-        published_at: input.publish ? new Date().toISOString() : null,
-        secret_config:
-          input.secretConfig === undefined
-            ? null
-            : parseSecretConfig(input.secretConfig),
-        version: versionNumber,
-      })
+      .insert(draftVersionInsert as never)
       .select("*")
       .single();
 
@@ -285,17 +282,14 @@ export class ProgramVersionCollection {
       throw new Error(`Program version '${id}' is published and read-only.`);
     }
 
+    if (input.publish) {
+      await loadProgramConfigForVersion(
+        requireServiceSupabase(this.deps, "Program version"),
+        id,
+      );
+    }
+
     const dbValues = {
-      ...(input.inputSchema === undefined
-        ? {}
-        : {
-            inputSchema: asJson(input.inputSchema),
-          }),
-      ...(input.outputConfig === undefined
-        ? {}
-        : {
-            outputConfig: asJson(input.outputConfig),
-          }),
       ...(input.secretConfig === undefined
         ? {}
         : {
@@ -322,14 +316,6 @@ export class ProgramVersionCollection {
       )
         .from("program_version")
         .update({
-          input_schema:
-            "inputSchema" in dbValues
-              ? parseInputSchema(dbValues.inputSchema)
-              : undefined,
-          output_config:
-            "outputConfig" in dbValues
-              ? parseOutputConfig(dbValues.outputConfig)
-              : undefined,
           published_at:
             "publishedAt" in dbValues ? dbValues.publishedAt : undefined,
           secret_config:

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  parseJsonc,
   parseJsonOrUndefined,
   safeStringify,
   stringifyJsonSafe,
@@ -33,6 +34,41 @@ describe("parseJsonOrUndefined", () => {
     expect(caught).toBeInstanceOf(Error);
     expect((caught as Error).message).toBe("Input must be valid JSON.");
     expect((caught as Error).cause).toBeDefined();
+  });
+});
+
+describe("parseJsonc", () => {
+  test("parses JSON with line comments and trailing commas", () => {
+    expect(
+      parseJsonc(`{
+        // friendly config note
+        "inputSchema": {
+          "type": "object",
+        },
+      }`),
+    ).toEqual({
+      inputSchema: {
+        type: "object",
+      },
+    });
+  });
+
+  test("parses JSON with block comments", () => {
+    expect(parseJsonc('{/* quiet */"schema":{"type":"string"}}')).toEqual({
+      schema: {
+        type: "string",
+      },
+    });
+  });
+
+  test("keeps comment markers inside strings", () => {
+    expect(parseJsonc('{"url":"https://example.com/a/*b*/"}')).toEqual({
+      url: "https://example.com/a/*b*/",
+    });
+  });
+
+  test("throws with cause on invalid JSONC", () => {
+    expect(() => parseJsonc("{ nope }")).toThrow("Input must be valid JSONC.");
   });
 });
 

@@ -94,13 +94,13 @@ const TOOL_PROMPT_METADATA: Record<string, ToolPromptMetadata> = {
   },
   "programVersions.create": {
     description:
-      "Create a program version with inputSchema and outputConfig. For manual input programs, set outputConfig.flags.allowManualInput to true.",
+      "Create a draft program version. Program input/output config lives in marbleconfig.jsonc, which must be synced with the source files before publishing.",
     promptGuidelines: [
-      "Use marble_program_versions_create after marble_programs_create when a program needs schemas, output flags, secrets, or publish state.",
-      "For manual-input programs, set outputConfig.flags.allowManualInput true and read cell.manualInputValue in code.",
+      "Use marble_program_versions_create after marble_programs_create to get a version id, then sync files including marbleconfig.jsonc with marble_program_files_sync_for_version.",
+      "For manual-input programs, set outputConfig.flags.allowManualInput true in marbleconfig.jsonc and read cell.manualInputValue in code.",
     ],
     promptSnippet:
-      "marble_program_versions_create: create schemas/output flags for an existing program.",
+      "marble_program_versions_create: create a draft version; sync marbleconfig.jsonc and code files next.",
   },
   "programVersions.test": {
     description:

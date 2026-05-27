@@ -1,8 +1,8 @@
 /**
  * Validation-layer smoke tests for `programVersions.*`.
  *
- * Program versions own input schema, output config, secret config,
- * publish state, and test execution for a program version.
+ * Program versions own secret config, publish state, and test execution for a
+ * program version. Input/output config lives in marbleconfig.jsonc.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -16,8 +16,6 @@ describe("programVersions.create validation", () => {
       call(
         marbleRouter.programVersions.create,
         {
-          inputSchema: {},
-          outputConfig: {},
           programId: INVALID_UUID,
         },
         {
@@ -29,16 +27,9 @@ describe("programVersions.create validation", () => {
 
   test("rejects missing programId", async () => {
     await expect(
-      call(
-        marbleRouter.programVersions.create,
-        {
-          inputSchema: {},
-          outputConfig: {},
-        } as never,
-        {
-          context: createValidationContext(),
-        },
-      ),
+      call(marbleRouter.programVersions.create, {} as never, {
+        context: createValidationContext(),
+      }),
     ).rejects.toThrow();
   });
 });

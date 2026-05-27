@@ -45,8 +45,6 @@ export const ProgramsPageView = ({
   const [renameError, setRenameError] = useState<null | string>(null);
 
   const [progName, setProgName] = useState("");
-  const [inputSchemaStr, setInputSchemaStr] = useState("{}");
-  const [outputConfigStr, setOutputConfigStr] = useState("{}");
 
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
   const [manualInput, setManualInput] = useState("");
@@ -75,9 +73,7 @@ export const ProgramsPageView = ({
   const derived = deriveProgramsViewState({
     activeFile: workspace.activeFile,
     files: workspace.files,
-    inputSchemaStr,
     openTabs: workspace.openTabs,
-    outputConfigStr,
     progName,
     programSecretBindings: secrets.programSecretBindings,
     result,
@@ -95,20 +91,19 @@ export const ProgramsPageView = ({
     setActiveFile: workspace.setActiveFile,
     setEditingSurface,
     setFiles: workspace.setFiles,
-    setInputSchemaStr,
     setInputValues,
     setIsNewFileModalOpen: workspace.setIsNewFileModalOpen,
     setLog,
     setManualInput,
     setNewFileError: workspace.setNewFileError,
     setOpenTabs: workspace.setOpenTabs,
-    setOutputConfigStr,
     setProgName,
     setRenameError,
     setResult,
     setSecretConfigDraft: secrets.setSecretConfigDraft,
     setSelectedVersionView,
     setWorkspaceDragDepth: workspace.setWorkspaceDragDepth,
+    testInputResetKey: `${derived.activeProgramTargetId}:${derived.visibleVersion?.id ?? "local"}`,
     visibleFiles: derived.visibleFiles,
     workingVersion: derived.workingVersion,
   });
@@ -120,18 +115,15 @@ export const ProgramsPageView = ({
     draftVersion: derived.draftVersion,
     files: workspace.files,
     latestPublishedVersion: derived.latestPublishedVersion,
-    normalizedInputSchemaStr: derived.normalizedInputSchemaStr,
-    normalizedOutputConfigStr: derived.normalizedOutputConfigStr,
     packageManifestError: derived.packageManifestState.error,
     progName,
+    programConfigError: derived.programConfigState.error,
     selectedHistoricalVersion: derived.selectedHistoricalVersion,
     selectedProgram: derived.selectedProgram,
     setActiveFile: workspace.setActiveFile,
     setEditingSurface,
     setFiles: workspace.setFiles,
-    setInputSchemaStr,
     setOpenTabs: workspace.setOpenTabs,
-    setOutputConfigStr,
     setProgName,
     setRenameError,
     setResult,
@@ -152,8 +144,6 @@ export const ProgramsPageView = ({
     hasVersionChangesAgainstPublished:
       derived.hasVersionChangesAgainstPublished,
     latestPublishedVersion: derived.latestPublishedVersion,
-    normalizedInputSchemaStr: derived.normalizedInputSchemaStr,
-    normalizedOutputConfigStr: derived.normalizedOutputConfigStr,
     selectedProgram: derived.selectedProgram,
     upsertProgramVersion: programList.upsertProgramVersion,
   });
@@ -170,10 +160,9 @@ export const ProgramsPageView = ({
     latestPublishedVersion: derived.latestPublishedVersion,
     manualInput,
     nextVersionNumber: derived.nextVersionNumber,
-    normalizedInputSchemaStr: derived.normalizedInputSchemaStr,
-    normalizedOutputConfigStr: derived.normalizedOutputConfigStr,
     packageManifestError: derived.packageManifestState.error,
     progName,
+    programConfigError: derived.programConfigState.error,
     refreshPrograms: programList.refreshPrograms,
     selectedHistoricalVersion: derived.selectedHistoricalVersion,
     selectedProgram: derived.selectedProgram,
@@ -210,19 +199,15 @@ export const ProgramsPageView = ({
     draftSync,
     form: {
       editingSurface,
-      inputSchemaStr,
       inputValues,
       manualInput,
-      outputConfigStr,
       progName,
       renameError,
       result,
       selectedVersionView,
       setEditingSurface,
-      setInputSchemaStr,
       setInputValues,
       setManualInput,
-      setOutputConfigStr,
       setProgName,
       setSelectedVersionView,
     },

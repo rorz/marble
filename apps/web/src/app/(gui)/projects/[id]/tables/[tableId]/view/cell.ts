@@ -1,3 +1,4 @@
+import { parseProgramConfigFromFiles } from "@marble/contracts";
 import type { Cell, Column } from "./types";
 
 type CellState =
@@ -59,26 +60,63 @@ export const describeRunOutput = (output: unknown) => {
   return JSON.stringify(record.value ?? output);
 };
 
-export const getProgramOutputConfig = (
+const getProgramFiles = (
   programVersion: unknown,
-): Record<string, unknown> | null => {
-  if (!programVersion || typeof programVersion !== "object") return null;
+): Array<{
+  content: string;
+  filename: string;
+}> => {
+  if (!programVersion || typeof programVersion !== "object") return [];
   const record = programVersion as Record<string, unknown>;
-  const config = record.outputConfig;
-  if (!config || typeof config !== "object" || Array.isArray(config))
+  const files = record.programFiles;
+
+  if (!Array.isArray(files)) {
+    return [];
+  }
+
+  return files.flatMap((file) => {
+    if (!file || typeof file !== "object") {
+      return [];
+    }
+
+    const entry = file as Record<string, unknown>;
+
+    return typeof entry.content === "string" &&
+      typeof entry.filename === "string"
+      ? [
+          {
+            content: entry.content,
+            filename: entry.filename,
+          },
+        ]
+      : [];
+  });
+};
+
+const getProgramConfig = (
+  source: unknown,
+): {
+  inputSchema: Record<string, unknown>;
+  outputConfig: Record<string, unknown>;
+} | null => {
+  try {
+    return parseProgramConfigFromFiles(getProgramFiles(source));
+  } catch (error) {
+    void error;
     return null;
-  return config as Record<string, unknown>;
+  }
+};
+
+export const getProgramOutputConfig = (
+  source: unknown,
+): Record<string, unknown> | null => {
+  return getProgramConfig(source)?.outputConfig ?? null;
 };
 
 export const getProgramInputSchema = (
-  programVersion: unknown,
+  source: unknown,
 ): Record<string, unknown> | null => {
-  if (!programVersion || typeof programVersion !== "object") return null;
-  const record = programVersion as Record<string, unknown>;
-  const schema = record.inputSchema;
-  if (!schema || typeof schema !== "object" || Array.isArray(schema))
-    return null;
-  return schema as Record<string, unknown>;
+  return getProgramConfig(source)?.inputSchema ?? null;
 };
 
 export const isManualInputColumn = (column: Column): boolean => {

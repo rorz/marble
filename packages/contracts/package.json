@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@marble/lib": "workspace:*",
     "@orpc/contract": "catalog:base",
     "jsonpath-plus": "catalog:base",
     "sift": "catalog:base",

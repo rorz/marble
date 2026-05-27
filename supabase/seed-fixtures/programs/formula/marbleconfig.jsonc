@@ -1,0 +1,18 @@
+{
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "formula": {
+        "type": "string",
+        "title": "Formula"
+      }
+    },
+    "required": ["formula"]
+  },
+  "outputConfig": {
+    "schema": {
+      "type": "string",
+      "description": "Computed formula result"
+    }
+  }
+}

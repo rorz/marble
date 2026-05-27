@@ -1,5 +1,6 @@
 import "server-only";
-import { dedupeById } from "@marble/lib/array";
+import { parseProgramConfigFromFiles } from "@marble/contracts";
+import { dedupeById, groupBy } from "@marble/lib/array";
 import {
   type MarbleColumn,
   type MarblePipe,
@@ -22,20 +23,21 @@ export type ProjectSourceWorkspaceData = {
   webhookBaseUrl: string;
 };
 
-const outputConfigAllowsManualInput = (outputConfig: unknown) => {
-  if (!outputConfig || typeof outputConfig !== "object") {
+const programConfigAllowsManualInput = (
+  files: Array<{
+    content: string;
+    filename: string;
+  }>,
+) => {
+  try {
+    return (
+      parseProgramConfigFromFiles(files).outputConfig.flags.allowManualInput ===
+      true
+    );
+  } catch (error) {
+    void error;
     return false;
   }
-
-  const flags = (
-    outputConfig as {
-      flags?: {
-        allowManualInput?: boolean;
-      };
-    }
-  ).flags;
-
-  return flags?.allowManualInput === true;
 };
 
 const toProjectInputColumn = (
@@ -84,10 +86,16 @@ export const getProjectSourceWorkspaceData = async (projectId: string) => {
       table,
     ]),
   );
+  const programFilesByVersionId = groupBy(
+    programEditorData.programFiles,
+    (file) => file.versionId,
+  );
   const programVersionAllowsManualInputById = new Map(
     programEditorData.programVersions.map((version) => [
       version.id,
-      outputConfigAllowsManualInput(version.outputConfig),
+      programConfigAllowsManualInput(
+        programFilesByVersionId.get(version.id) ?? [],
+      ),
     ]),
   );
   const tableColumns = await Promise.all(

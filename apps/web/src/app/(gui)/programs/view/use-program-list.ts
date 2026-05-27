@@ -136,9 +136,7 @@ export const useProgramList = ({
         const { programId } = await createProgramFromVersion(sdk, {
           files: normalizeProgramFiles(latestVersion.programFiles),
           forkedFromVersionId: latestVersion.id,
-          inputSchema: latestVersion.inputSchema,
           name: `Copy of ${normalizeDisplayLabel(program.name, "Untitled Program")}`,
-          outputConfig: latestVersion.outputConfig,
           secretConfig: normalizeStoredProgramSecretConfig(
             latestVersion.secretConfig,
           ),

@@ -1,5 +1,5 @@
 import { getSandbox } from "@cloudflare/sandbox";
-import { type JsonValue, ProgramOutputConfig } from "@marble/contracts";
+import { type JsonValue, ProgramConfigSchema } from "@marble/contracts";
 import { getErrorMessage } from "@marble/lib/result";
 import type { MarbleStore } from "@marble/store";
 import { type Context, Hono } from "hono";
@@ -227,7 +227,8 @@ const testHandler = async (c: Context<ExecutorEnv>) => {
       ),
       versionData.files,
       runtimeInputFromValue(body.input),
-      ProgramOutputConfig.parse(versionData.outputConfig).schema as JsonValue,
+      ProgramConfigSchema.parse(versionData.programConfig).outputConfig
+        .schema as JsonValue,
       environmentVariables,
     );
 

@@ -33,7 +33,7 @@ If you're an agent and your human has asked you to "make me a (workflow | table 
 
 - `table`: container for workflow rows and columns.
 - `program`: reusable remote JavaScript unit.
-- `program_version`: immutable snapshot of a program's files and schemas.
+- `program_version`: immutable version record whose files include code plus `marbleconfig.jsonc`.
 - `column`: table step backed by a program version and an `inputTemplate`.
 - `row`: record in a table.
 - `cell`: one row-column execution state plus optional manual input.
@@ -179,7 +179,7 @@ Column input shape:
 
 - `programVersionId` is required. Resolve it from `programs.listForEditor` or capture it from a `program-dir upsert` result.
 - `inputTemplate` is a JSON string containing the resolver template. Default to `"{}"` if the column only consumes manual input.
-- `outputSchema` is a JSON schema object (not a string). Omit to inherit from the program version's base output config.
+- `outputSchema` is a JSON schema object (not a string). Omit to inherit from the selected program version's `marbleconfig.jsonc` `outputConfig.schema`.
 - `runCondition` is optional. Use `true` to auto-queue this column when its inputs are ready.
 - `idx` is optional. Omit to append the column at the end.
 
@@ -225,10 +225,12 @@ The `programs` contract does not include delete or get-by-id — use `listForEdi
 ### Program Versions
 
 ```sh
-marble programVersions create '{"programId":"<programId>","inputSchema":{},"outputConfig":{"schema":{"type":"string"}}}'
+marble programVersions create '{"programId":"<programId>"}'
 marble programVersions update '{"id":"<versionId>","values":{"publish":true}}'
 marble programVersions test '{"programVersionId":"<versionId>","inputConfig":{"mode":"uppercase"},"manualInput":"hello"}'
 ```
+
+Program input/output config belongs in `marbleconfig.jsonc`, synced through `programFiles` before publish.
 
 ### Program Files
 
@@ -317,12 +319,12 @@ The directory must contain:
 
 - `main.ts`
 - `package.json`
-- `input-schema.json`
-- `output-config.json`
+- `marbleconfig.jsonc`
 
 All non-dot files in the directory are uploaded. Filetype inference:
 
 - `.json` → `Json`
+- `.jsonc` → `Json`
 - `.md` → `Markdown`
 - everything else → `TypeScript`
 
@@ -331,7 +333,7 @@ All non-dot files in the directory are uploaded. Filetype inference:
 - Export a default function or async function.
 - Signature: `({ system, cell, input }) => ...`
 - `cell.manualInputValue` is the raw manual cell value when manual input is enabled.
-- Return a value that matches `output-config.json.schema`.
+- Return a value that matches `marbleconfig.jsonc`'s `outputConfig.schema`.
 
 Example:
 
@@ -364,22 +366,21 @@ export default async function ({ system, cell, input }) {
 }
 ```
 
-### `input-schema.json`
+### `marbleconfig.jsonc`
 
-- A JSON object compatible with Marble's current JSON-schema subset.
-- `{}` is allowed for programs that only read `cell.manualInputValue`.
-
-### `output-config.json`
-
-- Must match the current `ProgramOutputConfig` shape.
-- `schema` is required.
-- `flags.allowManualInput` and `flags.allowInference` are optional.
-- `overloads` is optional.
+- `inputSchema` is a JSON object compatible with Marble's current JSON-schema subset.
+- `outputConfig` must match the current `ProgramOutputConfig` shape.
+- `outputConfig.schema` is required.
+- `outputConfig.flags.allowManualInput` and `outputConfig.flags.allowInference` are optional.
+- `outputConfig.overloads` is optional.
 
 ```json
 {
-  "flags": { "allowManualInput": true },
-  "schema": { "type": "string" }
+  "inputSchema": {},
+  "outputConfig": {
+    "flags": { "allowManualInput": true },
+    "schema": { "type": "string" }
+  }
 }
 ```
 
@@ -439,7 +440,7 @@ marble columns create --input-file ./column.json
 ### Build Or Update A Program
 
 1. Create a temp directory under `/tmp/marble-programs`.
-2. Write `main.ts`, `package.json`, `input-schema.json`, and `output-config.json`.
+2. Write `main.ts`, `package.json`, and `marbleconfig.jsonc`.
 3. Run `marble program-dir test <dir> '{"inputConfig":{...},"manualInput":"..."}'`.
 4. Fix any schema or runtime issue until the test succeeds.
 5. Record the returned program and version IDs.

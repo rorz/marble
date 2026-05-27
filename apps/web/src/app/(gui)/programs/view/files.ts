@@ -1,7 +1,9 @@
+import { PROGRAM_CONFIG_FILENAME } from "@marble/contracts";
+import { stringifyPretty } from "@marble/lib/json";
 import type { EditableProgramFile, ProgramFile } from "./types";
 
 export const getFileAccent = (filename: string) => {
-  if (filename.endsWith(".json")) {
+  if (filename.endsWith(".json") || filename.endsWith(".jsonc")) {
     return "text-amber-600";
   }
 
@@ -15,7 +17,7 @@ export const getFileAccent = (filename: string) => {
 export const getProgramFiletype = (
   filename: string,
 ): EditableProgramFile["filetype"] => {
-  if (filename.endsWith(".json")) {
+  if (filename.endsWith(".json") || filename.endsWith(".jsonc")) {
     return "Json";
   }
 
@@ -65,6 +67,25 @@ export const normalizeProgramFiles = (
 
 export const createDefaultDraftFiles = (): EditableProgramFile[] => {
   return [
+    {
+      content: `${stringifyPretty({
+        inputSchema: {
+          properties: {
+            param1: {
+              type: "string",
+            },
+          },
+          type: "object",
+        },
+        outputConfig: {
+          schema: {
+            type: "object",
+          },
+        },
+      })}\n`,
+      filename: PROGRAM_CONFIG_FILENAME,
+      filetype: "Json",
+    },
     {
       content:
         "export default async function run(input) {\n  return { ok: true, value: input };\n}",

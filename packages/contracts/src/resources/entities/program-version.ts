@@ -182,8 +182,6 @@ export type RunReturnValue = z.infer<typeof RunReturnValue>;
 
 export const ProgramVersionSchema = z.object({
   ...baseEntitySchema.shape,
-  inputSchema: jsonValueSchema,
-  outputConfig: jsonValueSchema,
   programId: baseEntitySchema.shape.id,
   publishedAt: timestampSchema.nullable(),
   secretConfig: jsonValueSchema.nullable(),
@@ -191,8 +189,6 @@ export const ProgramVersionSchema = z.object({
 });
 
 const ProgramVersionWriteSchema = z.object({
-  inputSchema: jsonValueSchema.optional(),
-  outputConfig: jsonValueSchema.optional(),
   publish: z.boolean().optional(),
   secretConfig: jsonValueSchema.optional(),
   version: z.number().int().positive().optional(),
@@ -201,8 +197,6 @@ const ProgramVersionWriteSchema = z.object({
 export const programVersionOperations = defineResourceOperations({
   create: {
     input: ProgramVersionWriteSchema.extend({
-      inputSchema: jsonValueSchema,
-      outputConfig: jsonValueSchema,
       programId: baseEntitySchema.shape.id,
     }),
     output: ProgramVersionSchema,
