@@ -3,9 +3,8 @@ import {
   buildMarbleAgentTurnPrompt,
   createMarbleAgentSession,
   type MarbleAgentHandoffRequest,
-  type MarbleAgentHandoffTarget,
-  type MarbleAgentModelTier,
   type MarbleAgentProvider,
+  type MarbleAgentVariant,
   REQUEST_HANDOFF_TOOL_NAME,
   resolveAgentModelConfig,
 } from "@marble/agent";
@@ -78,18 +77,18 @@ const logWireEvent = (event: AgentChatWireEvent) => {
 
 type HandoffContext = {
   brief: string;
-  fromTier: MarbleAgentModelTier;
+  fromVariant: MarbleAgentVariant;
   reason: string;
-  toTier: MarbleAgentModelTier;
+  toVariant: MarbleAgentVariant;
 };
 
-type AgentTierRunInput = {
+type AgentVariantRunInput = {
   apiKey: string;
   attempt: number;
   exaApiKey: string;
   handoff?: HandoffContext;
   input: AgentChatRequest;
-  modelTier: MarbleAgentModelTier;
+  modelVariant: MarbleAgentVariant;
   profileId: string;
   provider: MarbleAgentProvider;
   send: (event: AgentChatWireEvent) => void;
@@ -99,7 +98,7 @@ type AgentTierRunInput = {
   userId: string;
 };
 
-type AgentTierRunResult =
+type AgentVariantRunResult =
   | {
       kind: "complete";
     }
@@ -117,29 +116,15 @@ type AgentTierRunResult =
 const PROMPT_TIMEOUT_MS = 6 * 60_000;
 const HEARTBEAT_MS = 5_000;
 
-const HANDOFF_TARGETS_BY_TIER: Record<
-  MarbleAgentModelTier,
-  MarbleAgentHandoffTarget[]
-> = {
-  expert: [],
-  rapid: [
-    "standard",
-    "expert",
-  ],
-  standard: [
-    "expert",
-  ],
-};
-
 const createPromptTimeout = (
   provider: MarbleAgentProvider,
-  modelTier: MarbleAgentModelTier,
+  modelVariant: MarbleAgentVariant,
 ) =>
   new Promise<never>((_, reject) => {
     setTimeout(() => {
       reject(
         new Error(
-          `Provider "${provider}" ${modelTier} tier did not respond within ${PROMPT_TIMEOUT_MS / 1000}s. The model may be unreachable, the API key may be invalid, or one of the tool schemas may be rejected.`,
+          `Provider "${provider}" ${modelVariant} variant did not respond within ${PROMPT_TIMEOUT_MS / 1000}s. The model may be unreachable, the API key may be invalid, or one of the tool schemas may be rejected.`,
         ),
       );
     }, PROMPT_TIMEOUT_MS);
@@ -151,23 +136,23 @@ const errorMessage = (error: unknown) =>
 const isTimeoutError = (
   error: unknown,
   provider: MarbleAgentProvider,
-  modelTier: MarbleAgentModelTier,
+  modelVariant: MarbleAgentVariant,
 ) =>
   error instanceof Error &&
-  error.message.startsWith(`Provider "${provider}" ${modelTier} tier`);
+  error.message.startsWith(`Provider "${provider}" ${modelVariant} variant`);
 
 const isHandoffToolEvent = (event: AgentChatWireEvent) =>
   (event.type === "tool_execution_start" ||
     event.type === "tool_execution_end") &&
   event.toolName === REQUEST_HANDOFF_TOOL_NAME;
 
-export const runAgentTier = async ({
+export const runAgentVariant = async ({
   apiKey,
   attempt,
   exaApiKey,
   handoff,
   input,
-  modelTier,
+  modelVariant,
   profileId,
   provider,
   send,
@@ -175,26 +160,26 @@ export const runAgentTier = async ({
   supabase,
   timing,
   userId,
-}: AgentTierRunInput): Promise<AgentTierRunResult> => {
+}: AgentVariantRunInput): Promise<AgentVariantRunResult> => {
   let handoffRequest: MarbleAgentHandoffRequest | null = null;
-  const modelConfig = resolveAgentModelConfig(provider, modelTier);
+  const modelConfig = resolveAgentModelConfig(provider, modelVariant);
   const modelMetadata = {
     modelId: modelConfig.modelId,
-    modelTier,
+    modelVariant,
     provider,
     thinkingLevel: modelConfig.thinkingLevel,
   };
 
-  timing.mark("agent.tier.start", {
+  timing.mark("agent.variant.start", {
     attempt,
     ...modelMetadata,
   });
   send({
     attempt,
     modelId: modelConfig.modelId,
-    modelTier,
+    modelVariant,
     thinkingLevel: modelMetadata.thinkingLevel,
-    type: "marble_agent_tier_start",
+    type: "marble_agent_variant_start",
   });
 
   let agentSession: Awaited<ReturnType<typeof createMarbleAgentSession>>;
@@ -206,15 +191,14 @@ export const runAgentTier = async ({
           apiKey,
           browserRoutePatterns: agentRoutesManifest.routes,
           exaApiKey,
-          handoffTargets: HANDOFF_TARGETS_BY_TIER[modelTier],
           modelConfig,
-          modelTier,
+          modelVariant,
           onHandoffRequest: (request) => {
             handoffRequest = request;
             timing.mark("agent.handoff.requested", {
-              fromTier: modelTier,
+              fromVariant: modelVariant,
               reason: request.reason,
-              toTier: request.tier,
+              toVariant: request.variant,
             });
           },
           profileId,
@@ -300,14 +284,14 @@ export const runAgentTier = async ({
               handoff,
             }),
           ),
-          createPromptTimeout(provider, modelTier),
+          createPromptTimeout(provider, modelVariant),
         ]),
       {
         ...modelMetadata,
       },
     );
   } catch (error) {
-    const timeout = isTimeoutError(error, provider, modelTier);
+    const timeout = isTimeoutError(error, provider, modelVariant);
     console.error(
       `[/api/agent/chat] ${timeout ? "PROVIDER_TIMEOUT" : "PROMPT_FAILED"}`,
       error,

@@ -1,10 +1,10 @@
-import type { MarbleAgentModelTier } from "../models";
+import type { MarbleAgentVariant } from "../models";
 
 type MarbleAgentTurnHandoffContext = {
   brief: string;
-  fromTier: MarbleAgentModelTier;
+  fromVariant: MarbleAgentVariant;
   reason: string;
-  toTier: MarbleAgentModelTier;
+  toVariant: MarbleAgentVariant;
 };
 
 type MarbleAgentTurnPageContext = {
@@ -74,8 +74,8 @@ const formatHandoffContext = (
   if (!handoff) return null;
   return [
     "Internal handoff context:",
-    `- Previous tier: ${handoff.fromTier}`,
-    `- Current tier: ${handoff.toTier}`,
+    `- Previous variant: ${handoff.fromVariant}`,
+    `- Current variant: ${handoff.toVariant}`,
     `- Reason: ${handoff.reason}`,
     `- Brief: ${handoff.brief}`,
     "Continue the same user turn from this context. Do not mention the handoff unless it changes the user-facing answer.",

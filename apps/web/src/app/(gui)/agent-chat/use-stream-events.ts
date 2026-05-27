@@ -16,7 +16,7 @@ import {
   type AgentChatStatus,
   createRoutingStatus,
   formatHandoffStatus,
-  formatTierStatus,
+  formatVariantStatus,
   mergeStatus,
   statusForToolEnd,
   statusForToolStart,
@@ -54,8 +54,8 @@ export const useStreamEvents = ({
       return;
     }
 
-    if (event.type === "marble_agent_tier_start") {
-      setStatus(formatTierStatus(event));
+    if (event.type === "marble_agent_variant_start") {
+      setStatus(formatVariantStatus(event));
       return;
     }
 

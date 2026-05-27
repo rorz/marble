@@ -14,13 +14,13 @@ const MARBLE_AGENT_PROVIDERS = [
 
 export type MarbleAgentProvider = (typeof MARBLE_AGENT_PROVIDERS)[number];
 
-const MARBLE_AGENT_MODEL_TIERS = [
-  "rapid",
-  "standard",
-  "expert",
+const MARBLE_AGENT_VARIANTS = [
+  "architect",
+  "builder",
+  "concierge",
 ] as const;
 
-export type MarbleAgentModelTier = (typeof MARBLE_AGENT_MODEL_TIERS)[number];
+export type MarbleAgentVariant = (typeof MARBLE_AGENT_VARIANTS)[number];
 
 type MarbleAgentModelSelection = {
   model: Model<Api>;
@@ -35,57 +35,57 @@ export type MarbleAgentModelConfig = {
 
 const MARBLE_AGENT_MODEL_SELECTIONS = {
   anthropic: {
-    expert: {
+    architect: {
       model: getModel("anthropic", "claude-opus-4-7"),
       thinkingLevel: "high",
     },
-    rapid: {
-      model: getModel("anthropic", "claude-haiku-4-5"),
-      thinkingLevel: "low",
-    },
-    standard: {
+    builder: {
       model: getModel("anthropic", "claude-sonnet-4-6"),
       thinkingLevel: "medium",
     },
+    concierge: {
+      model: getModel("anthropic", "claude-haiku-4-5"),
+      thinkingLevel: "low",
+    },
   },
   google: {
-    expert: {
+    architect: {
       model: getModel("google", "gemini-3.1-pro-preview"),
       thinkingLevel: "xhigh",
     },
-    rapid: {
-      model: getModel("google", "gemini-flash-lite-latest"),
-      thinkingLevel: "minimal",
-    },
-    standard: {
+    builder: {
       model: getModel("google", "gemini-flash-latest"),
       thinkingLevel: "high",
     },
+    concierge: {
+      model: getModel("google", "gemini-flash-lite-latest"),
+      thinkingLevel: "minimal",
+    },
   },
   openai: {
-    expert: {
+    architect: {
       model: getModel("openai", "gpt-5.5-pro"),
       thinkingLevel: "high",
     },
-    rapid: {
-      model: getModel("openai", "gpt-5.4-nano"),
-      thinkingLevel: "low",
-    },
-    standard: {
+    builder: {
       model: getModel("openai", "gpt-5.5"),
       thinkingLevel: "medium",
+    },
+    concierge: {
+      model: getModel("openai", "gpt-5.4-nano"),
+      thinkingLevel: "low",
     },
   },
 } as const satisfies Record<
   MarbleAgentProvider,
-  Record<MarbleAgentModelTier, MarbleAgentModelSelection>
+  Record<MarbleAgentVariant, MarbleAgentModelSelection>
 >;
 
 export const resolveAgentModelConfig = (
   provider: MarbleAgentProvider,
-  tier: MarbleAgentModelTier = "rapid",
+  variant: MarbleAgentVariant = "concierge",
 ): MarbleAgentModelConfig => {
-  const selection = MARBLE_AGENT_MODEL_SELECTIONS[provider][tier];
+  const selection = MARBLE_AGENT_MODEL_SELECTIONS[provider][variant];
 
   return {
     model: selection.model,

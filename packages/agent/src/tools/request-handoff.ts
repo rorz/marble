@@ -1,21 +1,16 @@
 import { defineTool } from "@earendil-works/pi-coding-agent";
 import { z } from "zod";
-import type { MarbleAgentModelTier } from "../models";
+import { type MarbleAgentHandoffTarget, resolveAgentRoleLabel } from "../roles";
 import { prepareToolSchema } from "./contract/schema";
-
-export type MarbleAgentHandoffTarget = Extract<
-  MarbleAgentModelTier,
-  "expert" | "standard"
->;
 
 export type MarbleAgentHandoffRequest = {
   brief: string;
   reason: string;
-  tier: MarbleAgentHandoffTarget;
+  variant: MarbleAgentHandoffTarget;
 };
 
 export type HandoffToolBuildOptions = {
-  handoffTargets: MarbleAgentHandoffTarget[];
+  handoffTargets: readonly MarbleAgentHandoffTarget[];
   onHandoffRequest: (request: MarbleAgentHandoffRequest) => void;
 };
 
@@ -30,21 +25,25 @@ const requestHandoffInput = z.object({
   brief: z
     .string()
     .min(1)
-    .describe("Short context the next tier needs to continue the same turn."),
+    .describe(
+      "Short context the next variant needs to continue the same turn.",
+    ),
   reason: z
     .string()
     .min(1)
-    .describe("Why this turn needs a stronger agent tier."),
-  tier: z
+    .describe("Why another agent variant should continue this turn."),
+  variant: z
     .enum([
-      "standard",
-      "expert",
+      "architect",
+      "builder",
+      "concierge",
     ])
-    .describe("The stronger agent tier to continue this user turn."),
+    .describe("The agent variant to continue this user turn."),
 });
 
-const formatHandoffTargets = (targets: MarbleAgentHandoffTarget[]): string =>
-  targets.join(" or ");
+const formatHandoffTargets = (
+  targets: readonly MarbleAgentHandoffTarget[],
+): string => targets.map(resolveAgentRoleLabel).join(" or ");
 
 export const buildRequestHandoffTool = ({
   handoffTargets,
@@ -54,7 +53,7 @@ export const buildRequestHandoffTool = ({
   const targetSet = new Set<MarbleAgentHandoffTarget>(handoffTargets);
 
   return defineTool({
-    description: `Ask Marble infrastructure to continue this same user turn with the ${formatHandoffTargets(handoffTargets)} tier. Use this for work that needs more reasoning or orchestration than the current tier should spend.`,
+    description: `Ask Marble infrastructure to continue this same user turn with ${formatHandoffTargets(handoffTargets)}. Use this when another variant has the better role, tools, or context for the next move.`,
     execute: async (_toolCallId, params) => {
       const input = requestHandoffInput.parse(
         prepared.wrapped
@@ -66,7 +65,7 @@ export const buildRequestHandoffTool = ({
           : params,
       );
 
-      if (!targetSet.has(input.tier)) {
+      if (!targetSet.has(input.variant)) {
         throw new Error(
           `This session can only hand off to ${formatHandoffTargets(handoffTargets)}.`,
         );
@@ -75,14 +74,14 @@ export const buildRequestHandoffTool = ({
       const handoff: MarbleAgentHandoffRequest = {
         brief: input.brief.trim(),
         reason: input.reason.trim(),
-        tier: input.tier,
+        variant: input.variant,
       };
       onHandoffRequest(handoff);
 
       return {
         content: [
           {
-            text: `Handoff requested to ${handoff.tier}. Stop this turn now.`,
+            text: `Handoff requested to ${resolveAgentRoleLabel(handoff.variant)}. Stop this turn now.`,
             type: "text" as const,
           },
         ],
@@ -100,11 +99,11 @@ export const buildRequestHandoffTool = ({
       typeof defineTool
     >[0]["parameters"],
     promptGuidelines: [
-      `Use request_handoff when this turn should continue on ${formatHandoffTargets(handoffTargets)} instead of being answered by the current tier.`,
+      `Use request_handoff when this turn should continue on ${formatHandoffTargets(handoffTargets)} instead of being answered by the current variant.`,
       "Call request_handoff as the only tool in the assistant turn, then stop without answering the user.",
-      "Use standard for bounded multi-step assistant work. Use expert for orchestration, coordination, ambiguous workflows, or risky broad mutations.",
+      "Use variant=concierge for Concierge, variant=builder for Builder, and variant=architect for Architect.",
     ],
     promptSnippet:
-      "request_handoff: escalate this same user turn to a stronger Marble Agent tier.",
+      "request_handoff: move this same user turn to another Marble Agent variant.",
   });
 };

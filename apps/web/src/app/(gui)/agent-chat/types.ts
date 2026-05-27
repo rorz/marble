@@ -66,6 +66,8 @@ export type ToolChatEntry = {
   toolName: string;
 };
 
+export type AgentVariant = "architect" | "builder" | "concierge";
+
 export type StreamEvent = {
   assistantMessageEvent?: {
     delta?: string;
@@ -77,16 +79,16 @@ export type StreamEvent = {
   isError?: boolean;
   label?: string;
   message?: string;
-  modelTier?: "expert" | "rapid" | "standard";
+  modelVariant?: AgentVariant;
   content?: string;
   brief?: string;
-  fromTier?: "expert" | "rapid" | "standard";
+  fromVariant?: AgentVariant;
   parameters?: unknown;
   reason?: string;
   result?: unknown;
   route?: "agent" | "direct";
   suppress?: boolean;
-  toTier?: "expert" | "rapid" | "standard";
+  toVariant?: AgentVariant;
   toolCallId?: string;
   toolName?: string;
   type: string;

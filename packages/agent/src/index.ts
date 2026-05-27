@@ -3,8 +3,8 @@ import "server-only";
 export type { AgentSessionEvent } from "@earendil-works/pi-coding-agent";
 
 export {
-  type MarbleAgentModelTier,
   type MarbleAgentProvider,
+  type MarbleAgentVariant,
   resolveAgentModelConfig,
 } from "./models";
 export { buildMarbleAgentTurnPrompt, buildSystemPrompt } from "./prompt";

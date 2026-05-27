@@ -33,6 +33,10 @@ type ContractToolBuildReport = {
   tools: ReturnType<typeof defineTool>[];
 };
 
+type ContractToolBuildOptions = {
+  toolNames?: ReadonlySet<string>;
+};
+
 type ContractToolBuildOutcome =
   | {
       kind: "ok";
@@ -162,6 +166,7 @@ const buildContractToolForOperation = (
 
 export const buildContractTools = (
   dispatch: DispatchTable,
+  options: ContractToolBuildOptions = {},
 ): ContractToolBuildReport => {
   const tools: ReturnType<typeof defineTool>[] = [];
   const skipped: SkippedTool[] = [];
@@ -169,6 +174,11 @@ export const buildContractTools = (
     for (const [opName, operation] of Object.entries(
       ops as Record<string, ContractOperation>,
     )) {
+      const toolName = toToolName(resourceName, opName);
+      if (options.toolNames && !options.toolNames.has(toolName)) {
+        continue;
+      }
+
       const outcome = buildContractToolForOperation(
         dispatch,
         resourceName,

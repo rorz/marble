@@ -2,8 +2,8 @@ import type {
   AgentSessionEvent,
   ClientAction,
   createMarbleAgentSession,
-  MarbleAgentModelTier,
   MarbleAgentProvider,
+  MarbleAgentVariant,
 } from "@marble/agent";
 
 type AgentSession = Awaited<
@@ -48,15 +48,15 @@ export type AgentChatWireEvent =
   | {
       attempt: number;
       modelId?: string;
-      modelTier: MarbleAgentModelTier;
+      modelVariant: MarbleAgentVariant;
       thinkingLevel?: string;
-      type: "marble_agent_tier_start";
+      type: "marble_agent_variant_start";
     }
   | {
       brief: string;
-      fromTier: MarbleAgentModelTier;
+      fromVariant: MarbleAgentVariant;
       reason: string;
-      toTier: MarbleAgentModelTier;
+      toVariant: MarbleAgentVariant;
       type: "marble_agent_handoff_requested";
     }
   | {

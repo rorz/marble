@@ -1,5 +1,6 @@
 import type { defineTool } from "@earendil-works/pi-coding-agent";
 import type { createSupabaseClientRouterClient } from "@marble/api/supabase-client";
+import type { MarbleAgentToolName } from "../roles";
 import { buildBrowserNavigateTool } from "./browser-navigate";
 import {
   buildContractTools,
@@ -13,12 +14,10 @@ import {
 import { buildWebFetchTool } from "./web-fetch";
 import { buildWebSearchTool } from "./web-search";
 
+export type { MarbleAgentHandoffTarget } from "../roles";
 export type { ClientAction } from "./browser-navigate";
 export type { SkippedTool } from "./contract";
-export type {
-  MarbleAgentHandoffRequest,
-  MarbleAgentHandoffTarget,
-} from "./request-handoff";
+export type { MarbleAgentHandoffRequest } from "./request-handoff";
 export { REQUEST_HANDOFF_TOOL_NAME } from "./request-handoff";
 
 type RouterClient = ReturnType<typeof createSupabaseClientRouterClient>;
@@ -28,6 +27,7 @@ type ToolBuildOptions = {
   exaApiKey?: string;
   handoffTargets?: HandoffToolBuildOptions["handoffTargets"];
   onHandoffRequest?: HandoffToolBuildOptions["onHandoffRequest"];
+  toolNames?: readonly MarbleAgentToolName[];
 };
 
 type ToolBuildReport = {
@@ -35,18 +35,34 @@ type ToolBuildReport = {
   tools: ReturnType<typeof defineTool>[];
 };
 
+const hasDeclaredTool = (
+  toolNames: ReadonlySet<string> | undefined,
+  toolName: MarbleAgentToolName,
+): boolean => !toolNames || toolNames.has(toolName);
+
 export const buildMarbleTools = (
   client: RouterClient,
   options: ToolBuildOptions = {},
 ): ToolBuildReport => {
   const dispatch = client as unknown as DispatchTable;
-  const tools: ReturnType<typeof defineTool>[] = [
-    buildBrowserNavigateTool({
-      routePatterns: options.browserRoutePatterns,
-    }),
-  ];
+  const toolNames = options.toolNames
+    ? new Set<string>(options.toolNames)
+    : undefined;
+  const tools: ReturnType<typeof defineTool>[] = [];
 
-  if (options.handoffTargets?.length && options.onHandoffRequest) {
+  if (hasDeclaredTool(toolNames, "browser_navigate")) {
+    tools.push(
+      buildBrowserNavigateTool({
+        routePatterns: options.browserRoutePatterns,
+      }),
+    );
+  }
+
+  if (
+    hasDeclaredTool(toolNames, "request_handoff") &&
+    options.handoffTargets?.length &&
+    options.onHandoffRequest
+  ) {
     tools.push(
       buildRequestHandoffTool({
         handoffTargets: options.handoffTargets,
@@ -55,12 +71,15 @@ export const buildMarbleTools = (
     );
   }
 
-  if (options.exaApiKey) {
+  if (hasDeclaredTool(toolNames, "web_fetch") && options.exaApiKey) {
     tools.push(
       buildWebFetchTool({
         exaApiKey: options.exaApiKey,
       }),
     );
+  }
+
+  if (hasDeclaredTool(toolNames, "web_search") && options.exaApiKey) {
     tools.push(
       buildWebSearchTool({
         exaApiKey: options.exaApiKey,
@@ -68,7 +87,9 @@ export const buildMarbleTools = (
     );
   }
 
-  const contractReport = buildContractTools(dispatch);
+  const contractReport = buildContractTools(dispatch, {
+    toolNames,
+  });
   tools.push(...contractReport.tools);
 
   return {

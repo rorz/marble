@@ -1,5 +1,5 @@
 import "server-only";
-import type { MarbleAgentModelTier, MarbleAgentProvider } from "@marble/agent";
+import type { MarbleAgentProvider, MarbleAgentVariant } from "@marble/agent";
 import { createClient } from "@/lib/supabase/server";
 import {
   createServiceRoleClient,
@@ -8,7 +8,7 @@ import {
 import type { AgentChatWireEvent } from "../events";
 import type { AgentChatRequest } from "../request";
 import type { createAgentChatTiming } from "../timing";
-import { runAgentTier } from "./run";
+import { runAgentVariant } from "./run";
 import { createStreamWriter } from "./stream";
 
 type AgentChatTiming = ReturnType<typeof createAgentChatTiming>;
@@ -28,13 +28,13 @@ type AgentChatStreamResponseInput = {
 
 type HandoffContext = {
   brief: string;
-  fromTier: MarbleAgentModelTier;
+  fromVariant: MarbleAgentVariant;
   reason: string;
-  toTier: MarbleAgentModelTier;
+  toVariant: MarbleAgentVariant;
 };
 
 const MAX_HANDOFFS_PER_TURN = 2;
-const INITIAL_MODEL_TIER: MarbleAgentModelTier = "rapid";
+const INITIAL_MODEL_VARIANT: MarbleAgentVariant = "concierge";
 const STREAM_RESPONSE_HEADERS = {
   "Cache-Control": "no-cache, no-transform",
   Connection: "keep-alive",
@@ -110,16 +110,16 @@ export const createAgentChatStreamResponse = ({
 
       let handoff: HandoffContext | undefined;
       let handoffCount = 0;
-      let modelTier: MarbleAgentModelTier = INITIAL_MODEL_TIER;
+      let modelVariant: MarbleAgentVariant = INITIAL_MODEL_VARIANT;
 
       while (true) {
-        const result = await runAgentTier({
+        const result = await runAgentVariant({
           apiKey,
           attempt: handoffCount + 1,
           exaApiKey,
           handoff,
           input,
-          modelTier,
+          modelVariant,
           profileId,
           provider,
           send,
@@ -133,7 +133,7 @@ export const createAgentChatStreamResponse = ({
           sendSessionError(send, result.code, result.message);
           timing.finish(result.status, {
             handoffCount,
-            modelTier,
+            modelVariant,
             provider,
             route: "agent",
           });
@@ -147,7 +147,7 @@ export const createAgentChatStreamResponse = ({
           });
           timing.finish("complete", {
             handoffCount,
-            modelTier,
+            modelVariant,
             provider,
             route: "agent",
           });
@@ -163,7 +163,7 @@ export const createAgentChatStreamResponse = ({
           );
           timing.finish("handoff_limit_reached", {
             handoffCount,
-            modelTier,
+            modelVariant,
             provider,
             route: "agent",
           });
@@ -171,22 +171,22 @@ export const createAgentChatStreamResponse = ({
           return;
         }
 
-        const nextTier = result.handoff.tier;
+        const nextVariant = result.handoff.variant;
         send({
           brief: result.handoff.brief,
-          fromTier: modelTier,
+          fromVariant: modelVariant,
           reason: result.handoff.reason,
-          toTier: nextTier,
+          toVariant: nextVariant,
           type: "marble_agent_handoff_requested",
         });
         handoff = {
           brief: result.handoff.brief,
-          fromTier: modelTier,
+          fromVariant: modelVariant,
           reason: result.handoff.reason,
-          toTier: nextTier,
+          toVariant: nextVariant,
         };
         handoffCount += 1;
-        modelTier = nextTier;
+        modelVariant = nextVariant;
       }
     },
   });

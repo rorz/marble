@@ -2,11 +2,11 @@
 
 import {
   ArrowUpIcon,
-  BooksIcon,
-  HeadsetIcon,
+  CallBellIcon,
   type Icon,
-  LightningIcon,
+  PencilRulerIcon,
   PlusIcon,
+  WrenchIcon,
   XIcon,
 } from "@phosphor-icons/react";
 import {
@@ -20,39 +20,38 @@ import {
 import { useAgentChatSession } from "./context";
 import { ChatEntryView } from "./entry-view";
 import { HistoryMenu } from "./history-menu";
+import type { AgentVariant } from "./types";
 
 type AgentChatProps = {
   headerActions?: ReactNode;
 };
 
-type TierKey = "expert" | "rapid" | "standard";
-
-const TIER_META: Record<
-  TierKey,
+const VARIANT_META: Record<
+  AgentVariant,
   {
     Icon: Icon;
     label: string;
   }
 > = {
-  expert: {
-    Icon: BooksIcon,
-    label: "Expert",
+  architect: {
+    Icon: PencilRulerIcon,
+    label: "Architect",
   },
-  rapid: {
-    Icon: LightningIcon,
-    label: "Rapid",
+  builder: {
+    Icon: WrenchIcon,
+    label: "Builder",
   },
-  standard: {
-    Icon: HeadsetIcon,
-    label: "Standard",
+  concierge: {
+    Icon: CallBellIcon,
+    label: "Concierge",
   },
 };
 
-const TierPill = ({ tier }: { tier: TierKey }) => {
-  const { Icon: TierIcon, label } = TIER_META[tier];
+const VariantPill = ({ variant }: { variant: AgentVariant }) => {
+  const { Icon: VariantIcon, label } = VARIANT_META[variant];
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-taupe-100 px-2 py-0.5 text-[11px] text-taupe-600">
-      <TierIcon
+      <VariantIcon
         size={11}
         weight="duotone"
       />
@@ -195,7 +194,7 @@ export const AgentChat = ({ headerActions }: AgentChatProps) => {
             role="status"
           >
             <div className="flex items-center gap-2">
-              <TierPill tier={status?.tier ?? "rapid"} />
+              <VariantPill variant={status?.variant ?? "concierge"} />
               <TypingDots />
               {status?.message ? (
                 <span className="min-w-0 flex-1 truncate italic">
@@ -234,7 +233,7 @@ export const AgentChat = ({ headerActions }: AgentChatProps) => {
       </div>
 
       <div className="flex justify-end px-4 pb-1">
-        <TierPill tier={status?.tier ?? "rapid"} />
+        <VariantPill variant={status?.variant ?? "concierge"} />
       </div>
 
       <form

@@ -5,7 +5,7 @@ import {
   type Skill,
 } from "@earendil-works/pi-coding-agent";
 import { wizardSkillPath } from "@marble/wizard";
-import type { MarbleAgentModelTier } from "./models";
+import type { MarbleAgentVariant } from "./models";
 import { buildSystemPrompt } from "./prompt";
 
 const buildMarbleSkill = (): Skill => {
@@ -13,7 +13,7 @@ const buildMarbleSkill = (): Skill => {
   return {
     baseDir: dirname(skillPath),
     description:
-      "Marble platform expert. Operates as the user's Agent profile via Marble SDK tools.",
+      "Marble platform agent. Operates as the user's Agent profile via Marble SDK tools.",
     disableModelInvocation: false,
     filePath: skillPath,
     name: "marble-wizard",
@@ -26,7 +26,7 @@ const buildMarbleSkill = (): Skill => {
   };
 };
 
-export const createMarbleResourceLoader = (modelTier: MarbleAgentModelTier) =>
+export const createMarbleResourceLoader = (variant: MarbleAgentVariant) =>
   new DefaultResourceLoader({
     agentDir: process.cwd(),
     cwd: process.cwd(),
@@ -41,5 +41,5 @@ export const createMarbleResourceLoader = (modelTier: MarbleAgentModelTier) =>
         buildMarbleSkill(),
       ],
     }),
-    systemPrompt: buildSystemPrompt(modelTier),
+    systemPrompt: buildSystemPrompt(variant),
   });
