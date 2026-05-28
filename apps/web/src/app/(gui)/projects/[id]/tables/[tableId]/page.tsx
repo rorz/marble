@@ -10,18 +10,10 @@ const ProjectTablePage = async (props: {
   }>;
 }) => {
   const user = await requireUser();
-  const { tableId } = await props.params;
-  let tablePageData: Awaited<
-    ReturnType<typeof loadTablePageDataForUser>
-  > | null = null;
+  const { id, tableId } = await props.params;
+  const tablePageData = await loadTablePageDataForUser(user.id, tableId);
 
-  try {
-    tablePageData = await loadTablePageDataForUser(user.id, tableId);
-  } catch {
-    tablePageData = null;
-  }
-
-  if (!tablePageData) {
+  if (!tablePageData || tablePageData.table.projectId !== id) {
     notFound();
   }
 

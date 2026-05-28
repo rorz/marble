@@ -109,7 +109,7 @@ export const loadTablePageDataForUser = async (
   const resolved = await createServerMarbleSdkForTable(tableId);
 
   if (!resolved) {
-    throw new Error("Table not found");
+    return null;
   }
 
   const programs = hydrateEditorPrograms(
@@ -144,6 +144,6 @@ export const loadTablePageDataForUser = async (
   };
 };
 
-export type TablePageData = Awaited<
-  ReturnType<typeof loadTablePageDataForUser>
+export type TablePageData = NonNullable<
+  Awaited<ReturnType<typeof loadTablePageDataForUser>>
 >;

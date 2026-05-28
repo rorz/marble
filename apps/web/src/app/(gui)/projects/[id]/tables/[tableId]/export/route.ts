@@ -22,9 +22,7 @@ export const GET = async (
   }
 
   const { tableId } = await props.params;
-  const data = await loadTablePageDataForUser(user.id, tableId).catch(
-    () => null,
-  );
+  const data = await loadTablePageDataForUser(user.id, tableId);
 
   if (!data) {
     return new Response("Not Found", {

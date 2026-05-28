@@ -72,15 +72,19 @@ export const listLatestProgramSecretDeclarationsByProgramId = (
   return Object.fromEntries(
     programs.map((program) => {
       const latestVersion = getLatestPublishedProgramVersion(program);
+      const declarations =
+        latestVersion === null
+          ? []
+          : latestVersion.secretConfig === null ||
+              latestVersion.secretConfig === undefined
+            ? listProgramSecretDeclarationsFromFiles(
+                latestVersion.programFiles ?? [],
+              )
+            : parseProgramSecretConfig(latestVersion.secretConfig);
 
       return [
         program.id,
-        latestVersion?.secretConfig === null ||
-        latestVersion?.secretConfig === undefined
-          ? listProgramSecretDeclarationsFromFiles(
-              latestVersion?.programFiles ?? [],
-            )
-          : parseProgramSecretConfig(latestVersion.secretConfig),
+        declarations,
       ];
     }),
   ) as Record<string, ProgramManifestSecretDeclaration[]>;
