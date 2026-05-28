@@ -1,5 +1,5 @@
 import { getSandbox } from "@cloudflare/sandbox";
-import { type JsonValue, ProgramConfigSchema } from "@marble/contracts";
+import type { JsonValue } from "@marble/contracts";
 import { getErrorMessage } from "@marble/lib/result";
 import type { MarbleStore } from "@marble/store";
 import { type Context, Hono } from "hono";
@@ -20,6 +20,7 @@ import { executeStoredRunsInternal } from "./pipeline.js";
 import {
   executeAndValidate,
   failureStateFromError,
+  getProgramVersionTestOutputSchema,
   resolveEnvironmentVariablesForProgramVersion,
   runtimeInputFromValue,
 } from "./runner/index.js";
@@ -42,6 +43,7 @@ export { Sandbox } from "@cloudflare/sandbox";
 const errorDetail = (value: unknown) => {
   try {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+    // harness-ignore: no-swallowed-errors -- non-serializable error detail is intentionally omitted
   } catch {
     return undefined;
   }
@@ -227,8 +229,7 @@ const testHandler = async (c: Context<ExecutorEnv>) => {
       ),
       versionData.files,
       runtimeInputFromValue(body.input),
-      ProgramConfigSchema.parse(versionData.programConfig).outputConfig
-        .schema as JsonValue,
+      getProgramVersionTestOutputSchema(versionData),
       environmentVariables,
     );
 

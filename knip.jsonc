@@ -28,8 +28,11 @@
   // Per-workspace entry points. Knip auto-detects `main` / `exports` / `bin`
   // from each package.json, so we only declare the entries it can't see:
   //   - harness/*.ts are Bun executables invoked via `bun run harness/<X>.ts`
-  //   - packages/api/__tests__/**/*.test.ts are run via `bun test`
+  //   - workspace __tests__/**/*.test.ts files are run via `bun test`
   "workspaces": {
+    "apps/executor": {
+      "entry": ["__tests__/**/*.test.ts"]
+    },
     "harness": {
       // All harness scripts are entry points (each one is `bun run harness/X.ts`).
       "entry": ["*.ts"]

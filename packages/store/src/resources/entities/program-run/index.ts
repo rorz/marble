@@ -1,3 +1,4 @@
+import type { ProgramConfig } from "@marble/contracts";
 import type { Json, Tables } from "@marble/supabase";
 import type { ResourceDeps } from "../../../db";
 import { requireServiceSupabase } from "../../require-deps";
@@ -31,7 +32,7 @@ type ProgramFile = Pick<
 
 export type ProgramVersionTestData = {
   files: ProgramFile[];
-  programConfig: Json;
+  programConfig: ProgramConfig;
   programId: string;
   secretConfig: Json | null;
 };
@@ -182,7 +183,7 @@ export class ProgramRunCollection {
 
     return {
       files,
-      programConfig: readProgramConfigFromFiles(files) as Json,
+      programConfig: readProgramConfigFromFiles(files),
       programId: versionRecord.data.program_id,
       secretConfig: versionRecord.data.secret_config,
     };

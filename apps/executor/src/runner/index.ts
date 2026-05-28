@@ -31,6 +31,7 @@ export {
   listReadyDependentCellIds,
   resolveProgramRunInput,
 } from "./input-resolution";
+export { getProgramVersionTestOutputSchema } from "./output-schema";
 
 type BatchExecutionResult = {
   key: string;
@@ -99,6 +100,7 @@ export const executeAndValidate = async (
               ? parsedRecord.message
               : "Program crashed with structured error";
         }
+        // harness-ignore: no-swallowed-errors -- plain stderr is the supported fallback
       } catch {
         // stderr was plain text, not JSON
       }
@@ -162,6 +164,7 @@ export const executeAndValidateBatch = async (
 
     try {
       thrownError = JSON.parse(stderr);
+      // harness-ignore: no-swallowed-errors -- plain stderr is the supported fallback
     } catch {
       // stderr was plain text, not JSON
     }
