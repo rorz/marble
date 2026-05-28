@@ -77,7 +77,6 @@ export const ProgramsPageView = ({
     progName,
     programSecretBindings: secrets.programSecretBindings,
     result,
-    secretConfigDraft: secrets.secretConfigDraft,
     selection,
     workspaceDragDepth: workspace.workspaceDragDepth,
   });

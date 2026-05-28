@@ -39,7 +39,7 @@ export type SecretBindingInput = Awaited<
 >[number];
 export type MissingSecretConfigurationDetail = {
   missingSecrets: Array<{
-    bindingSource: "column" | "implicit" | "program";
+    bindingSource: "column" | "program";
     description?: string;
     envName: string;
     label: string;

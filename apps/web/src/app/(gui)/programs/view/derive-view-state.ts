@@ -9,14 +9,12 @@ import { normalizeProgramFiles } from "./files";
 import { getProgramPackageManifestState } from "./manifest";
 import {
   createEditableProgramSecretDeclarations,
-  getEditableProgramSecretConfigState,
   getMissingSecretConfigurationDetail,
   getProgramSecretConfigComparisonValue,
   getSecretDeclarationIssuesById,
 } from "./secret-config";
 import type {
   EditableProgramFile,
-  EditableProgramSecretDeclaration,
   PendingChange,
   ProgramTestResult,
 } from "./types";
@@ -29,7 +27,6 @@ type DeriveProgramsViewStateInput = {
   programSecretBindings: ProgramsPageData["programSecretBindings"];
   progName: string;
   result: ProgramTestResult | null;
-  secretConfigDraft: EditableProgramSecretDeclaration[];
   selection: ReturnType<typeof deriveProgramSelection>;
   workspaceDragDepth: number;
 };
@@ -60,7 +57,6 @@ export const deriveProgramsViewState = ({
   programSecretBindings,
   progName,
   result,
-  secretConfigDraft,
   selection,
   workspaceDragDepth,
 }: DeriveProgramsViewStateInput) => {
@@ -91,12 +87,21 @@ export const deriveProgramsViewState = ({
     visibleProgramConfigState.config?.inputSchema;
   const visibleSecretDeclarations = viewingHistoricalVersion
     ? createEditableProgramSecretDeclarations(
-        selectedHistoricalVersion?.secretConfig,
+        visibleProgramConfigState.config?.secrets ?? [],
       )
-    : secretConfigDraft;
-  const visibleSecretConfigState = getEditableProgramSecretConfigState(
-    visibleSecretDeclarations,
-  );
+    : createEditableProgramSecretDeclarations(
+        currentProgramConfigState.config?.secrets ?? [],
+      );
+  const visibleSecretConfigState =
+    visibleProgramConfigState.config === null
+      ? {
+          declarations: [],
+          error: visibleProgramConfigState.error,
+        }
+      : {
+          declarations: visibleProgramConfigState.config.secrets,
+          error: null,
+        };
   const visibleSecretDeclarationIssues = getSecretDeclarationIssuesById(
     visibleSecretDeclarations,
   );
@@ -122,7 +127,15 @@ export const deriveProgramsViewState = ({
     workingVersion?.secretConfig,
   );
   const currentSecretConfigState =
-    getEditableProgramSecretConfigState(secretConfigDraft);
+    currentProgramConfigState.config === null
+      ? {
+          declarations: [],
+          error: currentProgramConfigState.error,
+        }
+      : {
+          declarations: currentProgramConfigState.config.secrets,
+          error: null,
+        };
   const currentSecretConfigStr =
     currentSecretConfigState.error === null
       ? JSON.stringify(currentSecretConfigState.declarations)

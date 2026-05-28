@@ -31,6 +31,26 @@ const VALID_PACKAGE_FILE = {
   filename: "package.json",
   filetype: "Json" as const,
 };
+const VALID_CONFIG_FILE_WITH_SECRET = {
+  ...VALID_CONFIG_FILE,
+  content:
+    '{"inputSchema":{},"outputConfig":{"schema":{"type":"string"}},"secrets":{"type":"object","properties":{"APOLLO_API_KEY":{"type":"string","title":"Apollo API key"}},"required":["APOLLO_API_KEY"]}}',
+};
+const LEGACY_SECRET_CONFIG_FILE = {
+  ...VALID_CONFIG_FILE,
+  content:
+    '{"inputSchema":{},"outputConfig":{"schema":{"type":"string"}},"secrets":[{"env":"APOLLO_API_KEY","label":"Apollo API key","required":true}]}',
+};
+const LEGACY_SECRET_CONFIG_FIELD_FILE = {
+  ...VALID_CONFIG_FILE,
+  content:
+    '{"inputSchema":{},"outputConfig":{"schema":{"type":"string"}},"secretConfig":{"type":"object","properties":{"APOLLO_API_KEY":{"type":"string"}}}}',
+};
+const LEGACY_SECRET_PACKAGE_FILE = {
+  ...VALID_PACKAGE_FILE,
+  content:
+    '{"name":"test-program","marble":{"secrets":[{"env":"APOLLO_API_KEY"}]}}',
+};
 
 describe("programFiles.create validation", () => {
   test("rejects non-uuid versionId", async () => {
@@ -152,6 +172,82 @@ describe("programFiles.syncForVersion validation", () => {
         },
       ),
     ).rejects.toThrow("Program files must include package.json.");
+  });
+
+  test("accepts secret declarations in marbleconfig.jsonc", async () => {
+    await expect(
+      call(
+        marbleRouter.programFiles.syncForVersion,
+        {
+          files: [
+            VALID_MAIN_FILE,
+            VALID_PACKAGE_FILE,
+            VALID_CONFIG_FILE_WITH_SECRET,
+          ],
+          versionId: VALID_UUID,
+        },
+        {
+          context: createValidationContext(),
+        },
+      ),
+    ).rejects.toThrow(/store/);
+  });
+
+  test("rejects legacy marbleconfig.jsonc secret arrays", async () => {
+    await expect(
+      call(
+        marbleRouter.programFiles.syncForVersion,
+        {
+          files: [
+            VALID_MAIN_FILE,
+            VALID_PACKAGE_FILE,
+            LEGACY_SECRET_CONFIG_FILE,
+          ],
+          versionId: VALID_UUID,
+        },
+        {
+          context: createValidationContext(),
+        },
+      ),
+    ).rejects.toThrow();
+  });
+
+  test("rejects legacy marbleconfig.jsonc secretConfig field", async () => {
+    await expect(
+      call(
+        marbleRouter.programFiles.syncForVersion,
+        {
+          files: [
+            VALID_MAIN_FILE,
+            VALID_PACKAGE_FILE,
+            LEGACY_SECRET_CONFIG_FIELD_FILE,
+          ],
+          versionId: VALID_UUID,
+        },
+        {
+          context: createValidationContext(),
+        },
+      ),
+    ).rejects.toThrow("Secret declarations belong in marbleconfig.jsonc");
+  });
+
+  test("rejects legacy package.json secret declarations", async () => {
+    await expect(
+      call(
+        marbleRouter.programFiles.syncForVersion,
+        {
+          files: [
+            VALID_MAIN_FILE,
+            LEGACY_SECRET_PACKAGE_FILE,
+            VALID_CONFIG_FILE,
+          ],
+          versionId: VALID_UUID,
+        },
+        {
+          context: createValidationContext(),
+        },
+      ),
+    ).rejects.toThrow("Secret declarations belong in marbleconfig.jsonc");
   });
 });
 

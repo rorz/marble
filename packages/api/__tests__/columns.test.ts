@@ -75,6 +75,30 @@ describe("columns.list validation", () => {
   });
 });
 
+describe("columns.listReferenceable validation", () => {
+  test("rejects missing projectId", async () => {
+    await expect(
+      call(marbleRouter.columns.listReferenceable, {} as never, {
+        context: createValidationContext(),
+      }),
+    ).rejects.toThrow();
+  });
+
+  test("rejects non-uuid projectId", async () => {
+    await expect(
+      call(
+        marbleRouter.columns.listReferenceable,
+        {
+          projectId: INVALID_UUID,
+        },
+        {
+          context: createValidationContext(),
+        },
+      ),
+    ).rejects.toThrow();
+  });
+});
+
 describe("columns id-input validation", () => {
   test("get rejects non-uuid id", async () => {
     await expect(

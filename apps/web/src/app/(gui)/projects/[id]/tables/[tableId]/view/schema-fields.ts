@@ -70,8 +70,6 @@ export const describeColumnSecretResolution = (
       : (options.secrets.find(
           (secret) => secret.id === options.programDefaultSecretId,
         ) ?? null);
-  const implicitSecret =
-    options.secrets.find((secret) => secret.name === declaration.env) ?? null;
 
   if (options.overrideSecretId !== undefined && overrideSecret === null) {
     return {
@@ -109,15 +107,6 @@ export const describeColumnSecretResolution = (
       badgeTone: "neutral" as const,
       helperText: `Inherits the program default ${programDefaultSecret.name}.`,
       inheritedLabel: `Use program default (${programDefaultSecret.name})`,
-    };
-  }
-
-  if (implicitSecret) {
-    return {
-      badgeLabel: "Auto",
-      badgeTone: "success" as const,
-      helperText: `Falls back to matching secret ${implicitSecret.name}.`,
-      inheritedLabel: `Use matching secret (${implicitSecret.name})`,
     };
   }
 

@@ -11,13 +11,11 @@ export const EditorRightPanel = ({
 }>) => (
   <div
     className={cx(
-      "flex w-[22rem] shrink-0 flex-col border-l",
+      "flex min-h-0 w-[22rem] shrink-0 flex-col overflow-hidden border-l",
       shellPanelClassName,
     )}
   >
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <SecretsPanel model={model} />
-    </div>
+    <SecretsPanel model={model} />
     <TestInputsPanel model={model} />
   </div>
 );

@@ -282,18 +282,22 @@ export class ProgramVersionCollection {
       throw new Error(`Program version '${id}' is published and read-only.`);
     }
 
-    if (input.publish) {
-      await loadProgramConfigForVersion(
-        requireServiceSupabase(this.deps, "Program version"),
-        id,
-      );
-    }
+    const publishedProgramConfig = input.publish
+      ? await loadProgramConfigForVersion(
+          requireServiceSupabase(this.deps, "Program version"),
+          id,
+        )
+      : null;
+    const nextSecretConfig =
+      publishedProgramConfig === null
+        ? input.secretConfig
+        : publishedProgramConfig.secrets;
 
     const dbValues = {
-      ...(input.secretConfig === undefined
+      ...(nextSecretConfig === undefined
         ? {}
         : {
-            secretConfig: asJson(input.secretConfig),
+            secretConfig: asJson(nextSecretConfig),
           }),
       ...(input.publish
         ? {

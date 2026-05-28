@@ -77,13 +77,8 @@ const readProgramManifest = async (dir: string) => {
     throw new Error("Program package.json must contain a non-empty name.");
   }
 
-  const marble = isRecord(manifest.marble) ? manifest.marble : undefined;
-
   return {
     name: manifest.name,
-    secrets: Array.isArray(marble?.secrets)
-      ? (marble.secrets as JsonValue[])
-      : [],
   };
 };
 
@@ -117,12 +112,12 @@ const readProgramDirectory = async (dir: string): Promise<ProgramDirectory> => {
     );
   }
 
-  parseProgramConfigFileContent(configFile.content);
+  const config = parseProgramConfigFileContent(configFile.content);
 
   return {
     files,
     name: manifest.name || basename(dir),
-    secretConfig: manifest.secrets,
+    secretConfig: config.secrets,
   };
 };
 

@@ -38,12 +38,12 @@ const TOOL_PROMPT_METADATA: Record<string, ToolPromptMetadata> = {
   },
   "columns.listReferenceable": {
     description:
-      "List columns across the workspace with labels and allowManualInput so the agent can choose safe source columns for templates or manual values.",
+      "List project-local columns with labels and allowManualInput so the agent can choose safe source columns for templates or manual values.",
     promptGuidelines: [
-      "Use marble_columns_list_referenceable before wiring ambiguous inputTemplate mappings or deciding where a manual value belongs.",
+      "Use marble_columns_list_referenceable with the current projectId before wiring ambiguous inputTemplate mappings or deciding where a manual value belongs.",
     ],
     promptSnippet:
-      "marble_columns_list_referenceable: find existing columns and whether each accepts manual input.",
+      "marble_columns_list_referenceable: find existing project columns and whether each accepts manual input.",
   },
   "pipes.create": {
     description:

@@ -4,7 +4,6 @@ import {
   type ProgramSecretConfig,
   parseProgramSecretConfig,
 } from "@marble/contracts";
-import { getErrorMessage } from "@marble/lib/result";
 import type {
   EditableProgramSecretDeclaration,
   MissingSecretConfigurationDetail,
@@ -15,6 +14,7 @@ import type {
 export const normalizeStoredProgramSecretConfig = (secretConfig: unknown) => {
   try {
     return parseProgramSecretConfig(secretConfig ?? []);
+    // harness-ignore: no-swallowed-errors -- invalid saved secret config falls back to empty requirements
   } catch {
     return [] satisfies ProgramSecretConfig;
   }
@@ -26,47 +26,10 @@ export const createEditableProgramSecretDeclarations = (
   return normalizeStoredProgramSecretConfig(secretConfig).map((secret) => ({
     description: secret.description ?? "",
     env: secret.env,
-    id: crypto.randomUUID(),
+    id: secret.env,
     label: secret.label,
     required: secret.required,
   })) satisfies EditableProgramSecretDeclaration[];
-};
-
-const serializeEditableProgramSecretConfig = (
-  secretConfigDraft: EditableProgramSecretDeclaration[],
-) => {
-  return secretConfigDraft.map((secret) => {
-    const envName = secret.env.trim();
-
-    return {
-      ...(secret.description.trim().length > 0
-        ? {
-            description: secret.description.trim(),
-          }
-        : {}),
-      env: envName,
-      label: secret.label.trim().length > 0 ? secret.label.trim() : envName,
-      required: secret.required,
-    };
-  });
-};
-
-export const getEditableProgramSecretConfigState = (
-  secretConfigDraft: EditableProgramSecretDeclaration[],
-) => {
-  try {
-    return {
-      declarations: parseProgramSecretConfig(
-        serializeEditableProgramSecretConfig(secretConfigDraft),
-      ),
-      error: null,
-    };
-  } catch (error) {
-    return {
-      declarations: [] as ProgramManifestSecretDeclaration[],
-      error: getErrorMessage(error),
-    };
-  }
 };
 
 export const getProgramSecretConfigComparisonValue = (
@@ -185,16 +148,14 @@ export const getMissingSecretConfigurationDetail = (
       typeof envName !== "string" ||
       typeof label !== "string" ||
       typeof required !== "boolean" ||
-      (bindingSource !== "column" &&
-        bindingSource !== "implicit" &&
-        bindingSource !== "program")
+      (bindingSource !== "column" && bindingSource !== "program")
     ) {
       return [];
     }
 
     return [
       {
-        bindingSource: bindingSource as "column" | "implicit" | "program",
+        bindingSource: bindingSource as "column" | "program",
         ...(typeof secretRecord.description === "string"
           ? {
               description: secretRecord.description,
@@ -230,15 +191,12 @@ export const describeProgramSecretResolution = (
     explicitSecretId === undefined
       ? null
       : (secrets.find((secret) => secret.id === explicitSecretId) ?? null);
-  const implicitSecret =
-    secrets.find((secret) => secret.name === declaration.env) ?? null;
 
   if (explicitSecretId !== undefined && explicitSecret === null) {
     return {
       badgeLabel: "Missing",
       badgeTone: "warning" as const,
       helperText: "This bound secret no longer exists.",
-      implicitSecret,
     };
   }
 
@@ -247,16 +205,6 @@ export const describeProgramSecretResolution = (
       badgeLabel: "Default",
       badgeTone: "info" as const,
       helperText: `Uses ${explicitSecret.name} by default.`,
-      implicitSecret,
-    };
-  }
-
-  if (implicitSecret) {
-    return {
-      badgeLabel: "Auto",
-      badgeTone: "success" as const,
-      helperText: `Falls back to matching secret ${implicitSecret.name}.`,
-      implicitSecret,
     };
   }
 
@@ -266,8 +214,7 @@ export const describeProgramSecretResolution = (
       ? ("warning" as const)
       : ("neutral" as const),
     helperText: declaration.required
-      ? "Required before this program can run."
-      : "Optional secret.",
-    implicitSecret,
+      ? "Choose a default secret before this program can run."
+      : "Optional secret with no default binding.",
   };
 };

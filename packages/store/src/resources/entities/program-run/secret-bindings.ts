@@ -9,11 +9,6 @@ type ExecutionSecret = {
   value: string;
 };
 
-type ExecutionSecretMetadata = Pick<
-  Tables<"secret">,
-  "category" | "id" | "name"
->;
-
 type SecretBinding = {
   envName: string;
   secretId: string;
@@ -27,30 +22,11 @@ export type ProgramSecretDeclaration = {
 };
 
 export type MissingSecretConfiguration = {
-  bindingSource: "column" | "implicit" | "program";
+  bindingSource: "column" | "program";
   description?: string;
   envName: string;
   label: string;
   required: boolean;
-};
-
-const listSecretMetadataForOwnerUserId = async (
-  supabase: SupabaseClient,
-  ownerUserId: string,
-) => {
-  const { data, error } = await supabase
-    .from("secret")
-    .select("category, id, name")
-    .eq("owner_user_id", ownerUserId)
-    .order("name", {
-      ascending: true,
-    });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []) as ExecutionSecretMetadata[];
 };
 
 const listSelectedSecretsForOwnerUserId = async (
@@ -198,50 +174,26 @@ export const resolveDeclaredEnvironmentVariables = async (
     programId: string;
   },
 ) => {
-  const declarationByEnvName = new Map(
-    options.declarations.map((declaration) => [
-      declaration.env,
-      declaration,
-    ]),
-  );
   const { bindingSourceByEnvName, selectedSecretIdByEnvName } =
     await listResolvedSecretBindings(supabase, {
       columnId: options.columnId,
       ownerUserId: options.ownerUserId,
       programId: options.programId,
     });
+  const declaredSecretIdByEnvName = new Map<string, string>();
   const missingSecrets: MissingSecretConfiguration[] = [];
 
-  if (options.declarations.length > 0) {
-    const secretMetadata = await listSecretMetadataForOwnerUserId(
-      supabase,
-      options.ownerUserId,
-    );
-    const secretIdByName = new Map(
-      secretMetadata.map((secret) => [
-        secret.name,
-        secret.id,
-      ]),
-    );
+  for (const declaration of options.declarations) {
+    const selectedSecretId = selectedSecretIdByEnvName.get(declaration.env);
 
-    for (const declaration of options.declarations) {
-      if (selectedSecretIdByEnvName.has(declaration.env)) {
-        continue;
-      }
+    if (selectedSecretId) {
+      declaredSecretIdByEnvName.set(declaration.env, selectedSecretId);
+      continue;
+    }
 
-      const implicitSecretId = secretIdByName.get(declaration.env);
-
-      if (implicitSecretId) {
-        selectedSecretIdByEnvName.set(declaration.env, implicitSecretId);
-        continue;
-      }
-
-      if (!declaration.required) {
-        continue;
-      }
-
+    if (declaration.required) {
       missingSecrets.push({
-        bindingSource: "implicit",
+        bindingSource: "program",
         ...(declaration.description === undefined
           ? {}
           : {
@@ -257,7 +209,7 @@ export const resolveDeclaredEnvironmentVariables = async (
   const resolvedSecrets = await listSelectedSecretsForOwnerUserId(
     supabase,
     options.ownerUserId,
-    Array.from(new Set(selectedSecretIdByEnvName.values())),
+    Array.from(new Set(declaredSecretIdByEnvName.values())),
   );
   const resolvedSecretValueById = new Map(
     resolvedSecrets.map((secret) => [
@@ -267,41 +219,40 @@ export const resolveDeclaredEnvironmentVariables = async (
   );
   const environmentVariables: Record<string, string> = {};
 
-  for (const [envName, secretId] of selectedSecretIdByEnvName) {
+  for (const declaration of options.declarations) {
+    const secretId = declaredSecretIdByEnvName.get(declaration.env);
+
+    if (!secretId) {
+      continue;
+    }
+
     const selectedValue = resolvedSecretValueById.get(secretId);
 
     if (selectedValue !== undefined) {
-      environmentVariables[envName] = selectedValue;
+      environmentVariables[declaration.env] = selectedValue;
       continue;
     }
 
-    const declaration = declarationByEnvName.get(envName);
-    const bindingSource = bindingSourceByEnvName.get(envName) ?? "implicit";
+    const bindingSource = bindingSourceByEnvName.get(declaration.env);
 
     if (
-      !bindingSourceByEnvName.has(envName) &&
-      declaration?.required !== true
-    ) {
-      continue;
-    }
-
-    if (
-      missingSecrets.some((missingSecret) => missingSecret.envName === envName)
+      missingSecrets.some(
+        (missingSecret) => missingSecret.envName === declaration.env,
+      )
     ) {
       continue;
     }
 
     missingSecrets.push({
-      bindingSource,
-      ...(declaration?.description === undefined
+      bindingSource: bindingSource ?? "program",
+      ...(declaration.description === undefined
         ? {}
         : {
             description: declaration.description,
           }),
-      envName,
-      label: declaration?.label ?? envName,
-      required:
-        bindingSourceByEnvName.has(envName) || declaration?.required === true,
+      envName: declaration.env,
+      label: declaration.label,
+      required: bindingSource !== undefined || declaration.required,
     });
   }
 

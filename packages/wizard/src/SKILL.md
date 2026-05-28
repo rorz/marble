@@ -27,7 +27,7 @@ If you're an agent and your human has asked you to "make me a (workflow | table 
 - Run `which marble` first.
 - If `which marble` succeeds, prefer `marble ...`.
 - If `which marble` fails, fall back to `bunx marble-cli@latest ...`.
-- Marble program runs receive provider credentials on `system.providers`.
+- Declared program secrets are injected as environment variables. Program code reads them from `process.env`.
 
 ## Marble Model
 
@@ -331,15 +331,15 @@ All non-dot files in the directory are uploaded. Filetype inference:
 ### `main.ts`
 
 - Export a default function or async function.
-- Signature: `({ system, cell, input }) => ...`
+- Signature: `({ cell, input }) => ...`
 - `cell.manualInputValue` is the raw manual cell value when manual input is enabled.
 - Return a value that matches `marbleconfig.jsonc`'s `outputConfig.schema`.
 
 Example:
 
 ```ts
-export default async function ({ system, cell, input }) {
-  const apiKey = system?.providers?.APOLLO_IO?.apiKey;
+export default async function ({ cell, input }) {
+  const apiKey = process.env.APOLLO_API_KEY;
   const raw = cell.manualInputValue ?? "";
 
   if (apiKey && input.mode === "uppercase") {
@@ -353,16 +353,10 @@ export default async function ({ system, cell, input }) {
 ### `package.json`
 
 - `name` is the program identity used by `program-dir upsert`. If a program with the same name already exists, `upsert` creates a new version on it; otherwise it creates a new program plus its initial version.
-- `marble.secrets` declares the environment variables the program needs. The Wizard will not bind any values for you — bind them with `secretBindings.setProgram` (or `setColumn`) after upsert.
 
 ```json
 {
-  "name": "Reverse String",
-  "marble": {
-    "secrets": [
-      { "env": "APOLLO_API_KEY", "label": "Apollo API key", "required": true }
-    ]
-  }
+  "name": "Reverse String"
 }
 ```
 
@@ -373,6 +367,7 @@ export default async function ({ system, cell, input }) {
 - `outputConfig.schema` is required.
 - `outputConfig.flags.allowManualInput` and `outputConfig.flags.allowInference` are optional.
 - `outputConfig.overloads` is optional.
+- `secrets` declares the environment variables the program needs as an object schema. The Wizard will not bind any values for you — bind them with `secretBindings.setProgram` (or `setColumn`) after upsert.
 
 ```json
 {
@@ -380,6 +375,16 @@ export default async function ({ system, cell, input }) {
   "outputConfig": {
     "flags": { "allowManualInput": true },
     "schema": { "type": "string" }
+  },
+  "secrets": {
+    "type": "object",
+    "properties": {
+      "APOLLO_API_KEY": {
+        "type": "string",
+        "title": "Apollo API key"
+      }
+    },
+    "required": ["APOLLO_API_KEY"]
   }
 }
 ```
@@ -525,8 +530,8 @@ When asked to create a table or workflow, break the task into composable steps.
 - If a `list` operation rejects your payload, double-check it matches the contract — most `list` payloads are tight (e.g. `{"tableId":"<id>"}`, not `{"table_id":"<id>"}`).
 - If you need to seed test values, do not try to create cells directly. Use `tables.insertRows` first, fetch the row's cells with `cells.list '{"rowId":"<id>"}'`, set manual input, then call `cells.run` per cell.
 - If `cells.run` returns success but downstream cells stay blank, check `column_dependency`, the target column's `runCondition`, and the resolved input. Marble only auto-queues dependents whose `runCondition` is `true` and whose resolved input validates.
-- If a program cannot see provider credentials, check both program-level bindings (`secretBindings.setProgram`) and any per-column overrides (`secretBindings.setColumn`).
-- If `program-dir upsert` fails on the manifest, confirm `package.json` has a non-empty `name`. If `package.json.marble.secrets` is present, confirm each entry has an `env` that is a valid shell identifier.
+- If a program cannot see a secret, confirm the env var is declared in `marbleconfig.jsonc`, then check both program-level bindings (`secretBindings.setProgram`) and any per-column overrides (`secretBindings.setColumn`).
+- If `program-dir upsert` fails on the manifest, confirm `package.json` has a non-empty `name`. If it fails on `marbleconfig.jsonc`, confirm each `secrets.properties` key is a valid shell identifier.
 - If `program-dir test` returns a non-`ok` result, inspect `error`, `errorType`, and `detail` in the response — those come straight from the executor.
 - If the repo becomes dirty during CLI-only work, move temp artifacts to `/tmp` and clean up anything you created in the workspace.
 

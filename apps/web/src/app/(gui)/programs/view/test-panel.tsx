@@ -1,12 +1,12 @@
 import { stringifyPretty } from "@marble/lib/json";
 import {
+  cx,
   MarbleAlert,
   MarbleBadge,
   MarbleButton,
   MarbleFieldLabel,
   MarbleInput,
   MarbleSelect,
-  MarbleWorkbenchResizeHandle,
   MarbleWorkbenchSection,
 } from "@marble/ui";
 import { PlayIcon } from "@phosphor-icons/react/dist/ssr";
@@ -39,11 +39,7 @@ const MissingSecretsView = ({
               {secret.envName}
             </span>
             <MarbleBadge tone="warning">
-              {secret.bindingSource === "program"
-                ? "Program"
-                : secret.bindingSource === "column"
-                  ? "Column"
-                  : "Auto"}
+              {secret.bindingSource === "program" ? "Program" : "Column"}
             </MarbleBadge>
           </div>
           <div className="mt-1 text-[11px] text-taupe-600">{secret.label}</div>
@@ -109,21 +105,13 @@ export const TestInputsPanel = ({
 }: Readonly<{
   model: ProgramEditorViewModel;
 }>) => (
-  <div className="relative mt-auto shrink-0">
-    {model.rightPanelCollapsed.testInputs ? null : (
-      <MarbleWorkbenchResizeHandle
-        active={model.activeResizePanel === "testInputs"}
-        aria-label="Resize test inputs"
-        className="absolute inset-x-0 top-0"
-        onKeyDown={model.handlePanelResizeKeyDown("testInputs")}
-        onPointerCancel={model.finishPanelResize}
-        onPointerDown={model.handlePanelResizeStart("testInputs", -1)}
-        onPointerMove={model.handlePanelResizeMove}
-        onPointerUp={model.finishPanelResize}
-        title="Resize test inputs"
-      />
-    )}
-
+  <div
+    className={
+      model.rightPanelCollapsed.testInputs
+        ? "relative shrink-0"
+        : "relative min-h-0 flex-1"
+    }
+  >
     <MarbleWorkbenchSection
       actions={
         model.selectedProgram?.firstParty ? (
@@ -144,11 +132,11 @@ export const TestInputsPanel = ({
           </MarbleBadge>
         ) : null
       }
-      bodyClassName={stackedWorkbenchBodyClassName}
-      bodyStyle={{
-        height: model.rightPanelHeights.testInputs,
-      }}
-      className="rounded-none border-x-0 border-b-0 bg-transparent shadow-none"
+      bodyClassName={`${stackedWorkbenchBodyClassName} flex-1`}
+      className={cx(
+        "rounded-none border-x-0 border-b-0 bg-transparent shadow-none",
+        model.rightPanelCollapsed.testInputs ? "" : "h-full",
+      )}
       collapsed={model.rightPanelCollapsed.testInputs}
       collapsible
       headerClassName={stackedWorkbenchHeaderClassName}

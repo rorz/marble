@@ -191,7 +191,7 @@ Allowed operations:
 
 - `create` - Create a column and materialize cells for existing rows.
 - `list` - List columns by table.
-- `listReferenceable` - List current-user columns that can be used as reference/manual input targets in GUI editors.
+- `listReferenceable` - List project-local columns that can be used as reference/manual input targets in GUI editors.
 - `get` - Read one column.
 - `update` - Update column configuration.
 - `delete` - Delete a column and its cells.

@@ -178,7 +178,9 @@ export const columnOperations = defineResourceOperations({
     },
   },
   listReferenceable: {
-    input: z.object({}).optional(),
+    input: z.object({
+      projectId: baseEntitySchema.shape.id,
+    }),
     output: z.array(
       ColumnSchema.pick({
         id: true,

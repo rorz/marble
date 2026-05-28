@@ -41,7 +41,7 @@ export const SecretOverrides = ({
         size="sm"
         tone="neutral"
       >
-        This program does not declare any named secrets.
+        This program version does not declare any secret requirements.
       </MarbleAlert>
     );
   }

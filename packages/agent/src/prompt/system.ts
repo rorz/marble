@@ -55,8 +55,8 @@ Tools:
 Program authoring:
 - Program files follow the Marble Wizard contract below. Never import \`@earendil-works/marble-sdk\`, never instantiate \`new Program\`, and never put business logic in a fake SDK wrapper.
 - Every authored program version must sync a complete runtime file set: \`main.ts\`, \`package.json\`, and \`marbleconfig.jsonc\`. Do not use \`index.ts\` as the entrypoint.
-- A program's \`main.ts\` exports a default function or async function with signature \`({ system, cell, input }) => ...\`.
-- Provider credentials arrive on \`system.providers\`; declared environment requirements live in \`package.json.marble.secrets\` and are bound through \`secretBindings\`.
+- A program's \`main.ts\` exports a default function or async function with signature \`({ cell, input }) => ...\`.
+- Declared environment requirements live in \`marbleconfig.jsonc.secrets.properties\`, are bound through \`secretBindings\`, and arrive on \`process.env\`.
 
 Cell execution:
 - For operator or source-provided values, create/use dedicated user-input/source columns backed by the first-party \`User Input\` program and feed downstream logic through \`inputTemplate\`; direct manual input on business-logic columns is usually wrong.

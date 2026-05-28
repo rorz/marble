@@ -25,6 +25,10 @@ export type CreateColumnInput = Pick<
 
 export type ListColumnsInput = Pick<Column, "tableId">;
 
+type ListReferenceableColumnsInput = {
+  projectId: string;
+};
+
 export type UpdateColumnInput = Partial<
   Pick<
     UpdateParams<"column">,
@@ -50,7 +54,7 @@ export type ColumnCollectionApi = {
   readonly delete: (input: DeleteColumnInput) => Promise<Column>;
   readonly get: (input: GetColumnInput) => Promise<Column>;
   readonly list: (input: ListColumnsInput) => Promise<Column[]>;
-  readonly listReferenceable: () => Promise<
+  readonly listReferenceable: (input: ListReferenceableColumnsInput) => Promise<
     Array<
       Pick<Column, "id" | "name" | "tableId"> & {
         allowManualInput: boolean;
@@ -193,34 +197,25 @@ export class ColumnCollection implements ColumnCollectionApi {
   public readonly list = (input: ListColumnsInput) =>
     this.deps.db.list("column", input);
 
-  public readonly listReferenceable = async () => {
-    const [projects, allProgramVersions] = await Promise.all([
-      this.deps.db.list("project"),
+  public readonly listReferenceable = async (
+    input: ListReferenceableColumnsInput,
+  ) => {
+    const [project, allProgramVersions] = await Promise.all([
+      this.deps.db.get("project", input.projectId),
       this.deps.db.list("program_version"),
     ]);
-    const tables = await Promise.all(
-      projects.map((project) =>
-        this.deps.db.list("table", {
-          projectId: project.id,
-        }),
-      ),
-    );
-    const flatTables = tables.flat();
+    const tables = await this.deps.db.list("table", {
+      projectId: project.id,
+    });
     const columns = await Promise.all(
-      flatTables.map((table) =>
+      tables.map((table) =>
         this.deps.db.list("column", {
           tableId: table.id,
         }),
       ),
     );
-    const projectById = new Map(
-      projects.map((project) => [
-        project.id,
-        project,
-      ]),
-    );
     const tableById = new Map(
-      flatTables.map((table) => [
+      tables.map((table) => [
         table.id,
         table,
       ]),
@@ -242,9 +237,8 @@ export class ColumnCollection implements ColumnCollectionApi {
 
     return columns.flat().flatMap((column) => {
       const table = tableById.get(column.tableId);
-      const project = table ? projectById.get(table.projectId) : null;
 
-      if (!table || !project) {
+      if (!table) {
         return [];
       }
 
@@ -254,7 +248,7 @@ export class ColumnCollection implements ColumnCollectionApi {
             programVersionAllowsManualInputById.get(column.programVersionId) ===
             true,
           id: column.id,
-          label: `${project.name} / ${table.name} / ${column.name}`,
+          label: `${table.name} / ${column.name}`,
           name: column.name,
           projectId: project.id,
           projectName: project.name,

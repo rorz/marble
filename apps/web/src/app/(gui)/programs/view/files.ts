@@ -91,6 +91,11 @@ export const createDefaultDraftFiles = (): EditableProgramFile[] => {
             type: "object",
           },
         },
+        secrets: {
+          properties: {},
+          required: [],
+          type: "object",
+        },
       })}\n`,
       filename: PROGRAM_CONFIG_FILENAME,
       filetype: "Json",

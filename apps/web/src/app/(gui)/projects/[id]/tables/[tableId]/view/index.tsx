@@ -84,7 +84,11 @@ const TablePageView = ({
   });
 
   const refreshReferenceColumns = async () => {
-    setReferenceColumns(await sdk.columns.listReferenceable({}));
+    setReferenceColumns(
+      await sdk.columns.listReferenceable({
+        projectId: tableRef.current.projectId,
+      }),
+    );
   };
 
   useTableRealtime({

@@ -36,6 +36,15 @@ export type MarbleContextPopoverSection = {
   label?: string;
 };
 
+type MarbleContextPopoverContentControls = {
+  closeMenu: () => void;
+  dismissMenu: () => void;
+};
+
+type MarbleContextPopoverContent =
+  | ReactNode
+  | ((controls: MarbleContextPopoverContentControls) => ReactNode);
+
 export type MarbleContextPopoverProps = {
   align?: "end" | "start";
   ariaLabel?: string;
@@ -50,7 +59,7 @@ export type MarbleContextPopoverProps = {
    * arrow-navigation between items is disabled (the consuming content
    * owns its own focus order).
    */
-  content?: ReactNode;
+  content?: MarbleContextPopoverContent;
   contentClassName?: string;
   disabled?: boolean;
   header?: ReactNode;
@@ -258,8 +267,18 @@ export const MarbleContextPopover = ({
   // Free-form content takes precedence over items/sections. The popover
   // chrome (positioning, click-outside, escape) still applies, but the
   // host owns the body markup and focus order.
+  const resolvedContent =
+    isOpen && content !== undefined
+      ? typeof content === "function"
+        ? content({
+            closeMenu,
+            dismissMenu,
+          })
+        : content
+      : null;
+
   const contentNode =
-    isOpen && portalTarget && content !== undefined
+    isOpen && portalTarget && resolvedContent !== null
       ? createPortal(
           <div
             className={cx(
@@ -277,7 +296,7 @@ export const MarbleContextPopover = ({
             tabIndex={-1}
           >
             {header ? <div className="px-3 pt-3">{header}</div> : null}
-            <div className={cx("p-3", contentClassName)}>{content}</div>
+            <div className={cx("p-3", contentClassName)}>{resolvedContent}</div>
           </div>,
           portalTarget,
         )

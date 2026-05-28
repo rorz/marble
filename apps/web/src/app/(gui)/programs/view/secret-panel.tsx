@@ -2,7 +2,6 @@ import {
   MarbleAlert,
   MarbleBadge,
   MarbleButton,
-  MarbleWorkbenchResizeHandle,
   MarbleWorkbenchSection,
 } from "@marble/ui";
 import { KeyIcon } from "@phosphor-icons/react/dist/ssr";
@@ -56,18 +55,6 @@ export const SecretsPanel = ({
   model: ProgramEditorViewModel;
 }>) => (
   <MarbleWorkbenchSection
-    actions={
-      model.canEditWorkspace ? (
-        <MarbleButton
-          onClick={model.handleAddSecretDeclaration}
-          size="xs"
-          type="button"
-          variant="light"
-        >
-          Add
-        </MarbleButton>
-      ) : null
-    }
     badge={
       model.visibleSecretDeclarations.length > 0 ? (
         <MarbleBadge
@@ -85,9 +72,6 @@ export const SecretsPanel = ({
       ) : null
     }
     bodyClassName={stackedWorkbenchBodyClassName}
-    bodyStyle={{
-      height: model.rightPanelHeights.secrets,
-    }}
     className={stackedWorkbenchSectionClassName}
     collapsed={model.rightPanelCollapsed.secrets}
     collapsible
@@ -106,83 +90,69 @@ export const SecretsPanel = ({
     }
     title="Secrets"
   >
-    <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-3 overflow-y-auto p-3">
-        <p className="text-taupe-600 text-xs leading-5">
-          Secret requirements live on the version. Program defaults apply
-          everywhere unless a column overrides them.
-        </p>
+    <div className="space-y-2.5 p-3">
+      <p className="text-taupe-600 text-xs leading-5">
+        Declared in marbleconfig.jsonc. Defaults apply unless a column overrides
+        them.
+      </p>
 
-        {!model.selectedProgram ? (
-          <MarbleAlert
-            size="sm"
-            tone="neutral"
-          >
-            Save this program once before persisting default secret bindings.
-          </MarbleAlert>
-        ) : null}
+      {!model.selectedProgram ? (
+        <MarbleAlert
+          size="sm"
+          tone="neutral"
+        >
+          Save this program once before persisting default secret bindings.
+        </MarbleAlert>
+      ) : null}
 
-        {model.visibleSecretConfigState.error ? (
-          <MarbleAlert
-            size="sm"
-            tone="warning"
-          >
-            {model.visibleSecretConfigState.error}
-          </MarbleAlert>
-        ) : null}
+      {model.visibleSecretConfigState.error ? (
+        <MarbleAlert
+          size="sm"
+          tone="warning"
+        >
+          {model.visibleSecretConfigState.error}
+        </MarbleAlert>
+      ) : null}
 
-        {model.initialSecrets.length === 0 ? (
-          <div className="rounded-xs border border-taupe-200 bg-white/80 p-3">
-            <div className="text-xs text-taupe-700">
-              No named secrets are available yet.
-            </div>
-            <div className="mt-3">
-              <MarbleButton
-                onClick={model.onOpenSecrets}
-                size="xs"
-                variant="light"
-              >
-                Open Secrets
-              </MarbleButton>
-            </div>
+      {model.initialSecrets.length === 0 ? (
+        <div className="rounded-xs border border-taupe-200 bg-white/80 p-3">
+          <div className="text-xs text-taupe-700">
+            No saved secrets are available yet.
           </div>
-        ) : null}
+          <div className="mt-3">
+            <MarbleButton
+              onClick={model.onOpenSecrets}
+              size="xs"
+              variant="light"
+            >
+              Open Secrets
+            </MarbleButton>
+          </div>
+        </div>
+      ) : null}
 
-        {model.savingProgramSecrets ? (
-          <MarbleAlert
-            size="sm"
-            tone="neutral"
-          >
-            Saving default secret bindings...
-          </MarbleAlert>
-        ) : null}
+      {model.savingProgramSecrets ? (
+        <MarbleAlert
+          size="sm"
+          tone="neutral"
+        >
+          Saving default secret bindings...
+        </MarbleAlert>
+      ) : null}
 
-        {model.visibleSecretDeclarations.length === 0 &&
-        !model.visibleSecretConfigState.error ? (
-          <p className="text-taupe-600 text-xs">
-            No secret requirements are declared for this version.
-          </p>
-        ) : null}
+      {model.visibleSecretDeclarations.length === 0 &&
+      !model.visibleSecretConfigState.error ? (
+        <p className="text-taupe-600 text-xs">No secrets are declared.</p>
+      ) : null}
 
-        {model.visibleSecretDeclarations.map((secret) => (
-          <SecretRequirementCard
-            declarationIssue={model.visibleSecretDeclarationIssues[secret.id]}
-            key={secret.id}
-            model={model}
-            secret={secret}
-          />
-        ))}
-      </div>
-      <MarbleWorkbenchResizeHandle
-        active={model.activeResizePanel === "secrets"}
-        aria-label="Resize secrets panel"
-        onKeyDown={model.handlePanelResizeKeyDown("secrets")}
-        onPointerCancel={model.finishPanelResize}
-        onPointerDown={model.handlePanelResizeStart("secrets", 1)}
-        onPointerMove={model.handlePanelResizeMove}
-        onPointerUp={model.finishPanelResize}
-        title="Resize secrets panel"
-      />
+      {model.visibleSecretDeclarations.map((secret) => (
+        <SecretRequirementCard
+          declarationIssue={model.visibleSecretDeclarationIssues[secret.id]}
+          key={secret.id}
+          model={model}
+          secret={secret}
+        />
+      ))}
     </div>
   </MarbleWorkbenchSection>
 );

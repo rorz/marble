@@ -78,7 +78,14 @@ export const validateColumnInputTemplate = ({
   referenceColumns: ReferenceableColumn[];
 }) => {
   for (const fieldValue of Object.values(fieldValues)) {
-    if (fieldValue.mode !== "static" || typeof fieldValue.value !== "string") {
+    if (fieldValue.mode === "column") {
+      if (!referenceColumns.some((column) => column.id === fieldValue.value)) {
+        return "Choose a project column for every column dependency.";
+      }
+      continue;
+    }
+
+    if (typeof fieldValue.value !== "string") {
       continue;
     }
 

@@ -117,7 +117,9 @@ export const loadTablePageDataForUser = async (
   );
   const [data, referenceColumns] = await Promise.all([
     loadTableData(resolved, programs),
-    resolved.sdk.columns.listReferenceable({}),
+    resolved.sdk.columns.listReferenceable({
+      projectId: resolved.project.id,
+    }),
   ]);
   const [secrets, programSecretBindings, columnSecretBindings] =
     await Promise.all([

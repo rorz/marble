@@ -29,7 +29,6 @@ export {
 export {
   ENVIRONMENT_VARIABLE_NAME_PATTERN,
   listProgramSecretDeclarationsFromFiles,
-  listProgramSecretDeclarationsFromManifest,
   PROGRAM_CONFIG_FILENAME,
   type ProgramConfig,
   ProgramConfigSchema,

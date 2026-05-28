@@ -5,7 +5,7 @@ import type {
 import type { z } from "zod";
 
 export type MissingSecretConfiguration = {
-  bindingSource: "column" | "implicit" | "program";
+  bindingSource: "column" | "program";
   description?: string;
   envName: string;
   label: string;
