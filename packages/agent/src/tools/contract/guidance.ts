@@ -68,9 +68,10 @@ const TOOL_PROMPT_METADATA: Record<string, ToolPromptMetadata> = {
       "Replace/sync the file set for an existing program version. This is the preferred way to write authored program code.",
     promptGuidelines: [
       "Use marble_program_files_sync_for_version to write complete program code after creating the program and version.",
+      "Authored program versions must include main.ts, package.json, and marbleconfig.jsonc. The executor imports main.ts; do not use index.ts as the entrypoint.",
     ],
     promptSnippet:
-      "marble_program_files_sync_for_version: sync authored files for an existing program version.",
+      "marble_program_files_sync_for_version: sync authored files for an existing program version; include main.ts, package.json, and marbleconfig.jsonc.",
   },
   "programs.create": {
     description:
@@ -96,11 +97,11 @@ const TOOL_PROMPT_METADATA: Record<string, ToolPromptMetadata> = {
     description:
       "Create a draft program version. Program input/output config lives in marbleconfig.jsonc, which must be synced with the source files before publishing.",
     promptGuidelines: [
-      "Use marble_program_versions_create after marble_programs_create to get a version id, then sync files including marbleconfig.jsonc with marble_program_files_sync_for_version.",
+      "Use marble_program_versions_create after marble_programs_create to get a version id, then sync files including main.ts, package.json, and marbleconfig.jsonc with marble_program_files_sync_for_version.",
       "For manual-input programs, set outputConfig.flags.allowManualInput true in marbleconfig.jsonc and read cell.manualInputValue in code.",
     ],
     promptSnippet:
-      "marble_program_versions_create: create a draft version; sync marbleconfig.jsonc and code files next.",
+      "marble_program_versions_create: create a draft version; sync main.ts, package.json, and marbleconfig.jsonc next.",
   },
   "programVersions.test": {
     description:

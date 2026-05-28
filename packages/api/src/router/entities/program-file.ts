@@ -15,7 +15,7 @@ const assertValidProgramManifest = (
   const manifestFile = files.find((file) => file.filename === "package.json");
 
   if (!manifestFile) {
-    return;
+    throw new Error("Program files must include package.json.");
   }
 
   try {
@@ -26,6 +26,16 @@ const assertValidProgramManifest = (
         ? `package.json is invalid: ${error.message}`
         : "package.json is invalid.",
     );
+  }
+};
+
+const assertRequiredRuntimeFiles = (
+  files: Array<{
+    filename: string;
+  }>,
+) => {
+  if (!files.some((file) => file.filename === "main.ts")) {
+    throw new Error("Program files must include main.ts.");
   }
 };
 
@@ -50,6 +60,7 @@ export const programFileRouter = {
   ...composeResourceRouter("programFiles"),
   syncForVersion: os.programFiles.syncForVersion.handler(
     ({ context, input }) => {
+      assertRequiredRuntimeFiles(input.files);
       assertValidProgramManifest(input.files);
       assertValidProgramConfig(input.files);
       return context.store.programFiles.syncForVersion(input);

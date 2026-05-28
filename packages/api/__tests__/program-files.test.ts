@@ -16,6 +16,21 @@ const VALID_FILE = {
   filename: "index.ts",
   filetype: "TypeScript" as const,
 };
+const VALID_CONFIG_FILE = {
+  content: '{"inputSchema":{},"outputConfig":{"schema":{"type":"string"}}}',
+  filename: "marbleconfig.jsonc",
+  filetype: "Json" as const,
+};
+const VALID_MAIN_FILE = {
+  content: "export default async function run() { return 'ok'; }",
+  filename: "main.ts",
+  filetype: "TypeScript" as const,
+};
+const VALID_PACKAGE_FILE = {
+  content: '{"name":"test-program"}',
+  filename: "package.json",
+  filetype: "Json" as const,
+};
 
 describe("programFiles.create validation", () => {
   test("rejects non-uuid versionId", async () => {
@@ -101,6 +116,42 @@ describe("programFiles.syncForVersion validation", () => {
         },
       ),
     ).rejects.toThrow();
+  });
+
+  test("rejects file sets without main.ts", async () => {
+    await expect(
+      call(
+        marbleRouter.programFiles.syncForVersion,
+        {
+          files: [
+            VALID_PACKAGE_FILE,
+            VALID_CONFIG_FILE,
+          ],
+          versionId: VALID_UUID,
+        },
+        {
+          context: createValidationContext(),
+        },
+      ),
+    ).rejects.toThrow("Program files must include main.ts.");
+  });
+
+  test("rejects file sets without package.json", async () => {
+    await expect(
+      call(
+        marbleRouter.programFiles.syncForVersion,
+        {
+          files: [
+            VALID_MAIN_FILE,
+            VALID_CONFIG_FILE,
+          ],
+          versionId: VALID_UUID,
+        },
+        {
+          context: createValidationContext(),
+        },
+      ),
+    ).rejects.toThrow("Program files must include package.json.");
   });
 });
 

@@ -54,6 +54,7 @@ Tools:
 
 Program authoring:
 - Program files follow the Marble Wizard contract below. Never import \`@earendil-works/marble-sdk\`, never instantiate \`new Program\`, and never put business logic in a fake SDK wrapper.
+- Every authored program version must sync a complete runtime file set: \`main.ts\`, \`package.json\`, and \`marbleconfig.jsonc\`. Do not use \`index.ts\` as the entrypoint.
 - A program's \`main.ts\` exports a default function or async function with signature \`({ system, cell, input }) => ...\`.
 - Provider credentials arrive on \`system.providers\`; declared environment requirements live in \`package.json.marble.secrets\` and are bound through \`secretBindings\`.
 

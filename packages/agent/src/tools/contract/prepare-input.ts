@@ -1,4 +1,4 @@
-import { stringifyJsonSafe } from "@marble/lib/json";
+import { stringifyJsonSafe, stringifyPretty } from "@marble/lib/json";
 import { isPlainRecord } from "@marble/lib/object";
 import type { DispatchTable } from "./index";
 import { findUserInputVersion } from "./user-input-program";
@@ -27,6 +27,50 @@ const parseTemplate = (value: unknown): unknown => {
 
 const stringifyTemplate = (value: unknown): string =>
   typeof value === "string" ? value : stringifyJsonSafe(value);
+
+const isProgramFileInput = (
+  file: unknown,
+): file is Record<string, unknown> & {
+  filename: string;
+} => {
+  return isPlainRecord(file) && typeof file.filename === "string";
+};
+
+const withProgramRuntimeDefaults = (files: unknown[]) => {
+  const hasMain = files.some(
+    (file) => isProgramFileInput(file) && file.filename === "main.ts",
+  );
+  const hasPackageManifest = files.some(
+    (file) => isProgramFileInput(file) && file.filename === "package.json",
+  );
+  const normalizedFiles = hasMain
+    ? files
+    : files.map((file) =>
+        isProgramFileInput(file) && file.filename === "index.ts"
+          ? {
+              ...file,
+              filename: "main.ts",
+            }
+          : file,
+      );
+
+  if (hasPackageManifest) {
+    return normalizedFiles;
+  }
+
+  return [
+    {
+      content: `${stringifyPretty({
+        dependencies: {},
+        name: "marble-program",
+        type: "module",
+      })}\n`,
+      filename: "package.json",
+      filetype: "Json",
+    },
+    ...normalizedFiles,
+  ];
+};
 
 const isUserInputTemplate = (value: unknown): boolean => {
   if (value === undefined) return true;
@@ -90,6 +134,15 @@ const prepareColumnCreateInput = async (
   };
 };
 
+const prepareProgramFilesSyncInput = (input: unknown): unknown => {
+  if (!isPlainRecord(input) || !Array.isArray(input.files)) return input;
+
+  return {
+    ...input,
+    files: withProgramRuntimeDefaults(input.files),
+  };
+};
+
 export const prepareToolCallInput = async ({
   dispatch,
   input,
@@ -97,6 +150,10 @@ export const prepareToolCallInput = async ({
 }: PrepareToolCallInput): Promise<unknown> => {
   if (operationId === "columns.create") {
     return prepareColumnCreateInput(dispatch, input);
+  }
+
+  if (operationId === "programFiles.syncForVersion") {
+    return prepareProgramFilesSyncInput(input);
   }
 
   return input;

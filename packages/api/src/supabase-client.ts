@@ -1,3 +1,4 @@
+import type { ResourceActions } from "@marble/store";
 import { MarbleStore } from "@marble/store";
 import type { SupabaseClient } from "@marble/supabase";
 import { createRouterClient } from "@orpc/server";
@@ -5,6 +6,7 @@ import type { ApiContext, ApiTimingEntry } from "./context";
 import { marbleRouter } from "./router";
 
 type SupabaseClientApiContextInput = {
+  actions?: ResourceActions;
   profileId: string;
   requestId?: string;
   serviceSupabase?: SupabaseClient;
@@ -13,6 +15,7 @@ type SupabaseClientApiContextInput = {
 };
 
 export const createSupabaseClientApiContext = ({
+  actions,
   profileId,
   requestId,
   serviceSupabase,
@@ -33,6 +36,7 @@ export const createSupabaseClientApiContext = ({
     recordTiming,
     requestId: resolvedRequestId,
     store: new MarbleStore({
+      actions,
       context: {
         eventSource: "WEB_APP",
         profileId,
@@ -70,11 +74,13 @@ const resolveSupabaseClientProfileId = async (supabase: SupabaseClient) => {
 };
 
 export const createSupabaseClientRouterClient = ({
+  actions,
   profileId: explicitProfileId,
   serviceSupabase,
   supabase,
   userId,
 }: {
+  actions?: ResourceActions;
   profileId?: string;
   serviceSupabase?: SupabaseClient;
   supabase: SupabaseClient;
@@ -93,6 +99,7 @@ export const createSupabaseClientRouterClient = ({
   return createRouterClient(marbleRouter, {
     context: async () =>
       createSupabaseClientApiContext({
+        actions,
         profileId: await getProfileId(),
         serviceSupabase,
         supabase,

@@ -9,7 +9,7 @@ export const getProgramPackageManifestState = (
 
   if (!manifestFile) {
     return {
-      error: null,
+      error: "Program files must include package.json.",
     };
   }
 

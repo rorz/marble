@@ -76,4 +76,50 @@ describe("prepareToolCallInput", () => {
       tableId: "table-id",
     });
   });
+
+  test("normalizes authored program files for runtime entrypoint expectations", async () => {
+    const prepared = await prepareToolCallInput({
+      dispatch: {},
+      input: {
+        files: [
+          {
+            content: "export default async function run() { return 'ok'; }",
+            filename: "index.ts",
+            filetype: "TypeScript",
+          },
+          {
+            content:
+              '{"inputSchema":{},"outputConfig":{"schema":{"type":"string"}}}',
+            filename: "marbleconfig.jsonc",
+            filetype: "Json",
+          },
+        ],
+        versionId: "version-id",
+      },
+      operationId: "programFiles.syncForVersion",
+    });
+
+    expect(prepared).toEqual({
+      files: [
+        {
+          content:
+            '{\n  "dependencies": {},\n  "name": "marble-program",\n  "type": "module"\n}\n',
+          filename: "package.json",
+          filetype: "Json",
+        },
+        {
+          content: "export default async function run() { return 'ok'; }",
+          filename: "main.ts",
+          filetype: "TypeScript",
+        },
+        {
+          content:
+            '{"inputSchema":{},"outputConfig":{"schema":{"type":"string"}}}',
+          filename: "marbleconfig.jsonc",
+          filetype: "Json",
+        },
+      ],
+      versionId: "version-id",
+    });
+  });
 });

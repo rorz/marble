@@ -155,6 +155,33 @@ export const usePublishRun = ({
 
     setRunning(true);
     setResult(null);
+
+    if (packageManifestError) {
+      const message = `Invalid package.json: ${packageManifestError}`;
+
+      setResult({
+        error: message,
+        ok: false,
+        output: null,
+      });
+      addLog(`✗ ${message}`);
+      setRunning(false);
+      return;
+    }
+
+    if (programConfigError) {
+      const message = `Invalid marbleconfig.jsonc: ${programConfigError}`;
+
+      setResult({
+        error: message,
+        ok: false,
+        output: null,
+      });
+      addLog(`✗ ${message}`);
+      setRunning(false);
+      return;
+    }
+
     if (viewingHistoricalVersion && selectedHistoricalVersion) {
       addLog(`ℹ Running published v${selectedHistoricalVersion.version}.`);
     } else if (draftVersion) {

@@ -69,6 +69,15 @@ export const createDefaultDraftFiles = (): EditableProgramFile[] => {
   return [
     {
       content: `${stringifyPretty({
+        dependencies: {},
+        name: "untitled-program",
+        type: "module",
+      })}\n`,
+      filename: "package.json",
+      filetype: "Json",
+    },
+    {
+      content: `${stringifyPretty({
         inputSchema: {
           properties: {
             param1: {
@@ -88,7 +97,7 @@ export const createDefaultDraftFiles = (): EditableProgramFile[] => {
     },
     {
       content:
-        "export default async function run(input) {\n  return { ok: true, value: input };\n}",
+        "export default async function run({ input }) {\n  return { ok: true, value: input };\n}",
       filename: "main.ts",
       filetype: "TypeScript",
     },
