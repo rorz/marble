@@ -250,6 +250,19 @@ export const programOperations = defineResourceOperations({
       tags,
     },
   },
+  delete: {
+    input: ProgramSchema.pick({
+      id: true,
+    }),
+    output: ProgramSchema,
+    route: {
+      method: "DELETE",
+      operationId: "programs.delete",
+      path: "/programs/{id}",
+      summary: "Delete a program",
+      tags,
+    },
+  },
   listForEditor: {
     input: z.object({}),
     output: ProgramEditorDataSchema,

@@ -21,10 +21,6 @@ export const getCellState = (cell: Cell | undefined): CellState => {
   return cell.state as CellState;
 };
 
-export const isTerminalCellState = (state: CellState) => {
-  return state?.ok === true || state?.ok === false;
-};
-
 export const isRunningCellState = (state: CellState) => {
   return state?.ok === null;
 };

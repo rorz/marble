@@ -1,7 +1,7 @@
 /**
  * Validation-layer smoke tests for `programs.*`.
  *
- * The public almanac surface is narrow: create, listForEditor, update.
+ * The public almanac surface is narrow: create, delete, listForEditor, update.
  * File and version mutations have their own resources.
  */
 
@@ -64,6 +64,30 @@ describe("programs.update validation", () => {
           context: createValidationContext(),
         },
       ),
+    ).rejects.toThrow();
+  });
+});
+
+describe("programs.delete validation", () => {
+  test("rejects non-uuid id", async () => {
+    await expect(
+      call(
+        marbleRouter.programs.delete,
+        {
+          id: INVALID_UUID,
+        },
+        {
+          context: createValidationContext(),
+        },
+      ),
+    ).rejects.toThrow();
+  });
+
+  test("rejects missing id", async () => {
+    await expect(
+      call(marbleRouter.programs.delete, {} as never, {
+        context: createValidationContext(),
+      }),
     ).rejects.toThrow();
   });
 });

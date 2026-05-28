@@ -1,5 +1,10 @@
 import { type Edge, MarkerType, type Node } from "@xyflow/react";
 import { DATE_FORMATTER, type ProjectState } from "../types";
+import {
+  buildPipeMappingNodes,
+  PIPE_MAPPING_LANE_GAP,
+  type PipeMappingNode,
+} from "./pipe-mapping";
 
 export type Source = {
   id: string;
@@ -31,7 +36,7 @@ type ResourceNodeData = {
 
 export type LaneNode = Node<LaneNodeData, "lane">;
 export type ResourceNode = Node<ResourceNodeData, "resource">;
-export type ProjectFlowNode = LaneNode | ResourceNode;
+export type ProjectFlowNode = LaneNode | PipeMappingNode | ResourceNode;
 export type ProjectFlowEdge = Edge<
   {
     pipeId: string;
@@ -43,7 +48,6 @@ const SOURCE_LANE_ID = "sources-lane";
 const TABLE_LANE_ID = "tables-lane";
 const SOURCE_LANE_WIDTH = 360;
 const TABLE_LANE_WIDTH = 760;
-const LANE_GAP = 42;
 const LANE_HEADER_HEIGHT = 72;
 const LANE_MIN_HEIGHT = 520;
 const NODE_VERTICAL_GAP = 116;
@@ -231,9 +235,11 @@ export const buildProjectFlowNodes = (
   project: ProjectState,
   sources: Source[],
   sourceEventCountBySourceId: Map<string, number>,
+  pipes: Pipe[],
+  inputColumnLabelById: ReadonlyMap<string, string>,
 ): ProjectFlowNode[] => {
   const laneHeight = buildLaneHeight(sources, project);
-  const tableLaneX = SOURCE_LANE_WIDTH + LANE_GAP;
+  const tableLaneX = SOURCE_LANE_WIDTH + PIPE_MAPPING_LANE_GAP;
 
   return [
     buildLaneNode(
@@ -253,6 +259,15 @@ export const buildProjectFlowNodes = (
       tableLaneX,
     ),
     ...buildSourceNodes(sources, sourceEventCountBySourceId),
+    ...buildPipeMappingNodes({
+      inputColumnLabelById,
+      laneHeaderHeight: LANE_HEADER_HEIGHT,
+      nodeVerticalGap: NODE_VERTICAL_GAP,
+      pipes,
+      project,
+      sourceLaneWidth: SOURCE_LANE_WIDTH,
+      sources,
+    }),
     ...buildTableNodes(project),
   ];
 };
@@ -291,6 +306,12 @@ export const buildProjectFlowEdges = (
       },
     ];
   });
+};
+
+export const isPipeMappingNode = (
+  node: ProjectFlowNode,
+): node is PipeMappingNode => {
+  return node.type === "pipeMapping";
 };
 
 export const isResourceNode = (node: ProjectFlowNode): node is ResourceNode => {

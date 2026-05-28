@@ -1,59 +1,5 @@
 import type { ResourceDeps } from "../../../db";
-
-const extractDependenciesFromTemplate = (template: string) => {
-  const sourceColumnIds = new Set<string>();
-  let parsedTemplate: unknown;
-
-  try {
-    parsedTemplate = JSON.parse(template);
-  } catch {
-    return [];
-  }
-
-  const jsonPathPattern =
-    /^\$\.columns\.([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\./;
-  const interpolationPattern =
-    /\{\{\$\.columns\.([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.[^}]+\}\}/g;
-
-  const visit = (value: unknown) => {
-    if (typeof value === "string") {
-      for (const match of value.matchAll(interpolationPattern)) {
-        sourceColumnIds.add(match[1]);
-      }
-      return;
-    }
-
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        visit(item);
-      }
-      return;
-    }
-
-    if (value && typeof value === "object") {
-      for (const [key, entry] of Object.entries(value)) {
-        if (
-          key === "$marble_ref" &&
-          Array.isArray(entry) &&
-          entry[0] === "columns"
-        ) {
-          sourceColumnIds.add(String(entry[1]));
-        } else if (key.endsWith(".$") && typeof entry === "string") {
-          const match = entry.match(jsonPathPattern);
-
-          if (match) {
-            sourceColumnIds.add(match[1]);
-          }
-        }
-
-        visit(entry);
-      }
-    }
-  };
-
-  visit(parsedTemplate);
-  return Array.from(sourceColumnIds);
-};
+import { extractColumnInputTemplateDependencies } from "./input-template";
 
 export const replaceColumnDependencies = async (
   deps: ResourceDeps,
@@ -61,7 +7,7 @@ export const replaceColumnDependencies = async (
   inputTemplate: string,
 ) => {
   const supabase = deps.serviceSupabase ?? deps.supabase;
-  const sourceColumnIds = extractDependenciesFromTemplate(inputTemplate);
+  const sourceColumnIds = extractColumnInputTemplateDependencies(inputTemplate);
   const deleteResult = await supabase
     .from("column_dependency")
     .delete()

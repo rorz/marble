@@ -9,8 +9,56 @@ import {
   Position,
 } from "@xyflow/react";
 import type { LaneNode, ResourceNode } from "./model";
+import type { PipeMappingNode } from "./pipe-mapping";
 
 const resourceHandleClass = "!size-2.5 !border-2 !border-white !bg-orange-500";
+
+const ProjectFlowPipeMappingNode = ({
+  data,
+  selected,
+}: NodeProps<PipeMappingNode>) => {
+  return (
+    <div
+      aria-label={data.mappingCountLabel}
+      className={cx(
+        "rounded-sm border bg-white/92 px-4 py-3 text-xs text-zinc-700 shadow-md shadow-zinc-950/8 inset-shadow-2xs inset-shadow-white/70 transition-colors",
+        selected
+          ? "border-orange-300 inset-ring-1 inset-ring-orange-500/30"
+          : "border-orange-200/70",
+      )}
+      role="note"
+    >
+      <div className="text-eyebrow-xs font-semibold text-orange-600">
+        {data.mappingCountLabel}
+      </div>
+
+      {data.mappingPreview.length > 0 ? (
+        <div className="mt-2 flex flex-col gap-1">
+          {data.mappingPreview.map((mapping) => (
+            <div
+              className="flex min-w-0 items-center gap-2"
+              key={`${mapping.jsonPath}:${mapping.columnId}`}
+            >
+              <span className="min-w-0 flex-1 truncate font-mono text-zinc-600">
+                {mapping.jsonPathLabel}
+              </span>
+              <span className="shrink-0 text-zinc-400">{"->"}</span>
+              <span className="min-w-0 flex-1 truncate font-medium text-zinc-950">
+                {mapping.columnLabel}
+              </span>
+            </div>
+          ))}
+
+          {data.remainingMappingCount > 0 ? (
+            <div className="font-medium text-zinc-500">
+              +{data.remainingMappingCount} more
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+};
 
 const ProjectFlowLaneNode = ({ data }: NodeProps<LaneNode>) => {
   return (
@@ -96,5 +144,6 @@ const ProjectFlowResourceNode = ({
 
 export const projectFlowNodeTypes = {
   lane: ProjectFlowLaneNode,
+  pipeMapping: ProjectFlowPipeMappingNode,
   resource: ProjectFlowResourceNode,
 } satisfies NodeTypes;

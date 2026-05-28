@@ -1496,7 +1496,27 @@ ALTER TABLE ONLY "public"."table"
 
 
 
+CREATE INDEX "cell_column_idx" ON "public"."cell" USING "btree" ("column_id");
+
+
+
+CREATE INDEX "column_dependency_source_idx" ON "public"."column_dependency" USING "btree" ("source_column_id");
+
+
+
+CREATE INDEX "column_dependency_target_idx" ON "public"."column_dependency" USING "btree" ("target_column_id");
+
+
+
+CREATE INDEX "column_program_version_idx" ON "public"."column" USING "btree" ("program_version_id");
+
+
+
 CREATE INDEX "column_secret_binding_column_idx" ON "public"."column_secret_binding" USING "btree" ("column_id");
+
+
+
+CREATE INDEX "column_secret_binding_secret_idx" ON "public"."column_secret_binding" USING "btree" ("secret_id");
 
 
 
@@ -1524,7 +1544,35 @@ CREATE INDEX "pipe_table_created_at_idx" ON "public"."pipe" USING "btree" ("tabl
 
 
 
+CREATE INDEX "program_file_version_idx" ON "public"."program_file" USING "btree" ("version_id");
+
+
+
+CREATE INDEX "program_forked_from_version_idx" ON "public"."program" USING "btree" ("forked_from_version_id");
+
+
+
+CREATE INDEX "program_run_program_version_idx" ON "public"."program_run" USING "btree" ("program_version_id");
+
+
+
+CREATE INDEX "program_run_target_cell_idx" ON "public"."program_run" USING "btree" ("target_cell_id");
+
+
+
 CREATE INDEX "program_secret_binding_owner_program_idx" ON "public"."program_secret_binding" USING "btree" ("owner_user_id", "program_id");
+
+
+
+CREATE INDEX "program_secret_binding_program_idx" ON "public"."program_secret_binding" USING "btree" ("program_id");
+
+
+
+CREATE INDEX "program_secret_binding_secret_idx" ON "public"."program_secret_binding" USING "btree" ("secret_id");
+
+
+
+CREATE INDEX "program_version_program_idx" ON "public"."program_version" USING "btree" ("program_id");
 
 
 
@@ -1683,27 +1731,27 @@ CREATE OR REPLACE TRIGGER "set_updated_at" BEFORE UPDATE ON "public"."table" FOR
 
 
 ALTER TABLE ONLY "public"."cell"
-    ADD CONSTRAINT "cell_column_id_fkey" FOREIGN KEY ("column_id") REFERENCES "public"."column"("id");
+    ADD CONSTRAINT "cell_column_id_fkey" FOREIGN KEY ("column_id") REFERENCES "public"."column"("id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."cell"
-    ADD CONSTRAINT "cell_row_id_fkey" FOREIGN KEY ("row_id") REFERENCES "public"."row"("id");
+    ADD CONSTRAINT "cell_row_id_fkey" FOREIGN KEY ("row_id") REFERENCES "public"."row"("id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."column_dependency"
-    ADD CONSTRAINT "column_dependency_source_column_id_fkey" FOREIGN KEY ("source_column_id") REFERENCES "public"."column"("id");
+    ADD CONSTRAINT "column_dependency_source_column_id_fkey" FOREIGN KEY ("source_column_id") REFERENCES "public"."column"("id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."column_dependency"
-    ADD CONSTRAINT "column_dependency_target_column_id_fkey" FOREIGN KEY ("target_column_id") REFERENCES "public"."column"("id");
+    ADD CONSTRAINT "column_dependency_target_column_id_fkey" FOREIGN KEY ("target_column_id") REFERENCES "public"."column"("id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."column"
-    ADD CONSTRAINT "column_program_version_id_fkey" FOREIGN KEY ("program_version_id") REFERENCES "public"."program_version"("id");
+    ADD CONSTRAINT "column_program_version_id_fkey" FOREIGN KEY ("program_version_id") REFERENCES "public"."program_version"("id") ON DELETE CASCADE;
 
 
 
@@ -1718,7 +1766,7 @@ ALTER TABLE ONLY "public"."column_secret_binding"
 
 
 ALTER TABLE ONLY "public"."column"
-    ADD CONSTRAINT "column_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "public"."table"("id");
+    ADD CONSTRAINT "column_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "public"."table"("id") ON DELETE CASCADE;
 
 
 
@@ -1743,7 +1791,7 @@ ALTER TABLE ONLY "public"."pipe"
 
 
 ALTER TABLE ONLY "public"."program"
-    ADD CONSTRAINT "fk_program_forked_from" FOREIGN KEY ("forked_from_version_id") REFERENCES "public"."program_version"("id");
+    ADD CONSTRAINT "fk_program_forked_from" FOREIGN KEY ("forked_from_version_id") REFERENCES "public"."program_version"("id") ON DELETE SET NULL;
 
 
 
@@ -1763,7 +1811,7 @@ ALTER TABLE ONLY "public"."program_file"
 
 
 ALTER TABLE ONLY "public"."program_file"
-    ADD CONSTRAINT "program_file_version_id_fkey" FOREIGN KEY ("version_id") REFERENCES "public"."program_version"("id");
+    ADD CONSTRAINT "program_file_version_id_fkey" FOREIGN KEY ("version_id") REFERENCES "public"."program_version"("id") ON DELETE CASCADE;
 
 
 
@@ -1773,12 +1821,12 @@ ALTER TABLE ONLY "public"."program"
 
 
 ALTER TABLE ONLY "public"."program_run"
-    ADD CONSTRAINT "program_run_program_version_id_fkey" FOREIGN KEY ("program_version_id") REFERENCES "public"."program_version"("id");
+    ADD CONSTRAINT "program_run_program_version_id_fkey" FOREIGN KEY ("program_version_id") REFERENCES "public"."program_version"("id") ON DELETE CASCADE;
 
 
 
 ALTER TABLE ONLY "public"."program_run"
-    ADD CONSTRAINT "program_run_target_cell_id_fkey" FOREIGN KEY ("target_cell_id") REFERENCES "public"."cell"("id");
+    ADD CONSTRAINT "program_run_target_cell_id_fkey" FOREIGN KEY ("target_cell_id") REFERENCES "public"."cell"("id") ON DELETE CASCADE;
 
 
 
@@ -1798,7 +1846,7 @@ ALTER TABLE ONLY "public"."program_secret_binding"
 
 
 ALTER TABLE ONLY "public"."program_version"
-    ADD CONSTRAINT "program_version_program_id_fkey" FOREIGN KEY ("program_id") REFERENCES "public"."program"("id");
+    ADD CONSTRAINT "program_version_program_id_fkey" FOREIGN KEY ("program_id") REFERENCES "public"."program"("id") ON DELETE CASCADE;
 
 
 
@@ -1823,7 +1871,7 @@ ALTER TABLE ONLY "public"."source"
 
 
 ALTER TABLE ONLY "public"."row"
-    ADD CONSTRAINT "row_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "public"."table"("id");
+    ADD CONSTRAINT "row_table_id_fkey" FOREIGN KEY ("table_id") REFERENCES "public"."table"("id") ON DELETE CASCADE;
 
 
 
@@ -1838,7 +1886,7 @@ ALTER TABLE ONLY "public"."secret"
 
 
 ALTER TABLE ONLY "public"."table"
-    ADD CONSTRAINT "table_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."project"("id");
+    ADD CONSTRAINT "table_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "public"."project"("id") ON DELETE CASCADE;
 
 
 

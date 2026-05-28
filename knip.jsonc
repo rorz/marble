@@ -40,8 +40,17 @@
     "packages/api": {
       "entry": ["__tests__/**/*.test.ts"]
     },
+    "packages/contracts": {
+      "entry": ["__tests__/**/*.test.ts"]
+    },
     "packages/lib": {
       "entry": ["**/*.test.ts"]
+    },
+    "packages/store": {
+      "entry": ["__tests__/**/*.test.ts"]
+    },
+    "supabase": {
+      "entry": ["__tests__/**/*.test.ts"]
     }
   }
 }

@@ -141,6 +141,7 @@ Allowed operations:
 - `create` - Create a user-owned program, optionally with an initial draft version.
 - `listForEditor` - List first-party programs and programs owned by the current user, including versions and files needed by the program and table-column editors.
 - `update` - Rename a user-owned program.
+- `delete` - Delete a user-owned program and its owned versions, files, runs, and bindings.
 
 Program lifecycle stays separate from file editing. Do not hide program-file mutations inside program or version array patches.
 

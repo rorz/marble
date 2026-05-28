@@ -47,7 +47,6 @@ export const useTableRecords = (initialTablePageData: InitialTablePageData) => {
   columnsRef.current = columns;
   const rowsRef = useRef(rows);
   rowsRef.current = rows;
-  const runningCellIdsRef = useRef(new Set<string>());
   const mergeTable = useCallback((patch: Partial<TableInfo>) => {
     setTable((current) => ({
       ...current,
@@ -201,7 +200,6 @@ export const useTableRecords = (initialTablePageData: InitialTablePageData) => {
   }, []);
   const markCellAsRunning = useCallback(
     (cellId: string, manualInput?: string) => {
-      runningCellIdsRef.current.add(cellId);
       patchLocalCell(cellId, {
         ...(manualInput === undefined
           ? {}
@@ -219,7 +217,6 @@ export const useTableRecords = (initialTablePageData: InitialTablePageData) => {
   );
   const applyRunOutputToCell = useCallback(
     (cellId: string, output: unknown, manualInput?: string) => {
-      runningCellIdsRef.current.delete(cellId);
       patchLocalCell(cellId, {
         ...(manualInput === undefined
           ? {}
@@ -235,7 +232,6 @@ export const useTableRecords = (initialTablePageData: InitialTablePageData) => {
   );
   const applyClientErrorToCell = useCallback(
     (cellId: string, message: string, manualInput?: string) => {
-      runningCellIdsRef.current.delete(cellId);
       patchLocalCell(cellId, {
         ...(manualInput === undefined
           ? {}
@@ -288,7 +284,6 @@ export const useTableRecords = (initialTablePageData: InitialTablePageData) => {
     rowsRef,
     runLog,
     runLogSheetOpen,
-    runningCellIdsRef,
     selectedTableId,
     setCells,
     setColumnSecretBindings,

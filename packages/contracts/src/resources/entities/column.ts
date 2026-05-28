@@ -9,6 +9,13 @@ const tags = [
   "Columns",
 ] as const;
 
+const COLUMN_ID_PATTERN =
+  "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}";
+const COLUMN_SHORTHAND_REFERENCE_PATTERN = new RegExp(
+  `^col\\.(${COLUMN_ID_PATTERN})((?:[.\\[].*?)?)$`,
+  "i",
+);
+
 const ColumnSchema = z.object({
   ...baseEntitySchema.shape,
   idx: z.number().int().nonnegative(),
@@ -38,23 +45,39 @@ export const resolveColumnOutputSchema = (
   return matchingOverload?.schema ?? outputConfig.schema;
 };
 
+const normalizeColumnReferencePath = (reference: string): string | null => {
+  const trimmed = reference.trim();
+  if (trimmed.startsWith("$.")) return trimmed;
+
+  const shorthandMatch = trimmed.match(COLUMN_SHORTHAND_REFERENCE_PATTERN);
+  if (!shorthandMatch) return null;
+
+  return `$.columns.${shorthandMatch[1]}.value${shorthandMatch[2] ?? ""}`;
+};
+
 export const resolveColumnConfig = (
   config: JsonValue,
   rowContext: Record<string, JsonValue>,
 ): JsonValue => {
   if (config === null || typeof config !== "object") {
     if (typeof config === "string") {
-      const exactMatch = config.match(/^\{\{(\$\.[^}]+)\}\}$/);
+      const exactMatch = config.match(/^\{\{([^}]+)\}\}$/);
 
       if (exactMatch) {
-        return JSONPath({
-          json: rowContext,
-          path: exactMatch[1],
-          wrap: false,
-        }) as JsonValue;
+        const path = normalizeColumnReferencePath(exactMatch[1]);
+        if (path) {
+          return JSONPath({
+            json: rowContext,
+            path,
+            wrap: false,
+          }) as JsonValue;
+        }
       }
 
-      return config.replace(/\{\{(\$\.[^}]+)\}\}/g, (_, path) => {
+      return config.replace(/\{\{([^}]+)\}\}/g, (match, reference) => {
+        const path = normalizeColumnReferencePath(reference);
+        if (!path) return match;
+
         const value = JSONPath({
           json: rowContext,
           path,

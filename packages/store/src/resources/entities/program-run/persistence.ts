@@ -121,24 +121,27 @@ export const createPendingForCellIds = async (
   });
 };
 
-export const persistFailure = async (
+export const persistFailureForCellRun = async (
   supabase: SupabaseClient,
-  run: StoredProgramRun,
-  failState: JsonValue,
+  input: {
+    cellId: string;
+    failState: JsonValue;
+    runId: string;
+  },
 ) => {
   const results = await Promise.all([
     supabase
       .from("cell")
       .update({
-        state: failState as Json,
+        state: input.failState as Json,
       })
-      .eq("id", run.target_cell_id),
+      .eq("id", input.cellId),
     supabase
       .from("program_run")
       .update({
-        output: failState as Json,
+        output: input.failState as Json,
       })
-      .eq("id", run.id),
+      .eq("id", input.runId),
   ]);
 
   for (const result of results) {
@@ -146,6 +149,18 @@ export const persistFailure = async (
       throw new Error(result.error.message);
     }
   }
+};
+
+export const persistFailure = async (
+  supabase: SupabaseClient,
+  run: StoredProgramRun,
+  failState: JsonValue,
+) => {
+  return persistFailureForCellRun(supabase, {
+    cellId: run.target_cell_id,
+    failState,
+    runId: run.id,
+  });
 };
 
 export const persistSuccess = async (

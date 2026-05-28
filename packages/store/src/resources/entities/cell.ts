@@ -1,8 +1,10 @@
+import { getErrorMessage } from "@marble/lib/result";
 import type { Json } from "@marble/supabase";
 import type { ResourceDeps } from "../../db";
 import type { CellRunInput, CellRunResult, Entity } from "../../types";
 import { requireProfileId } from "../../types";
 import { requireServiceSupabase } from "../require-deps";
+import { persistFailureForCellRun } from "./program-run/persistence";
 
 export type Cell = Entity<"cell">;
 
@@ -43,6 +45,43 @@ const toCellRunResult = (
     runId,
     success: payload.success === true,
   };
+};
+
+const createExecutorDispatchFailureState = (
+  message: string,
+  detail?: Json,
+): Json => ({
+  error: {
+    type: "ExecutorDispatch",
+    ...(detail === undefined
+      ? {}
+      : {
+          detail,
+        }),
+  },
+  message,
+  ok: false,
+});
+
+const persistExecutorDispatchFailure = async (
+  supabase: ReturnType<typeof requireServiceSupabase>,
+  input: {
+    cellId: string;
+    detail?: Json;
+    message: string;
+    runId: string;
+  },
+) => {
+  const failState = createExecutorDispatchFailureState(
+    input.message,
+    input.detail,
+  );
+
+  await persistFailureForCellRun(supabase, {
+    cellId: input.cellId,
+    failState,
+    runId: input.runId,
+  });
 };
 
 export class CellCollection implements CellCollectionApi {
@@ -134,12 +173,39 @@ export class CellCollection implements CellCollectionApi {
       throw new Error(runError?.message ?? "Could not create program run.");
     }
 
-    const { payload, status } = await this.deps.actions.executeProgramRun({
-      runId: run.id,
-    });
+    let executorResult: Awaited<
+      ReturnType<NonNullable<ResourceDeps["actions"]["executeProgramRun"]>>
+    >;
+
+    try {
+      executorResult = await this.deps.actions.executeProgramRun({
+        runId: run.id,
+      });
+    } catch (error) {
+      const message = getErrorMessage(error, "Executor dispatch failed.");
+      await persistExecutorDispatchFailure(supabase, {
+        cellId: id,
+        message,
+        runId: run.id,
+      });
+      throw new Error(message, {
+        cause: error,
+      });
+    }
+
+    const { payload, status } = executorResult;
 
     if (status >= 400 && !(status === 500 && payload.success === false)) {
-      throw new Error(payloadString(payload, "message") ?? "Cell run failed.");
+      const message = payloadString(payload, "message") ?? "Cell run failed.";
+      await persistExecutorDispatchFailure(supabase, {
+        cellId: id,
+        detail: {
+          status,
+        },
+        message,
+        runId: run.id,
+      });
+      throw new Error(message);
     }
 
     return toCellRunResult(id, run.id, payload);

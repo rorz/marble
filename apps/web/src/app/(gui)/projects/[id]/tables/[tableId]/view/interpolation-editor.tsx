@@ -36,9 +36,11 @@ export const InterpolationEditor = ({
             ? [
                 column.label,
                 column.name,
+                `col.${column.id}`,
               ]
             : [
                 column.label,
+                `col.${column.id}`,
               ],
         ),
       ),
@@ -57,7 +59,8 @@ export const InterpolationEditor = ({
             alias: "keyword",
             // Match the column name component (which may include spaces)
             // It stops at the first unescaped dot, square bracket, or the opening/closing braces.
-            pattern: /^([^{}.[\]]+)/,
+            pattern:
+              /^col\.[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|^([^{}.[\]]+)/i,
           },
           "col-path": {
             alias: "property",

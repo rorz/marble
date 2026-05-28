@@ -18,6 +18,7 @@ import type { ProjectState } from "../types";
 import {
   buildProjectFlowEdges,
   buildProjectFlowNodes,
+  isPipeMappingNode,
   isResourceNode,
   type Pipe,
   type ProjectFlowEdge,
@@ -31,6 +32,7 @@ type ProjectFlowDiagramProps = {
   creatingPipe: boolean;
   creatingSource: boolean;
   creatingTable: boolean;
+  inputColumnLabelById: Map<string, string>;
   onCreatePipe: () => void;
   onCreateSource: () => void;
   onCreateTable: () => void;
@@ -47,6 +49,7 @@ export const ProjectFlowDiagram = ({
   creatingPipe,
   creatingSource,
   creatingTable,
+  inputColumnLabelById,
   onCreatePipe,
   onCreateSource,
   onCreateTable,
@@ -59,8 +62,17 @@ export const ProjectFlowDiagram = ({
   sources,
 }: ProjectFlowDiagramProps) => {
   const nodes = useMemo(
-    () => buildProjectFlowNodes(project, sources, sourceEventCountBySourceId),
+    () =>
+      buildProjectFlowNodes(
+        project,
+        sources,
+        sourceEventCountBySourceId,
+        pipes,
+        inputColumnLabelById,
+      ),
     [
+      inputColumnLabelById,
+      pipes,
       project,
       sourceEventCountBySourceId,
       sources,
@@ -76,6 +88,11 @@ export const ProjectFlowDiagram = ({
   );
 
   const handleNodeClick: NodeMouseHandler<ProjectFlowNode> = (_event, node) => {
+    if (isPipeMappingNode(node)) {
+      onSelectPipe(node.data.pipeId);
+      return;
+    }
+
     if (!isResourceNode(node) || !node.data.entityId) {
       return;
     }

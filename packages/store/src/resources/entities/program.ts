@@ -29,6 +29,8 @@ export type CreateProgramInput = Pick<Program, "name"> & {
   };
 };
 
+type DeleteProgramInput = Pick<Program, "id">;
+
 type UpdateProgramInput = Partial<Pick<Program, "name">>;
 
 type UpdateProgramParams = Pick<Program, "id"> & {
@@ -37,6 +39,7 @@ type UpdateProgramParams = Pick<Program, "id"> & {
 
 export type ProgramCollectionApi = {
   readonly create: (input: CreateProgramInput) => Promise<CreatedProgram>;
+  readonly delete: (input: DeleteProgramInput) => Promise<Program>;
   readonly listForEditor: () => Promise<ProgramEditorData>;
   readonly update: (input: UpdateProgramParams) => Promise<Program>;
 };
@@ -58,6 +61,17 @@ export class ProgramCollection implements ProgramCollectionApi {
 
   private readonly listVisibleProfileIds = () =>
     listOwnedProfileIds(this.deps, "Program");
+
+  private readonly requireOwnedProgram = async (id: string) => {
+    const profileIds = await this.listVisibleProfileIds();
+    const existing = await this.getProgram(id);
+
+    if (existing.firstParty || !profileIds.includes(existing.ownerProfileId)) {
+      throw new Error("Program not found.");
+    }
+
+    return existing;
+  };
 
   private readonly getProgram = async (id: string) => {
     const { data, error } = await requireServiceSupabase(this.deps, "Program")
@@ -112,6 +126,20 @@ export class ProgramCollection implements ProgramCollectionApi {
       ...(await this.getProgram(program.id)),
       initialVersion,
     };
+  };
+
+  public readonly delete = async ({ id }: DeleteProgramInput) => {
+    const existing = await this.requireOwnedProgram(id);
+    const { error } = await requireServiceSupabase(this.deps, "Program")
+      .from("program")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return existing;
   };
 
   public readonly listForEditor = async () => {
@@ -197,12 +225,7 @@ export class ProgramCollection implements ProgramCollectionApi {
 
   public readonly update = async ({ id, values }: UpdateProgramParams) => {
     const supabase = requireServiceSupabase(this.deps, "Program");
-    const profileIds = await this.listVisibleProfileIds();
-    const existing = await this.getProgram(id);
-
-    if (existing.firstParty || !profileIds.includes(existing.ownerProfileId)) {
-      throw new Error("Program not found.");
-    }
+    await this.requireOwnedProgram(id);
 
     const { error } = await supabase
       .from("program")

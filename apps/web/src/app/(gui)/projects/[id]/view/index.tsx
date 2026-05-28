@@ -201,6 +201,7 @@ export const ProjectPageView = ({
             creatingPipe={creatingPipe}
             creatingSource={creatingSource}
             creatingTable={creatingTable}
+            inputColumnLabelById={inputColumnLabelById}
             onCreatePipe={() => void actions.handleCreatePipe()}
             onCreateSource={() => void actions.handleCreateSource()}
             onCreateTable={() => void actions.handleCreateTable()}

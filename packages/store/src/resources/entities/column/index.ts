@@ -11,6 +11,7 @@ import {
   deleteColumnDependencies,
   replaceColumnDependencies,
 } from "./dependency";
+import { normalizeColumnInputTemplate } from "./input-template";
 
 export type Column = Entity<"column">;
 
@@ -102,6 +103,7 @@ export class ColumnCollection implements ColumnCollectionApi {
   public constructor(private readonly deps: ResourceDeps) {}
 
   public readonly create = async (input: CreateColumnInput) => {
+    const inputTemplate = normalizeColumnInputTemplate(input.inputTemplate);
     const programConfig = await loadColumnProgramConfig(
       this.deps,
       input.programVersionId,
@@ -121,7 +123,7 @@ export class ColumnCollection implements ColumnCollectionApi {
       )?.idx ?? -1) + 1;
     const column = await this.deps.db.insert("column", {
       idx,
-      inputTemplate: input.inputTemplate,
+      inputTemplate,
       name: input.name,
       outputSchema: asJson(
         input.outputSchema ?? getProgramConfigOutputSchema(programConfig),
@@ -142,7 +144,7 @@ export class ColumnCollection implements ColumnCollectionApi {
         }),
       ),
     );
-    await replaceColumnDependencies(this.deps, column.id, input.inputTemplate);
+    await replaceColumnDependencies(this.deps, column.id, inputTemplate);
 
     return column;
   };
@@ -264,32 +266,39 @@ export class ColumnCollection implements ColumnCollectionApi {
   };
 
   public readonly update = async ({ id, values }: UpdateColumnParams) => {
+    const nextValues: UpdateColumnInput =
+      values.inputTemplate === undefined
+        ? values
+        : {
+            ...values,
+            inputTemplate: normalizeColumnInputTemplate(values.inputTemplate),
+          };
     const programConfig =
-      values.programVersionId === undefined
+      nextValues.programVersionId === undefined
         ? null
-        : await loadColumnProgramConfig(this.deps, values.programVersionId);
+        : await loadColumnProgramConfig(this.deps, nextValues.programVersionId);
     const nextOutputSchema =
-      values.outputSchema !== undefined
-        ? values.outputSchema
+      nextValues.outputSchema !== undefined
+        ? nextValues.outputSchema
         : programConfig
           ? getProgramConfigOutputSchema(programConfig)
           : undefined;
     const column = await this.deps.db.update("column", id, {
-      ...values,
+      ...nextValues,
       ...(nextOutputSchema === undefined
         ? {}
         : {
             outputSchema: asJson(nextOutputSchema),
           }),
-      ...(values.runCondition === undefined
+      ...(nextValues.runCondition === undefined
         ? {}
         : {
-            runCondition: asJson(values.runCondition),
+            runCondition: asJson(nextValues.runCondition),
           }),
     });
 
-    if (values.inputTemplate !== undefined) {
-      await replaceColumnDependencies(this.deps, id, values.inputTemplate);
+    if (nextValues.inputTemplate !== undefined) {
+      await replaceColumnDependencies(this.deps, id, nextValues.inputTemplate);
     }
 
     return column;

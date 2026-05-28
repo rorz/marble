@@ -7,6 +7,11 @@ import type {
   SecretRecord,
 } from "./types";
 
+const COLUMN_ID_TOKEN_PATTERN =
+  /^col\.([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})((?:(?:\.|\[).*?)?)$/i;
+const COLUMN_SHORTHAND_INTERPOLATION_PATTERN =
+  /\{\{\s*col\.([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})((?:(?:\.|\[).*?)?)\s*\}\}/gi;
+
 export const buildFieldsFromSchema = (
   schema: Record<string, unknown>,
 ): SchemaField[] => {
@@ -140,7 +145,8 @@ export const coerceFieldValue = (
       if (trimmed === "") return {};
       try {
         return JSON.parse(trimmed);
-      } catch {
+      } catch (error) {
+        void error;
         return {};
       }
     case "number":
@@ -152,7 +158,8 @@ export const coerceFieldValue = (
       if (trimmed === "") return [];
       try {
         return JSON.parse(trimmed);
-      } catch {
+      } catch (error) {
+        void error;
         return [];
       }
     default:
@@ -165,6 +172,20 @@ export const resolveReferenceColumnToken = (
   referenceColumns: ReferenceableColumn[],
   currentTableId?: string,
 ) => {
+  const trimmedToken = token.trim();
+  const idMatch = trimmedToken.match(COLUMN_ID_TOKEN_PATTERN);
+  if (idMatch) {
+    const column =
+      referenceColumns.find((candidate) => candidate.id === idMatch[1]) ?? null;
+
+    return column
+      ? {
+          column,
+          restPath: idMatch[2] ?? "",
+        }
+      : null;
+  }
+
   const sortedColumns = [
     ...referenceColumns,
   ].sort(
@@ -185,13 +206,13 @@ export const resolveReferenceColumnToken = (
 
     for (const alias of aliases) {
       if (
-        token === alias ||
-        token.startsWith(`${alias}.`) ||
-        token.startsWith(`${alias}[`)
+        trimmedToken === alias ||
+        trimmedToken.startsWith(`${alias}.`) ||
+        trimmedToken.startsWith(`${alias}[`)
       ) {
         return {
           column,
-          restPath: token.slice(alias.length),
+          restPath: trimmedToken.slice(alias.length),
         };
       }
     }
@@ -214,7 +235,8 @@ export const parseTemplateToFieldValues = (
   let template: Record<string, unknown> = {};
   try {
     template = JSON.parse(templateJson);
-  } catch {
+  } catch (error) {
+    void error;
     template = {};
   }
 
@@ -238,6 +260,14 @@ export const parseTemplateToFieldValues = (
         };
         continue;
       }
+      const shorthandMatch = ref.match(COLUMN_ID_TOKEN_PATTERN);
+      if (shorthandMatch) {
+        result[field.key] = {
+          mode: "column",
+          value: shorthandMatch[1],
+        };
+        continue;
+      }
     }
     if (field.key in template) {
       const val = template[field.key];
@@ -246,6 +276,14 @@ export const parseTemplateToFieldValues = (
       // Reverse interpolation tags: {{$.columns.<id>.value.foo}} -> {{Column Name.foo}}
       strVal = strVal.replace(
         /\{\{\$\.columns\.([a-f0-9-]+)\.value([^}]*)\}\}/g,
+        (match, id, restPath) => {
+          const col = referenceColumns.find((candidate) => candidate.id === id);
+          if (col) return `{{${col.label}${restPath}}}`;
+          return match;
+        },
+      );
+      strVal = strVal.replace(
+        COLUMN_SHORTHAND_INTERPOLATION_PATTERN,
         (match, id, restPath) => {
           const col = referenceColumns.find((candidate) => candidate.id === id);
           if (col) return `{{${col.label}${restPath}}}`;

@@ -9,7 +9,7 @@ import {
   normalizeBroadcastRow,
   normalizeBroadcastTablePatch,
 } from "./broadcast";
-import { getCellState, isRunningCellState, isTerminalCellState } from "./cell";
+import { getCellState, isRunningCellState } from "./cell";
 import { isTableMutation } from "./constants";
 import type { Cell, Program, TableInfo, TableMutation } from "./types";
 
@@ -30,7 +30,6 @@ type UseTableRealtimeInput = {
   programs: Program[];
   removeLocalColumn: (columnId: string) => void;
   removeLocalRow: (rowId: string) => void;
-  runningCellIdsRef: MutableReference<Set<string>>;
   selectedTableId: string;
   setCells: Dispatch<SetStateAction<Cell[]>>;
   upsertLocalCells: (cells: Cell[]) => void;
@@ -47,7 +46,6 @@ export const useTableRealtime = ({
   programs,
   removeLocalColumn,
   removeLocalRow,
-  runningCellIdsRef,
   selectedTableId,
   setCells,
   upsertLocalCells,
@@ -71,7 +69,6 @@ export const useTableRealtime = ({
 
     pending.inserts.delete(cell.id);
     pending.updates.delete(cell.id);
-    runningCellIdsRef.current.add(cell.id);
     upsertLocalCells([
       {
         ...cell,
@@ -84,10 +81,6 @@ export const useTableRealtime = ({
   };
 
   const queueSettledCellMutation = (cell: Cell) => {
-    if (isTerminalCellState(getCellState(cell))) {
-      runningCellIdsRef.current.delete(cell.id);
-    }
-
     const existing = cellsRef.current.some((current) => current.id === cell.id);
 
     if (existing) {
