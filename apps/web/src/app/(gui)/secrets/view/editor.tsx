@@ -3,7 +3,6 @@
 import {
   cx,
   MarbleAlert,
-  MarbleBadge,
   MarbleButton,
   MarbleCard,
   MarbleCardContent,
@@ -15,6 +14,7 @@ import {
 } from "@marble/ui";
 import { TrashIcon } from "@phosphor-icons/react";
 import type { SecretRecord } from "../actions";
+import { getSecretCategoryCopy } from "./category";
 
 export const SecretEditor = ({
   creating,
@@ -39,6 +39,11 @@ export const SecretEditor = ({
   pending: boolean;
   selectedSecret: SecretRecord | null;
 }) => {
+  const selectedSecretCategoryCopy = selectedSecret
+    ? getSecretCategoryCopy(selectedSecret.category)
+    : null;
+  const canSave = creating || Boolean(selectedSecret);
+
   return (
     <MarbleCard
       className="min-h-[32rem]"
@@ -82,22 +87,12 @@ export const SecretEditor = ({
           />
         </MarbleField>
 
-        {selectedSecret && !creating ? (
+        {selectedSecretCategoryCopy?.detailDescription && !creating ? (
           <MarbleAlert
             size="sm"
             tone="neutral"
           >
-            <div className="flex items-center justify-between gap-3">
-              <span>Category</span>
-              <MarbleBadge
-                caps
-                tone={
-                  selectedSecret.category === "Managed" ? "warning" : "neutral"
-                }
-              >
-                {selectedSecret.category}
-              </MarbleBadge>
-            </div>
+            {selectedSecretCategoryCopy.detailDescription}
           </MarbleAlert>
         ) : null}
 
@@ -115,7 +110,7 @@ export const SecretEditor = ({
 
         <MarbleButton
           className={cx("min-w-32")}
-          disabled={pending}
+          disabled={pending || !canSave}
           onClick={onSave}
           variant="orange"
         >

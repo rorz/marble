@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  MarbleBadge,
   MarbleCard,
   MarbleCardContent,
   MarbleCardHeader,
@@ -11,6 +10,7 @@ import {
 } from "@marble/ui";
 import { KeyIcon, PlusIcon } from "@phosphor-icons/react";
 import type { SecretRecord } from "../actions";
+import { getSecretCategoryCopy } from "./category";
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
@@ -56,34 +56,26 @@ export const SecretList = ({
           </div>
         ) : (
           <div className="overflow-hidden rounded-b-[inherit] border-t border-taupe-200">
-            {secrets.map((secret) => (
-              <MarbleListRow
-                active={!creating && selectedSecretId === secret.id}
-                align="start"
-                description={
-                  <div className="space-y-1">
-                    <div className="text-[11px] text-zinc-400">
-                      Updated{" "}
-                      {DATE_TIME_FORMATTER.format(new Date(secret.updatedAt))}
-                    </div>
-                  </div>
-                }
-                icon={<KeyIcon size={16} />}
-                iconTone="neutral"
-                key={secret.id}
-                meta={
-                  <MarbleBadge
-                    caps
-                    tone={secret.category === "Managed" ? "warning" : "neutral"}
-                  >
-                    {secret.category === "Managed" ? "Managed" : "User"}
-                  </MarbleBadge>
-                }
-                onClick={() => onSelect(secret.id)}
-                title={secret.name}
-                tone="orange"
-              />
-            ))}
+            {secrets.map((secret) => {
+              const categoryCopy = getSecretCategoryCopy(secret.category);
+              const updatedAt = DATE_TIME_FORMATTER.format(
+                new Date(secret.updatedAt),
+              );
+
+              return (
+                <MarbleListRow
+                  active={!creating && selectedSecretId === secret.id}
+                  align="start"
+                  description={`${categoryCopy.rowDescription} - Updated ${updatedAt}`}
+                  icon={<KeyIcon size={16} />}
+                  iconTone="neutral"
+                  key={secret.id}
+                  onClick={() => onSelect(secret.id)}
+                  title={secret.name}
+                  tone="orange"
+                />
+              );
+            })}
           </div>
         )}
       </MarbleCardContent>

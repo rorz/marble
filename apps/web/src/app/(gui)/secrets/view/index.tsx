@@ -33,10 +33,8 @@ export const SecretsPageView = ({
 }) => {
   const sdk = useMarbleWebSessionSdk();
   const [secrets, setSecrets] = useState(() => sortSecrets(initialSecrets));
-  const [selectedSecretId, setSelectedSecretId] = useState<string | null>(
-    initialSecrets[0]?.id ?? null,
-  );
-  const [creating, setCreating] = useState(initialSecrets.length === 0);
+  const [selectedSecretId, setSelectedSecretId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(true);
   const [draftName, setDraftName] = useState("");
   const [draftValue, setDraftValue] = useState("");
   const [pending, setPending] = useState(false);
@@ -80,6 +78,9 @@ export const SecretsPageView = ({
   const handleStartCreate = () => {
     setCreating(true);
     setSelectedSecretId(null);
+    setDraftName("");
+    setDraftValue("");
+    setFormError(null);
   };
 
   const handleSelect = (secretId: string) => {
@@ -116,8 +117,10 @@ export const SecretsPageView = ({
             ...current,
           ]),
         );
-        setCreating(false);
-        setSelectedSecretId(created.id);
+        setCreating(true);
+        setSelectedSecretId(null);
+        setDraftName("");
+        setDraftValue("");
         marbleToast.success("Secret saved");
         return;
       }
@@ -195,8 +198,8 @@ export const SecretsPageView = ({
       );
 
       setSecrets(remainingSecrets);
-      setSelectedSecretId(remainingSecrets[0]?.id ?? null);
-      setCreating(remainingSecrets.length === 0);
+      setSelectedSecretId(null);
+      setCreating(true);
       marbleToast.success("Secret deleted");
     } catch (error) {
       setFormError(getErrorMessage(error));
