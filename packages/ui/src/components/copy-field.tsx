@@ -10,6 +10,7 @@ export type MarbleCopyFieldProps = Omit<
 > & {
   copiedLabel?: string;
   copyLabel?: string;
+  display?: "block" | "field";
   emptyLabel?: string;
   label: string;
   onCopy?: (value: string) => Promise<void> | void;
@@ -39,6 +40,7 @@ export const MarbleCopyField = ({
   copiedLabel = "Copied",
   copyLabel = "Copy",
   disabled = false,
+  display = "field",
   emptyLabel = "Not available",
   label,
   onCopy,
@@ -69,15 +71,19 @@ export const MarbleCopyField = ({
       await writeClipboardText(value);
       await onCopy?.(value);
       setCopied(true);
-    } catch {
+    } catch (error) {
+      console.error("Failed to copy value to clipboard.", error);
       setCopied(false);
     }
   };
 
+  const blockDisplay = display === "block";
+
   return (
     <button
       className={cx(
-        "group/copy-field flex w-full min-w-0 cursor-pointer flex-col gap-2 rounded-xs border border-taupe-200 bg-white/80 px-3 py-3 text-left transition-colors hover:border-taupe-300 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50",
+        "group/copy-field flex w-full min-w-0 cursor-pointer flex-col rounded-xs border border-taupe-200 bg-white/80 text-left transition-colors hover:border-taupe-300 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-50",
+        blockDisplay ? "overflow-hidden" : "gap-2 px-3 py-3",
         className,
       )}
       disabled={disabled || !hasValue}
@@ -85,11 +91,18 @@ export const MarbleCopyField = ({
       type="button"
       {...props}
     >
-      <span className="flex min-w-0 items-center justify-between gap-3">
-        <span className="min-w-0 truncate font-medium text-[10px] text-zinc-500 uppercase tracking-wider">
+      <span
+        className={cx(
+          "flex min-w-0 items-center justify-between gap-3",
+          blockDisplay
+            ? "border-taupe-200 border-b bg-taupe-50/80 px-3 py-2"
+            : "",
+        )}
+      >
+        <span className="min-w-0 truncate font-medium text-eyebrow-xs text-zinc-500">
           {label}
         </span>
-        <span className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-[4px] bg-taupe-100 px-1.5 py-0.5 font-medium text-[10px] text-taupe-700 transition-colors group-hover/copy-field:bg-taupe-200">
+        <span className="inline-flex shrink-0 cursor-pointer items-center gap-1 rounded-xs bg-taupe-100 px-1.5 py-0.5 font-medium text-eyebrow-xs text-taupe-700 transition-colors group-hover/copy-field:bg-taupe-200">
           <CopyIcon
             aria-hidden="true"
             size={11}
@@ -100,7 +113,10 @@ export const MarbleCopyField = ({
       </span>
       <span
         className={cx(
-          "min-w-0 cursor-text select-text break-all font-mono text-xs leading-5",
+          "min-w-0 cursor-text select-text font-mono text-xs leading-5",
+          blockDisplay
+            ? "block max-h-40 overflow-y-auto overflow-x-hidden whitespace-pre-wrap break-words px-3 py-3"
+            : "break-all",
           hasValue ? "text-zinc-950" : "text-zinc-400",
         )}
       >
