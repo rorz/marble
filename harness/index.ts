@@ -28,6 +28,7 @@ const CHECKS = [
   "agent-routes",
   "catalog",
   "almanac",
+  "wizard-skill",
   "handlers",
   "exports",
   "showcase",

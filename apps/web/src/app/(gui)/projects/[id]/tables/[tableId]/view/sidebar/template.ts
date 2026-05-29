@@ -1,9 +1,33 @@
+import { getProgramInputSchema } from "../cell";
 import {
+  buildFieldsFromSchema,
   coerceFieldValue,
+  parseTemplateToFieldValues,
   resolveReferenceColumnToken,
 } from "../schema-fields";
-import type { ReferenceableColumn } from "../types";
+import type { Column, Program, ReferenceableColumn } from "../types";
 import type { ColumnFieldValues, ColumnInputField } from "./types";
+
+type ColumnDraft = {
+  fieldValues: ColumnFieldValues;
+  name: string;
+  programId: string;
+  runConditionEnabled: boolean;
+  secretBindings: Record<string, string>;
+};
+
+export const getLatestPublishedProgramVersion = (
+  program: Program | undefined,
+) => {
+  return program?.programVersions?.length
+    ? ([
+        ...program.programVersions,
+      ]
+        .filter((version) => version.version !== null)
+        .sort((left, right) => (right.version ?? 0) - (left.version ?? 0))[0] ??
+        null)
+    : null;
+};
 
 export const buildDefaultFieldValues = (fields: ColumnInputField[]) => {
   const defaults: ColumnFieldValues = {};
@@ -16,6 +40,64 @@ export const buildDefaultFieldValues = (fields: ColumnInputField[]) => {
   }
 
   return defaults;
+};
+
+export const buildProgramInputFields = ({
+  programId,
+  programs,
+}: {
+  programId: string;
+  programs: Program[];
+}) => {
+  const program = programs.find((entry) => entry.id === programId);
+  const version = getLatestPublishedProgramVersion(program);
+  const schema = getProgramInputSchema(version);
+
+  return schema ? buildFieldsFromSchema(schema) : [];
+};
+
+export const buildProgramDefaultFieldValues = ({
+  programId,
+  programs,
+}: {
+  programId: string;
+  programs: Program[];
+}) =>
+  buildDefaultFieldValues(
+    buildProgramInputFields({
+      programId,
+      programs,
+    }),
+  );
+
+export const buildColumnDraft = ({
+  column,
+  columnSecretBindings,
+  programs,
+  referenceColumns,
+}: {
+  column: Column;
+  columnSecretBindings: Record<string, string>;
+  programs: Program[];
+  referenceColumns: ReferenceableColumn[];
+}): ColumnDraft => {
+  const programId = column.programVersion?.programId ?? "";
+  const fields = buildProgramInputFields({
+    programId,
+    programs,
+  });
+
+  return {
+    fieldValues: parseTemplateToFieldValues(
+      column.inputTemplate ?? "{}",
+      fields,
+      referenceColumns,
+    ),
+    name: column.name,
+    programId,
+    runConditionEnabled: column.runCondition === true,
+    secretBindings: columnSecretBindings,
+  };
 };
 
 export const buildColumnInputTemplate = ({
@@ -33,7 +115,8 @@ export const buildColumnInputTemplate = ({
 
   for (const [key, fieldValue] of Object.entries(fieldValues)) {
     if (fieldValue.mode === "column") {
-      template[`${key}.$`] = `$.columns.${fieldValue.value}.value`;
+      template[`${key}.$`] =
+        `$.columns.${fieldValue.value}.value${fieldValue.path ?? ""}`;
       continue;
     }
 

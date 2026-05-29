@@ -79,7 +79,7 @@ const TablePageView = ({
   const sdk = useMarbleSdk({
     profileId: table.projectOwnerProfileId,
   });
-  const runSdk = useMarbleWebSessionSdk({
+  const webSessionSdk = useMarbleWebSessionSdk({
     profileId: table.projectOwnerProfileId,
   });
 
@@ -131,7 +131,7 @@ const TablePageView = ({
     gridRef,
     markCellAsRunning,
     rowsRef,
-    runSdk,
+    runSdk: webSessionSdk,
     sdk,
     selectedTableId,
     setColumns,
@@ -156,6 +156,7 @@ const TablePageView = ({
     refreshReferenceColumns,
     runCell,
     sdk,
+    secretBindingSdk: webSessionSdk,
     selectedTableId,
     setColumnSecretBindings,
     setSidebarMode,

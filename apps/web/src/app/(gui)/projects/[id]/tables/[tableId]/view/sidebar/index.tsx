@@ -3,13 +3,9 @@
 import { getErrorMessage } from "@marble/lib/result";
 import { MarbleAlert } from "@marble/ui";
 import { XIcon } from "@phosphor-icons/react";
-import { useEffect, useRef, useState } from "react";
-import { getProgramInputSchema, getProgramOutputConfig } from "../cell";
-import {
-  buildFieldsFromSchema,
-  parseTemplateToFieldValues,
-  secretBindingMapToEntries,
-} from "../schema-fields";
+import { useEffect, useState } from "react";
+import { getProgramOutputConfig } from "../cell";
+import { secretBindingMapToEntries } from "../schema-fields";
 import type {
   Column,
   ColumnSecretBindingMap,
@@ -25,8 +21,11 @@ import { SidebarFooter } from "./footer";
 import { InputTemplate } from "./input-template";
 import { SecretOverrides } from "./secret-overrides";
 import {
+  buildColumnDraft,
   buildColumnInputTemplate,
-  buildDefaultFieldValues,
+  buildProgramDefaultFieldValues,
+  buildProgramInputFields,
+  getLatestPublishedProgramVersion,
   validateColumnInputTemplate,
 } from "./template";
 import type { ColumnFieldValues } from "./types";
@@ -85,49 +84,36 @@ export const ColumnSidebar = ({
     mode.kind === "edit"
       ? (columns.find((column) => column.id === mode.columnId) ?? null)
       : null;
-  const initFieldValues = (): ColumnFieldValues => {
-    if (!editingColumn) {
-      return {};
-    }
-
-    const programVersion = programs.find(
-      (program) => program.id === editingColumn.programVersion?.programId,
-    )?.programVersions?.[0];
-
-    if (!programVersion) {
-      return {};
-    }
-
-    const schema = getProgramInputSchema(programVersion);
-    const fields = schema ? buildFieldsFromSchema(schema) : [];
-    return parseTemplateToFieldValues(
-      editingColumn.inputTemplate ?? "{}",
-      fields,
-      referenceColumns,
-    );
-  };
-  const [name, setName] = useState(editingColumn?.name ?? "");
-  const [programId, setProgramId] = useState(
-    editingColumn?.programVersion?.programId ?? "",
-  );
+  const editingColumnSecretBindings = editingColumn
+    ? columnSecretBindings[editingColumn.id]
+    : undefined;
+  const initialDraft = editingColumn
+    ? buildColumnDraft({
+        column: editingColumn,
+        columnSecretBindings: editingColumnSecretBindings ?? {},
+        programs,
+        referenceColumns,
+      })
+    : null;
+  const [name, setName] = useState(initialDraft?.name ?? "");
+  const [programId, setProgramId] = useState(initialDraft?.programId ?? "");
   const [runConditionEnabled, setRunConditionEnabled] = useState(
-    editingColumn?.runCondition === true,
+    initialDraft?.runConditionEnabled ?? false,
   );
   const [secretBindings, setSecretBindings] = useState<Record<string, string>>(
-    () => (editingColumn ? (columnSecretBindings[editingColumn.id] ?? {}) : {}),
+    () => initialDraft?.secretBindings ?? {},
   );
-  const [fieldValues, setFieldValues] = useState(initFieldValues);
+  const [fieldValues, setFieldValues] = useState<ColumnFieldValues>(
+    initialDraft?.fieldValues ?? {},
+  );
   const [saveError, setSaveError] = useState<null | string>(null);
   const [saving, setSaving] = useState(false);
-  const initialProgramId = useRef(programId);
   const selectedProgram = programs.find((program) => program.id === programId);
-  const latestVersion = selectedProgram?.programVersions?.length
-    ? (selectedProgram.programVersions
-        .filter((version) => version.version !== null)
-        .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0] ?? null)
-    : null;
-  const selectedSchema = getProgramInputSchema(latestVersion);
-  const fields = selectedSchema ? buildFieldsFromSchema(selectedSchema) : [];
+  const latestVersion = getLatestPublishedProgramVersion(selectedProgram);
+  const fields = buildProgramInputFields({
+    programId,
+    programs,
+  });
   const selectedProgramSecretDeclarations =
     programSecretDeclarations[programId] ?? [];
   const hasManualInput = (() => {
@@ -140,40 +126,48 @@ export const ColumnSidebar = ({
   })();
 
   useEffect(() => {
-    if (programId === initialProgramId.current) {
+    if (!editingColumn) {
       return;
     }
 
-    initialProgramId.current = programId;
-    const program = programs.find((entry) => entry.id === programId);
+    const draft = buildColumnDraft({
+      column: editingColumn,
+      columnSecretBindings: editingColumnSecretBindings ?? {},
+      programs,
+      referenceColumns,
+    });
 
-    if (!program) {
-      setFieldValues({});
-      return;
-    }
+    setName(draft.name);
+    setProgramId(draft.programId);
+    setRunConditionEnabled(draft.runConditionEnabled);
+    setSecretBindings(draft.secretBindings);
+    setFieldValues(draft.fieldValues);
+    setSaveError(null);
+  }, [
+    editingColumn,
+    editingColumnSecretBindings,
+    programs,
+    referenceColumns,
+  ]);
 
-    const version = program.programVersions?.length
-      ? (program.programVersions
-          .filter((entry) => entry.version !== null)
-          .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))[0] ?? null)
-      : null;
-    const schema = getProgramInputSchema(version);
-    const fields = schema ? buildFieldsFromSchema(schema) : [];
-    setFieldValues(buildDefaultFieldValues(fields));
+  const handleProgramIdChange = (nextProgramId: string) => {
+    const nextDeclarations = programSecretDeclarations[nextProgramId] ?? [];
+
+    setProgramId(nextProgramId);
+    setFieldValues(
+      buildProgramDefaultFieldValues({
+        programId: nextProgramId,
+        programs,
+      }),
+    );
     setSecretBindings((current) =>
       Object.fromEntries(
         Object.entries(current).filter(([envName]) =>
-          selectedProgramSecretDeclarations.some(
-            (declaration) => declaration.env === envName,
-          ),
+          nextDeclarations.some((declaration) => declaration.env === envName),
         ),
       ),
     );
-  }, [
-    programId,
-    programs,
-    selectedProgramSecretDeclarations,
-  ]);
+  };
 
   const buildTemplate = () =>
     buildColumnInputTemplate({
@@ -264,7 +258,7 @@ export const ColumnSidebar = ({
             hasManualInput={hasManualInput}
             name={name}
             onNameChange={setName}
-            onProgramIdChange={setProgramId}
+            onProgramIdChange={handleProgramIdChange}
             onRunConditionEnabledChange={setRunConditionEnabled}
             programId={programId}
             programs={programs}

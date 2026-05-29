@@ -1,4 +1,3 @@
-import { COL_REF_PATTERN } from "./constants";
 import type {
   ProgramSecretDeclarationsByProgramId,
   ReferenceableColumn,
@@ -9,6 +8,8 @@ import type {
 
 const COLUMN_ID_TOKEN_PATTERN =
   /^col\.([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})((?:(?:\.|\[).*?)?)$/i;
+const COLUMN_VALUE_REF_PATTERN =
+  /^\$\.columns\.([a-f0-9-]+)\.value((?:(?:\.|\[).*?)?)$/i;
 const COLUMN_SHORTHAND_INTERPOLATION_PATTERN =
   /\{\{\s*col\.([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})((?:(?:\.|\[).*?)?)\s*\}\}/gi;
 
@@ -218,6 +219,7 @@ export const parseTemplateToFieldValues = (
   string,
   {
     mode: "static" | "column";
+    path?: string;
     value: string;
   }
 > => {
@@ -233,6 +235,7 @@ export const parseTemplateToFieldValues = (
     string,
     {
       mode: "static" | "column";
+      path?: string;
       value: string;
     }
   > = {};
@@ -240,19 +243,23 @@ export const parseTemplateToFieldValues = (
   for (const field of fields) {
     const dynamicKey = `${field.key}.$`;
     if (dynamicKey in template) {
-      const ref = template[dynamicKey] as string;
-      const match = ref.match(COL_REF_PATTERN);
+      const ref = template[dynamicKey];
+      const match =
+        typeof ref === "string" ? ref.match(COLUMN_VALUE_REF_PATTERN) : null;
       if (match) {
         result[field.key] = {
           mode: "column",
+          path: match[2] || undefined,
           value: match[1],
         };
         continue;
       }
-      const shorthandMatch = ref.match(COLUMN_ID_TOKEN_PATTERN);
+      const shorthandMatch =
+        typeof ref === "string" ? ref.match(COLUMN_ID_TOKEN_PATTERN) : null;
       if (shorthandMatch) {
         result[field.key] = {
           mode: "column",
+          path: shorthandMatch[2] || undefined,
           value: shorthandMatch[1],
         };
         continue;

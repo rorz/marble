@@ -14,6 +14,7 @@ type ColumnDependencySelectProps = {
   columns: ReferenceableColumn[];
   currentTableId: string;
   onChange: (value: string) => void;
+  path?: string;
   value: string;
 };
 
@@ -139,17 +140,21 @@ const ColumnDependencySelect = ({
   columns,
   currentTableId,
   onChange,
+  path,
   value,
 }: ColumnDependencySelectProps) => {
   const selectedColumn = columns.find((column) => column.id === value) ?? null;
   const sections = buildColumnDependencyTableSections(columns, currentTableId);
+  const selectedLabel = selectedColumn
+    ? `${selectedColumn.label}${path ?? ""}`
+    : null;
 
   return (
     <MarbleContextPopover
       align="start"
       ariaLabel={
-        selectedColumn
-          ? `Dependency column: ${selectedColumn.label}`
+        selectedLabel
+          ? `Dependency column: ${selectedLabel}`
           : "Pick a dependency column"
       }
       asChild
@@ -178,7 +183,7 @@ const ColumnDependencySelect = ({
         type="button"
       >
         <span className="min-w-0 flex-1 truncate text-xs font-medium">
-          {selectedColumn?.label ?? "Pick a column..."}
+          {selectedLabel ?? "Pick a column..."}
         </span>
         <CaretDownIcon
           className="shrink-0 text-taupe-400"
@@ -324,10 +329,11 @@ export const InputTemplate = ({
                 currentTableId={currentTableId}
                 onChange={(value) =>
                   updateFieldValue(field.key, {
-                    ...fieldValue,
+                    mode: "column",
                     value,
                   })
                 }
+                path={fieldValue.path}
                 value={fieldValue.value}
               />
             )}

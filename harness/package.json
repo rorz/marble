@@ -1,6 +1,7 @@
 {
   "dependencies": {
-    "@marble/contracts": "workspace:*"
+    "@marble/contracts": "workspace:*",
+    "@marble/wizard": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:base",

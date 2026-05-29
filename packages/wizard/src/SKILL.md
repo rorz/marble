@@ -77,8 +77,8 @@ If an operation accepts no input (or all its input fields are optional), call it
 
 ```sh
 marble projects getMostRecentProject
-marble sidebar getData
 marble programs listForEditor
+marble events listForCurrentUser
 ```
 
 ### Examples
@@ -111,31 +111,33 @@ marble describe <resource> <operation>  # operation route + full input/output JS
 
 ## Operation Catalogue
 
-This is the same surface as `@marble/sdk` and `@marble/contracts`. The CLI does not add or remove operations.
+This list is **generated** from `marbleCliContract` in `@marble/contracts` — the exact contract the CLI builds its commands from and that `marble describe` enumerates. The CLI does not add or remove operations. Do not edit the block below by hand; regenerate it with `bun run --filter @marble/wizard sync:skill`. The harness check `wizard-skill` fails the build if it drifts (or if any example calls an operation that doesn't exist).
 
+<!-- catalogue:start -->
 - `cells`: `get`, `list`, `run`, `setManualValue`
 - `columns`: `create`, `delete`, `get`, `list`, `listReferenceable`, `update`
 - `events`: `listForCurrentUser`, `resolveTargets`
 - `keys`: `create`, `list`, `revoke`
 - `pipes`: `create`, `delete`, `get`, `list`, `update`
-- `profiles`: `create`, `delete`, `get`, `list`, `update`
+- `profiles`: `get`, `list`, `update`
 - `programFiles`: `create`, `delete`, `get`, `list`, `syncForVersion`, `update`
-- `programs`: `create`, `listForEditor`, `update`
+- `programs`: `create`, `delete`, `listForEditor`, `update`
 - `programVersions`: `create`, `test`, `update`
 - `projects`: `create`, `delete`, `get`, `getMostRecentProject`, `list`, `update`
 - `rows`: `delete`, `get`, `list`, `update`
 - `secretBindings`: `listColumns`, `listPrograms`, `setColumn`, `setProgram`
 - `secrets`: `create`, `delete`, `get`, `list`, `update`
-- `sidebar`: `getData`
 - `sourceEvents`: `create`, `get`, `list`
 - `sources`: `create`, `delete`, `get`, `list`, `update`
 - `tables`: `create`, `delete`, `get`, `insertRows`, `list`, `update`
+<!-- catalogue:end -->
 
-Plus the filesystem helper:
+Plus two CLI-only commands that are not contract pass-throughs:
 
-- `program-dir`: `upsert <dir>`, `test <dir> [json]`
+- `describe`: `marble describe [resource [operation]]` — schema introspection.
+- `program-dir`: `upsert <dir>`, `test <dir> [json]` — filesystem affordance.
 
-If an operation is not in this catalogue, the CLI cannot perform it. To add one, add it to the contract first (see `docs/internal/data-interface-definitions.md` in the Marble codebase).
+If an operation is not in this catalogue, the CLI cannot perform it. To add one, change the contract first (see `docs/internal/data-interface-definitions.md` in the Marble codebase); the catalogue and the CLI both follow automatically.
 
 ## Operations You Will Use Most
 
@@ -169,7 +171,7 @@ marble tables delete '{"id":"<tableId>"}'
 ```sh
 marble columns create '{"tableId":"<tableId>","name":"Person Name","programVersionId":"<versionId>","inputTemplate":"{}","outputSchema":{"type":"string"}}'
 marble columns list '{"tableId":"<tableId>"}'
-marble columns listReferenceable
+marble columns listReferenceable '{"projectId":"<projectId>"}'
 marble columns get '{"id":"<columnId>"}'
 marble columns update '{"id":"<columnId>","values":{"name":"Full Name"}}'
 marble columns delete '{"id":"<columnId>"}'
@@ -212,15 +214,21 @@ marble cells run '{"id":"<cellId>","manualInput":"Ada Lovelace"}'
 - `cells.run` runs one cell. To run many cells, call `cells.run` once per cell ID. Marble batches compatible cells server-side.
 - There is no `cells.create` or `cells.delete`. Cells are materialized by `tables.insertRows` and `columns.create`, and removed by parent deletes.
 
+Two things about the cell record that trip agents up:
+
+- **Manual input is named differently across surfaces.** The cell _record_ (from `cells.get` / `cells.list`) exposes the stored value as `manualInput` (`string | null`), and `cells.run` takes a `manualInput` override. Inside program code at runtime the same value is `cell.manualInputValue`. Same data, two names — don't assume the API field is `manualInputValue`.
+- **`cell.state` is untyped JSON, not a status envelope.** The contract types `state` as arbitrary JSON: it is `null` before a run, or a value like `{ "ok": true, "value": ... }` after. There is no `state.type` / `state.status` field — don't reach for one. To judge run outcome, read the structured `{ error, message, output }` returned by `cells.run`, and treat a non-null `state` as "has executed".
+
 ### Programs
 
 ```sh
 marble programs listForEditor
 marble programs create '{"name":"Reverse String"}'
 marble programs update '{"id":"<programId>","values":{"name":"Reverse String v2"}}'
+marble programs delete '{"id":"<programId>"}'
 ```
 
-The `programs` contract does not include delete or get-by-id — use `listForEditor` and filter by ID. Use `program-dir upsert` to sync a local directory to a program.
+The `programs` contract has no get-by-id and no plain `list` — use `listForEditor` and filter by ID. Be aware `listForEditor` is a firehose: it returns **every** program, **every** version, and the **full source** of every program file. For a quick inventory, project down to what you need, e.g. `marble programs listForEditor | jq '.programs | map({id, name})'`. Use `program-dir upsert` to sync a local directory to a program.
 
 ### Program Versions
 
@@ -263,6 +271,11 @@ marble pipes update '{"id":"<pipeId>","values":{"mappings":[{"columnId":"<column
 marble pipes delete '{"id":"<pipeId>"}'
 ```
 
+> [!WARNING]
+> `sources.list` and `sources.get` return the source's `webhookToken` in plaintext — it is the bearer secret for posting events to that source. Treat it like a credential: never echo it into a summary, log, or chat message. When you only need metadata, project it out, e.g. `marble sources list '{"projectId":"<projectId>"}' | jq 'map(del(.webhookToken))'`.
+
+The CLI has no projection or redaction flags. Inspection reads expose raw material by default — `cells.get` returns manual input and `state`, `programs.listForEditor` returns full source. When you surface inspection output, drop sensitive fields yourself with `jq` first.
+
 ### Secrets And Secret Bindings
 
 ```sh
@@ -281,15 +294,13 @@ marble secretBindings setColumn '{"columnId":"<columnId>","bindings":[{"envName"
 
 `secrets.create` and `secrets.update` are the only places plaintext values appear. Reads return metadata only.
 
-### Profiles, Keys, Events, Sidebar
+### Profiles, Keys, Events
 
 ```sh
 marble profiles list
 marble profiles list '{"type":"Agent"}'
 marble profiles get '{"id":"<profileId>"}'
-marble profiles create '{"name":"My Agent","type":"Agent"}'
 marble profiles update '{"id":"<profileId>","values":{"name":"My Agent v2"}}'
-marble profiles delete '{"id":"<profileId>"}'
 
 marble keys create '{"ownerProfileId":"<profileId>"}'
 marble keys list
@@ -299,11 +310,9 @@ marble keys revoke '{"id":"<keyId>"}'
 marble events listForCurrentUser
 marble events listForCurrentUser '{"limit":50,"excludeSources":["RAW_API"]}'
 marble events resolveTargets '{"columnIds":["<columnId>"],"rowIds":["<rowId>"]}'
-
-marble sidebar getData
 ```
 
-`keys.create` returns the one-time token in the response — capture it immediately, it is never returned again.
+`profiles` is read/update only — there is **no** `profiles.create` or `profiles.delete` on the CLI contract. `keys.create` returns the one-time token in the response — capture it immediately, it is never returned again.
 
 ## Program Directory Helper
 
@@ -427,6 +436,11 @@ Inline interpolation:
 ```
 
 Manual-input-only columns can use `{}` and read `cell.manualInputValue` directly.
+
+Shorthand and legacy forms:
+
+- A `col.<columnId>` shorthand is accepted and **auto-normalized** to the canonical `$.columns.<columnId>.value` form on write — both in `.$` mapping keys (`"personName.$": "col.<columnId>"`) and inside `{{ col.<columnId> }}` interpolation. Either form is fine to author; storage settles on the canonical one.
+- Any **other** form is not a resolver. In particular the old `"${<columnId>.output}"` style is **not** recognized — it is stored verbatim as a literal string and silently fails to resolve. If you see it on a legacy column, rewrite it to `$.columns.<columnId>.value`. "Wired" (a value is stored) and "resolvable" (the resolver understands it) are not the same thing — when in doubt, confirm the dependency wired up with `marble columns get` and check the resolved input after a run.
 
 Because the contract treats `inputTemplate` as a string, you have to escape it when embedding inside the outer JSON payload:
 

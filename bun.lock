@@ -93,6 +93,7 @@
       "version": "1.0.0",
       "dependencies": {
         "@marble/contracts": "workspace:*",
+        "@marble/wizard": "workspace:*",
       },
       "devDependencies": {
         "@types/node": "catalog:base",
@@ -255,6 +256,9 @@
     "packages/wizard": {
       "name": "@marble/wizard",
       "version": "1.0.0",
+      "dependencies": {
+        "@marble/contracts": "workspace:*",
+      },
       "devDependencies": {
         "typescript": "catalog:base",
       },

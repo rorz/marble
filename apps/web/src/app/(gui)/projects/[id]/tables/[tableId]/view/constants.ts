@@ -7,8 +7,6 @@ export const DATE_FORMATTER = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
 });
 
-export const COL_REF_PATTERN = /^\$\.columns\.([a-f0-9-]+)\./;
-
 const tableMutationTypes = {
   "cell:delete": true,
   "cell:upsert": true,

@@ -46,6 +46,7 @@ type UseColumnControlsInput = {
   programs: Program[];
   refreshReferenceColumns: () => Promise<void>;
   runCell: (columnId: string, rowId: string) => void;
+  secretBindingSdk: MarbleClient;
   sdk: MarbleClient;
   selectedTableId: string;
   setColumnSecretBindings: Dispatch<SetStateAction<ColumnSecretBindingMap>>;
@@ -61,6 +62,7 @@ export const useColumnControls = ({
   programs,
   refreshReferenceColumns,
   runCell,
+  secretBindingSdk,
   sdk,
   selectedTableId,
   setColumnSecretBindings,
@@ -122,7 +124,7 @@ export const useColumnControls = ({
 
       if (input.secretBindings) {
         const savedBindings = await updateColumnSecretBindings(
-          sdk,
+          secretBindingSdk,
           input.columnId,
           input.secretBindings,
         );
