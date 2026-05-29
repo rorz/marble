@@ -92,13 +92,15 @@ export const executeProgram = async (
   environmentVariables: Record<string, string>,
 ) => {
   const inputAsBase64 = toBase64(JSON.stringify(input));
-  const command = `bun run .marble/executor.ts --inputAsBase64 ${inputAsBase64}`;
   const session = await sandbox.createSession({
     cwd: "/workspace",
-    env: environmentVariables,
+    env: {
+      ...environmentVariables,
+      MARBLE_INPUT_B64: inputAsBase64,
+    },
   });
 
-  const result = await session.exec(command);
+  const result = await session.exec("bun run .marble/executor.ts");
   await sandbox.deleteSession(session.id);
 
   return result;
@@ -117,13 +119,15 @@ export const executeProgramBatch = async (
       })),
     ),
   );
-  const command = `bun run .marble/batch-executor.ts --jobsAsBase64 ${jobsAsBase64}`;
   const session = await sandbox.createSession({
     cwd: "/workspace",
-    env: environmentVariables,
+    env: {
+      ...environmentVariables,
+      MARBLE_JOBS_B64: jobsAsBase64,
+    },
   });
 
-  const result = await session.exec(command);
+  const result = await session.exec("bun run .marble/batch-executor.ts");
   await sandbox.deleteSession(session.id);
 
   return result;

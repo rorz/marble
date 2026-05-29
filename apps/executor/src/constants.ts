@@ -24,22 +24,15 @@ const parseBase64Json = (value) => {
 `.trim();
 
 export const EXECUTOR_FILE_CONTENT = `
-import { parseArgs } from "util";
 import main from "../main.ts";
 
 ${SERIALIZE_ERROR_HELPER}
 ${PARSE_BASE64_JSON_HELPER}
 
-const { values: { inputAsBase64 } } = parseArgs({
-  args: Bun.argv,
-  options: {
-    inputAsBase64: {
-      type: "string"
-    }
-  },
-  strict: true,
-  allowPositionals: true,
-});
+const inputAsBase64 = process.env.MARBLE_INPUT_B64;
+if (!inputAsBase64) {
+  throw new Error("MARBLE_INPUT_B64 is not set");
+}
 
 const input = parseBase64Json(inputAsBase64);
 
@@ -53,22 +46,15 @@ try {
 `.trim();
 
 export const BATCH_EXECUTOR_FILE_CONTENT = `
-import { parseArgs } from "util";
 import main from "../main.ts";
 
 ${SERIALIZE_ERROR_HELPER}
 ${PARSE_BASE64_JSON_HELPER}
 
-const { values: { jobsAsBase64 } } = parseArgs({
-  args: Bun.argv,
-  options: {
-    jobsAsBase64: {
-      type: "string"
-    }
-  },
-  strict: true,
-  allowPositionals: true,
-});
+const jobsAsBase64 = process.env.MARBLE_JOBS_B64;
+if (!jobsAsBase64) {
+  throw new Error("MARBLE_JOBS_B64 is not set");
+}
 
 const jobs = parseBase64Json(jobsAsBase64);
 const results = [];

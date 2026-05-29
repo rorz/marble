@@ -64,8 +64,16 @@ export const consumeQueue = async (batch: MessageBatch<unknown>, env: Env) => {
       await processQueuedSourceEvent(env, input);
       message.ack();
     } catch (error) {
-      console.error("Failed to process source ingest message", error);
-      message.ack();
+      // A malformed body is poison — it will never parse, so drop it (ack) to
+      // avoid retrying forever. Any other failure is transient (store/executor
+      // outage, network) — retry so the message is not silently lost.
+      if (error instanceof z.ZodError) {
+        console.error("Dropping poison source ingest message", error);
+        message.ack();
+      } else {
+        console.error("Retrying source ingest message after failure", error);
+        message.retry();
+      }
     }
   }
 };

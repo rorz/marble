@@ -6,6 +6,9 @@ import { createActorSupabaseClient, resolveHostedApiActor } from "./actor";
 
 export type MarbleApiConfig = {
   executor?: {
+    accessClientId?: string;
+    accessClientSecret?: string;
+    internalSecret?: string;
     transport?: {
       fetch: (request: Request) => Promise<Response> | Response;
     };
@@ -21,6 +24,9 @@ export type MarbleApiConfig = {
 
 export type MarbleApiRuntime = {
   executor?: {
+    accessClientId?: string;
+    accessClientSecret?: string;
+    internalSecret?: string;
     transport?: {
       fetch: (request: Request) => Promise<Response> | Response;
     };
@@ -100,6 +106,9 @@ export const createMarbleApiRuntime = (
     ...(config.executor
       ? {
           executor: {
+            accessClientId: config.executor.accessClientId,
+            accessClientSecret: config.executor.accessClientSecret,
+            internalSecret: config.executor.internalSecret,
             transport: config.executor.transport,
             url: trimTrailingSlash(config.executor.url),
           },

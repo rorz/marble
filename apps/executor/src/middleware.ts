@@ -1,4 +1,5 @@
 import { getApiKeyTokenFromHeaders } from "@marble/keys";
+import { sha256Base64Url } from "@marble/lib/crypto";
 import { MarbleStore } from "@marble/store";
 import { createClient } from "@marble/supabase";
 import { bodyLimit } from "hono/body-limit";
@@ -44,6 +45,38 @@ export const httpError = (
           cause,
         }),
   });
+
+/**
+ * Timing-safe comparison for secret values. The caller-supplied value is always
+ * hashed to a fixed-length SHA-256 digest before `crypto.subtle.timingSafeEqual`,
+ * so the comparison never short-circuits on the presented value's length or
+ * content. We only return early when no `expected` secret is configured — that
+ * is a server-side config state, not attacker-controlled input.
+ */
+const timingSafeEqualStrings = async (
+  presented: string | undefined,
+  expected: string | undefined,
+): Promise<boolean> => {
+  if (expected === undefined) {
+    return false;
+  }
+
+  try {
+    const [hashA, hashB] = await Promise.all([
+      sha256Base64Url(presented ?? ""),
+      sha256Base64Url(expected),
+    ]);
+    const encoder = new TextEncoder();
+
+    return crypto.subtle.timingSafeEqual(
+      encoder.encode(hashA),
+      encoder.encode(hashB),
+    );
+    // harness-ignore: no-swallowed-errors -- any crypto failure is treated as a non-match
+  } catch {
+    return false;
+  }
+};
 
 export const zodValidator = <
   Target extends "header" | "json" | "param" | "query",
@@ -92,12 +125,31 @@ export const envMiddleware = createMiddleware<ExecutorEnv>(async (c, next) => {
   await next();
 });
 
+let warnedMissingInternalSecret = false;
+
 export const authMiddleware = createMiddleware<ExecutorEnv>(async (c, next) => {
+  const internalSecret = c.env.MARBLE_INTERNAL_SECRET;
+
+  if (!internalSecret && !warnedMissingInternalSecret) {
+    warnedMissingInternalSecret = true;
+    console.warn(
+      "MARBLE_INTERNAL_SECRET is not set; forwarded auth headers will be ignored.",
+    );
+  }
+
   const forwardedKeyId = c.req.header("x-marble-auth-key-id")?.trim();
   const forwardedProfileId = c.req.header("x-marble-auth-profile-id")?.trim();
   const forwardedUserId = c.req.header("x-marble-auth-user-id")?.trim();
+  const forwardedSecret = c.req.header("x-marble-internal-secret")?.trim();
 
-  if (forwardedKeyId || forwardedProfileId || forwardedUserId) {
+  // Forwarded auth is only trusted when the caller proves it is our own API by
+  // presenting the internal secret. Without a configured + matching secret we
+  // fall through to API-key auth (fail closed — never trust the headers alone).
+  if (
+    internalSecret &&
+    (forwardedKeyId || forwardedProfileId || forwardedUserId) &&
+    (await timingSafeEqualStrings(forwardedSecret, internalSecret))
+  ) {
     c.set("auth", {
       ...(forwardedKeyId
         ? {

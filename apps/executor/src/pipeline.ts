@@ -13,12 +13,60 @@ import {
 } from "./runner/index.js";
 import type { BatchRunItemSchema } from "./schemas.js";
 
+/**
+ * Safety bounds for the synchronous dependent-run cascade. A deep or wide
+ * dependency graph would otherwise recurse until it exhausts the Worker's
+ * CPU / wall-clock / subrequest budget. When a bound trips we stop scheduling
+ * further dependents but still return the results we already computed.
+ */
+const MAX_CASCADE_DEPTH = 32;
+const MAX_CASCADE_CELLS = 10_000;
+const MAX_CASCADE_MS = 20_000;
+
+type CascadeBudget = {
+  cellsProcessed: number;
+  depth: number;
+  startedAtMs: number;
+};
+
+const createCascadeBudget = (): CascadeBudget => ({
+  cellsProcessed: 0,
+  depth: 0,
+  startedAtMs: performance.now(),
+});
+
+const cascadeBoundExceeded = (budget: CascadeBudget): string | null => {
+  if (budget.depth >= MAX_CASCADE_DEPTH) {
+    return `depth ${budget.depth} >= ${MAX_CASCADE_DEPTH}`;
+  }
+
+  if (budget.cellsProcessed >= MAX_CASCADE_CELLS) {
+    return `cells ${budget.cellsProcessed} >= ${MAX_CASCADE_CELLS}`;
+  }
+
+  const elapsedMs = performance.now() - budget.startedAtMs;
+  if (elapsedMs >= MAX_CASCADE_MS) {
+    return `elapsed ${Math.round(elapsedMs)}ms >= ${MAX_CASCADE_MS}ms`;
+  }
+
+  return null;
+};
+
 const triggerDependentRuns = async (
   c: Context<ExecutorEnv>,
   successfulRuns: StoredProgramRun[],
   visitedCellIds: Set<string>,
+  budget: CascadeBudget,
 ) => {
   if (successfulRuns.length === 0) {
+    return;
+  }
+
+  const boundExceeded = cascadeBoundExceeded(budget);
+  if (boundExceeded) {
+    console.warn(
+      `[${c.get("requestId")}] Cascade bound exceeded (${boundExceeded}); halting dependent scheduling`,
+    );
     return;
   }
 
@@ -37,11 +85,14 @@ const triggerDependentRuns = async (
       visitedCellIds.add(cellId);
     }
 
+    budget.cellsProcessed += candidateCellIds.length;
+    budget.depth += 1;
+
     const runIds =
       await c.var.store.programRuns.createPendingForCellIds(candidateCellIds);
 
     // harness-ignore: no-forward-reference -- mutual recursion with executeStoredRunsInternal
-    await executeStoredRunsInternal(c, runIds, visitedCellIds);
+    await executeStoredRunsInternal(c, runIds, visitedCellIds, budget);
   } catch (error) {
     console.error(
       `[${c.get("requestId")}] Dependent run scheduling failed`,
@@ -54,6 +105,7 @@ export const executeStoredRunsInternal = async (
   c: Context<ExecutorEnv>,
   runIds: string[],
   visitedCellIds = new Set<string>(),
+  budget = createCascadeBudget(),
 ) => {
   const runs = await c.var.store.programRuns.loadMany(runIds);
   const resultsByRunId = new Map<string, z.infer<typeof BatchRunItemSchema>>();
@@ -123,8 +175,14 @@ export const executeStoredRunsInternal = async (
         c.var.store,
         resolvableJobs[0].run,
       );
+      // Key the sandbox by column AND program version so a version bump routes
+      // to a fresh container instead of reusing one with stale program files.
+      // Sandbox IDs are capped at 63 chars, so the version UUID is truncated —
+      // the full column UUID keeps cross-column isolation, and a 12-char slice
+      // is ample to distinguish a column's handful of versions.
+      const sandboxId = `${resolvableJobs[0].run.cell.column_id}--${resolvableJobs[0].run.program_version.id.slice(0, 12)}`;
       const outputs = await executeAndValidateBatch(
-        getSandbox(c.env.Sandbox, resolvableJobs[0].run.cell.column_id),
+        getSandbox(c.env.Sandbox, sandboxId),
         resolvableJobs[0].run.program_version.program_file,
         resolvableJobs.map((job) => ({
           key: job.run.id,
@@ -200,7 +258,7 @@ export const executeStoredRunsInternal = async (
     return result;
   });
 
-  await triggerDependentRuns(c, successfulRuns, visitedCellIds);
+  await triggerDependentRuns(c, successfulRuns, visitedCellIds, budget);
 
   return orderedResults;
 };

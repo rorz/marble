@@ -135,6 +135,21 @@ export const SurfacesSection = () => {
                   label="Webhook token"
                   value="marble_whsec_8f31b4e0"
                 />
+                <MarbleCopyField
+                  copyLabel="Copy cURL"
+                  display="block"
+                  label="cURL snippet"
+                  value={`WEBHOOK_URL="https://api.marble.local/webhooks/source_123"
+WEBHOOK_TOKEN="marble_whsec_8f31b4e0"
+
+curl -X POST "$WEBHOOK_URL" \\
+  -H "Authorization: Bearer $WEBHOOK_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  --data '{
+  "email": "ada@example.com",
+  "name": "Ada Lovelace"
+}'`}
+                />
               </MarbleCardSection>
             </MarbleCard>
 

@@ -225,7 +225,7 @@ const testHandler = async (c: Context<ExecutorEnv>) => {
     const output = await executeAndValidate(
       getSandbox(
         c.env.Sandbox,
-        `${query.programVersionId}--test--${query.testKey ?? crypto.randomUUID().slice(0, 6)}`,
+        `${query.programVersionId}--test--${query.testKey?.slice(0, 12) ?? crypto.randomUUID().slice(0, 6)}`,
       ),
       versionData.files,
       runtimeInputFromValue(body.input),

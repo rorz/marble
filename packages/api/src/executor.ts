@@ -35,13 +35,31 @@ const executorEndpointUrl = (baseUrl: string, path: string, search = "") => {
   return endpoint;
 };
 
-const executorHeaders = (actor: ApiActor, request: Request) => {
+const executorHeaders = (
+  actor: ApiActor,
+  request: Request,
+  runtime: MarbleApiRuntime,
+) => {
   const headers = new Headers();
 
   headers.set("Content-Type", "application/json");
 
   if (actor.type === "supabase-session") {
     headers.set("Authorization", `Bearer ${actor.accessToken}`);
+  }
+
+  // Prove to the executor that this forwarded-auth request originates from our
+  // own API. Paired with Cloudflare Access at the edge — defense in depth.
+  if (runtime.executor?.internalSecret) {
+    headers.set("x-marble-internal-secret", runtime.executor.internalSecret);
+  }
+
+  if (runtime.executor?.accessClientId) {
+    headers.set("CF-Access-Client-Id", runtime.executor.accessClientId);
+  }
+
+  if (runtime.executor?.accessClientSecret) {
+    headers.set("CF-Access-Client-Secret", runtime.executor.accessClientSecret);
   }
 
   headers.set("x-marble-auth-profile-id", actor.profileId);
@@ -73,7 +91,8 @@ const readExecutorResponse = async (response: Response) => {
       payload: JSON.parse(text) as ExecutorPayload,
       status: response.status,
     };
-  } catch {
+  } catch (error) {
+    void error;
     return {
       payload: {
         error: true,
@@ -97,7 +116,7 @@ const createExecutorProxy = (
       executorEndpointUrl(executor.url, input.path, input.search),
       {
         body: JSON.stringify(input.body),
-        headers: executorHeaders(actor, request),
+        headers: executorHeaders(actor, request, runtime),
         method: "POST",
       },
     );

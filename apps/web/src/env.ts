@@ -28,8 +28,14 @@ export const env = createEnv({
       "google",
       "openai",
     ]),
+    // harness-ignore: no-optional-env -- Required in production where Cloudflare Access guards the executor; omitted in local dev.
+    MARBLE_EXECUTOR_ACCESS_CLIENT_ID: z.string().min(1).optional(),
+    // harness-ignore: no-optional-env -- Required in production where Cloudflare Access guards the executor; omitted in local dev.
+    MARBLE_EXECUTOR_ACCESS_CLIENT_SECRET: z.string().min(1).optional(),
     MARBLE_EXECUTOR_URL: z.url(),
     MARBLE_INGESTOR_URL: z.url(),
+    // harness-ignore: no-optional-env -- Required in production (shared with the executor); omitted in local dev.
+    MARBLE_INTERNAL_SECRET: z.string().min(1).optional(),
     // harness-ignore: no-optional-env -- Conditioned by MARBLE_AGENT_PROVIDER; only the selected provider key must exist.
     OPENAI_API_KEY: z.string().min(1).optional(),
     SUPABASE_JWT_SECRET: z.string().min(1),

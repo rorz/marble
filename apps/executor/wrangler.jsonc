@@ -45,7 +45,11 @@
     }
   ],
   "secrets": {
-    "required": ["SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_URL"]
+    "required": [
+      "MARBLE_INTERNAL_SECRET",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "SUPABASE_URL"
+    ]
   },
   "upload_source_maps": true,
   "vars": {

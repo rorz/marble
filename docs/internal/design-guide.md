@@ -138,7 +138,7 @@ Every primitive in `@marble/ui`. Each entry is a one-line "use when" so you can 
 - **`MarbleSearchSelect`** — datalist-backed combo input.
 - **`MarbleEditableText`** — inline rename / hover-to-edit text. `MarblePaneEditableCrumb` is the pre-styled crumb-shaped variant.
 - **`MarbleDropzone`** — file drop + browse. Sizes `md` / `sm`, tones `neutral` / `orange`.
-- **`MarbleCopyField`** — click-to-copy URL / token / ID row with built-in copied feedback.
+- **`MarbleCopyField`** — click-to-copy URL / token / ID row or snippet block with built-in copied feedback.
 - **`MarbleSelectableTile`** — toggle / picker tile with `active` state baked in. Shapes `square` (icon picker grid), `card` (library dock / vertical tile), `wide` (horizontal selectable row).
 
 ### Navigation

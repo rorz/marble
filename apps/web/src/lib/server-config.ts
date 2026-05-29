@@ -20,6 +20,9 @@ export const getServiceRoleSupabaseConfig = (): LegacySupabaseConfig => {
 export const getMarbleApiConfig = (): MarbleApiConfig => {
   return {
     executor: {
+      accessClientId: env.MARBLE_EXECUTOR_ACCESS_CLIENT_ID,
+      accessClientSecret: env.MARBLE_EXECUTOR_ACCESS_CLIENT_SECRET,
+      internalSecret: env.MARBLE_INTERNAL_SECRET,
       url: env.MARBLE_EXECUTOR_URL,
     },
     supabase: {
