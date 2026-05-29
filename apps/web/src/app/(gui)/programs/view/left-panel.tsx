@@ -37,20 +37,16 @@ export const EditorLeftPanel = ({
           onClick={model.openNewFileModal}
           size="xs"
           type="button"
+          variant="dark"
         >
           New
         </MarbleButton>
-      }
-      badge={
-        <MarbleBadge className="font-mono">
-          {model.visibleFiles.length}
-        </MarbleBadge>
       }
       bodyClassName="bg-transparent"
       className="flex min-h-0 flex-1 flex-col rounded-none border-0 border-b border-taupe-400 bg-transparent shadow-none"
       headerClassName="px-2 py-1.5"
       icon={<FolderOpenIcon size={16} />}
-      title="Workspace"
+      title="Files"
     >
       <fieldset
         aria-label="Program workspace files"
@@ -159,7 +155,7 @@ export const EditorLeftPanel = ({
         onToggleCollapsed={() =>
           model.setDraftStackCollapsed((current) => !current)
         }
-        title="Draft Stack"
+        title="Changes"
       >
         <div className="h-full overflow-y-auto overscroll-contain bg-transparent">
           {model.draftStackCards.map((change) => (

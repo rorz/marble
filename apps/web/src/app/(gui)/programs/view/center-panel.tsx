@@ -9,6 +9,7 @@ import {
 } from "@marble/ui";
 import { FileTextIcon, GitBranchIcon } from "@phosphor-icons/react/dist/ssr";
 import { changeTargetKey, getChangeTargetProps } from "../../change-spotlight";
+import { keyboardCaptureOwnerProps } from "../../keyboard-capture";
 import {
   editorTabActiveClassName,
   editorTabBaseClassName,
@@ -202,7 +203,10 @@ export const EditorCenterPanel = ({
 
     <div className="relative flex-1 overflow-hidden bg-white">
       {model.activeFileObj ? (
-        <div className="absolute inset-0">
+        <div
+          className="absolute inset-0"
+          {...keyboardCaptureOwnerProps}
+        >
           <MonacoEditor
             height="100%"
             language={getMonacoLanguage(model.activeFileObj)}

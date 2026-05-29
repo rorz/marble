@@ -4,7 +4,7 @@ import {
   useState,
 } from "react";
 import type { SidebarTreeData } from "../../../../lib/sidebar-tree";
-import { isEditableTarget } from "../pathname";
+import { isEditableKeyboardTarget } from "../../keyboard-capture";
 import type {
   CommandPalettePage,
   CommandPaletteSection,
@@ -68,7 +68,12 @@ const useCommandPaletteShortcuts = ({
         return;
       }
 
-      if (!isCommandPaletteOpen && isEditableTarget(event.target)) {
+      if (
+        !isCommandPaletteOpen &&
+        isEditableKeyboardTarget(event.target, {
+          ignoreCommandMenu: true,
+        })
+      ) {
         return;
       }
 

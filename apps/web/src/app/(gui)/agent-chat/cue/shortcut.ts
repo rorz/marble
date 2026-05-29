@@ -1,20 +1,16 @@
+import { hasKeyboardCaptureOwner } from "../../keyboard-capture";
+
 export const CUE_TEXTAREA_ID = "agent-chat-cue-input";
-
-const isEditableTarget = (target: EventTarget | null) => {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  return (
-    target.isContentEditable ||
-    target instanceof HTMLInputElement ||
-    target instanceof HTMLSelectElement ||
-    target instanceof HTMLTextAreaElement
-  );
-};
 
 const isCueTextareaTarget = (target: EventTarget | null) =>
   target instanceof HTMLTextAreaElement && target.id === CUE_TEXTAREA_ID;
+
+const isCueTextareaActive = () =>
+  typeof document !== "undefined" &&
+  isCueTextareaTarget(document.activeElement);
+
+const isCueKeyboardOwner = (event: KeyboardEvent) =>
+  isCueTextareaTarget(event.target) || isCueTextareaActive();
 
 export const isCueStartKey = (event: KeyboardEvent) =>
   !event.altKey &&
@@ -25,7 +21,7 @@ export const isCueStartKey = (event: KeyboardEvent) =>
   !event.repeat &&
   event.key.length === 1 &&
   event.key.trim().length > 0 &&
-  !isEditableTarget(event.target);
+  !hasKeyboardCaptureOwner(event);
 
 export const isTranscriptionStartKey = (event: KeyboardEvent) =>
   event.key === "Alt" &&
@@ -33,7 +29,7 @@ export const isTranscriptionStartKey = (event: KeyboardEvent) =>
   !event.metaKey &&
   !event.defaultPrevented &&
   !event.repeat &&
-  (!isEditableTarget(event.target) || isCueTextareaTarget(event.target));
+  (!hasKeyboardCaptureOwner(event) || isCueKeyboardOwner(event));
 
 export const isTranscriptionStopKey = (event: KeyboardEvent) =>
   event.key === "Alt";

@@ -9,6 +9,7 @@ import {
   MarbleCopyField,
   MarbleField,
 } from "@marble/ui";
+import { keyboardCaptureOwnerProps } from "../../../../keyboard-capture";
 import { MonacoEditor, sourceSchemaEditorOptions } from "./constants";
 import type { Source, SourceEvent } from "./types";
 import { buildSourceWebhookEndpoint } from "./webhook";
@@ -84,7 +85,10 @@ export const SourceSettingsCard = ({
           className="flex min-h-[18rem] flex-1 flex-col"
           label="Schema"
         >
-          <div className="min-h-0 flex-1 overflow-hidden rounded-xs border border-taupe-200 bg-white shadow-sm shadow-zinc-950/10">
+          <div
+            className="min-h-0 flex-1 overflow-hidden rounded-xs border border-taupe-200 bg-white shadow-sm shadow-zinc-950/10"
+            {...keyboardCaptureOwnerProps}
+          >
             <MonacoEditor
               height="100%"
               language="json"
