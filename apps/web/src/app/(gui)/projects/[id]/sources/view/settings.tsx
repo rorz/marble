@@ -99,7 +99,7 @@ export const SourceSettingsCard = ({
             </div>
           </details>
         </MarbleCardSection>
-        <MarbleCardSection className="flex min-h-0 flex-1 flex-col gap-4">
+        <MarbleCardSection className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <MarbleCardTitle>Payload schema</MarbleCardTitle>
             <MarbleButton
@@ -121,12 +121,9 @@ export const SourceSettingsCard = ({
             <MarbleAlert tone="error">{sourceSchemaError}</MarbleAlert>
           ) : null}
 
-          <MarbleField
-            className="flex min-h-[18rem] flex-1 flex-col"
-            label="Schema"
-          >
+          <MarbleField label="Schema">
             <div
-              className="min-h-0 flex-1 overflow-hidden rounded-xs border border-taupe-200 bg-white shadow-sm shadow-zinc-950/10"
+              className="h-[22rem] overflow-hidden rounded-xs border border-taupe-200 bg-white shadow-sm shadow-zinc-950/10"
               {...keyboardCaptureOwnerProps}
             >
               <MonacoEditor
