@@ -21,7 +21,6 @@
     "harness": "bun run harness/index.ts",
     "install:local": "turbo run install:local",
     "publish": "turbo run publish",
-    "symlink": "turbo run symlink",
     "typecheck": "turbo run typecheck",
     "typegen": "turbo run typegen"
   },

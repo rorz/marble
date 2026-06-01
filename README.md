@@ -50,32 +50,54 @@ A Bun + Turborepo monorepo.
 
 The CLI and the agent skill ship through different channels:
 
-- CLI: publish `packages/cli` to npm as `marble-cli`.
-- Skill: install from the GitHub tree URL that points directly at the skill folder:
+- **CLI** → [npm](https://www.npmjs.com/package/marble-cli), as `marble-cli`.
+- **Skill** → the [open agent skills ecosystem](https://skills.sh). It installs straight from this repo, so **pushing `packages/wizard/src` to `main` _is_ the publish** — there is no separate registry or version number.
+
+### Publish the CLI
+
+You must be logged in to npm first (`npm whoami` should print your username; otherwise run `npm login`).
 
 ```sh
-bunx skills add https://github.com/rorz/marble/tree/main/packages/wizard/src -g -y
+bun check                            # catalogue sync, types, lint, build
+bun test                             # behavioural finale
+cd packages/cli && bun run publish   # build → patch bump → publish
 ```
 
-Do not point skill installers at `packages/wizard`; that is the local package wrapper. The actual skill directory is `packages/wizard/src`, because it contains `SKILL.md` at its root. The Vercel `skills` installer supports full GitHub tree URLs for this exact case.
+`bun run publish` rebuilds `dist/cli.js`, bumps the patch version in `packages/cli/package.json` with `--no-git-tag-version` (so it never creates a tag and never needs a clean working tree), then publishes. Commit the bumped `package.json` with your next commit.
 
-Before publishing a new CLI version:
-
-```sh
-bun check
-bun test
-bun --cwd packages/cli run build
-cd packages/cli
-bun publish --dry-run
-bun publish --access public --tag latest
-```
-
-After publishing, verify both entry points:
+Verify the published bundle:
 
 ```sh
 bunx marble-cli@latest --help
 bunx marble-cli@latest describe
+```
+
+### Publish the skill
+
+The skill directory is `packages/wizard/src` — its `SKILL.md` sits at that folder's root, which is what the `skills` CLI discovers. Point installers there, **not** at `packages/wizard` (the local package wrapper).
+
+The operation catalogue inside `SKILL.md` is generated from the contract, so re-sync it, prove it's clean, then push:
+
+```sh
+bun run --filter @marble/wizard sync:skill   # regenerate the catalogue from marbleCliContract
+bun check                                     # the wizard-skill harness fails the build on drift
+git add -A && git commit -m "wizard: <what changed>" && git push
+```
+
+Once it's on `main`, anyone installs or updates it globally for every detected agent (OpenCode, Claude Code, Codex, Cursor, …):
+
+```sh
+# first install
 bunx skills add https://github.com/rorz/marble/tree/main/packages/wizard/src -g -y
+
+# refresh after a later push
+bunx skills update marble-wizard -g -y
+```
+
+To install the **working copy** while developing (syncs the catalogue, then installs the local folder to every detected agent):
+
+```sh
+bun run --filter @marble/wizard install:local
 ```
 
 ## Running it locally

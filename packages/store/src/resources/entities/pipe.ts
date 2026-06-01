@@ -71,17 +71,38 @@ const toPipeValues = (input: UpdatePipeInput["values"]) => ({
   tableId: input.tableId,
 });
 
+const PIPE_UNIQUE_CONSTRAINT = "pipe_source_id_table_id_key";
+const PIPE_DUPLICATE_MESSAGE = "A pipe already connects this source and table.";
+
+const mapPipeUniqueViolation = (error: unknown): never => {
+  if (
+    error instanceof Error &&
+    error.message.includes(PIPE_UNIQUE_CONSTRAINT)
+  ) {
+    throw new Error(PIPE_DUPLICATE_MESSAGE, {
+      cause: error,
+    });
+  }
+
+  throw error;
+};
+
 export class PipeCollection {
   public constructor(private readonly deps: ResourceDeps) {}
 
-  public readonly create = async (input: CreatePipeInput) =>
-    toPipe(
-      await this.deps.db.insert("pipe", {
-        mappings: (input.mappings ?? []) as Json,
-        sourceId: input.sourceId,
-        tableId: input.tableId,
-      }),
-    );
+  public readonly create = async (input: CreatePipeInput) => {
+    try {
+      return toPipe(
+        await this.deps.db.insert("pipe", {
+          mappings: (input.mappings ?? []) as Json,
+          sourceId: input.sourceId,
+          tableId: input.tableId,
+        }),
+      );
+    } catch (error) {
+      return mapPipeUniqueViolation(error);
+    }
+  };
 
   public readonly delete = async (input: IdObject) =>
     toPipe(await this.deps.db.delete("pipe", input.id));
@@ -103,8 +124,12 @@ export class PipeCollection {
   };
 
   public readonly update = async (input: UpdatePipeInput) => {
-    return toPipe(
-      await this.deps.db.update("pipe", input.id, toPipeValues(input.values)),
-    );
+    try {
+      return toPipe(
+        await this.deps.db.update("pipe", input.id, toPipeValues(input.values)),
+      );
+    } catch (error) {
+      return mapPipeUniqueViolation(error);
+    }
   };
 }

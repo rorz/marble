@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "puppeteer-core": "^24.0.0"
+  },
+  "name": "Browser Screenshot"
+}

@@ -1,0 +1,54 @@
+{
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri",
+        "title": "Page URL"
+      },
+      "fullPage": {
+        "type": "boolean",
+        "title": "Capture full page",
+        "default": false
+      }
+    },
+    "required": ["url"]
+  },
+  "outputConfig": {
+    "flags": {
+      "allowInference": true
+    },
+    "schema": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "The page's document title"
+        },
+        "url": {
+          "type": "string",
+          "description": "Final URL after any redirects"
+        },
+        "screenshot": {
+          "type": "string",
+          "description": "Base64-encoded PNG screenshot of the page"
+        }
+      },
+      "required": ["title", "url", "screenshot"],
+      "additionalProperties": false
+    }
+  },
+  "secrets": {
+    "properties": {
+      "CF_ACCOUNT_ID": {
+        "title": "Cloudflare Account ID"
+      },
+      "CF_API_TOKEN": {
+        "title": "Browser Run API Token",
+        "description": "Cloudflare API token with the 'Browser Rendering - Edit' permission"
+      }
+    },
+    "required": ["CF_ACCOUNT_ID", "CF_API_TOKEN"]
+  }
+}

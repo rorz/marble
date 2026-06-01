@@ -12,8 +12,7 @@
   "name": "@marble/wizard",
   "private": true,
   "scripts": {
-    "install:local": "bun run sync:skill && mkdir -p ~/.agents/skills && rm -rf ~/.agents/skills/marble-wizard && mkdir -p ~/.agents/skills/marble-wizard && cp -R src/. ~/.agents/skills/marble-wizard/ && bun run symlink",
-    "symlink": "mkdir -p ~/.claude/skills ~/.codex/skills && rm -rf ~/.claude/skills/marble-wizard ~/.codex/skills/marble-wizard && ln -s ~/.agents/skills/marble-wizard ~/.claude/skills/marble-wizard && ln -s ~/.agents/skills/marble-wizard ~/.codex/skills/marble-wizard",
+    "install:local": "bun run sync:skill && bunx skills add ./src -g -y",
     "sync:skill": "bun run catalogue.ts",
     "sync:skill:check": "bun run catalogue.ts --check",
     "typecheck": "tsc --noEmit"

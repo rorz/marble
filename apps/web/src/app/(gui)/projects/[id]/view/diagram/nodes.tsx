@@ -1,17 +1,22 @@
 "use client";
 
 import { cx } from "@marble/ui";
-import { FunnelIcon, TableIcon } from "@phosphor-icons/react/dist/ssr";
+import {
+  FunnelIcon,
+  PlusIcon,
+  TableIcon,
+} from "@phosphor-icons/react/dist/ssr";
 import {
   Handle,
   type NodeProps,
   type NodeTypes,
   Position,
 } from "@xyflow/react";
+import type { AddNode } from "./add-node";
 import type { LaneNode, ResourceNode } from "./model";
 import type { PipeMappingNode } from "./pipe-mapping";
 
-const resourceHandleClass = "!size-2.5 !border-2 !border-white !bg-orange-500";
+const resourceHandleClass = "!size-3 !border-2 !border-white !bg-orange-500";
 
 const ProjectFlowPipeMappingNode = ({
   data,
@@ -98,7 +103,6 @@ const ProjectFlowResourceNode = ({
         <Handle
           className={resourceHandleClass}
           id="table-input"
-          isConnectable={false}
           position={Position.Left}
           type="target"
         />
@@ -133,7 +137,6 @@ const ProjectFlowResourceNode = ({
         <Handle
           className={resourceHandleClass}
           id="source-output"
-          isConnectable={false}
           position={Position.Right}
           type="source"
         />
@@ -142,7 +145,29 @@ const ProjectFlowResourceNode = ({
   );
 };
 
+const ProjectFlowAddNode = ({ data }: NodeProps<AddNode>) => {
+  return (
+    <div
+      className={cx(
+        "flex h-full w-full items-center justify-center gap-2 rounded-sm border border-dashed text-sm font-medium transition-colors",
+        data.disabled
+          ? "border-zinc-200 bg-white/40 text-zinc-300"
+          : "cursor-pointer border-zinc-300 bg-white/55 text-zinc-500 hover:border-orange-300 hover:bg-orange-50/50 hover:text-orange-600",
+      )}
+    >
+      {data.busy ? null : (
+        <PlusIcon
+          size={16}
+          weight="bold"
+        />
+      )}
+      {data.label}
+    </div>
+  );
+};
+
 export const projectFlowNodeTypes = {
+  add: ProjectFlowAddNode,
   lane: ProjectFlowLaneNode,
   pipeMapping: ProjectFlowPipeMappingNode,
   resource: ProjectFlowResourceNode,

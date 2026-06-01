@@ -122,7 +122,9 @@ Source events are append-only through the public data interface. Do not add `upd
 
 ## pipes
 
-Pipes connect sources to tables within the same project.
+Pipes connect sources to tables within the same project. A given source/table
+pair may have at most one pipe, enforced by a `unique (source_id, table_id)`
+constraint; `create` and `update` surface a friendly conflict error on violation.
 
 Allowed operations:
 

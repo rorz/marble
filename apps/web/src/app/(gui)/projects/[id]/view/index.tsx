@@ -107,6 +107,7 @@ export const ProjectPageView = ({
 
   const actions = useProjectActions({
     nameDraft,
+    pipes,
     project,
     projectRef,
     renameInFlightRef,
@@ -202,7 +203,9 @@ export const ProjectPageView = ({
             creatingSource={creatingSource}
             creatingTable={creatingTable}
             inputColumnLabelById={inputColumnLabelById}
-            onCreatePipe={() => void actions.handleCreatePipe()}
+            onCreatePipe={(connection) =>
+              void actions.handleCreatePipe(connection)
+            }
             onCreateSource={() => void actions.handleCreateSource()}
             onCreateTable={() => void actions.handleCreateTable()}
             onSelectPipe={(pipeId) =>

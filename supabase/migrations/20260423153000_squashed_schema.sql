@@ -1395,6 +1395,10 @@ ALTER TABLE ONLY "public"."pipe"
     ADD CONSTRAINT "pipe_pkey" PRIMARY KEY ("id");
 
 
+ALTER TABLE ONLY "public"."pipe"
+    ADD CONSTRAINT "pipe_source_id_table_id_key" UNIQUE ("source_id", "table_id");
+
+
 
 ALTER TABLE ONLY "public"."key"
     ADD CONSTRAINT "key_pkey" PRIMARY KEY ("id");

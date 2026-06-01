@@ -30,15 +30,11 @@
     },
     "publish": {
       "cache": false,
-      "dependsOn": ["^build", "build"]
+      "dependsOn": ["^build"]
     },
     "start": {
       "cache": false,
       "persistent": true
-    },
-    "symlink": {
-      "cache": false,
-      "dependsOn": ["build"]
     },
     "test": {
       "cache": false,

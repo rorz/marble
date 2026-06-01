@@ -6,18 +6,20 @@ import {
   marbleToast,
 } from "@marble/ui";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { useMarbleSdk } from "../../../../../lib/marble-sdk-client";
+import type { useMarbleSdk } from "../../../../../../lib/marble-sdk-client";
 import {
   compareByCreatedAtCamelDesc,
   compareByUpdatedAtCamelDesc,
   upsertRow,
-} from "../../../../../lib/realtime-crud";
-import type { ProjectState } from "./types";
+} from "../../../../../../lib/realtime-crud";
+import type { ProjectState } from "../types";
+import { useProjectResourceDeletions } from "./deletions";
 
 type Sdk = ReturnType<typeof useMarbleSdk>;
 
 type UseProjectActionsOptions = {
   nameDraft: string;
+  pipes: Awaited<ReturnType<Sdk["pipes"]["create"]>>[];
   project: ProjectState;
   projectRef: MutableRefObject<ProjectState>;
   renameInFlightRef: MutableRefObject<boolean>;
@@ -45,6 +47,7 @@ type UseProjectActionsOptions = {
 export const useProjectActions = (options: UseProjectActionsOptions) => {
   const {
     nameDraft,
+    pipes,
     project,
     projectRef,
     renameInFlightRef,
@@ -64,6 +67,15 @@ export const useProjectActions = (options: UseProjectActionsOptions) => {
     setSources,
     sources,
   } = options;
+
+  const deletions = useProjectResourceDeletions({
+    sdk,
+    setConfirmState,
+    setError,
+    setPipes,
+    setProject,
+    setSources,
+  });
 
   const buildSourceDetailHref = (sourceId: string) =>
     `/projects/${project.id}/sources/${sourceId}`;
@@ -174,13 +186,50 @@ export const useProjectActions = (options: UseProjectActionsOptions) => {
     }
   };
 
-  const handleCreatePipe = async () => {
-    const sourceId = sources[0]?.id;
-    const tableId = project.tables[0]?.id;
+  const findPipeForPair = (sourceId: string, tableId: string) =>
+    pipes.find(
+      (pipe) => pipe.sourceId === sourceId && pipe.tableId === tableId,
+    );
 
-    if (!sourceId || !tableId) {
+  const findFirstUnconnectedPair = () => {
+    for (const source of sources) {
+      for (const table of project.tables) {
+        if (!findPipeForPair(source.id, table.id)) {
+          return {
+            sourceId: source.id,
+            tableId: table.id,
+          };
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const handleCreatePipe = async (connection?: {
+    sourceId: string;
+    tableId: string;
+  }) => {
+    if (connection) {
+      const existingPipe = findPipeForPair(
+        connection.sourceId,
+        connection.tableId,
+      );
+
+      if (existingPipe) {
+        marbleToast.message("These are already connected — opening the pipe.");
+        router.push(buildPipeDetailHref(existingPipe.id));
+        return;
+      }
+    }
+
+    const pair = connection ?? findFirstUnconnectedPair();
+
+    if (!pair) {
       setError(
-        "Create at least one source and one table before adding a pipe.",
+        sources.length === 0 || project.tables.length === 0
+          ? "Create at least one source and one table before adding a pipe."
+          : "Every source is already connected to every table.",
       );
       return;
     }
@@ -191,8 +240,8 @@ export const useProjectActions = (options: UseProjectActionsOptions) => {
     try {
       const pipe = await sdk.pipes.create({
         mappings: [],
-        sourceId,
-        tableId,
+        sourceId: pair.sourceId,
+        tableId: pair.tableId,
       });
       setPipes((current) =>
         upsertRow(current, pipe, compareByCreatedAtCamelDesc),
@@ -230,92 +279,6 @@ export const useProjectActions = (options: UseProjectActionsOptions) => {
     });
   };
 
-  const performDeleteSource = async (sourceId: string, sourceName: string) => {
-    setError(null);
-
-    try {
-      await sdk.sources.delete({
-        id: sourceId,
-      });
-      setSources((current) => current.filter((row) => row.id !== sourceId));
-      setPipes((current) =>
-        current.filter((pipe) => pipe.sourceId !== sourceId),
-      );
-      marbleToast.success(`Source "${sourceName}" deleted`);
-    } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
-    }
-  };
-
-  const requestDeleteSource = (sourceId: string, sourceName: string) => {
-    setConfirmState({
-      confirmLabel: "Delete source",
-      message: `Delete source "${sourceName}"? Pipes that read from this source will also be removed.`,
-      onConfirm: () => {
-        void performDeleteSource(sourceId, sourceName);
-      },
-      title: "Delete source",
-    });
-  };
-
-  const performDeletePipe = async (pipeId: string, pipeTitle: string) => {
-    setError(null);
-
-    try {
-      await sdk.pipes.delete({
-        id: pipeId,
-      });
-      setPipes((current) => current.filter((pipe) => pipe.id !== pipeId));
-      marbleToast.success(`Pipe "${pipeTitle}" deleted`);
-    } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
-    }
-  };
-
-  const requestDeletePipe = (pipeId: string, pipeTitle: string) => {
-    setConfirmState({
-      confirmLabel: "Delete pipe",
-      message: `Delete pipe "${pipeTitle}"?`,
-      onConfirm: () => {
-        void performDeletePipe(pipeId, pipeTitle);
-      },
-      title: "Delete pipe",
-    });
-  };
-
-  const performDeleteTable = async (tableId: string, tableName: string) => {
-    setError(null);
-
-    try {
-      await sdk.tables.delete({
-        id: tableId,
-      });
-      setProject((current) => {
-        const tables = current.tables.filter((table) => table.id !== tableId);
-        return {
-          ...current,
-          tableCount: tables.length,
-          tables,
-        };
-      });
-      setPipes((current) => current.filter((pipe) => pipe.tableId !== tableId));
-      marbleToast.success(`Table "${tableName}" deleted`);
-    } catch (caughtError) {
-      setError(getErrorMessage(caughtError));
-    }
-  };
-
-  const requestDeleteTable = (tableId: string, tableName: string) => {
-    setConfirmState({
-      confirmLabel: "Delete table",
-      message: `Delete table "${tableName}"? Its rows, cells, and any pipes that target it will also be deleted.`,
-      onConfirm: () => {
-        void performDeleteTable(tableId, tableName);
-      },
-      title: "Delete table",
-    });
-  };
-
   return {
     buildPipeDetailHref,
     buildSourceDetailHref,
@@ -324,9 +287,9 @@ export const useProjectActions = (options: UseProjectActionsOptions) => {
     handleCreateSource,
     handleCreateTable,
     handleDeleteProject,
-    requestDeletePipe,
-    requestDeleteSource,
-    requestDeleteTable,
+    requestDeletePipe: deletions.requestDeletePipe,
+    requestDeleteSource: deletions.requestDeleteSource,
+    requestDeleteTable: deletions.requestDeleteTable,
     startEditingName,
     stopEditing,
   };
