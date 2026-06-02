@@ -44,6 +44,7 @@ declare const chrome: {
     }): Promise<number>;
   };
   runtime: {
+    getURL(path: string): string;
     id: string;
     lastError?: {
       message?: string;
@@ -64,6 +65,9 @@ declare const chrome: {
     };
   };
   tabs: {
+    create(properties: { url: string }): Promise<{
+      id?: number;
+    }>;
     query(queryInfo: { active?: boolean; currentWindow?: boolean }): Promise<
       Array<{
         id?: number;

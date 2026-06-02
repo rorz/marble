@@ -50,6 +50,7 @@ const createButton = el<HTMLButtonElement>("create-project");
 const autoDownloadInput = el<HTMLInputElement>("auto-download");
 const autoIngestInput = el<HTMLInputElement>("auto-ingest");
 const recordButton = el<HTMLButtonElement>("record");
+const dashboardButton = el<HTMLButtonElement>("open-dashboard");
 const statusBox = el<HTMLDivElement>("status");
 const coverageBox = el<HTMLDivElement>("coverage");
 const recordDot = el<HTMLSpanElement>("rec-dot");
@@ -121,6 +122,13 @@ const node = (tag: string, className?: string, text?: string) => {
 const pct = (part: number, total: number) =>
   total === 0 ? 0 : Math.round((part / total) * 100);
 
+const openDashboard = (key?: string) => {
+  const focus = key ? `|${encodeURIComponent(key)}` : "";
+  void chrome.tabs.create({
+    url: chrome.runtime.getURL(`dashboard.html#${settings.projectId}${focus}`),
+  });
+};
+
 const renderEmpty = (text: string) => {
   coverageBox.replaceChildren(node("div", "empty", text));
 };
@@ -151,8 +159,13 @@ const renderCoverage = (coverage: CoverageMap) => {
     const tiles = node("div", "tiles");
     for (const tile of surface.tiles) {
       const fresh = freshKeys.has(tile.key) ? " fresh" : "";
-      const square = node("div", `tile ${tile.state}${fresh}`, tile.label);
-      square.title = `${tile.method} ${tile.path}`;
+      const square = document.createElement("button");
+      square.type = "button";
+      square.className = `tile ${tile.state}${fresh}`;
+      square.append(node("span", "method", tile.method));
+      square.append(node("span", "verb", tile.label));
+      square.title = `${tile.method} ${tile.path} · ${tile.state} · ${tile.sampleCount} sample(s)`;
+      square.addEventListener("click", () => openDashboard(tile.key));
       tiles.append(square);
     }
     wrap.append(tiles);
@@ -312,6 +325,7 @@ const wireEvents = () => {
     });
   });
   recordButton.addEventListener("click", () => void toggleRecord());
+  dashboardButton.addEventListener("click", () => openDashboard());
 };
 
 const init = async () => {

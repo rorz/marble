@@ -12,6 +12,8 @@ export type {
   CoverageSurface,
   CoverageTile,
   CoverageTileState,
+  EndpointModel,
+  SchemaNode,
 } from "@harp/core";
 
 export const harpContract = {

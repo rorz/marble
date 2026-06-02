@@ -24,6 +24,7 @@ const result = await Bun.build({
   entrypoints: [
     join(src, "background.ts"),
     join(src, "popup.ts"),
+    join(src, "dashboard.ts"),
   ],
   minify: false,
   outdir: dist,
@@ -40,6 +41,8 @@ if (!result.success) {
 await cp(join(src, "manifest.json"), join(dist, "manifest.json"));
 await cp(join(src, "popup.html"), join(dist, "popup.html"));
 await cp(join(src, "popup.css"), join(dist, "popup.css"));
+await cp(join(src, "dashboard.html"), join(dist, "dashboard.html"));
+await cp(join(src, "dashboard.css"), join(dist, "dashboard.css"));
 
 console.log("HARP \uD83E\uDE89 extension built → harp/extension/dist/");
 console.log("   Load it via chrome://extensions → Load unpacked → dist/");

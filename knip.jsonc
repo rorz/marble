@@ -41,7 +41,13 @@
       // Bundled by build.ts via Bun.build; the service worker, popup script,
       // and popup stylesheet are entries knip can't trace through string paths
       // or the HTML <link>.
-      "entry": ["src/background.ts", "src/popup.ts", "src/popup.css"]
+      "entry": [
+        "src/background.ts",
+        "src/popup.ts",
+        "src/popup.css",
+        "src/dashboard.ts",
+        "src/dashboard.css"
+      ]
     },
     "harp/packages/core": {
       "entry": ["**/*.test.ts"]

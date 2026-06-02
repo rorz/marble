@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./dashboard.css" />
+    <title>HARP Dashboard</title>
+  </head>
+  <body>
+    <header>
+      <span class="brand">HARP 🪉</span>
+      <select id="project-select"></select>
+      <span id="stats" class="stats"></span>
+    </header>
+    <main>
+      <section id="surfaces" class="surfaces"></section>
+      <section class="panel">
+        <div id="detail" class="detail"></div>
+        <div class="contract">
+          <div class="contract-head">
+            <span>Generated contract.ts</span>
+            <button id="copy" type="button">Copy</button>
+          </div>
+          <pre id="contract-source"></pre>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./dashboard.js"></script>
+  </body>
+</html>
