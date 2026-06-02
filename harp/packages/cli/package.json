@@ -1,0 +1,26 @@
+{
+  "bin": {
+    "harp": "./dist/cli.js"
+  },
+  "devDependencies": {
+    "@harp/contracts": "workspace:*",
+    "@harp/sdk": "workspace:*",
+    "@orpc/contract": "catalog:base",
+    "@types/node": "catalog:base",
+    "commander": "catalog:base",
+    "dotenv": "catalog:base",
+    "typescript": "catalog:base",
+    "zod": "catalog:base"
+  },
+  "files": [
+    "dist/cli.js"
+  ],
+  "name": "@harp/cli",
+  "private": true,
+  "scripts": {
+    "build": "bun build ./src/cli.ts --target=node --outfile ./dist/cli.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "0.0.1"
+}

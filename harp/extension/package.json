@@ -1,0 +1,14 @@
+{
+  "devDependencies": {
+    "@harp/contracts": "workspace:*",
+    "typescript": "catalog:base"
+  },
+  "name": "@harp/extension",
+  "private": true,
+  "scripts": {
+    "build": "bun run build.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "1.0.0"
+}

@@ -1,0 +1,19 @@
+{
+  "dependencies": {
+    "zod": "catalog:base"
+  },
+  "devDependencies": {
+    "bun-types": "catalog:base",
+    "typescript": "catalog:base"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "name": "@harp/core",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "1.0.0"
+}

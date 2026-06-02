@@ -1,0 +1,27 @@
+{
+  "dependencies": {
+    "@harp/contracts": "workspace:*",
+    "@harp/core": "workspace:*",
+    "@orpc/openapi": "catalog:base",
+    "@orpc/server": "catalog:base",
+    "@orpc/zod": "catalog:base",
+    "hono": "catalog:base"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:base",
+    "bun-types": "catalog:base",
+    "typescript": "catalog:base"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "name": "@harp/server",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch src/serve.ts",
+    "start": "bun run src/serve.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "1.0.0"
+}

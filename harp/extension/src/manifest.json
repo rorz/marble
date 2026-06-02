@@ -1,0 +1,16 @@
+{
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "HARP"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "description": "Reverse-engineer any site's API into a typed oRPC contract by browsing it.",
+  "host_permissions": ["<all_urls>"],
+  "manifest_version": 3,
+  "name": "HARP 🪉",
+  "permissions": ["debugger", "downloads", "storage", "tabs"],
+  "version": "0.1.0"
+}

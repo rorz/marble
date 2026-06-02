@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "types": []
+  },
+  "extends": "../../tsconfig.json",
+  "include": ["src/**/*.ts"]
+}

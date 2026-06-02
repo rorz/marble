@@ -1,0 +1,20 @@
+{
+  "dependencies": {
+    "@harp/contracts": "workspace:*",
+    "@orpc/client": "catalog:base",
+    "@orpc/contract": "catalog:base"
+  },
+  "devDependencies": {
+    "typescript": "catalog:base"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "name": "@harp/sdk",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "type": "module",
+  "version": "1.0.0"
+}

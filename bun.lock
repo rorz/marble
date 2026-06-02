@@ -100,6 +100,83 @@
         "typescript": "catalog:base",
       },
     },
+    "harp/extension": {
+      "name": "@harp/extension",
+      "version": "1.0.0",
+      "devDependencies": {
+        "@harp/contracts": "workspace:*",
+        "typescript": "catalog:base",
+      },
+    },
+    "harp/packages/cli": {
+      "name": "@harp/cli",
+      "version": "0.0.1",
+      "bin": {
+        "harp": "./dist/cli.js",
+      },
+      "devDependencies": {
+        "@harp/contracts": "workspace:*",
+        "@harp/sdk": "workspace:*",
+        "@orpc/contract": "catalog:base",
+        "@types/node": "catalog:base",
+        "commander": "catalog:base",
+        "dotenv": "catalog:base",
+        "typescript": "catalog:base",
+        "zod": "catalog:base",
+      },
+    },
+    "harp/packages/contracts": {
+      "name": "@harp/contracts",
+      "version": "1.0.0",
+      "dependencies": {
+        "@harp/core": "workspace:*",
+        "@orpc/contract": "catalog:base",
+        "zod": "catalog:base",
+      },
+      "devDependencies": {
+        "typescript": "catalog:base",
+      },
+    },
+    "harp/packages/core": {
+      "name": "@harp/core",
+      "version": "1.0.0",
+      "dependencies": {
+        "zod": "catalog:base",
+      },
+      "devDependencies": {
+        "bun-types": "catalog:base",
+        "typescript": "catalog:base",
+      },
+    },
+    "harp/packages/sdk": {
+      "name": "@harp/sdk",
+      "version": "1.0.0",
+      "dependencies": {
+        "@harp/contracts": "workspace:*",
+        "@orpc/client": "catalog:base",
+        "@orpc/contract": "catalog:base",
+      },
+      "devDependencies": {
+        "typescript": "catalog:base",
+      },
+    },
+    "harp/packages/server": {
+      "name": "@harp/server",
+      "version": "1.0.0",
+      "dependencies": {
+        "@harp/contracts": "workspace:*",
+        "@harp/core": "workspace:*",
+        "@orpc/openapi": "catalog:base",
+        "@orpc/server": "catalog:base",
+        "@orpc/zod": "catalog:base",
+        "hono": "catalog:base",
+      },
+      "devDependencies": {
+        "@types/node": "catalog:base",
+        "bun-types": "catalog:base",
+        "typescript": "catalog:base",
+      },
+    },
     "packages/agent": {
       "name": "@marble/agent",
       "version": "1.0.0",
@@ -141,7 +218,7 @@
     },
     "packages/cli": {
       "name": "marble-cli",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "bin": {
         "marble": "./dist/cli.js",
       },
@@ -505,6 +582,18 @@
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.27.3", "", { "os": "win32", "cpu": "x64" }, "sha512-4uJGhsxuptu3OcpVAzli+/gWusVGwZZHTlS63hh++ehExkVT8SgiEf7/uC/PclrPPkLhZqGgCTjd0VWLo6xMqA=="],
 
     "@google/genai": ["@google/genai@1.52.0", "", { "dependencies": { "google-auth-library": "^10.3.0", "p-retry": "^4.6.2", "protobufjs": "^7.5.4", "ws": "^8.18.0" }, "peerDependencies": { "@modelcontextprotocol/sdk": "^1.25.2" }, "optionalPeers": ["@modelcontextprotocol/sdk"] }, "sha512-gwSvbpiN/17O9TbsqSsE/OzZcpv5Fo4RQjdngGgogtuB9RsyJ8ZHhX5KjHj1bp5N9snN2eK8LDGXSaWW2hof8Q=="],
+
+    "@harp/cli": ["@harp/cli@workspace:harp/packages/cli"],
+
+    "@harp/contracts": ["@harp/contracts@workspace:harp/packages/contracts"],
+
+    "@harp/core": ["@harp/core@workspace:harp/packages/core"],
+
+    "@harp/extension": ["@harp/extension@workspace:harp/extension"],
+
+    "@harp/sdk": ["@harp/sdk@workspace:harp/packages/sdk"],
+
+    "@harp/server": ["@harp/server@workspace:harp/packages/server"],
 
     "@img/colour": ["@img/colour@1.1.0", "", {}, "sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ=="],
 
@@ -1555,6 +1644,18 @@
     "@earendil-works/pi-tui/marked": ["marked@15.0.12", "", { "bin": { "marked": "bin/marked.js" } }, "sha512-8dD6FusOQSrpv9Z1rdNMdlSgQOIP880DHqnohobOmYLElGEqAL/JvxvuxZO16r4HtjTlfPRDC1hbvxC9dPN2nA=="],
 
     "@google/genai/ws": ["ws@8.20.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-sAt8BhgNbzCtgGbt2OxmpuryO63ZoDk/sqaB/znQm94T4fCEsy/yV+7CdC1kJhOU9lboAEU7R3kquuycDoibVA=="],
+
+    "@harp/cli/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@harp/contracts/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@harp/core/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@harp/extension/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@harp/sdk/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@harp/server/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@img/sharp-wasm32/@emnapi/runtime": ["@emnapi/runtime@1.9.2", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-3U4+MIWHImeyu1wnmVygh5WlgfYDtyf0k8AbLhMFxOipihf6nrWC4syIm/SwEeec0mNSafiiNnMJwbza/Is6Lw=="],
 

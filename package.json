@@ -86,6 +86,8 @@
     "packages": [
       "packages/*",
       "apps/*",
+      "harp/packages/*",
+      "harp/extension",
       "harness",
       "supabase",
       ".agents/skills/*"

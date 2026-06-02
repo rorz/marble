@@ -37,6 +37,15 @@
       // All harness scripts are entry points (each one is `bun run harness/X.ts`).
       "entry": ["*.ts"]
     },
+    "harp/extension": {
+      // Bundled by build.ts via Bun.build; the service worker, popup script,
+      // and popup stylesheet are entries knip can't trace through string paths
+      // or the HTML <link>.
+      "entry": ["src/background.ts", "src/popup.ts", "src/popup.css"]
+    },
+    "harp/packages/core": {
+      "entry": ["**/*.test.ts"]
+    },
     "packages/agent": {
       "entry": ["__tests__/**/*.test.ts"]
     },

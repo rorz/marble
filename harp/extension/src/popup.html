@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="./popup.css" />
+    <title>HARP</title>
+  </head>
+  <body>
+    <header>
+      <span>HARP 🪉</span>
+      <span id="rec-dot"></span>
+    </header>
+
+    <section class="settings">
+      <label>
+        HARP server
+        <input id="server-url" type="url" placeholder="http://localhost:4277" />
+      </label>
+      <label>Project</label>
+      <div class="row">
+        <select id="project-select"></select>
+        <button id="refresh" type="button" title="Refresh projects">⟳</button>
+      </div>
+      <div class="row">
+        <input id="new-project-name" type="text" placeholder="New project name" />
+        <button id="create-project" type="button">Create</button>
+      </div>
+      <label class="check">
+        <input id="auto-download" type="checkbox" />
+        Download .har on stop
+      </label>
+      <label class="check">
+        <input id="auto-ingest" type="checkbox" />
+        Ingest to server on stop
+      </label>
+    </section>
+
+    <button id="record" type="button" class="record">Record</button>
+    <div id="status" class="status"></div>
+    <div id="coverage" class="coverage"></div>
+
+    <script type="module" src="./popup.js"></script>
+  </body>
+</html>
