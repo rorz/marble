@@ -5,13 +5,14 @@ const dataDir = process.env.HARP_DATA_DIR ?? join(process.cwd(), ".harp-data");
 const port = Number(process.env.HARP_PORT ?? 4277);
 
 const store = createFileStore(dataDir);
-const app = createHarpServer({
+const { app, websocket } = createHarpServer({
   store,
 });
 
 Bun.serve({
   fetch: app.fetch,
   port,
+  websocket,
 });
 
 console.log(`HARP \uD83E\uDE89 listening on http://localhost:${port}`);

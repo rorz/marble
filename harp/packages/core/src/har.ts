@@ -57,6 +57,7 @@ export type RequestSample = {
   responseStatus: number;
   startedDateTime: string;
   url: string;
+  viaProbe?: boolean;
 };
 
 const isJsonMime = (mime: string | null) =>

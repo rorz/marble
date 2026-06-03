@@ -2,8 +2,11 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
   type ApiModel,
+  buildCoverage,
   type CoverageDelta,
   type CoverageMap,
+  diffCoverage,
+  generateContract,
   ingestHar,
 } from "@harp/core";
 
@@ -200,6 +203,35 @@ export const createFileStore = (dataDir: string) => {
     };
   };
 
+  const saveExploredModel = async (
+    project: Project,
+    model: ApiModel,
+  ): Promise<{
+    coverage: CoverageMap;
+    delta: CoverageDelta;
+  }> => {
+    const file = paths(project.id);
+    const previousCoverage = await readJsonOrNull<CoverageMap>(file.coverage);
+    const coverage = buildCoverage(model);
+    await writeJson(file.model, model);
+    await writeJson(file.coverage, coverage);
+    await mkdir(projectDir(project.id), {
+      recursive: true,
+    });
+    await writeFile(file.contract, generateContract(model), "utf8");
+    if (project.host === "" && model.host !== "") {
+      await writeJson(file.project, {
+        ...project,
+        host: model.host,
+        updatedAt: now(),
+      });
+    }
+    return {
+      coverage,
+      delta: diffCoverage(previousCoverage, coverage),
+    };
+  };
+
   return {
     createProject,
     getContractSource: (id: string) => readTextOrNull(paths(id).contract),
@@ -210,6 +242,7 @@ export const createFileStore = (dataDir: string) => {
     ingest,
     listCaptures,
     listProjects,
+    saveExploredModel,
   };
 };
 

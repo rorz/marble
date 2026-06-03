@@ -26,6 +26,7 @@ export const coverageTileSchema = z.object({
   label: z.string(),
   method: httpMethodSchema,
   path: z.string(),
+  probed: z.boolean(),
   sampleCount: z.number().int(),
   state: coverageTileStateSchema,
 });
@@ -136,6 +137,7 @@ const buildSurface = (
       ),
       method: endpoint.method,
       path: endpoint.pathTemplate,
+      probed: endpoint.probed,
       sampleCount: endpoint.sampleCount,
       state: observedTileState(endpoint),
     };
@@ -156,6 +158,7 @@ const buildSurface = (
       ),
       method: hypothesis.method,
       path: hypothesis.template,
+      probed: false,
       sampleCount: 0,
       state: "hole",
     });

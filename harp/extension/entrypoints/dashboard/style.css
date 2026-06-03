@@ -105,6 +105,7 @@ main {
 }
 
 .tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -118,6 +119,84 @@ main {
   border: none;
   border-radius: 7px;
   transition: transform 0.08s ease;
+}
+
+.tile.probed::after {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  content: "";
+  background: var(--orange-ink);
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.log {
+  display: flex;
+  flex-direction: column;
+  max-height: 300px;
+  background: #fff;
+  border: 1px solid var(--zinc-200);
+  border-radius: 8px;
+}
+
+.log-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--zinc-200);
+}
+
+.log-status {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--zinc-400);
+}
+
+.log-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 14px;
+  overflow-y: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.log-line {
+  white-space: pre-wrap;
+}
+
+.log-thinking {
+  font-style: italic;
+  color: var(--zinc-400);
+}
+
+.log-message {
+  color: var(--zinc-700);
+}
+
+.log-action {
+  font-weight: 600;
+  color: var(--orange-ink);
+}
+
+.log-result {
+  color: #047857;
+}
+
+.log-error {
+  color: #dc2626;
+}
+
+.log-info {
+  color: var(--zinc-500);
 }
 
 .tile:hover {

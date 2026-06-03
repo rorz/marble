@@ -147,6 +147,28 @@ button.record.recording {
   background: var(--zinc-900);
 }
 
+button.explore {
+  width: 100%;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--orange-ink);
+  background: var(--orange-soft);
+  border: none;
+  border-bottom: 1px solid var(--zinc-200);
+  border-radius: 0;
+}
+
+button.explore:hover {
+  color: #fff;
+  background: var(--orange);
+}
+
+button.explore:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .status {
   min-height: 16px;
   padding: 8px 14px;
@@ -207,6 +229,7 @@ button.record.recording {
 }
 
 .tile {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -224,6 +247,18 @@ button.record.recording {
 
 .tile:hover {
   transform: translateY(-1px);
+}
+
+.tile.probed::after {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  content: "";
+  background: var(--orange-ink);
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px #fff;
 }
 
 .tile .method {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="./popup.css" />
+    <link rel="stylesheet" href="./style.css" />
     <title>HARP</title>
   </head>
   <body>
@@ -35,12 +35,21 @@
         <input id="auto-ingest" type="checkbox" />
         Ingest to server on stop
       </label>
+      <label>
+        Explore model
+        <select id="provider-select">
+          <option value="anthropic">Anthropic</option>
+          <option value="openai">OpenAI</option>
+          <option value="google">Google</option>
+        </select>
+      </label>
     </section>
 
     <button id="record" type="button" class="record">Record</button>
+    <button id="explore" type="button" class="explore">Explore — probe the holes</button>
     <div id="status" class="status"></div>
     <div id="coverage" class="coverage"></div>
 
-    <script type="module" src="./popup.js"></script>
+    <script type="module" src="./main.ts"></script>
   </body>
 </html>

@@ -38,18 +38,14 @@
       "entry": ["*.ts"]
     },
     "harp/extension": {
-      // Bundled by build.ts via Bun.build; the service worker, popup script,
-      // and popup stylesheet are entries knip can't trace through string paths
-      // or the HTML <link>.
-      "entry": [
-        "src/background.ts",
-        "src/popup.ts",
-        "src/popup.css",
-        "src/dashboard.ts",
-        "src/dashboard.css"
-      ]
+      // `#imports` is WXT's generated virtual aggregator module; knip can't
+      // resolve it statically.
+      "ignoreUnresolved": ["#imports"]
     },
     "harp/packages/core": {
+      "entry": ["**/*.test.ts"]
+    },
+    "harp/packages/explorer": {
       "entry": ["**/*.test.ts"]
     },
     "packages/agent": {

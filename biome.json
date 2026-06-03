@@ -19,6 +19,8 @@
       "!.next",
       "!dist",
       "!build",
+      "!**/.wxt",
+      "!**/.output",
       "!**/worker-configuration.d.ts",
       "!**/globals.css",
       "!**/motion.css",

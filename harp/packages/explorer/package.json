@@ -1,12 +1,9 @@
 {
   "dependencies": {
-    "@harp/contracts": "workspace:*",
+    "@earendil-works/pi-ai": "catalog:base",
+    "@earendil-works/pi-coding-agent": "catalog:base",
     "@harp/core": "workspace:*",
-    "@harp/explorer": "workspace:*",
-    "@orpc/openapi": "catalog:base",
-    "@orpc/server": "catalog:base",
-    "@orpc/zod": "catalog:base",
-    "hono": "catalog:base"
+    "zod": "catalog:base"
   },
   "devDependencies": {
     "@types/node": "catalog:base",
@@ -16,11 +13,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "name": "@harp/server",
+  "name": "@harp/explorer",
   "private": true,
   "scripts": {
-    "dev": "bun run --watch src/serve.ts",
-    "start": "bun run src/serve.ts",
     "typecheck": "tsc --noEmit"
   },
   "type": "module",

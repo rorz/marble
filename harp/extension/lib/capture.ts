@@ -1,7 +1,8 @@
+import { browser } from "#imports";
 import type { PendingEntry } from "./har";
 
 /**
- * Drives the Chrome DevTools Protocol Network domain over `chrome.debugger`:
+ * Drives the Chrome DevTools Protocol Network domain over `browser.debugger`:
  * attach to a tab, collect request/response events, fetch response bodies, and
  * hand back the raw entries that {@link buildHar} turns into a HAR archive.
  */
@@ -98,7 +99,7 @@ export const createCaptureController = () => {
       return;
     }
     try {
-      const body = (await chrome.debugger.sendCommand(
+      const body = (await browser.debugger.sendCommand(
         {
           tabId: session.tabId,
         },
@@ -114,7 +115,7 @@ export const createCaptureController = () => {
     }
   };
 
-  chrome.debugger.onEvent.addListener((source, method, params) => {
+  browser.debugger.onEvent.addListener((source, method, params) => {
     if (!session || source.tabId !== session.tabId || !params) {
       return;
     }
@@ -127,7 +128,7 @@ export const createCaptureController = () => {
     }
   });
 
-  chrome.debugger.onDetach.addListener((source) => {
+  browser.debugger.onDetach.addListener((source) => {
     if (session && source.tabId === session.tabId) {
       session = null;
     }
@@ -140,7 +141,7 @@ export const createCaptureController = () => {
     const { entries, tabId } = session;
     session = null;
     try {
-      await chrome.debugger.detach({
+      await browser.debugger.detach({
         tabId,
       });
     } catch (error) {
@@ -153,13 +154,13 @@ export const createCaptureController = () => {
 
   const start = async (tabId: number) => {
     await stop();
-    await chrome.debugger.attach(
+    await browser.debugger.attach(
       {
         tabId,
       },
       "1.3",
     );
-    await chrome.debugger.sendCommand(
+    await browser.debugger.sendCommand(
       {
         tabId,
       },

@@ -1,2 +1,4 @@
 .harp-data/
+.output/
+.wxt/
 dist/

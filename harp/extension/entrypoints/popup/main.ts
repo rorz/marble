@@ -1,4 +1,5 @@
 import type { CoverageDelta, CoverageMap } from "@harp/contracts";
+import { browser } from "#imports";
 
 /**
  * HARP popup. Talks to the background worker for capture control and directly
@@ -10,6 +11,7 @@ type Settings = {
   autoDownload: boolean;
   autoIngest: boolean;
   projectId: string;
+  provider: "anthropic" | "google" | "openai";
   serverUrl: string;
 };
 
@@ -51,6 +53,8 @@ const autoDownloadInput = el<HTMLInputElement>("auto-download");
 const autoIngestInput = el<HTMLInputElement>("auto-ingest");
 const recordButton = el<HTMLButtonElement>("record");
 const dashboardButton = el<HTMLButtonElement>("open-dashboard");
+const providerSelect = el<HTMLSelectElement>("provider-select");
+const exploreButton = el<HTMLButtonElement>("explore");
 const statusBox = el<HTMLDivElement>("status");
 const coverageBox = el<HTMLDivElement>("coverage");
 const recordDot = el<HTMLSpanElement>("rec-dot");
@@ -59,13 +63,14 @@ let settings: Settings = {
   autoDownload: true,
   autoIngest: true,
   projectId: "",
+  provider: "anthropic",
   serverUrl: "http://localhost:4277",
 };
 let recording = false;
 let freshKeys = new Set<string>();
 
 const sendMessage = async <T>(message: object): Promise<T> => {
-  const response = (await chrome.runtime.sendMessage(message)) as {
+  const response = (await browser.runtime.sendMessage(message)) as {
     data?: T;
     error?: string;
     ok: boolean;
@@ -124,8 +129,9 @@ const pct = (part: number, total: number) =>
 
 const openDashboard = (key?: string) => {
   const focus = key ? `|${encodeURIComponent(key)}` : "";
-  void chrome.tabs.create({
-    url: chrome.runtime.getURL(`dashboard.html#${settings.projectId}${focus}`),
+  const url = `${browser.runtime.getURL("/dashboard.html")}#${settings.projectId}${focus}`;
+  void browser.tabs.create({
+    url,
   });
 };
 
@@ -161,10 +167,10 @@ const renderCoverage = (coverage: CoverageMap) => {
       const fresh = freshKeys.has(tile.key) ? " fresh" : "";
       const square = document.createElement("button");
       square.type = "button";
-      square.className = `tile ${tile.state}${fresh}`;
+      square.className = `tile ${tile.state}${fresh}${tile.probed ? " probed" : ""}`;
       square.append(node("span", "method", tile.method));
       square.append(node("span", "verb", tile.label));
-      square.title = `${tile.method} ${tile.path} · ${tile.state} · ${tile.sampleCount} sample(s)`;
+      square.title = `${tile.method} ${tile.path} · ${tile.state}${tile.probed ? " · agent-probed" : ""} · ${tile.sampleCount} sample(s)`;
       square.addEventListener("click", () => openDashboard(tile.key));
       tiles.append(square);
     }
@@ -301,6 +307,37 @@ const createProject = async () => {
   }
 };
 
+const runExplore = async () => {
+  exploreButton.disabled = true;
+  setStatus("Exploring — the agent is probing endpoints in-page…");
+  try {
+    const done = await sendMessage<{
+      delta?: {
+        newlyUnlocked: string[];
+        total: number;
+        unlocked: number;
+      };
+      probeCount?: number;
+    }>({
+      type: "EXPLORE",
+    });
+    if (done.delta) {
+      freshKeys = new Set(done.delta.newlyUnlocked);
+      setStatus(
+        `Explored · ${done.probeCount ?? 0} probes · 🔓 ${done.delta.newlyUnlocked.length} new · ${pct(done.delta.unlocked, done.delta.total)}% covered`,
+        true,
+      );
+    } else {
+      setStatus("Explore complete.");
+    }
+    await loadCoverage();
+  } catch (error) {
+    setStatus(messageOf(error));
+  } finally {
+    exploreButton.disabled = false;
+  }
+};
+
 const wireEvents = () => {
   serverInput.addEventListener("change", () => {
     void saveSettingsPatch({
@@ -326,6 +363,12 @@ const wireEvents = () => {
   });
   recordButton.addEventListener("click", () => void toggleRecord());
   dashboardButton.addEventListener("click", () => openDashboard());
+  exploreButton.addEventListener("click", () => void runExplore());
+  providerSelect.addEventListener("change", () => {
+    void saveSettingsPatch({
+      provider: providerSelect.value as Settings["provider"],
+    });
+  });
 };
 
 const init = async () => {
@@ -341,6 +384,7 @@ const init = async () => {
     serverInput.value = settings.serverUrl;
     autoDownloadInput.checked = settings.autoDownload;
     autoIngestInput.checked = settings.autoIngest;
+    providerSelect.value = settings.provider;
     updateRecordUi();
     await loadProjects();
   } catch (error) {

@@ -4,7 +4,9 @@ import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { Hono } from "hono";
+import { createBunWebSocket } from "hono/bun";
 import { cors } from "hono/cors";
+import { createExploreRoute } from "./explore";
 import { harpRouter } from "./router";
 import type { HarpContext } from "./server";
 import type { FileStore } from "./store";
@@ -35,6 +37,7 @@ export const createHarpServer = (options: { store: FileStore }) => {
     store: options.store,
   };
   const app = new Hono();
+  const { upgradeWebSocket, websocket } = createBunWebSocket();
 
   const openApiHandler = new OpenAPIHandler(harpRouter, {
     interceptors: [
@@ -73,6 +76,11 @@ export const createHarpServer = (options: { store: FileStore }) => {
     }),
   );
 
+  app.get(
+    "/projects/:id/explore",
+    createExploreRoute(options.store, upgradeWebSocket),
+  );
+
   app.use("/rpc/*", async (c, next) => {
     const result = await rpcHandler.handle(c.req.raw, {
       context,
@@ -92,5 +100,8 @@ export const createHarpServer = (options: { store: FileStore }) => {
       : next();
   });
 
-  return app;
+  return {
+    app,
+    websocket,
+  };
 };

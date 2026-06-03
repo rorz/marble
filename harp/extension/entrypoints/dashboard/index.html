@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="./dashboard.css" />
+    <link rel="stylesheet" href="./style.css" />
     <title>HARP Dashboard</title>
   </head>
   <body>
@@ -15,6 +15,17 @@
     <main>
       <section id="surfaces" class="surfaces"></section>
       <section class="panel">
+        <div class="log">
+          <div class="log-head">
+            Captain's Log<span id="log-status" class="log-status"></span>
+          </div>
+          <div id="log-body" class="log-body">
+            <div class="detail-empty">
+              No exploration running. Start one from the HARP popup while on the
+              target site, then switch here to watch.
+            </div>
+          </div>
+        </div>
         <div id="detail" class="detail"></div>
         <div class="contract">
           <div class="contract-head">
@@ -25,6 +36,6 @@
         </div>
       </section>
     </main>
-    <script type="module" src="./dashboard.js"></script>
+    <script type="module" src="./main.ts"></script>
   </body>
 </html>

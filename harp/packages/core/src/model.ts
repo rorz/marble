@@ -158,6 +158,7 @@ export const endpointModelSchema = z.object({
     }),
   ),
   pathTemplate: z.string(),
+  probed: z.boolean().default(false),
   query: schemaNodeSchema.nullable(),
   requestBody: schemaNodeSchema.nullable(),
   responseBody: schemaNodeSchema.nullable(),

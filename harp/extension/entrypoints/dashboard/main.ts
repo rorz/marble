@@ -1,5 +1,7 @@
 import type { ApiModel, CoverageMap, EndpointModel } from "@harp/contracts";
-import { renderSchema } from "./schema-tree";
+import { browser } from "#imports";
+import type { LogEntry } from "../../lib/messaging";
+import { renderSchema } from "../../lib/schema-tree";
 
 /**
  * HARP dashboard — the home for your reverse-engineered tool. Reads the model,
@@ -43,6 +45,13 @@ const surfacesBox = el<HTMLElement>("surfaces");
 const detailBox = el<HTMLElement>("detail");
 const contractBox = el<HTMLPreElement>("contract-source");
 const copyButton = el<HTMLButtonElement>("copy");
+const logBody = el<HTMLElement>("log-body");
+const logStatus = el<HTMLSpanElement>("log-status");
+
+const appendLog = (entry: LogEntry) => {
+  logBody.append(node("div", `log-line log-${entry.kind}`, entry.text));
+  logBody.scrollTop = logBody.scrollHeight;
+};
 
 let settings: Settings = {
   projectId: "",
@@ -63,7 +72,7 @@ const getJson = async <T>(path: string): Promise<T> => {
 };
 
 const loadStoredSettings = async () => {
-  const stored = await chrome.storage.local.get("settings");
+  const stored = await browser.storage.local.get("settings");
   const saved = (stored.settings as Partial<Settings>) ?? {};
   settings = {
     projectId: saved.projectId ?? "",
@@ -76,8 +85,8 @@ const saveProject = async (projectId: string) => {
     ...settings,
     projectId,
   };
-  const stored = await chrome.storage.local.get("settings");
-  await chrome.storage.local.set({
+  const stored = await browser.storage.local.get("settings");
+  await browser.storage.local.set({
     settings: {
       ...((stored.settings as object) ?? {}),
       projectId,
@@ -225,11 +234,11 @@ const renderSurfaces = (coverage: CoverageMap, focusKey?: string) => {
     for (const tile of surface.tiles) {
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `tile ${tile.state}`;
+      button.className = `tile ${tile.state}${tile.probed ? " probed" : ""}`;
       button.dataset.key = tile.key;
       button.append(node("span", "method", tile.method));
       button.append(node("span", "verb", tile.label));
-      button.title = `${tile.method} ${tile.path}`;
+      button.title = `${tile.method} ${tile.path}${tile.probed ? " · agent-probed" : ""}`;
       button.addEventListener("click", () => selectKey(tile.key));
       tiles.append(button);
     }
@@ -321,6 +330,26 @@ copyButton.addEventListener("click", () => {
       copyButton.textContent = "Copy";
     }, 1200);
   });
+});
+
+browser.runtime.onMessage.addListener((message) => {
+  const event = message as {
+    entry?: LogEntry;
+    message?: string;
+    type?: string;
+  };
+  if (event.type === "EXPLORE_START") {
+    logBody.replaceChildren();
+    logStatus.textContent = "running…";
+  } else if (event.type === "EXPLORE_LOG" && event.entry) {
+    appendLog(event.entry);
+  } else if (event.type === "EXPLORE_DONE") {
+    logStatus.textContent = "done";
+    void load();
+  } else if (event.type === "EXPLORE_ERROR") {
+    logStatus.textContent = `error: ${event.message ?? "failed"}`;
+  }
+  return undefined;
 });
 
 void init();

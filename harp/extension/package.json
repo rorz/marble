@@ -1,13 +1,17 @@
 {
   "devDependencies": {
     "@harp/contracts": "workspace:*",
-    "typescript": "catalog:base"
+    "typescript": "catalog:base",
+    "wxt": "catalog:base"
   },
   "name": "@harp/extension",
   "private": true,
   "scripts": {
-    "build": "bun run build.ts",
-    "typecheck": "tsc --noEmit"
+    "build": "wxt build",
+    "dev": "wxt",
+    "postinstall": "wxt prepare",
+    "typecheck": "tsc --noEmit",
+    "typegen": "wxt prepare"
   },
   "type": "module",
   "version": "1.0.0"

@@ -49,6 +49,7 @@ type Aggregate = {
   host: string;
   method: EndpointModel["method"];
   params: Map<string, SchemaNode>;
+  probed: boolean;
   query: SchemaNode;
   requestBody: SchemaNode | null;
   responseBody: SchemaNode | null;
@@ -95,6 +96,9 @@ const addSample = (aggregate: Aggregate, sample: RequestSample) => {
   aggregate.statuses.add(sample.responseStatus);
   aggregate.contentTypes.request ??= sample.requestContentType;
   aggregate.contentTypes.response ??= sample.responseContentType;
+  if (sample.viaProbe) {
+    aggregate.probed = true;
+  }
   aggregate.sampleCount += 1;
   aggregate.seenAt = maxIso(aggregate.seenAt, sample.startedDateTime);
 };
@@ -112,6 +116,7 @@ const finalize = (aggregate: Aggregate): EndpointModel => ({
     schema,
   })),
   pathTemplate: aggregate.template,
+  probed: aggregate.probed,
   query:
     aggregate.query.kind === "object" && aggregate.query.fields.length === 0
       ? null
@@ -142,6 +147,7 @@ const buildEndpoints = (samples: RequestSample[]): EndpointModel[] => {
       host: sample.host,
       method: sample.method,
       params: new Map(),
+      probed: sample.viaProbe === true,
       query: {
         fields: [],
         kind: "object",
@@ -249,6 +255,7 @@ const mergeEndpoint = (
   method: left.method,
   pathParams: mergeParams(left.pathParams, right.pathParams),
   pathTemplate: left.pathTemplate,
+  probed: left.probed || right.probed,
   query: mergeNullable(left.query, right.query),
   requestBody: mergeNullable(left.requestBody, right.requestBody),
   responseBody: mergeNullable(left.responseBody, right.responseBody),

@@ -80,6 +80,7 @@
         "tailwindcss": "^4",
         "typescript": "^5",
         "wrangler": "^4.85",
+        "wxt": "^0.20.26",
         "zod": "4.3.6"
       }
     },
