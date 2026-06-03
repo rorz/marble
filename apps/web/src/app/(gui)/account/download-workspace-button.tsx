@@ -14,7 +14,9 @@ const triggerBrowserDownload = (blob: Blob, filename: string) => {
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 0);
 };
 
 const filenameFromResponse = (response: Response) => {

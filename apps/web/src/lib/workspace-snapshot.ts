@@ -93,12 +93,18 @@ const collectProjectSources = async (sdk: ServerSdk, projectId: string) => {
     projectId,
   });
 
-  return sources.map((source) => ({
-    id: source.id,
-    name: source.name,
-    payloadSchema: source.payloadSchema,
-    projectId: source.projectId,
-  }));
+  return sortBy(
+    sources.map((source) => ({
+      id: source.id,
+      name: source.name,
+      payloadSchema: source.payloadSchema,
+      projectId: source.projectId,
+    })),
+    composeCompare(
+      byString((source) => source.name),
+      byString((source) => source.id),
+    ),
+  );
 };
 
 const collectProjectPipes = async (
@@ -113,7 +119,10 @@ const collectProjectPipes = async (
     ),
   );
 
-  return dedupeById(pipeGroups.flat());
+  return sortBy(
+    dedupeById(pipeGroups.flat()),
+    byString((pipe) => pipe.id),
+  );
 };
 
 const collectProgramsForProfiles = async (
@@ -198,12 +207,6 @@ export const buildWorkspaceSnapshot = async () => {
   const sidebar = await bootstrapSdk.sidebar.getData({});
   const sdkByProfile = await buildSdkByProfile(sidebar.ownerProfileIds);
 
-  const profileByProject = new Map(
-    sidebar.projects.map((project) => [
-      project.id,
-      project.ownerProfileId,
-    ]),
-  );
   const tablesByProject = groupBy(sidebar.tables, (table) => table.projectId);
 
   const columnIdsByProfile = new Map<string, string[]>();
