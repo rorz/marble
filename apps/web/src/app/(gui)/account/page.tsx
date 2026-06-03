@@ -6,6 +6,7 @@ import {
 } from "@marble/ui";
 import { requireUserIdentity } from "../../../lib/auth";
 import { AccountSignOutButton } from "./account-sign-out-button";
+import { DownloadWorkspaceButton } from "./download-workspace-button";
 
 const AccountPage = async () => {
   const identity = await requireUserIdentity();
@@ -56,6 +57,8 @@ const AccountPage = async () => {
           label="User ID"
           value={identity.id}
         />
+
+        <DownloadWorkspaceButton />
 
         <AccountSignOutButton />
       </div>
