@@ -2,10 +2,14 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
   type ApiModel,
+  apiModelSchema,
   buildCoverage,
   type CoverageDelta,
   type CoverageMap,
   diffCoverage,
+  fillOperationNames,
+  type GeneratedArtifacts,
+  generateArtifacts,
   generateContract,
   ingestHar,
 } from "@harp/core";
@@ -65,15 +69,24 @@ const readJsonOrNull = async <T>(file: string): Promise<T | null> => {
   }
 };
 
-const readTextOrNull = async (file: string): Promise<string | null> => {
-  try {
-    return await readFile(file, "utf8");
-  } catch (error) {
-    if (isMissing(error)) {
-      return null;
-    }
-    throw error;
+/**
+ * Load a stored model, healing it through the schema so older captures (written
+ * before fields like `operationName`/`probed` existed) gain their defaults and
+ * stable operation names rather than failing output validation downstream.
+ */
+const readModel = async (file: string): Promise<ApiModel | null> => {
+  const raw = await readJsonOrNull<unknown>(file);
+  if (raw === null) {
+    return null;
   }
+  const parsed = apiModelSchema.safeParse(raw);
+  if (!parsed.success) {
+    console.warn(
+      `[harp] ignoring unreadable model ${file}: ${parsed.error.message}`,
+    );
+    return null;
+  }
+  return fillOperationNames(parsed.data);
 };
 
 const writeJson = async (file: string, value: unknown) => {
@@ -160,7 +173,7 @@ export const createFileStore = (dataDir: string) => {
     delta: CoverageDelta;
   }> => {
     const file = paths(project.id);
-    const previousModel = await readJsonOrNull<ApiModel>(file.model);
+    const previousModel = await readModel(file.model);
     const previousCoverage = await readJsonOrNull<CoverageMap>(file.coverage);
     const result = ingestHar({
       har,
@@ -234,10 +247,15 @@ export const createFileStore = (dataDir: string) => {
 
   return {
     createProject,
-    getContractSource: (id: string) => readTextOrNull(paths(id).contract),
-    getCoverage: (id: string) =>
-      readJsonOrNull<CoverageMap>(paths(id).coverage),
-    getModel: (id: string) => readJsonOrNull<ApiModel>(paths(id).model),
+    getArtifacts: async (id: string): Promise<GeneratedArtifacts | null> => {
+      const model = await readModel(paths(id).model);
+      return model ? generateArtifacts(model) : null;
+    },
+    getCoverage: async (id: string): Promise<CoverageMap | null> => {
+      const model = await readModel(paths(id).model);
+      return model ? buildCoverage(model) : null;
+    },
+    getModel: (id: string) => readModel(paths(id).model),
     getProject,
     ingest,
     listCaptures,

@@ -1,8 +1,3 @@
-import {
-  operationVerb,
-  pickCollectionTemplate,
-  pickItemTemplate,
-} from "../infer/path";
 import type {
   ApiModel,
   EndpointModel,
@@ -25,20 +20,6 @@ const safeVar = (name: string) => (isIdentifier(name) ? name : `r_${name}`);
 
 const capitalize = (value: string) =>
   value.length === 0 ? value : `${value[0].toUpperCase()}${value.slice(1)}`;
-
-const uniqueName = (base: string, used: Set<string>) => {
-  const candidate = base.length === 0 ? "operation" : base;
-  if (!used.has(candidate)) {
-    used.add(candidate);
-    return candidate;
-  }
-  let suffix = 2;
-  while (used.has(`${candidate}${suffix}`)) {
-    suffix += 1;
-  }
-  used.add(`${candidate}${suffix}`);
-  return `${candidate}${suffix}`;
-};
 
 const inputNodeFor = (endpoint: EndpointModel): SchemaNode | null => {
   const fields: SchemaField[] = endpoint.pathParams.map((param) => ({
@@ -83,8 +64,11 @@ const renderOperation = (
   };
   const inputLine =
     input === null ? "" : `\n    .input(${schemaNodeToZod(input, 2)})`;
+  const opKey = isIdentifier(operationName)
+    ? operationName
+    : JSON.stringify(operationName);
   return [
-    `  ${operationName}: oc`,
+    `  ${opKey}: oc`,
     "    .route({",
     `      method: "${endpoint.method}",`,
     `      operationId: "${resourceName}.${operationName}",`,
@@ -99,20 +83,13 @@ const renderOperation = (
 };
 
 const renderResource = (resource: ResourceModel): string => {
-  const templates = resource.endpoints.map((endpoint) => endpoint.pathTemplate);
-  const collection = pickCollectionTemplate(templates);
-  const item = pickItemTemplate(templates, collection);
-  const used = new Set<string>();
-  const operations = resource.endpoints.map((endpoint) => {
-    const verb = operationVerb(
-      endpoint.method,
-      endpoint.pathTemplate,
-      collection,
-      item,
-    );
-    const operationName = uniqueName(verb, used);
-    return renderOperation(endpoint, operationName, resource.name);
-  });
+  const operations = resource.endpoints.map((endpoint) =>
+    renderOperation(
+      endpoint,
+      endpoint.operationName || endpoint.method.toLowerCase(),
+      resource.name,
+    ),
+  );
   return `const ${safeVar(resource.name)}Contract = {\n${operations.join("\n")}\n};`;
 };
 

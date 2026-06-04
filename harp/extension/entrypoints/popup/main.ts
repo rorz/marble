@@ -8,6 +8,7 @@ import { browser } from "#imports";
  */
 
 type Settings = {
+  autoAnalyze: boolean;
   autoDownload: boolean;
   autoIngest: boolean;
   projectId: string;
@@ -51,15 +52,17 @@ const newProjectInput = el<HTMLInputElement>("new-project-name");
 const createButton = el<HTMLButtonElement>("create-project");
 const autoDownloadInput = el<HTMLInputElement>("auto-download");
 const autoIngestInput = el<HTMLInputElement>("auto-ingest");
+const autoAnalyzeInput = el<HTMLInputElement>("auto-analyze");
 const recordButton = el<HTMLButtonElement>("record");
 const dashboardButton = el<HTMLButtonElement>("open-dashboard");
 const providerSelect = el<HTMLSelectElement>("provider-select");
-const exploreButton = el<HTMLButtonElement>("explore");
+const reanalyzeButton = el<HTMLButtonElement>("reanalyze");
 const statusBox = el<HTMLDivElement>("status");
 const coverageBox = el<HTMLDivElement>("coverage");
 const recordDot = el<HTMLSpanElement>("rec-dot");
 
 let settings: Settings = {
+  autoAnalyze: true,
   autoDownload: true,
   autoIngest: true,
   projectId: "",
@@ -67,7 +70,10 @@ let settings: Settings = {
   serverUrl: "http://localhost:4277",
 };
 let recording = false;
+let analyzing = false;
+let hasModel = false;
 let freshKeys = new Set<string>();
+let currentHost = "";
 
 const sendMessage = async <T>(message: object): Promise<T> => {
   const response = (await browser.runtime.sendMessage(message)) as {
@@ -200,18 +206,45 @@ const renderProjects = (projects: Project[]) => {
   projectSelect.value = settings.projectId;
 };
 
+/**
+ * Single render for the primary action area. Record is the one CTA; it shows
+ * "Analyzing…" (animated) while a run is in flight. The header "↻ Analyze" is a
+ * subtle manual re-run, enabled only when there's a captured model to work on.
+ */
+const renderPrimary = () => {
+  if (analyzing) {
+    recordButton.textContent = "Analyzing…";
+    recordButton.className = "record analyzing";
+    recordButton.disabled = true;
+  } else {
+    recordButton.textContent = recording ? "Stop" : "Record";
+    recordButton.className = recording ? "record recording" : "record";
+    recordButton.disabled = false;
+  }
+  recordDot.className = recording ? "on" : "";
+  reanalyzeButton.disabled =
+    analyzing || recording || !settings.projectId || !hasModel;
+};
+
 const loadCoverage = async () => {
   if (!settings.projectId) {
+    hasModel = false;
     renderEmpty("Pick or create a project to see its map.");
+    renderPrimary();
     return;
   }
   try {
-    renderCoverage(
-      await apiGet<CoverageMap>(`/projects/${settings.projectId}/coverage`),
+    const coverage = await apiGet<CoverageMap>(
+      `/projects/${settings.projectId}/coverage`,
     );
+    currentHost = coverage.host;
+    hasModel = coverage.surfaces.length > 0;
+    renderCoverage(coverage);
   } catch {
+    hasModel = false;
     renderEmpty("No captures yet for this project — hit Record.");
   }
+  renderPrimary();
 };
 
 const loadProjects = async () => {
@@ -224,10 +257,12 @@ const loadProjects = async () => {
   }
 };
 
-const updateRecordUi = () => {
-  recordButton.textContent = recording ? "Stop" : "Record";
-  recordButton.className = recording ? "record recording" : "record";
-  recordDot.className = recording ? "on" : "";
+const setAnalyzing = (on: boolean) => {
+  analyzing = on;
+  renderPrimary();
+  if (on) {
+    setStatus("Analyzing — the agent is probing & refining the contract…");
+  }
 };
 
 const saveSettingsPatch = async (patch: Partial<Settings>) => {
@@ -268,7 +303,7 @@ const toggleRecord = async () => {
       });
       recording = true;
       freshKeys = new Set();
-      updateRecordUi();
+      renderPrimary();
       setStatus("Recording — click around the site, then press Stop.");
       return;
     }
@@ -279,11 +314,15 @@ const toggleRecord = async () => {
       type: "STOP",
     });
     recording = false;
-    updateRecordUi();
+    renderPrimary();
     await handleStopResult(result);
+    // The background auto-starts analysis after a successful ingest; reflect it.
+    if (settings.autoAnalyze && settings.projectId && result.ingest) {
+      setAnalyzing(true);
+    }
   } catch (error) {
     recording = false;
-    updateRecordUi();
+    renderPrimary();
     setStatus(messageOf(error));
   }
 };
@@ -307,34 +346,50 @@ const createProject = async () => {
   }
 };
 
-const runExplore = async () => {
-  exploreButton.disabled = true;
-  setStatus("Exploring — the agent is probing endpoints in-page…");
-  try {
-    const done = await sendMessage<{
-      delta?: {
-        newlyUnlocked: string[];
-        total: number;
-        unlocked: number;
-      };
-      probeCount?: number;
-    }>({
-      type: "EXPLORE",
-    });
-    if (done.delta) {
-      freshKeys = new Set(done.delta.newlyUnlocked);
+/**
+ * Trigger an analysis. Visual state (button + status) is NOT managed here — it
+ * flows from the background's EXPLORE_* broadcasts so the popup and dashboard
+ * stay in lock-step whether the run was started manually or auto-fired on stop.
+ */
+const analyze = () => {
+  if (analyzing || !settings.projectId) {
+    return;
+  }
+  setAnalyzing(true);
+  void sendMessage({
+    host: currentHost,
+    projectId: settings.projectId,
+    type: "EXPLORE",
+  }).catch((error) => {
+    setAnalyzing(false);
+    setStatus(messageOf(error));
+  });
+};
+
+const onBroadcast = (message: unknown) => {
+  const event = message as {
+    delta?: CoverageDelta;
+    message?: string;
+    probeCount?: number;
+    type?: string;
+  };
+  if (event.type === "EXPLORE_START") {
+    setAnalyzing(true);
+  } else if (event.type === "EXPLORE_DONE") {
+    setAnalyzing(false);
+    if (event.delta) {
+      freshKeys = new Set(event.delta.newlyUnlocked);
       setStatus(
-        `Explored · ${done.probeCount ?? 0} probes · 🔓 ${done.delta.newlyUnlocked.length} new · ${pct(done.delta.unlocked, done.delta.total)}% covered`,
+        `Analyzed · ${event.probeCount ?? 0} probes · 🔓 ${event.delta.newlyUnlocked.length} new · ${pct(event.delta.unlocked, event.delta.total)}% covered`,
         true,
       );
     } else {
-      setStatus("Explore complete.");
+      setStatus("Analyzed.", true);
     }
-    await loadCoverage();
-  } catch (error) {
-    setStatus(messageOf(error));
-  } finally {
-    exploreButton.disabled = false;
+    void loadCoverage();
+  } else if (event.type === "EXPLORE_ERROR") {
+    setAnalyzing(false);
+    setStatus(`Analyze failed: ${event.message ?? "error"}`);
   }
 };
 
@@ -361,9 +416,15 @@ const wireEvents = () => {
       autoIngest: autoIngestInput.checked,
     });
   });
+  autoAnalyzeInput.addEventListener("change", () => {
+    void saveSettingsPatch({
+      autoAnalyze: autoAnalyzeInput.checked,
+    });
+  });
+  browser.runtime.onMessage.addListener(onBroadcast);
   recordButton.addEventListener("click", () => void toggleRecord());
   dashboardButton.addEventListener("click", () => openDashboard());
-  exploreButton.addEventListener("click", () => void runExplore());
+  reanalyzeButton.addEventListener("click", () => analyze());
   providerSelect.addEventListener("change", () => {
     void saveSettingsPatch({
       provider: providerSelect.value as Settings["provider"],
@@ -374,6 +435,7 @@ const wireEvents = () => {
 const init = async () => {
   try {
     const data = await sendMessage<{
+      analyzing: boolean;
       settings: Settings;
       state: CaptureState;
     }>({
@@ -384,8 +446,12 @@ const init = async () => {
     serverInput.value = settings.serverUrl;
     autoDownloadInput.checked = settings.autoDownload;
     autoIngestInput.checked = settings.autoIngest;
+    autoAnalyzeInput.checked = settings.autoAnalyze;
     providerSelect.value = settings.provider;
-    updateRecordUi();
+    renderPrimary();
+    if (data.analyzing) {
+      setAnalyzing(true);
+    }
     await loadProjects();
   } catch (error) {
     setStatus(messageOf(error));

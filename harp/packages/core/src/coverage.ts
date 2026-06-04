@@ -84,9 +84,16 @@ type Hypothesis = {
   template: string;
 };
 
+/**
+ * Evidence-gated hole hypotheses. Read gaps (list/detail) are always plausible,
+ * but write operations (create/update/delete) are only suggested when a write
+ * method was actually observed on the resource — so a read-only API never gets
+ * fabricated CRUD noise.
+ */
 const hypotheses = (
   collection: string | null,
   item: string | null,
+  hasWrite: boolean,
 ): Hypothesis[] => {
   const result: Hypothesis[] = [];
   if (collection) {
@@ -94,27 +101,38 @@ const hypotheses = (
       method: "GET",
       template: collection,
     });
-    result.push({
-      method: "POST",
-      template: collection,
-    });
+    if (hasWrite) {
+      result.push({
+        method: "POST",
+        template: collection,
+      });
+    }
   }
   if (item) {
     result.push({
       method: "GET",
       template: item,
     });
-    result.push({
-      method: "PATCH",
-      template: item,
-    });
-    result.push({
-      method: "DELETE",
-      template: item,
-    });
+    if (hasWrite) {
+      result.push({
+        method: "PATCH",
+        template: item,
+      });
+      result.push({
+        method: "DELETE",
+        template: item,
+      });
+    }
   }
   return result;
 };
+
+const WRITE_METHODS = new Set([
+  "POST",
+  "PUT",
+  "PATCH",
+  "DELETE",
+]);
 
 const buildSurface = (
   name: string,
@@ -124,17 +142,17 @@ const buildSurface = (
   const collection = pickCollectionTemplate(templates);
   const item = pickItemTemplate(templates, collection);
   const observed = new Set<string>();
+  const hasWrite = endpoints.some((endpoint) =>
+    WRITE_METHODS.has(endpoint.method),
+  );
   const tiles: CoverageTile[] = endpoints.map((endpoint) => {
     const key = tileKey(endpoint.method, endpoint.pathTemplate);
     observed.add(key);
     return {
       key,
-      label: operationVerb(
-        endpoint.method,
-        endpoint.pathTemplate,
-        collection,
-        item,
-      ),
+      label:
+        endpoint.operationName ||
+        operationVerb(endpoint.method, endpoint.pathTemplate, collection, item),
       method: endpoint.method,
       path: endpoint.pathTemplate,
       probed: endpoint.probed,
@@ -142,7 +160,7 @@ const buildSurface = (
       state: observedTileState(endpoint),
     };
   });
-  for (const hypothesis of hypotheses(collection, item)) {
+  for (const hypothesis of hypotheses(collection, item, hasWrite)) {
     const key = tileKey(hypothesis.method, hypothesis.template);
     if (observed.has(key)) {
       continue;

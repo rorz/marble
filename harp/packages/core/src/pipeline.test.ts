@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { generateAuthDoc } from "./codegen/auth";
+import { generateOpenApi } from "./codegen/openapi";
 import type { EndpointModel } from "./model";
 import { ingestHar } from "./pipeline";
 
@@ -51,6 +53,20 @@ const fullHar = {
         ws("11111111-1111-4111-8111-111111111111", "Ada", "pro"),
         "2026-01-03T00:00:00Z",
       ),
+      {
+        request: {
+          method: "POST",
+          postData: json({
+            name: "Cy",
+          }),
+          url: listUrl,
+        },
+        response: {
+          content: json(ws("33333333-3333-4333-8333-333333333333", "Cy", null)),
+          status: 201,
+        },
+        startedDateTime: "2026-01-04T00:00:00Z",
+      },
     ],
   },
 };
@@ -146,6 +162,59 @@ describe("ingestHar", () => {
     );
   });
 
+  test("generates a valid OpenAPI 3.1 document from the model", () => {
+    const { model } = ingestHar({
+      har: fullHar,
+    });
+    const spec = JSON.parse(generateOpenApi(model)) as {
+      info: {
+        title: string;
+      };
+      openapi: string;
+      paths: Record<
+        string,
+        Record<
+          string,
+          {
+            operationId: string;
+            parameters?: Array<{
+              in: string;
+              name: string;
+            }>;
+            requestBody?: unknown;
+            responses: Record<string, unknown>;
+          }
+        >
+      >;
+    };
+    expect(spec.openapi).toBe("3.1.0");
+    expect(spec.info.title).toContain("app.clay.com");
+
+    const detail = spec.paths["/api/v1/workspaces/{workspaceId}"]?.get;
+    expect(detail?.operationId).toContain("workspaces.");
+    expect(
+      detail?.parameters?.some(
+        (param) => param.in === "path" && param.name === "workspaceId",
+      ),
+    ).toBe(true);
+    expect(detail?.responses["200"]).toBeDefined();
+
+    expect(spec.paths["/api/v1/workspaces"]?.post?.requestBody).toBeDefined();
+  });
+
+  test("renders the cap'n's inferred auth notes as a markdown doc", () => {
+    const { model } = ingestHar({
+      har: fullHar,
+    });
+    expect(generateAuthDoc(model)).toContain("No auth inferred");
+    const doc = generateAuthDoc({
+      ...model,
+      auth: "Cookie session via `sid`; 401 without it.",
+    });
+    expect(doc).toContain("# Authentication");
+    expect(doc).toContain("Cookie session via `sid`");
+  });
+
   test("accumulates coverage across captures via previous state", () => {
     const oneList = {
       log: {
@@ -182,5 +251,154 @@ describe("ingestHar", () => {
       ?.tiles.find((tile) => tile.key === "GET /api/v1/workspaces");
     expect(secondList?.state).toBe("unlocked");
     expect(second.delta.newlyUnlocked).toContain("GET /api/v1/workspaces");
+  });
+
+  test("captures form posts and query GETs, skips assets and bare navigations", () => {
+    const htmlHar = {
+      log: {
+        entries: [
+          {
+            request: {
+              method: "POST",
+              postData: {
+                mimeType: "application/x-www-form-urlencoded",
+                text: "acct=harp&pw=secret&goto=news",
+              },
+              url: "https://news.example.com/login",
+            },
+            response: {
+              content: {
+                mimeType: "text/html",
+                text: "<html>ok</html>",
+              },
+              status: 200,
+            },
+            startedDateTime: "2026-01-01T00:00:00Z",
+          },
+          {
+            request: {
+              method: "GET",
+              url: "https://news.example.com/user?id=harp",
+            },
+            response: {
+              content: {
+                mimeType: "text/html",
+                text: "<html>u</html>",
+              },
+              status: 200,
+            },
+            startedDateTime: "2026-01-01T00:01:00Z",
+          },
+          {
+            request: {
+              method: "GET",
+              url: "https://news.example.com/news",
+            },
+            response: {
+              content: {
+                mimeType: "text/html",
+                text: "<html>feed</html>",
+              },
+              status: 200,
+            },
+            startedDateTime: "2026-01-01T00:02:00Z",
+          },
+          {
+            request: {
+              method: "GET",
+              url: "https://news.example.com/styles/news.css",
+            },
+            response: {
+              content: {
+                mimeType: "text/css",
+                text: "body{}",
+              },
+              status: 200,
+            },
+            startedDateTime: "2026-01-01T00:03:00Z",
+          },
+        ],
+      },
+    };
+    const { model } = ingestHar({
+      har: htmlHar,
+    });
+
+    expect(model.resources.map((r) => r.name).sort()).toEqual([
+      "login",
+      "user",
+    ]);
+
+    const post = findEndpoint(
+      model.resources.find((r) => r.name === "login")?.endpoints ?? [],
+      "POST",
+      "/login",
+    );
+    const body = post?.requestBody;
+    expect(
+      body?.kind === "object" ? body.fields.map((f) => f.key) : [],
+    ).toEqual([
+      "acct",
+      "goto",
+      "pw",
+    ]);
+
+    const get = findEndpoint(
+      model.resources.find((r) => r.name === "user")?.endpoints ?? [],
+      "GET",
+      "/user",
+    );
+    expect(get?.query?.kind).toBe("object");
+  });
+
+  test("gives unique operation names and gates write holes on read-only APIs", () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const version = "22222222-2222-4222-8222-222222222222";
+    const readOnlyHar = {
+      log: {
+        entries: [
+          getEntry(
+            "https://npm.test/v1/packages",
+            [
+              {
+                id,
+                name: "react",
+              },
+            ],
+            "2026-01-01T00:00:00Z",
+          ),
+          getEntry(
+            `https://npm.test/v1/packages/${id}/provenance`,
+            {
+              ok: true,
+            },
+            "2026-01-02T00:00:00Z",
+          ),
+          getEntry(
+            `https://npm.test/v1/packages/${id}/${version}/provenance`,
+            {
+              ok: true,
+            },
+            "2026-01-03T00:00:00Z",
+          ),
+        ],
+      },
+    };
+    const { coverage, model } = ingestHar({
+      har: readOnlyHar,
+    });
+
+    const packages = model.resources.find((r) => r.name === "packages");
+    const names = packages?.endpoints.map((e) => e.operationName) ?? [];
+    expect(names.length).toBeGreaterThan(0);
+    expect(new Set(names).size).toBe(names.length);
+
+    const surface = coverage.surfaces.find((s) => s.name === "packages");
+    const holeMethods = (surface?.tiles ?? [])
+      .filter((tile) => tile.state === "hole")
+      .map((tile) => tile.method);
+    expect(holeMethods).not.toContain("POST");
+    expect(holeMethods).not.toContain("PATCH");
+    expect(holeMethods).not.toContain("DELETE");
   });
 });

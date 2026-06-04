@@ -133,23 +133,129 @@ const handleStop = async (controller: Controller): Promise<StopResult> => {
   return result;
 };
 
-const runExploreSession = async (settings: Settings): Promise<unknown> => {
-  if (!settings.projectId) {
-    throw new Error("Select a project before exploring.");
+const hostOfUrl = (url: string | undefined): string | null => {
+  if (!url) {
+    return null;
   }
-  // Pin probing to the tab that started the run, so you can switch to the
-  // dashboard to watch the log while probes keep hitting the target's session.
-  const tabId = await activeTabId();
-  const wsUrl = `${settings.serverUrl.replace(/^http/, "ws").replace(/\/+$/, "")}/projects/${settings.projectId}/explore`;
+  try {
+    return new URL(url).host;
+  } catch {
+    // harness-ignore: no-swallowed-errors -- non-web tabs (chrome://, about:) just don't match
+    return null;
+  }
+};
+
+/** The host a project targets, read from the server's project record. */
+const projectHost = async (
+  settings: Settings,
+  projectId: string,
+): Promise<string> => {
+  try {
+    const response = await fetch(
+      `${settings.serverUrl.replace(/\/+$/, "")}/projects`,
+    );
+    if (!response.ok) {
+      return "";
+    }
+    const projects = (await response.json()) as Array<{
+      host: string;
+      id: string;
+    }>;
+    return projects.find((p) => p.id === projectId)?.host ?? "";
+  } catch (error) {
+    console.warn("[harp] could not resolve project host:", error);
+    return "";
+  }
+};
+
+const waitForTabReady = (tabId: number): Promise<void> =>
+  new Promise((resolve) => {
+    const listener = (
+      id: number,
+      info: {
+        status?: string;
+      },
+    ) => {
+      if (id === tabId && info.status === "complete") {
+        browser.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+    browser.tabs.onUpdated.addListener(listener);
+    // Safety net: proceed even if the load event is missed.
+    setTimeout(() => {
+      browser.tabs.onUpdated.removeListener(listener);
+      resolve();
+    }, 8000);
+  });
+
+/**
+ * A tab on the target host to probe through — probes inherit that origin's live
+ * session (cookies are shared per-origin). Prefers an already-open tab; opens a
+ * background one if none exists. `opened` lets the caller tidy up afterwards.
+ */
+const tabOnHost = async (
+  host: string,
+): Promise<{
+  opened: boolean;
+  tabId: number;
+} | null> => {
+  if (!host) {
+    return null;
+  }
+  const tabs = await browser.tabs.query({});
+  const existing = tabs.find((tab) => hostOfUrl(tab.url) === host);
+  if (existing?.id !== undefined) {
+    return {
+      opened: false,
+      tabId: existing.id,
+    };
+  }
+  const created = await browser.tabs.create({
+    active: false,
+    url: `https://${host}/`,
+  });
+  if (created.id === undefined) {
+    return null;
+  }
+  await waitForTabReady(created.id);
+  return {
+    opened: true,
+    tabId: created.id,
+  };
+};
+
+const runAnalyzeSession = async (
+  settings: Settings,
+  override?: {
+    host?: string;
+    message?: string;
+    projectId?: string;
+  },
+): Promise<unknown> => {
+  const projectId = override?.projectId || settings.projectId;
+  if (!projectId) {
+    throw new Error("Select a project before analyzing.");
+  }
+  // Analyze always tries to probe the project's host with your live session,
+  // reusing an open tab on that host or opening one in the background. Only when
+  // there's no known host yet does it fall back to a reasoning-only pass.
+  const host = override?.host || (await projectHost(settings, projectId));
+  const probe = await tabOnHost(host);
+  const mode: "explore" | "refine" = probe ? "explore" : "refine";
+  const wsUrl = `${settings.serverUrl.replace(/^http/, "ws").replace(/\/+$/, "")}/projects/${projectId}/explore`;
+  const cleanup = () => {
+    if (probe?.opened) {
+      void browser.tabs.remove(probe.tabId).catch(() => undefined);
+    }
+  };
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(wsUrl);
     socket.addEventListener("open", () => {
-      broadcastExplore({
-        projectId: settings.projectId,
-        type: "EXPLORE_START",
-      });
       socket.send(
         JSON.stringify({
+          message: override?.message,
+          mode,
           provider: settings.provider,
           type: "start",
         }),
@@ -158,22 +264,33 @@ const runExploreSession = async (settings: Settings): Promise<unknown> => {
     socket.addEventListener("message", (event) => {
       void (async () => {
         const message = JSON.parse(String(event.data)) as {
+          coverage?: unknown;
+          delta?: unknown;
           entry?: unknown;
           id?: string;
           message?: string;
+          probeCount?: number;
           request?: ProbeRequest;
           type: string;
         };
         if (message.type === "probe" && message.request && message.id) {
-          const response: ProbeResponse = await probeViaTab(
-            message.request,
-            tabId,
-          ).catch((error) => ({
-            body: error instanceof Error ? error.message : String(error),
-            contentType: null,
-            ok: false,
-            status: 0,
-          }));
+          const response: ProbeResponse =
+            probe === null
+              ? {
+                  body: "No live tab to probe.",
+                  contentType: null,
+                  ok: false,
+                  status: 0,
+                }
+              : await probeViaTab(message.request, probe.tabId).catch(
+                  (error) => ({
+                    body:
+                      error instanceof Error ? error.message : String(error),
+                    contentType: null,
+                    ok: false,
+                    status: 0,
+                  }),
+                );
           socket.send(
             JSON.stringify({
               id: message.id,
@@ -190,10 +307,20 @@ const runExploreSession = async (settings: Settings): Promise<unknown> => {
           });
           return;
         }
+        if (message.type === "progress") {
+          broadcastExplore({
+            coverage: message.coverage,
+            type: "EXPLORE_PROGRESS",
+          });
+          return;
+        }
         if (message.type === "done") {
           broadcastExplore({
+            delta: message.delta,
+            probeCount: message.probeCount,
             type: "EXPLORE_DONE",
           });
+          cleanup();
           socket.close();
           resolve(message);
           return;
@@ -203,21 +330,52 @@ const runExploreSession = async (settings: Settings): Promise<unknown> => {
             message: message.message,
             type: "EXPLORE_ERROR",
           });
+          cleanup();
           socket.close();
-          reject(new Error(message.message ?? "Explore failed."));
+          reject(new Error(message.message ?? "Analyze failed."));
         }
       })();
     });
     socket.addEventListener("error", () => {
-      reject(new Error("Explore socket error — is the HARP server running?"));
+      cleanup();
+      reject(new Error("Analyze socket error — is the HARP server running?"));
     });
   });
+};
+
+// Single source of truth for "is an analysis running", shared across the popup
+// and dashboard via GET_STATE + broadcasts so both views render the same state.
+let analyzing = false;
+
+const startAnalysis = async (
+  settings: Settings,
+  override?: {
+    host?: string;
+    message?: string;
+    projectId?: string;
+  },
+): Promise<unknown> => {
+  if (analyzing) {
+    throw new Error("Already analyzing.");
+  }
+  analyzing = true;
+  broadcastExplore({
+    type: "EXPLORE_START",
+  });
+  try {
+    return await runAnalyzeSession(settings, override);
+  } finally {
+    analyzing = false;
+  }
 };
 
 const handleMessage = async (
   controller: Controller,
   type: string,
   payload: {
+    host?: string;
+    message?: string;
+    projectId?: string;
     request?: ProbeRequest;
     settings?: Partial<Settings>;
   },
@@ -226,6 +384,7 @@ const handleMessage = async (
     if (type === "GET_STATE") {
       return {
         data: {
+          analyzing,
           settings: await getSettings(),
           state: controller.state(),
         },
@@ -243,9 +402,21 @@ const handleMessage = async (
       };
     }
     if (type === "STOP") {
+      const result = await handleStop(controller);
+      const settings = await getSettings();
+      // Automatic analysis after every successful capture. Fire-and-forget: the
+      // WebSocket keeps the worker alive and EXPLORE_* broadcasts drive both UIs.
+      if (settings.autoAnalyze && settings.projectId && result.ingest) {
+        void startAnalysis(settings).catch((error) => {
+          broadcastExplore({
+            message: error instanceof Error ? error.message : String(error),
+            type: "EXPLORE_ERROR",
+          });
+        });
+      }
       return {
         data: {
-          result: await handleStop(controller),
+          result,
         },
         ok: true,
       };
@@ -267,7 +438,11 @@ const handleMessage = async (
     }
     if (type === "EXPLORE") {
       return {
-        data: await runExploreSession(await getSettings()),
+        data: await startAnalysis(await getSettings(), {
+          host: payload.host,
+          message: payload.message,
+          projectId: payload.projectId,
+        }),
         ok: true,
       };
     }
@@ -285,6 +460,9 @@ export default defineBackground({
     const controller = createCaptureController();
     browser.runtime.onMessage.addListener((message) => {
       const { type, ...payload } = (message ?? {}) as {
+        host?: string;
+        message?: string;
+        projectId?: string;
         request?: ProbeRequest;
         settings?: Partial<Settings>;
         type?: string;

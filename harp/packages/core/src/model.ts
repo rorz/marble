@@ -151,6 +151,7 @@ export const endpointModelSchema = z.object({
     offset: true,
   }),
   method: httpMethodSchema,
+  operationName: z.string().default(""),
   pathParams: z.array(
     z.object({
       name: z.string(),
@@ -176,6 +177,7 @@ export const resourceModelSchema = z.object({
 export type ResourceModel = z.infer<typeof resourceModelSchema>;
 
 export const apiModelSchema = z.object({
+  auth: z.string().default(""),
   generatedAt: z.iso.datetime({
     offset: true,
   }),

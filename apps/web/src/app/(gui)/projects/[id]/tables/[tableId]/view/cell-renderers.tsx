@@ -13,13 +13,27 @@ import type { CellState, GridContext } from "./types";
 
 export const RowNumberCell = (props: CustomCellRendererProps) => {
   const rowId = props.data?._rowId as string | undefined;
+  const ctx = props.context as GridContext;
 
   return (
     <div
-      className="flex h-full items-center"
+      className="group/rownum relative flex h-full w-full items-center"
       {...(rowId ? getChangeTargetProps(changeTargetKey.row(rowId)) : {})}
     >
-      {props.valueFormatted ?? props.value}
+      <span className="truncate">{props.valueFormatted ?? props.value}</span>
+      {rowId ? (
+        <button
+          className="absolute top-1/2 right-0.5 z-30 hidden h-[18px] w-[18px] -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm border border-zinc-200 bg-white text-[8px] text-orange-600 leading-none group-hover/rownum:flex"
+          onClick={(e) => {
+            e.stopPropagation();
+            ctx.runRow?.(rowId);
+          }}
+          title="Run this row (in dependency order)"
+          type="button"
+        >
+          ▶
+        </button>
+      ) : null}
     </div>
   );
 };

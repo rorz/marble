@@ -45,12 +45,51 @@ const surfacesBox = el<HTMLElement>("surfaces");
 const detailBox = el<HTMLElement>("detail");
 const contractBox = el<HTMLPreElement>("contract-source");
 const copyButton = el<HTMLButtonElement>("copy");
+const downloadButton = el<HTMLButtonElement>("download");
+const openSpecButton = el<HTMLButtonElement>("open-spec");
 const logBody = el<HTMLElement>("log-body");
 const logStatus = el<HTMLSpanElement>("log-status");
+const dashboardAnalyzeButton = el<HTMLButtonElement>("dashboard-analyze");
+const chatForm = el<HTMLFormElement>("chat-form");
+const chatInput = el<HTMLInputElement>("chat-input");
+const chatSend = el<HTMLButtonElement>("chat-send");
+let suppressLogClear = false;
+
+type ArtifactKind = "auth" | "cli" | "contract" | "openapi" | "sdk";
+const artifactTabs: Record<ArtifactKind, HTMLButtonElement> = {
+  auth: el<HTMLButtonElement>("tab-auth"),
+  cli: el<HTMLButtonElement>("tab-cli"),
+  contract: el<HTMLButtonElement>("tab-contract"),
+  openapi: el<HTMLButtonElement>("tab-openapi"),
+  sdk: el<HTMLButtonElement>("tab-sdk"),
+};
+
+const artifactFile: Record<ArtifactKind, string> = {
+  auth: "auth.md",
+  cli: "cli.ts",
+  contract: "contract.ts",
+  openapi: "openapi.json",
+  sdk: "sdk.ts",
+};
 
 const appendLog = (entry: LogEntry) => {
   logBody.append(node("div", `log-line log-${entry.kind}`, entry.text));
   logBody.scrollTop = logBody.scrollHeight;
+};
+
+const appendUserMessage = (text: string) => {
+  logBody.append(node("div", "log-line log-user", text));
+  logBody.scrollTop = logBody.scrollHeight;
+};
+
+const setAnalyzing = (on: boolean) => {
+  dashboardAnalyzeButton.disabled = on;
+  dashboardAnalyzeButton.textContent = on ? "Analyzing…" : "Analyze";
+  chatInput.disabled = on;
+  chatSend.disabled = on;
+  if (on) {
+    logStatus.textContent = "running…";
+  }
 };
 
 let settings: Settings = {
@@ -58,8 +97,24 @@ let settings: Settings = {
   serverUrl: "http://localhost:4277",
 };
 let endpoints = new Map<string, EndpointModel>();
-let contractSource = "";
+let artifacts: Record<ArtifactKind, string> = {
+  auth: "",
+  cli: "",
+  contract: "",
+  openapi: "",
+  sdk: "",
+};
+let selectedArtifact: ArtifactKind = "contract";
 let selectedKey: string | undefined;
+let currentHost = "";
+
+const renderArtifact = () => {
+  for (const kind of Object.keys(artifactTabs) as ArtifactKind[]) {
+    artifactTabs[kind].classList.toggle("active", kind === selectedArtifact);
+  }
+  contractBox.textContent =
+    artifacts[selectedArtifact] || "// No contract yet — ingest a capture.";
+};
 
 const base = () => settings.serverUrl.replace(/\/+$/, "");
 
@@ -274,10 +329,14 @@ const load = async (focusKey?: string) => {
     const [coverage, model, contract] = await Promise.all([
       getJson<CoverageMap>(`/projects/${settings.projectId}/coverage`),
       getJson<ApiModel>(`/projects/${settings.projectId}/model`),
-      getJson<{
-        source: string;
-      }>(`/projects/${settings.projectId}/contract`).catch(() => ({
-        source: "",
+      getJson<Record<ArtifactKind, string>>(
+        `/projects/${settings.projectId}/contract`,
+      ).catch(() => ({
+        auth: "",
+        cli: "",
+        contract: "",
+        openapi: "",
+        sdk: "",
       })),
     ]);
     endpoints = new Map(
@@ -288,9 +347,9 @@ const load = async (focusKey?: string) => {
           endpoint,
         ]),
     );
-    contractSource = contract.source;
-    contractBox.textContent =
-      contractSource || "// No contract yet — ingest a capture first.";
+    artifacts = contract;
+    currentHost = coverage.host;
+    renderArtifact();
     renderStats(coverage);
     renderSurfaces(coverage, focusKey);
     if (!selectedKey) {
@@ -311,6 +370,20 @@ const init = async () => {
   await loadStoredSettings();
   const focusKey = parseHash();
   try {
+    const state = (await browser.runtime.sendMessage({
+      type: "GET_STATE",
+    })) as {
+      data?: {
+        analyzing?: boolean;
+      };
+    };
+    if (state?.data?.analyzing) {
+      setAnalyzing(true);
+    }
+  } catch (error) {
+    console.warn("[harp] could not read background state", error);
+  }
+  try {
     renderProjects(await getJson<ProjectSummary[]>("/projects"));
   } catch (error) {
     console.warn("[harp] could not list projects", error);
@@ -323,8 +396,15 @@ projectSelect.addEventListener("change", () => {
   void saveProject(projectSelect.value).then(() => load());
 });
 
+for (const kind of Object.keys(artifactTabs) as ArtifactKind[]) {
+  artifactTabs[kind].addEventListener("click", () => {
+    selectedArtifact = kind;
+    renderArtifact();
+  });
+}
+
 copyButton.addEventListener("click", () => {
-  void navigator.clipboard.writeText(contractSource).then(() => {
+  void navigator.clipboard.writeText(artifacts[selectedArtifact]).then(() => {
     copyButton.textContent = "Copied!";
     setTimeout(() => {
       copyButton.textContent = "Copy";
@@ -332,24 +412,120 @@ copyButton.addEventListener("click", () => {
   });
 });
 
+downloadButton.addEventListener("click", () => {
+  const blob = new Blob(
+    [
+      artifacts[selectedArtifact],
+    ],
+    {
+      type:
+        selectedArtifact === "openapi"
+          ? "application/json"
+          : selectedArtifact === "auth"
+            ? "text/markdown"
+            : "text/typescript",
+    },
+  );
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.download = artifactFile[selectedArtifact];
+  anchor.href = url;
+  anchor.click();
+  URL.revokeObjectURL(url);
+});
+
+openSpecButton.addEventListener("click", () => {
+  if (!settings.projectId) {
+    return;
+  }
+  window.open(`${base()}/projects/${settings.projectId}/docs`, "_blank");
+});
+
+const applyProgress = (coverage: CoverageMap) => {
+  renderStats(coverage);
+  renderSurfaces(coverage);
+  for (const tile of surfacesBox.querySelectorAll(".tile")) {
+    tile.classList.toggle(
+      "selected",
+      (tile as HTMLElement).dataset.key === selectedKey,
+    );
+  }
+};
+
 browser.runtime.onMessage.addListener((message) => {
   const event = message as {
+    coverage?: CoverageMap;
     entry?: LogEntry;
     message?: string;
     type?: string;
   };
   if (event.type === "EXPLORE_START") {
-    logBody.replaceChildren();
-    logStatus.textContent = "running…";
+    if (!suppressLogClear) {
+      logBody.replaceChildren();
+    }
+    suppressLogClear = false;
+    setAnalyzing(true);
   } else if (event.type === "EXPLORE_LOG" && event.entry) {
     appendLog(event.entry);
+  } else if (event.type === "EXPLORE_PROGRESS" && event.coverage) {
+    applyProgress(event.coverage);
   } else if (event.type === "EXPLORE_DONE") {
+    setAnalyzing(false);
     logStatus.textContent = "done";
     void load();
   } else if (event.type === "EXPLORE_ERROR") {
+    setAnalyzing(false);
     logStatus.textContent = `error: ${event.message ?? "failed"}`;
   }
   return undefined;
+});
+
+dashboardAnalyzeButton.addEventListener("click", () => {
+  if (dashboardAnalyzeButton.disabled || !settings.projectId) {
+    return;
+  }
+  setAnalyzing(true);
+  void (async () => {
+    const response = (await browser.runtime.sendMessage({
+      host: currentHost,
+      projectId: settings.projectId,
+      type: "EXPLORE",
+    })) as {
+      error?: string;
+      ok?: boolean;
+    };
+    if (response && response.ok === false) {
+      setAnalyzing(false);
+      logStatus.textContent = `error: ${response.error ?? "failed"}`;
+    }
+  })();
+});
+
+chatForm.addEventListener("submit", (submitEvent) => {
+  submitEvent.preventDefault();
+  const text = chatInput.value.trim();
+  if (!text || chatSend.disabled || !settings.projectId) {
+    return;
+  }
+  appendUserMessage(text);
+  chatInput.value = "";
+  suppressLogClear = true;
+  setAnalyzing(true);
+  void (async () => {
+    const response = (await browser.runtime.sendMessage({
+      host: currentHost,
+      message: text,
+      projectId: settings.projectId,
+      type: "EXPLORE",
+    })) as {
+      error?: string;
+      ok?: boolean;
+    };
+    if (response && response.ok === false) {
+      setAnalyzing(false);
+      logStatus.textContent = `error: ${response.error ?? "failed"}`;
+    }
+  })();
 });
 
 void init();

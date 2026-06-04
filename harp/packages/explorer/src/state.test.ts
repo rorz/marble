@@ -2,9 +2,15 @@ import { describe, expect, test } from "bun:test";
 import { type ApiModel, buildApiModel, type RequestSample } from "@harp/core";
 import {
   createExplorerState,
+  currentSurfaceNames,
   finalizeModel,
+  hasEndpoint,
+  hasSurface,
   type ProbeExecutor,
   probeAndMerge,
+  probeTargets,
+  recordAddedEndpoint,
+  recordAuth,
   recordMerge,
   recordRename,
 } from "./state";
@@ -44,6 +50,15 @@ const jsonExecutor =
     status,
   });
 
+const htmlExecutor =
+  (status: number): ProbeExecutor =>
+  async () => ({
+    body: "<html><body>hi</body></html>",
+    contentType: "text/html",
+    ok: status < 400,
+    status,
+  });
+
 describe("probeAndMerge", () => {
   test("merges a read-only JSON probe into the model", async () => {
     const state = stateFor(buildApiModel([]), "api.test");
@@ -67,6 +82,39 @@ describe("probeAndMerge", () => {
     expect(state.probeLog).toHaveLength(1);
   });
 
+  test("adds an HTML probe as a discovered endpoint (no JSON body needed)", async () => {
+    const state = stateFor(buildApiModel([]), "news.test");
+    const outcome = await probeAndMerge(state, htmlExecutor(200), {
+      method: "GET",
+      path: "/newest",
+    });
+    expect(outcome.status).toBe(200);
+    expect(outcome.summary).toContain("endpoint added");
+    const newest = state.model.resources.find((r) => r.name === "newest");
+    expect(newest?.endpoints[0]?.method).toBe("GET");
+    expect(newest?.endpoints[0]?.probed).toBe(true);
+  });
+
+  test("captures the query shape from an HTML probe", async () => {
+    const state = stateFor(buildApiModel([]), "news.test");
+    await probeAndMerge(state, htmlExecutor(200), {
+      method: "GET",
+      path: "/user?id=pg",
+    });
+    const user = state.model.resources.find((r) => r.name === "user");
+    expect(user?.endpoints[0]?.query?.kind).toBe("object");
+  });
+
+  test("does not add a 404 probe to the model", async () => {
+    const state = stateFor(buildApiModel([]), "news.test");
+    const outcome = await probeAndMerge(state, htmlExecutor(404), {
+      method: "GET",
+      path: "/nope",
+    });
+    expect(state.model.resources.some((r) => r.name === "nope")).toBe(false);
+    expect(outcome.summary).toContain("not added");
+  });
+
   test("blocks mutating probes in read-only mode", async () => {
     const state = stateFor(buildApiModel([]), "api.test");
     const outcome = await probeAndMerge(state, jsonExecutor(200, {}), {
@@ -83,6 +131,61 @@ describe("probeAndMerge", () => {
       path: "https://evil.test/steal",
     });
     expect(outcome.blocked).toBe("host");
+  });
+});
+
+describe("model introspection", () => {
+  test("hasSurface / hasEndpoint track the current (overridden) model", () => {
+    const model = buildApiModel([
+      sample("api.test", "/widgets", [
+        {
+          id: "1",
+        },
+      ]),
+    ]);
+    const state = stateFor(model, "api.test");
+    expect(hasSurface(state, "widgets")).toBe(true);
+    expect(hasSurface(state, "gadgets")).toBe(false);
+    expect(hasEndpoint(state, "GET", "/widgets")).toBe(true);
+    expect(hasEndpoint(state, "POST", "/widgets")).toBe(false);
+
+    recordRename(state, "widgets", "things");
+    expect(hasSurface(state, "things")).toBe(true);
+    expect(hasSurface(state, "widgets")).toBe(false);
+    expect(currentSurfaceNames(state)).toEqual([
+      "things",
+    ]);
+  });
+
+  test("probeTargets surfaces hypothesised holes as concrete suggestions", () => {
+    const model = buildApiModel([
+      sample("api.test", "/widgets/11111111-1111-4111-8111-111111111111", {
+        id: "w1",
+      }),
+    ]);
+    const state = stateFor(model, "api.test");
+    expect(probeTargets(state)).toContain("GET /widgets");
+  });
+
+  test("recordAddedEndpoint declares a write endpoint without probing", () => {
+    const model = buildApiModel([
+      sample("api.test", "/widgets", [
+        {
+          id: "1",
+        },
+      ]),
+    ]);
+    const state = stateFor(model, "api.test");
+    expect(hasEndpoint(state, "POST", "/widgets")).toBe(false);
+    expect(recordAddedEndpoint(state, "post", "/widgets")).toBe(true);
+    expect(hasEndpoint(state, "POST", "/widgets")).toBe(true);
+    expect(recordAddedEndpoint(state, "BOGUS", "/x")).toBe(false);
+  });
+
+  test("recordAuth stores inferred notes on the finalized model", () => {
+    const state = stateFor(buildApiModel([]), "api.test");
+    recordAuth(state, "Bearer token in the Authorization header.");
+    expect(finalizeModel(state).auth).toContain("Bearer token");
   });
 });
 

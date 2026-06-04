@@ -23,6 +23,8 @@ export {
   type ColumnOutputSchema as ColumnOutputSchemaType,
   ColumnRunCondition,
   type ColumnRunCondition as ColumnRunConditionType,
+  extractColumnInputTemplateDependencies,
+  normalizeColumnInputTemplate,
   resolveColumnConfig,
   resolveColumnOutputSchema,
 } from "./resources/entities/column";

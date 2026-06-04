@@ -65,11 +65,21 @@ export type ContextMenuState = {
 
 export type GridContext = {
   runCell: (columnId: string, rowId: string) => void;
+  runRow: (rowId: string) => void;
+  runColumnTen: (columnId: string) => void;
+  requestRunColumnAll: (columnId: string) => void;
+  requestRunColumnCount: (columnId: string) => void;
   onHeaderClick: (columnId: string) => void;
   onHeaderContextMenu: (columnId: string, x: number, y: number) => void;
   openCreateColumn: () => void;
   activeColumnId: string | null;
 };
+
+export type RunColumnCountModalState = {
+  columnId: string;
+  columnName: string;
+  maxRows: number;
+} | null;
 
 export type CellState =
   | {

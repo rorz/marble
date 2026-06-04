@@ -5,7 +5,13 @@ import type {
   ResourceModel,
   SchemaNode,
 } from "../model";
-import { resourceNameFromTemplate, templatizePath } from "./path";
+import {
+  operationVerb,
+  pickCollectionTemplate,
+  pickItemTemplate,
+  resourceNameFromTemplate,
+  templatizePath,
+} from "./path";
 import { inferSchema, mergeSchema } from "./schema";
 
 /**
@@ -109,6 +115,7 @@ const finalize = (aggregate: Aggregate): EndpointModel => ({
   id: hashId(`${aggregate.method} ${aggregate.template}`),
   lastSeenAt: aggregate.seenAt,
   method: aggregate.method,
+  operationName: "",
   pathParams: [
     ...aggregate.params.entries(),
   ].map(([name, schema]) => ({
@@ -184,6 +191,47 @@ const mostCommonHost = (endpoints: EndpointModel[]): string => {
   return best;
 };
 
+const capitalize = (value: string) =>
+  value.length === 0 ? value : `${value[0].toUpperCase()}${value.slice(1)}`;
+
+const pascalParam = (paramName: string) =>
+  capitalize(paramName.replace(/Id$/i, "") || paramName);
+
+/**
+ * A unique, meaningful operation name within a resource. Starts from the
+ * conventional verb (list/get/create/update/delete or a sub-resource name) and
+ * disambiguates collisions with the deepest path param (`getByVersion`) before
+ * falling back to a numeric suffix. The agent can override this with a more
+ * elite name via `name_operation`.
+ */
+const uniqueOperationName = (
+  endpoint: EndpointModel,
+  collection: string | null,
+  item: string | null,
+  used: Set<string>,
+): string => {
+  const base = operationVerb(
+    endpoint.method,
+    endpoint.pathTemplate,
+    collection,
+    item,
+  );
+  let candidate = base;
+  if (used.has(candidate)) {
+    const deepestParam = endpoint.pathParams.at(-1)?.name;
+    candidate = deepestParam ? `${base}By${pascalParam(deepestParam)}` : base;
+  }
+  if (used.has(candidate)) {
+    let suffix = 2;
+    while (used.has(`${base}${suffix}`)) {
+      suffix += 1;
+    }
+    candidate = `${base}${suffix}`;
+  }
+  used.add(candidate);
+  return candidate;
+};
+
 const groupResources = (endpoints: EndpointModel[]): ResourceModel[] => {
   const groups = new Map<string, EndpointModel[]>();
   for (const endpoint of endpoints) {
@@ -195,20 +243,73 @@ const groupResources = (endpoints: EndpointModel[]): ResourceModel[] => {
   return [
     ...groups.entries(),
   ]
-    .map(([name, bucket]) => ({
-      endpoints: bucket.sort(
+    .map(([name, bucket]) => {
+      const sorted = bucket.sort(
         (left, right) =>
           left.pathTemplate.localeCompare(right.pathTemplate) ||
           left.method.localeCompare(right.method),
-      ),
-      name,
-    }))
+      );
+      const templates = sorted.map((endpoint) => endpoint.pathTemplate);
+      const collection = pickCollectionTemplate(templates);
+      const item = pickItemTemplate(templates, collection);
+      const used = new Set<string>();
+      const named = sorted.map((endpoint) => ({
+        ...endpoint,
+        operationName: uniqueOperationName(endpoint, collection, item, used),
+      }));
+      return {
+        endpoints: named,
+        name,
+      };
+    })
     .sort((left, right) => left.name.localeCompare(right.name));
 };
+
+/**
+ * Heal a model whose endpoints predate `operationName` (or were persisted before
+ * naming ran). Existing non-empty names — including elite names the agent chose
+ * — are preserved; only blank names are filled, uniquely, from path conventions.
+ * Idempotent: a fully-named model passes through untouched.
+ */
+export const fillOperationNames = (model: ApiModel): ApiModel => ({
+  ...model,
+  resources: model.resources.map((resource) => {
+    if (resource.endpoints.every((endpoint) => endpoint.operationName !== "")) {
+      return resource;
+    }
+    const templates = resource.endpoints.map(
+      (endpoint) => endpoint.pathTemplate,
+    );
+    const collection = pickCollectionTemplate(templates);
+    const item = pickItemTemplate(templates, collection);
+    const used = new Set(
+      resource.endpoints
+        .map((endpoint) => endpoint.operationName)
+        .filter((name) => name !== ""),
+    );
+    return {
+      ...resource,
+      endpoints: resource.endpoints.map((endpoint) =>
+        endpoint.operationName === ""
+          ? {
+              ...endpoint,
+              operationName: uniqueOperationName(
+                endpoint,
+                collection,
+                item,
+                used,
+              ),
+            }
+          : endpoint,
+      ),
+    };
+  }),
+});
 
 export const buildApiModel = (samples: RequestSample[]): ApiModel => {
   const endpoints = buildEndpoints(samples);
   return {
+    auth: "",
     generatedAt: new Date().toISOString(),
     host: mostCommonHost(endpoints),
     resources: groupResources(endpoints),
@@ -253,6 +354,7 @@ const mergeEndpoint = (
   id: left.id,
   lastSeenAt: maxIso(left.lastSeenAt, right.lastSeenAt),
   method: left.method,
+  operationName: "",
   pathParams: mergeParams(left.pathParams, right.pathParams),
   pathTemplate: left.pathTemplate,
   probed: left.probed || right.probed,
@@ -287,6 +389,7 @@ export const mergeApiModel = (
     ...byId.values(),
   ];
   return {
+    auth: existing.auth || incoming.auth,
     generatedAt: new Date().toISOString(),
     host: mostCommonHost(endpoints),
     resources: groupResources(endpoints),

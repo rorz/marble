@@ -122,6 +122,9 @@ const TablePageView = ({
     rowCount,
     rowCountInput,
     runCell,
+    runColumn,
+    runColumnTen,
+    runRow,
     setRowCountInput,
   } = useRunActions({
     applyClientErrorToCell,
@@ -148,13 +151,19 @@ const TablePageView = ({
     handleCreateColumn,
     handleUpdateColumn,
     onCellContextMenu,
+    runColumnCountModal,
     setConfirmState,
     setContextMenu,
+    setRunColumnCountModal,
   } = useColumnControls({
     columnsRef,
     programs,
     refreshReferenceColumns,
+    rowsRef,
     runCell,
+    runColumn,
+    runColumnTen,
+    runRow,
     sdk,
     secretBindingSdk: webSessionSdk,
     selectedTableId,
@@ -227,6 +236,8 @@ const TablePageView = ({
       rowCount={rowCount}
       rowCountInput={rowCountInput}
       rowData={rowData}
+      runColumn={runColumn}
+      runColumnCountModal={runColumnCountModal}
       runLog={runLog}
       runLogSheetOpen={runLogSheetOpen}
       secrets={secrets}
@@ -237,6 +248,7 @@ const TablePageView = ({
       setInspectedCell={setInspectedCell}
       setNameDraft={setNameDraft}
       setRowCountInput={setRowCountInput}
+      setRunColumnCountModal={setRunColumnCountModal}
       setRunLog={setRunLog}
       setRunLogSheetOpen={setRunLogSheetOpen}
       setSidebarMode={setSidebarMode}

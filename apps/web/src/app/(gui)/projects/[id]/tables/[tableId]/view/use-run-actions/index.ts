@@ -1,15 +1,19 @@
 import { getErrorMessage } from "@marble/lib/result";
 import type { MarbleClient } from "@marble/sdk";
-import type {
-  CellValueChangedEvent,
-  ColumnMovedEvent,
-} from "ag-grid-community";
+import type { CellValueChangedEvent } from "ag-grid-community";
+import type { AgGridReact } from "ag-grid-react";
 import type { Dispatch, RefObject, SetStateAction } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
-import { describeRunOutput } from "./cell";
-import { executeRun } from "./mutations";
-import type { Cell, Column, Row } from "./types";
+import { describeRunOutput } from "../cell";
+import { executeRun } from "../mutations";
+import type { Cell, Column, Row } from "../types";
+
+import { createColumnMovedHandler } from "./reorder";
+import { type RunCellHandlers, runCellOnce } from "./run-batch";
+import { createCollectionRunners } from "./run-collections";
+
+const RUN_TEN_LIMIT = 10;
 
 type UseRunActionsInput = {
   applyClientErrorToCell: (
@@ -24,13 +28,7 @@ type UseRunActionsInput = {
   ) => void;
   cellsRef: RefObject<Cell[]>;
   columnsRef: RefObject<Column[]>;
-  gridRef: RefObject<{
-    api: {
-      getColumnState: () => Array<{
-        colId: string;
-      }>;
-    };
-  } | null>;
+  gridRef: RefObject<AgGridReact | null>;
   markCellAsRunning: (cellId: string, manualInput?: string) => void;
   rowsRef: RefObject<Row[]>;
   runSdk: MarbleClient;
@@ -63,6 +61,7 @@ export const useRunActions = ({
   const [rowCountInput, setRowCountInput] = useState("1");
   const hasRowCountInput = rowCountInput.trim() !== "";
   const rowCount = Math.max(1, Number.parseInt(rowCountInput, 10) || 1);
+  const batchInFlightRef = useRef(false);
 
   const addLog = (message: string) => {
     const ts = new Date().toLocaleTimeString();
@@ -74,80 +73,20 @@ export const useRunActions = ({
     );
   };
 
-  const onColumnMoved = async (event: ColumnMovedEvent) => {
-    if (!event.finished) {
-      return;
-    }
-
-    const gridApi = gridRef.current?.api;
-    if (!gridApi) {
-      return;
-    }
-
-    const columnState = gridApi.getColumnState();
-    const orderedColIds = columnState
-      .map((col) => col.colId)
-      .filter((colId) => columnsRef.current.some((c) => c.id === colId));
-
-    const newIdxMap = new Map<string, number>(
-      orderedColIds.map((id, index) => [
-        id,
-        index,
-      ]),
-    );
-
-    const updates: Array<{
-      id: string;
-      idx: number;
-    }> = [];
-    const updatedColumns = columnsRef.current.map((col) => {
-      const nextIdx = newIdxMap.get(col.id);
-      if (nextIdx !== undefined && nextIdx !== col.idx) {
-        updates.push({
-          id: col.id,
-          idx: nextIdx,
-        });
-        return {
-          ...col,
-          idx: nextIdx,
-        };
-      }
-      return col;
-    });
-
-    if (updates.length === 0) {
-      return;
-    }
-
-    setColumns(updatedColumns);
-    columnsRef.current = updatedColumns;
-
-    try {
-      await Promise.all(
-        updates.map((update) =>
-          sdk.columns.update({
-            id: update.id,
-            values: {
-              idx: 10000 + update.idx,
-            },
-          }),
-        ),
-      );
-
-      await Promise.all(
-        updates.map((update) =>
-          sdk.columns.update({
-            id: update.id,
-            values: {
-              idx: update.idx,
-            },
-          }),
-        ),
-      );
-    } catch (error) {
-      console.error("Failed to persist column reordering:", error);
-    }
+  const handlers: RunCellHandlers = {
+    addLog,
+    applyClientErrorToCell,
+    applyRunOutputToCell,
+    markCellAsRunning,
+    runSdk,
   };
+
+  const onColumnMoved = createColumnMovedHandler({
+    columnsRef,
+    gridRef,
+    sdk,
+    setColumns,
+  });
 
   const getMaterializedCell = async (columnId: string, rowId: string) => {
     const existing = cellsRef.current.find(
@@ -225,27 +164,28 @@ export const useRunActions = ({
     }
 
     setRunning(true);
-    markCellAsRunning(cell.id);
-    addLog(`▶ Re-running "${col.name}" ...`);
-
     try {
-      const result = await executeRun(runSdk, {
-        cellId: cell.id,
+      await runCellOnce(handlers, {
+        cell,
+        columnName: col.name,
+        logStart: true,
       });
-      applyRunOutputToCell(cell.id, result.output);
-      addLog(
-        `${result.success ? "✓" : "✗"} "${col.name}" → ${describeRunOutput(
-          result.output,
-        )}`,
-      );
-    } catch (error) {
-      const message = getErrorMessage(error);
-      applyClientErrorToCell(cell.id, message);
-      addLog(`✗ "${col.name}" → ${message}`);
     } finally {
       setRunning(false);
     }
   };
+
+  const { runColumn, runRow } = createCollectionRunners({
+    addLog,
+    batchInFlightRef,
+    columnsRef,
+    handlers,
+    markCellAsRunning,
+    rowsRef,
+    sdk,
+    setRunning,
+    upsertLocalCells,
+  });
 
   const handleAddRows = async () => {
     if (!selectedTableId) {
@@ -288,6 +228,9 @@ export const useRunActions = ({
     rowCount,
     rowCountInput,
     runCell,
+    runColumn,
+    runColumnTen: (columnId: string) => runColumn(columnId, RUN_TEN_LIMIT),
+    runRow,
     setRowCountInput,
   };
 };

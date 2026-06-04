@@ -1,3 +1,4 @@
+import type { CoverageMap } from "@harp/core";
 import {
   type ExploreResult,
   type ExplorerProvider,
@@ -5,6 +6,8 @@ import {
   explore,
   type ProbeExecutor,
   type ProbeResult,
+  refine,
+  throttleProbes,
 } from "@harp/explorer";
 import type { createBunWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
@@ -32,6 +35,8 @@ const ENV_KEY: Record<ExplorerProvider, string> = {
 };
 
 type StartMessage = {
+  message?: string;
+  mode?: "explore" | "refine";
   provider: ExplorerProvider;
   type: "start";
   variant?: ExplorerVariant;
@@ -87,36 +92,70 @@ export const createExploreRoute = (
         );
       }
 
-      const executor: ProbeExecutor = (request) =>
-        new Promise<ProbeResult>((resolve) => {
-          probeSeq += 1;
-          const id = `p${probeSeq}`;
-          pending.set(id, resolve);
-          ws.send(
-            JSON.stringify({
-              id,
-              request,
-              type: "probe",
-            }),
-          );
-        });
-
-      try {
-        const result: ExploreResult = await explore({
-          apiKey,
-          baseUrl: `https://${project.host || model.host}`,
-          executor,
-          model,
-          onLog: (entry) =>
+      const executor: ProbeExecutor = throttleProbes(
+        (request) =>
+          new Promise<ProbeResult>((resolve) => {
+            probeSeq += 1;
+            const id = `p${probeSeq}`;
+            pending.set(id, resolve);
             ws.send(
               JSON.stringify({
-                entry,
-                type: "log",
+                id,
+                request,
+                type: "probe",
               }),
-            ),
-          provider: message.provider,
-          variant: message.variant,
-        });
+            );
+          }),
+      );
+
+      const onLog = (entry: unknown) =>
+        ws.send(
+          JSON.stringify({
+            entry,
+            type: "log",
+          }),
+        );
+      const onProgress = (coverage: CoverageMap) =>
+        ws.send(
+          JSON.stringify({
+            coverage,
+            type: "progress",
+          }),
+        );
+      const baseUrl = `https://${project.host || model.host}`;
+
+      try {
+        const result: ExploreResult = message.message
+          ? await explore({
+              apiKey,
+              baseUrl,
+              executor,
+              message: message.message,
+              model,
+              onLog,
+              onProgress,
+              provider: message.provider,
+              variant: message.variant,
+            })
+          : message.mode === "refine"
+            ? await refine({
+                apiKey,
+                model,
+                onLog,
+                onProgress,
+                provider: message.provider,
+                variant: message.variant,
+              })
+            : await explore({
+                apiKey,
+                baseUrl,
+                executor,
+                model,
+                onLog,
+                onProgress,
+                provider: message.provider,
+                variant: message.variant,
+              });
         const saved = await store.saveExploredModel(project, result.model);
         ws.send(
           JSON.stringify({

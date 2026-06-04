@@ -3,14 +3,20 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./style.css" />
     <title>HARP</title>
   </head>
   <body>
     <header>
-      <span>HARP 🪉</span>
-      <button id="open-dashboard" type="button" class="ghost">Dashboard ↗</button>
+      <span class="brand">HARP 🪉</span>
       <span id="rec-dot"></span>
+      <button id="reanalyze" type="button" class="ghost" title="Re-run analysis on this project">↻ Analyze</button>
+      <button id="open-dashboard" type="button" class="ghost">Dashboard ↗</button>
     </header>
 
     <section class="settings">
@@ -35,8 +41,12 @@
         <input id="auto-ingest" type="checkbox" />
         Ingest to server on stop
       </label>
+      <label class="check">
+        <input id="auto-analyze" type="checkbox" />
+        Analyze automatically after stop
+      </label>
       <label>
-        Explore model
+        Analyze model
         <select id="provider-select">
           <option value="anthropic">Anthropic</option>
           <option value="openai">OpenAI</option>
@@ -46,7 +56,6 @@
     </section>
 
     <button id="record" type="button" class="record">Record</button>
-    <button id="explore" type="button" class="explore">Explore — probe the holes</button>
     <div id="status" class="status"></div>
     <div id="coverage" class="coverage"></div>
 

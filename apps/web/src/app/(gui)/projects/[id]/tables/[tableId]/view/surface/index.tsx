@@ -24,6 +24,7 @@ import { CellInspectorModal } from "../cell-inspector";
 import { DATE_FORMATTER } from "../constants";
 import { ContextMenu } from "../context-menu";
 import { EditableName } from "../editable-name";
+import { RunColumnModal } from "../run-column-modal";
 import { RunLogSheet } from "../run-log";
 import { ColumnSidebar } from "../sidebar";
 import type {
@@ -37,6 +38,7 @@ import type {
   ProgramSecretBindingMap,
   ProgramSecretDeclarationsByProgramId,
   ReferenceableColumn,
+  RunColumnCountModalState,
   SecretRecord,
   SidebarMode,
   TableInfo,
@@ -76,6 +78,8 @@ type TableSurfaceProps = {
   rowCount: number;
   rowCountInput: string;
   rowData: Record<string, unknown>[];
+  runColumn: (columnId: string, limit?: number) => void;
+  runColumnCountModal: RunColumnCountModalState;
   runLog: string[];
   runLogSheetOpen: boolean;
   secrets: SecretRecord[];
@@ -86,6 +90,7 @@ type TableSurfaceProps = {
   setInspectedCell: Dispatch<SetStateAction<InspectedCell | null>>;
   setNameDraft: Dispatch<SetStateAction<string>>;
   setRowCountInput: Dispatch<SetStateAction<string>>;
+  setRunColumnCountModal: Dispatch<SetStateAction<RunColumnCountModalState>>;
   setRunLog: Dispatch<SetStateAction<string[]>>;
   setRunLogSheetOpen: Dispatch<SetStateAction<boolean>>;
   setSidebarMode: Dispatch<SetStateAction<SidebarMode>>;
@@ -126,6 +131,8 @@ export const TableSurface = ({
   rowCount,
   rowCountInput,
   rowData,
+  runColumn,
+  runColumnCountModal,
   runLog,
   runLogSheetOpen,
   secrets,
@@ -136,6 +143,7 @@ export const TableSurface = ({
   setInspectedCell,
   setNameDraft,
   setRowCountInput,
+  setRunColumnCountModal,
   setRunLog,
   setRunLogSheetOpen,
   setSidebarMode,
@@ -289,6 +297,11 @@ export const TableSurface = ({
       <MarbleConfirmModal
         onClose={() => setConfirmState(null)}
         state={confirmState}
+      />
+      <RunColumnModal
+        onClose={() => setRunColumnCountModal(null)}
+        onConfirm={(columnId, count) => runColumn(columnId, count)}
+        state={runColumnCountModal}
       />
       {inspectedCell && (
         <CellInspectorModal

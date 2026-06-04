@@ -21,6 +21,8 @@ import type {
   ContextMenuState,
   GridContext,
   Program,
+  Row,
+  RunColumnCountModalState,
   SecretBindingInput,
   SidebarMode,
 } from "./types";
@@ -45,7 +47,11 @@ type UseColumnControlsInput = {
   columnsRef: RefObject<Column[]>;
   programs: Program[];
   refreshReferenceColumns: () => Promise<void>;
+  rowsRef: RefObject<Row[]>;
   runCell: (columnId: string, rowId: string) => void;
+  runColumn: (columnId: string, limit?: number) => void;
+  runColumnTen: (columnId: string) => void;
+  runRow: (rowId: string) => void;
   secretBindingSdk: MarbleClient;
   sdk: MarbleClient;
   selectedTableId: string;
@@ -61,7 +67,11 @@ export const useColumnControls = ({
   columnsRef,
   programs,
   refreshReferenceColumns,
+  rowsRef,
   runCell,
+  runColumn,
+  runColumnTen,
+  runRow,
   secretBindingSdk,
   sdk,
   selectedTableId,
@@ -75,6 +85,8 @@ export const useColumnControls = ({
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const [confirmState, setConfirmState] =
     useState<MarbleConfirmModalState | null>(null);
+  const [runColumnCountModal, setRunColumnCountModal] =
+    useState<RunColumnCountModalState>(null);
 
   const handleDeleteColumn = async (columnId: string) => {
     await deleteColumn(sdk, columnId);
@@ -227,6 +239,33 @@ export const useColumnControls = ({
     });
   };
 
+  const requestRunColumnAll = (columnId: string) => {
+    const col = columnsRef.current.find((column) => column.id === columnId);
+    const rowCount = rowsRef.current.length;
+    setConfirmState({
+      confirmLabel: `Run ${rowCount} ${rowCount === 1 ? "cell" : "cells"}`,
+      confirmVariant: "orange",
+      message: `Run every cell in "${col?.name ?? "this column"}"? This will execute ${rowCount} ${
+        rowCount === 1 ? "cell" : "cells"
+      }.`,
+      onConfirm: () => runColumn(columnId),
+      title: "Run column",
+    });
+  };
+
+  const requestRunColumnCount = (columnId: string) => {
+    const col = columnsRef.current.find((column) => column.id === columnId);
+    if (!col) {
+      return;
+    }
+
+    setRunColumnCountModal({
+      columnId,
+      columnName: col.name,
+      maxRows: rowsRef.current.length,
+    });
+  };
+
   const gridContext: GridContext = {
     activeColumnId: sidebarMode.kind === "edit" ? sidebarMode.columnId : null,
     onHeaderClick: handleHeaderClick,
@@ -235,7 +274,11 @@ export const useColumnControls = ({
       setSidebarMode({
         kind: "create",
       }),
+    requestRunColumnAll,
+    requestRunColumnCount,
     runCell,
+    runColumnTen,
+    runRow,
   };
 
   return {
@@ -245,7 +288,10 @@ export const useColumnControls = ({
     handleCreateColumn,
     handleUpdateColumn,
     onCellContextMenu,
+    runColumn,
+    runColumnCountModal,
     setConfirmState,
     setContextMenu,
+    setRunColumnCountModal,
   };
 };

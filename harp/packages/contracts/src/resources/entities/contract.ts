@@ -11,11 +11,15 @@ export const contractOperations = defineResourceOperations({
       projectId: z.string(),
     }),
     output: z.object({
-      source: z.string(),
+      auth: z.string(),
+      cli: z.string(),
+      contract: z.string(),
+      openapi: z.string(),
+      sdk: z.string(),
     }),
     route: {
       description:
-        "The generated, standalone oRPC contract source for the reverse-engineered API.",
+        "The generated, standalone artifacts for the reverse-engineered API: the oRPC contract, a typed SDK, a CLI, an OpenAPI 3.1 spec, and the inferred auth notes.",
       method: "GET",
       operationId: "contract.get",
       path: "/projects/{projectId}/contract",

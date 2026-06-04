@@ -63,10 +63,55 @@ export type RequestSample = {
 const isJsonMime = (mime: string | null) =>
   mime !== null && /\bjson\b/i.test(mime);
 
+const isUrlEncodedMime = (mime: string | null) =>
+  mime !== null && /x-www-form-urlencoded/i.test(mime);
+
+const isFormMime = (mime: string | null) =>
+  isUrlEncodedMime(mime) ||
+  (mime !== null && /multipart\/form-data/i.test(mime));
+
+/**
+ * Static assets (scripts, styles, fonts, media, images) are never API
+ * operations, even when they carry cache-busting query strings.
+ */
+const ASSET_PATH =
+  /\.(?:css|m?js|cjs|map|svg|gif|png|jpe?g|webp|avif|ico|bmp|woff2?|ttf|otf|eot|mp4|webm|mov|mp3|wav|ogg|pdf|wasm)(?:$|\?)/i;
+
+const ASSET_MIME =
+  /^(?:image|video|audio|font)\/|^application\/(?:javascript|wasm|octet-stream)|^text\/(?:css|javascript)/i;
+
+const isAsset = (pathname: string, responseContentType: string | null) =>
+  ASSET_PATH.test(pathname) ||
+  (responseContentType !== null && ASSET_MIME.test(responseContentType));
+
+/**
+ * Whether a request/response pair describes an API operation worth modelling.
+ * JSON in or out is the strong signal; beyond that we keep form submissions and
+ * any request carrying structured input (a write verb, or query params) so long
+ * as it isn't a static asset. A bare GET that returns an HTML page is a plain
+ * navigation — there's no input contract to reverse-engineer — so it's skipped.
+ */
 const isApiLike = (
+  pathname: string,
+  method: HttpMethod,
+  query: Record<string, string>,
   requestContentType: string | null,
   responseContentType: string | null,
-) => isJsonMime(requestContentType) || isJsonMime(responseContentType);
+) => {
+  if (isJsonMime(requestContentType) || isJsonMime(responseContentType)) {
+    return true;
+  }
+  if (isAsset(pathname, responseContentType)) {
+    return false;
+  }
+  if (isFormMime(requestContentType)) {
+    return true;
+  }
+  if (method !== "GET") {
+    return true;
+  }
+  return Object.keys(query).length > 0;
+};
 
 const tryParseUrl = (raw: string): URL | null => {
   try {
@@ -84,6 +129,21 @@ const safeJsonParse = (text: string): JsonValue | undefined => {
     // harness-ignore: no-swallowed-errors -- non-JSON bodies are simply not inferred
     return undefined;
   }
+};
+
+/**
+ * Decode an `application/x-www-form-urlencoded` body into a flat object so form
+ * submissions (logins, search posts, settings saves) yield a typed input
+ * schema. Repeated keys collapse to an array.
+ */
+const parseFormBody = (text: string): JsonValue => {
+  const params = new URLSearchParams(text);
+  const body: Record<string, JsonValue> = {};
+  for (const key of new Set(params.keys())) {
+    const values = params.getAll(key);
+    body[key] = values.length > 1 ? values : (values[0] ?? "");
+  }
+  return body;
 };
 
 const decodeBase64Utf8 = (value: string): string => {
@@ -143,7 +203,16 @@ const toSample = (
 
   const requestContentType = entry.request.postData?.mimeType ?? null;
   const responseContentType = entry.response.content?.mimeType ?? null;
-  if (!isApiLike(requestContentType, responseContentType)) {
+  const query = queryRecord(entry.request.queryString, url);
+  if (
+    !isApiLike(
+      url.pathname,
+      method,
+      query,
+      requestContentType,
+      responseContentType,
+    )
+  ) {
     return null;
   }
 
@@ -157,11 +226,15 @@ const toSample = (
     host: url.host,
     method,
     pathname: url.pathname,
-    query: queryRecord(entry.request.queryString, url),
+    query,
     requestBody:
-      requestText !== undefined && isJsonMime(requestContentType)
-        ? safeJsonParse(requestText)
-        : undefined,
+      requestText === undefined
+        ? undefined
+        : isJsonMime(requestContentType)
+          ? safeJsonParse(requestText)
+          : isUrlEncodedMime(requestContentType)
+            ? parseFormBody(requestText)
+            : undefined,
     requestContentType,
     responseBody:
       responseText !== undefined && isJsonMime(responseContentType)

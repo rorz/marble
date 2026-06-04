@@ -3,6 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="./style.css" />
     <title>HARP Dashboard</title>
   </head>
@@ -18,24 +23,60 @@
         <div class="log">
           <div class="log-head">
             Captain's Log<span id="log-status" class="log-status"></span>
+            <button id="dashboard-analyze" type="button" class="log-analyze">
+              Analyze
+            </button>
           </div>
           <div id="log-body" class="log-body">
             <div class="detail-empty">
               No exploration running. Start one from the HARP popup while on the
-              target site, then switch here to watch.
+              target site, then switch here to watch — or ask below.
             </div>
           </div>
+          <form id="chat-form" class="chat">
+            <input
+              id="chat-input"
+              class="chat-input"
+              type="text"
+              autocomplete="off"
+              placeholder="Ask a question or request an endpoint, e.g. add POST /comment…"
+            />
+            <button id="chat-send" type="submit" class="chat-send">Send</button>
+          </form>
         </div>
-        <div id="detail" class="detail"></div>
-        <div class="contract">
-          <div class="contract-head">
-            <span>Generated contract.ts</span>
-            <button id="copy" type="button">Copy</button>
-          </div>
-          <pre id="contract-source"></pre>
+        <div class="zone">
+          <h2 class="zone-label">Endpoint schema · selected tile</h2>
+          <div id="detail" class="detail"></div>
         </div>
       </section>
     </main>
+
+    <details class="drawer" id="code-drawer">
+      <summary class="drawer-bar">
+        <span class="drawer-title">Generated code</span>
+        <span class="drawer-hint">contract · sdk · cli · openapi — whole API</span>
+        <span class="drawer-chevron" aria-hidden="true">▾</span>
+      </summary>
+      <div class="drawer-body">
+        <div class="contract">
+          <div class="contract-head">
+            <span class="contract-tabs">
+              <button id="tab-contract" type="button" class="tab active">contract.ts</button>
+              <button id="tab-sdk" type="button" class="tab">sdk.ts</button>
+              <button id="tab-cli" type="button" class="tab">cli.ts</button>
+              <button id="tab-openapi" type="button" class="tab">openapi.json</button>
+              <button id="tab-auth" type="button" class="tab">auth.md</button>
+            </span>
+            <span class="contract-actions">
+              <button id="open-spec" type="button" title="Open the OpenAPI reference">Open spec ↗</button>
+              <button id="download" type="button">Download</button>
+              <button id="copy" type="button">Copy</button>
+            </span>
+          </div>
+          <pre id="contract-source"></pre>
+        </div>
+      </div>
+    </details>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

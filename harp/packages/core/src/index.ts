@@ -1,4 +1,6 @@
+export { generateAuthDoc } from "./codegen/auth";
 export { generateContract } from "./codegen/contract";
+export { generateOpenApi } from "./codegen/openapi";
 export { schemaNodeToZod } from "./codegen/zod";
 export {
   buildCoverage,
@@ -14,7 +16,11 @@ export {
   diffCoverage,
 } from "./coverage";
 export { type Har, harSchema, parseHar, type RequestSample } from "./har";
-export { buildApiModel, mergeApiModel } from "./infer/endpoint";
+export {
+  buildApiModel,
+  fillOperationNames,
+  mergeApiModel,
+} from "./infer/endpoint";
 export {
   type ApiModel,
   apiModelSchema,
@@ -30,4 +36,10 @@ export {
   type StringFormat,
   schemaNodeSchema,
 } from "./model";
-export { type IngestInput, type IngestResult, ingestHar } from "./pipeline";
+export {
+  type GeneratedArtifacts,
+  generateArtifacts,
+  type IngestInput,
+  type IngestResult,
+  ingestHar,
+} from "./pipeline";

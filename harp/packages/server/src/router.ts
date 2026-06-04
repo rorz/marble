@@ -71,15 +71,13 @@ const coverageRouter = {
 const contractRouter = {
   get: os.contract.get.handler(async ({ context, input }) => {
     await requireProject(context, input.projectId);
-    const source = await context.store.getContractSource(input.projectId);
-    if (source === null) {
+    const artifacts = await context.store.getArtifacts(input.projectId);
+    if (!artifacts) {
       throw new ORPCError("NOT_FOUND", {
         message: "No contract yet — ingest a capture first.",
       });
     }
-    return {
-      source,
-    };
+    return artifacts;
   }),
 };
 

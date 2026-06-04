@@ -9,6 +9,7 @@ import type { CoverageDelta } from "@harp/contracts";
 type ExplorerProvider = "anthropic" | "google" | "openai";
 
 export type Settings = {
+  autoAnalyze: boolean;
   autoDownload: boolean;
   autoIngest: boolean;
   projectId: string;
@@ -17,6 +18,7 @@ export type Settings = {
 };
 
 export const DEFAULT_SETTINGS: Settings = {
+  autoAnalyze: true,
   autoDownload: true,
   autoIngest: true,
   projectId: "",

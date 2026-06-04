@@ -27,6 +27,27 @@ const logError = (error: unknown) => {
 };
 
 /**
+ * A Scalar API-reference page for a reverse-engineered target contract, pointed
+ * at that project's generated `openapi.json`. This is the same reference UI oRPC
+ * ships for its own specs — here it renders the contract HARP built for you.
+ */
+const targetDocsPage = (projectId: string): string =>
+  [
+    "<!doctype html>",
+    '<html lang="en">',
+    "<head>",
+    '<meta charset="utf-8" />',
+    '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    "<title>HARP \uD83E\uDE89 · API reference</title>",
+    "</head>",
+    "<body>",
+    `<script id="api-reference" data-url="/projects/${projectId}/openapi.json"></script>`,
+    '<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>',
+    "</body>",
+    "</html>",
+  ].join("\n");
+
+/**
  * Builds the HARP control-plane Hono app: an RPC handler at `/rpc` (for the SDK
  * and CLI) and an OpenAPI/REST handler everywhere else with Scalar docs at
  * `/openapi` (for the extension and any HTTP client). CORS is wide open so the
@@ -79,6 +100,27 @@ export const createHarpServer = (options: { store: FileStore }) => {
   app.get(
     "/projects/:id/explore",
     createExploreRoute(options.store, upgradeWebSocket),
+  );
+
+  // The reverse-engineered target contract's own OpenAPI spec + Scalar docs,
+  // distinct from the control API's spec at /openapi.
+  app.get("/projects/:id/openapi.json", async (c) => {
+    const artifacts = await options.store.getArtifacts(c.req.param("id"));
+    if (!artifacts) {
+      return c.json(
+        {
+          error: "No contract yet — ingest a capture first.",
+        },
+        404,
+      );
+    }
+    return c.body(artifacts.openapi, 200, {
+      "content-type": "application/json; charset=utf-8",
+    });
+  });
+
+  app.get("/projects/:id/docs", (c) =>
+    c.html(targetDocsPage(c.req.param("id"))),
   );
 
   app.use("/rpc/*", async (c, next) => {

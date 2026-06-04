@@ -1,9 +1,14 @@
 import { JSONPath } from "jsonpath-plus";
 import sift from "sift";
 import { z } from "zod";
-import { defineResourceOperations } from "../../orpc";
-import { baseEntitySchema, type JsonValue, jsonValueSchema } from "../base";
-import { JsonSchema, type ProgramOutputConfig } from "./program-version";
+import { defineResourceOperations } from "../../../orpc";
+import { baseEntitySchema, type JsonValue, jsonValueSchema } from "../../base";
+import { JsonSchema, type ProgramOutputConfig } from "../program-version";
+
+export {
+  extractColumnInputTemplateDependencies,
+  normalizeColumnInputTemplate,
+} from "./input-template";
 
 const tags = [
   "Columns",
